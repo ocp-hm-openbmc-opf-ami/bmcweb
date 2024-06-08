@@ -36,6 +36,9 @@
 #include <ranges>
 #include <string_view>
 
+#define POWER_SAVE_MODE_ENABLE 1
+#define POWER_SAVE_MODE_DISABLE 0
+
 namespace redfish
 {
 
@@ -48,6 +51,19 @@ enum class VmMode
 
 static constexpr const char* legacyMode = "Legacy";
 static constexpr const char* proxyMode = "Proxy";
+
+inline void powerSaveMode(int mode)
+{
+    BMCWEB_LOG_DEBUG("USB Power Save Mode Set: %d", mode);
+    crow::connections::systemBus->async_method_call(
+        [mode](const boost::system::error_code& ec) {
+        if (ec)
+        {
+            BMCWEB_LOG_DEBUG("Failed to Set PowerSaveMode: ");
+        }
+    }, "xyz.openbmc_project.Settings", "/xyz/openbmc_project/logging/settings",
+        "xyz.openbmc_project.USB", "SetUSBPowerSaveMode", mode);
+}
 
 static std::string getModeName(bool isLegacy)
 {
@@ -143,9 +159,10 @@ inline void
  *        validation and invokes callback handler on this item.
  *
  */
-void findItemAndRunHandler(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-                           const std::string& name, const std::string& resName,
-                           CheckItemHandler&& handler, const crow::Request& req)
+inline void
+    findItemAndRunHandler(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+                          const std::string& name, const std::string& resName,
+                          CheckItemHandler&& handler, const crow::Request& req)
 {
     if (name != "bmc")
     {
@@ -682,6 +699,7 @@ inline void doMountVmLegacy(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string objectPath = "/xyz/openbmc_project/VirtualMedia/Legacy/" +
                                    name;
     const std::string action = "VirtualMedia.InsertMedia";
+    powerSaveMode(POWER_SAVE_MODE_DISABLE);
     auto wrapper = doListenForCompletion(name, objectPath, action, true,
                                          asyncResp);
 
@@ -910,6 +928,7 @@ inline void doEjectAction(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string ifaceName = "xyz.openbmc_project.VirtualMedia." + vmMode;
     std::string action = "VirtualMedia.Eject";
 
+    powerSaveMode(POWER_SAVE_MODE_ENABLE);
     auto wrapper = doListenForCompletion(name, objectPath, action, legacy,
                                          asyncResp);
 
@@ -1182,7 +1201,7 @@ inline void
             return;
         }
     }
-    
+
     dbus::utility::getDbusObject(
         "/xyz/openbmc_project/VirtualMedia", {},
         [asyncResp, name,
@@ -1202,7 +1221,7 @@ inline void
     });
 }
 
-void insertMediaCheckMode(
+inline void insertMediaCheckMode(
     [[maybe_unused]] const std::string& service,
     [[maybe_unused]] const std::string& resName,
     const std::shared_ptr<bmcweb::AsyncResp>& aResp,
