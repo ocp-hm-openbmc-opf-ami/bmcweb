@@ -270,7 +270,7 @@ inline void requestRoutesManagerResetToDefaultsAction(App& app)
                 messages::internalError(asyncResp->res);
                 return;
             }
-            writeRestoreOptions(asyncResp, resetType);
+            writeRestoreOptions(asyncResp, *resetType);
             // Factory Reset doesn't actually happen until a reboot
             // Can't erase what the BMC is running on
             doBMCGracefulRestart(asyncResp);

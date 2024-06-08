@@ -3325,7 +3325,8 @@ inline void
 
     getSystemLocationIndicatorActive(asyncResp);
     // TODO (Gunnar): Remove IndicatorLED after enough time has passed
-    getIndicatorLedState(asyncResp);
+    //getIndicatorLedState(asyncResp);
+    getPhysicalLedState(asyncResp);
     getComputerSystem(asyncResp);
     getHostState(asyncResp);
     getBootProperties(asyncResp);
@@ -3379,7 +3380,7 @@ inline void handleComputerSystemPatch(
         "</redfish/v1/JsonSchemas/ComputerSystem/ComputerSystem.json>; rel=describedby");
 
     std::optional<bool> locationIndicatorActive;
-    std::optional<std::string> indicatorLed;
+    //std::optional<std::string> indicatorLed;
     std::optional<std::string> assetTag;
     std::optional<std::string> powerRestorePolicy;
     std::optional<std::string> powerMode;
@@ -3404,7 +3405,7 @@ inline void handleComputerSystemPatch(
     // clang-format off
                 if (!json_util::readJsonPatch(
                         req, asyncResp->res,
-                        "IndicatorLED", indicatorLed,
+                    //    "IndicatorLED", indicatorLed,
                         "LocationIndicatorActive", locationIndicatorActive,
                         "AssetTag", assetTag,
                         "PowerRestorePolicy", powerRestorePolicy,
@@ -3475,13 +3476,13 @@ inline void handleComputerSystemPatch(
 
     // TODO (Gunnar): Remove IndicatorLED after enough time has
     // passed
-    if (indicatorLed)
+    /*if (indicatorLed)
     {
         setIndicatorLedState(asyncResp, *indicatorLed);
         asyncResp->res.addHeader(boost::beast::http::field::warning,
                                  "299 - \"IndicatorLED is deprecated. Use "
                                  "LocationIndicatorActive instead.\"");
-    }
+    }*/
 
     if (powerRestorePolicy)
     {

@@ -20,6 +20,7 @@
 #include "dbus_utility.hpp"
 #include "redfish_util.hpp"
 
+#include <boost/algorithm/string/predicate.hpp>
 #include <sdbusplus/asio/property.hpp>
 
 namespace redfish
@@ -235,6 +236,83 @@ inline void setSystemLocationIndicatorActive(
                 "xyz.openbmc_project.Led.Group", "Asserted",
                 "LocationIndicatorActive", ledState);
         }
+    });
+}
+
+inline void setPhysicalLedState(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+                                const std::string& led,
+                                const std::string& state)
+{
+    if (boost::ends_with(state, "On"))
+    {
+        aResp->res.jsonValue["Oem"]["OpenBmc"]["PhysicalLED"][led] = "On";
+    }
+    else if (boost::ends_with(state, "Blink"))
+    {
+        aResp->res.jsonValue["Oem"]["OpenBmc"]["PhysicalLED"][led] = "Blinking";
+    }
+    else if (boost::ends_with(state, "Off"))
+    {
+        aResp->res.jsonValue["Oem"]["OpenBmc"]["PhysicalLED"][led] = "Off";
+    }
+    else
+    {
+        aResp->res.jsonValue["Oem"]["OpenBmc"]["PhysicalLED"][led] = "Unknown";
+    }
+}
+
+inline void getPhysicalLedState(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
+{
+    BMCWEB_LOG_DEBUG("Get Physical Led");
+    aResp->res.jsonValue["Oem"]["OpenBmc"]["PhysicalLED"]["@odata.type"] =
+        "#OemComputerSystem.PhysicalLED";
+
+    sdbusplus::asio::getProperty<std::string>(
+        *crow::connections::systemBus,
+        "xyz.openbmc_project.LED.Controller.status_amber",
+        "/xyz/openbmc_project/led/physical/status_amber",
+        "xyz.openbmc_project.Led.Physical", "State",
+        [aResp](const boost::system::error_code ec,
+                const std::string& amberLedState) {
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR("Get Physical State Amber Led: DBus Error", ec);
+            messages::internalError(aResp->res);
+            return;
+        }
+        setPhysicalLedState(aResp, "AmberLED", amberLedState);
+    });
+
+    sdbusplus::asio::getProperty<std::string>(
+        *crow::connections::systemBus,
+        "xyz.openbmc_project.LED.Controller.status_green",
+        "/xyz/openbmc_project/led/physical/status_green",
+        "xyz.openbmc_project.Led.Physical", "State",
+        [aResp](const boost::system::error_code ec,
+                const std::string& greenLedState) {
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR("Get Physical State Green Led: DBus Error", ec);
+            messages::internalError(aResp->res);
+            return;
+        }
+        setPhysicalLedState(aResp, "GreenLED", greenLedState);
+    });
+
+    sdbusplus::asio::getProperty<std::string>(
+        *crow::connections::systemBus,
+        "xyz.openbmc_project.LED.Controller.status_susack",
+        "/xyz/openbmc_project/led/physical/status_susack",
+        "xyz.openbmc_project.Led.Physical", "State",
+        [aResp](const boost::system::error_code ec,
+                const std::string& susackLedState) {
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR("Get Physical State Susack Led: DBus Error", ec);
+            messages::internalError(aResp->res);
+            return;
+        }
+        setPhysicalLedState(aResp, "SusackLED", susackLedState);
     });
 }
 } // namespace redfish
