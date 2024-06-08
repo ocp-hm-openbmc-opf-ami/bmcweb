@@ -591,7 +591,8 @@ class Router
     }
 
     void handle(const std::shared_ptr<Request>& req,
-                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                bool requestRedirect = false)
     {
         std::optional<HttpVerb> verb = httpVerbFromBoost(req->method());
         if (!verb || static_cast<size_t>(*verb) >= perMethods.size())
@@ -648,7 +649,7 @@ class Router
         BMCWEB_LOG_DEBUG("Matched rule '{}' {} / {}", rule.rule,
                          static_cast<uint32_t>(*verb), rule.getMethods());
 
-        if (req->session == nullptr)
+        if (req->session == nullptr || requestRedirect)
         {
             rule.handle(*req, asyncResp, params);
             return;

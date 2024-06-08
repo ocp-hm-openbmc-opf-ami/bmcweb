@@ -46,7 +46,7 @@ inline void afterIfMatchRequest(
     // Restart the request without if-match
     req->clearHeader(boost::beast::http::field::if_match);
     BMCWEB_LOG_DEBUG("Restarting request");
-    app.handle(req, asyncResp);
+    app.handle(req, asyncResp, true);
 }
 
 inline bool handleIfMatch(crow::App& app, const crow::Request& req,
@@ -108,7 +108,7 @@ inline bool handleIfMatch(crow::App& app, const crow::Request& req,
         afterIfMatchRequest, std::ref(app), asyncResp,
         std::make_shared<crow::Request>(req), std::move(ifMatch)));
 
-    app.handle(getReq, getReqAsyncResp);
+    app.handle(getReq, getReqAsyncResp, true);
     return false;
 }
 
