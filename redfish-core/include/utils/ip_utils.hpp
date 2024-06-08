@@ -3,6 +3,10 @@
 #include <boost/asio/ip/address.hpp>
 #include <boost/asio/ip/address_v4.hpp>
 #include <boost/asio/ip/address_v6.hpp>
+#include <stdplus/net/addr/ip.hpp>
+#include <stdplus/numeric/endian.hpp>
+#include <stdplus/numeric/str.hpp>
+#include <stdplus/str/conv.hpp>
 
 #include <string>
 
@@ -109,6 +113,101 @@ inline bool ipv4VerifyIpAndGetBitcount(const std::string& ip,
         *prefixLength = prefix;
     }
 
+    return true;
+}
+
+enum class Type
+{
+    GATEWAY4_ADDRESS,
+    GATEWAY6_ADDRESS,
+    IP4_ADDRESS,
+    IP6_ADDRESS
+};
+
+inline bool in6AddrIetfProtocolAssignment(in6_addr* addr)
+{
+    return (ntohl(addr->__in6_u.__u6_addr32[0]) >= 0x20010000 &&
+            ntohl(addr->__in6_u.__u6_addr32[0]) <= 0x200101ff);
+}
+inline bool in6AddrDoc(in6_addr* addr)
+{
+    return ntohl(addr->__in6_u.__u6_addr32[0]) == 0x20010db8;
+}
+
+inline bool isSameSeries(std::string ipStr, std::string gwStr,
+                         uint8_t prefixLength)
+{
+    auto ip = (stdplus::fromStr<stdplus::In4Addr>(ipStr)).a.s_addr;
+    auto gw = (stdplus::fromStr<stdplus::In4Addr>(gwStr)).a.s_addr;
+    auto netmask = htobe32(~UINT32_C(0) << (32 - prefixLength));
+
+    if ((ip & netmask) != (gw & netmask))
+    {
+        return false;
+    }
+
+    return true;
+}
+
+static void isValidIPv6Addr(in6_addr* addr, Type type)
+{
+    std::string strType{"Gateway"};
+    if (type == Type::IP6_ADDRESS)
+    {
+        strType = "IPv6";
+        if (in6AddrIetfProtocolAssignment(addr))
+        {
+            throw std::invalid_argument(
+                strType + " address is IETF Protocol Assignments.");
+        }
+        else if (in6AddrDoc(addr))
+        {
+            throw std::invalid_argument(strType + " address is Documentation.");
+        }
+        else if (IN6_IS_ADDR_LINKLOCAL(addr))
+        {
+            throw std::invalid_argument(strType + " address is Link-local.");
+        }
+    }
+
+    if (IN6_IS_ADDR_LOOPBACK(addr))
+    {
+        throw std::invalid_argument(strType + " is Loopback.");
+    }
+    else if (IN6_IS_ADDR_MULTICAST(addr))
+    {
+        throw std::invalid_argument(strType + " is Multicast.");
+    }
+    else if (IN6_IS_ADDR_SITELOCAL(addr))
+    {
+        throw std::invalid_argument(strType + " is Sitelocal.");
+    }
+    else if (IN6_IS_ADDR_V4MAPPED(addr))
+    {
+        throw std::invalid_argument(strType + " is V4Mapped.");
+    }
+    else if (IN6_IS_ADDR_UNSPECIFIED(addr))
+    {
+        throw std::invalid_argument(strType + " is Unspecified.");
+    }
+}
+
+inline bool validateIPv6address(const std::string& ipAddress)
+{
+    try
+    {
+        in6_addr addr;
+        if (inet_pton(AF_INET6, ipAddress.c_str(), &addr) != 1)
+        {
+            throw std::invalid_argument("Invalid IPv6 address format");
+        }
+        isValidIPv6Addr(&addr, Type::IP6_ADDRESS);
+    }
+    catch (const std::invalid_argument& e)
+    {
+        // Invalid IPv6 address.
+        return false;
+    }
     return true;
 }
 

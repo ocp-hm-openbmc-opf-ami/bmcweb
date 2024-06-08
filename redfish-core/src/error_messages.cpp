@@ -787,6 +787,25 @@ void chassisPowerStateOffRequired(crow::Response& res, std::string_view arg1)
 
 /**
  * @internal
+ * @brief Formats InterfaceDisabled message into JSON
+ *
+ * See header file for more information
+ * @endinternal
+ */
+nlohmann::json interfaceDisabled(std::string_view arg1)
+{
+    return getLog(redfish::registries::base::Index::interfaceDisabled,
+                  std::to_array({arg1}));
+}
+
+void interfaceDisabled(crow::Response& res, std::string_view arg1)
+{
+    res.result(boost::beast::http::status::bad_request);
+    addMessageToErrorJson(res.jsonValue, interfaceDisabled(arg1));
+}
+
+/**
+ * @internal
  * @brief Formats PropertyValueConflict message into JSON
  *
  * See header file for more information
@@ -1966,6 +1985,19 @@ void passwordResetFailed(crow::Response& res)
 {
     res.result(boost::beast::http::status::bad_request);
     addMessageToErrorJson(res.jsonValue, passwordResetFailed());
+}
+
+nlohmann::json differentIpSeries(std::string_view arg1, std::string_view arg2)
+{
+    return getLog(redfish::registries::base::Index::differentIpSeries,
+                  std::to_array({arg1, arg2}));
+}
+
+void differentIpSeries(crow::Response& res, std::string_view arg1,
+                       std::string_view arg2)
+{
+    res.result(boost::beast::http::status::bad_request);
+    addMessageToErrorJson(res.jsonValue, differentIpSeries(arg1, arg2));
 }
 
 } // namespace messages

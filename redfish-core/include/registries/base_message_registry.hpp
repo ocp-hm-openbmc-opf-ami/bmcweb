@@ -1344,6 +1344,31 @@ constexpr std::array registry =
 		{},
 		"Change the password value and resubmit the request",
 	}},
+    MessageEntry{
+            "differentIpSeries",
+            {
+                "Indicates that the IP addresses are not in the same series",
+                "The values of %1 and %2 are in different series.",
+                "Warning",
+                2,
+                {
+                        "string",
+                        "string",
+                },
+                "Provide IP in the same series",
+        }},
+    MessageEntry{
+        "InterfaceDisabled",
+        {
+            "Indicates that the requested write of a property value could not be completed, because of the interface for given patch is disabled.",
+            "The property could not be written because its value would conflict with the value of the property %1 which is disabled.",
+            "Warning",
+            1,
+            {
+                "string",
+            },
+            "Enable interface and try patch.",
+        }},
 };
 
 enum class Index
@@ -1461,5 +1486,7 @@ enum class Index
     invalidip=110,
     propertyValueEmpty=111,
     passwordResetFailed=112,
+    differentIpSeries=113,
+    interfaceDisabled=114,
 };
 } // namespace redfish::registries::base

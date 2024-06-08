@@ -436,6 +436,18 @@ nlohmann::json chassisPowerStateOffRequired(std::string_view arg1);
 void chassisPowerStateOffRequired(crow::Response& res, std::string_view arg1);
 
 /**
+ * @brief Formats InterfaceDisabled message into JSON
+ * Message body: "The property could not be written because its value would
+ * conflict with the value of the property '<arg1>' which is disabled."
+ *
+ * @param[in] arg1 Parameter of message that will replace %1 in its body.
+ *
+ * @returns Message interfaceDisabled formatted to JSON */
+nlohmann::json interfaceDisabled(std::string_view arg1);
+
+void interfaceDisabled(crow::Response& res, std::string_view arg1);
+
+/**
  * @brief Formats PropertyValueConflict message into JSON
  * Message body: "The property '<arg1>' could not be written because its value
  * would conflict with the value of the '<arg2>' property."
@@ -1140,6 +1152,16 @@ void propertyValueEmpty(crow::Response& res, std::string_view arg1,
 nlohmann::json passwordResetFailed();
 
 void passwordResetFailed(crow::Response& res);
+
+/**
+ * @brief Formats differentIpSeries message into JSON
+ * Message body: "The values of <arg1> and <arg2> are in different series."
+ *
+ * @returns Message differentIpSeries formatted to JSON*/
+
+nlohmann::json differentIpSeries(std::string_view arg1, std::string_view arg2);
+void differentIpSeries(crow::Response& res, std::string_view arg1,
+                       std::string_view arg2);
 
 } // namespace messages
 
