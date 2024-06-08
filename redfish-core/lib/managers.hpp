@@ -274,6 +274,7 @@ inline void requestRoutesManagerResetToDefaultsAction(App& app)
             // Factory Reset doesn't actually happen until a reboot
             // Can't erase what the BMC is running on
             doBMCGracefulRestart(asyncResp);
+            messages::success(asyncResp->res);
         }, "xyz.openbmc_project.Software.BMC.Updater",
             "/xyz/openbmc_project/software",
             "xyz.openbmc_project.Common.FactoryReset", "Reset");
@@ -2111,7 +2112,7 @@ inline void requestRoutesManager(App& app)
                                              "FirmwareVersion", true);
 
         managerGetLastResetTime(asyncResp);
-
+        getSystemLocationIndicatorActive(asyncResp);
         // ManagerDiagnosticData is added for all BMCs.
         nlohmann::json& managerDiagnosticData =
             asyncResp->res.jsonValue["ManagerDiagnosticData"];
@@ -2293,6 +2294,7 @@ inline void requestRoutesManager(App& app)
 
         std::optional<std::string> activeSoftwareImageOdataId;
         std::optional<std::string> datetime;
+        std::optional<bool> locationIndicatorActive;
         std::optional<std::string> vId;
         std::optional<nlohmann::json::object_t> pidControllers;
         std::optional<nlohmann::json::object_t> fanControllers;
@@ -2369,6 +2371,10 @@ inline void requestRoutesManager(App& app)
         {
             setDateTime(asyncResp, *datetime);
         }
+	if (locationIndicatorActive)
+ 	{
+     	    setSystemLocationIndicatorActive(asyncResp, *locationIndicatorActive);
+ 	}
     });
 }
 
