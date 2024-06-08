@@ -154,7 +154,12 @@ inline void handleLogin(const crow::Request& req,
     {
         int pamrc = pamAuthenticateUser(username, password);
         bool isConfigureSelfOnly = pamrc == PAM_NEW_AUTHTOK_REQD;
-        if ((pamrc != PAM_SUCCESS) && !isConfigureSelfOnly)
+        if (pamrc == PAM_MAXTRIES)
+        {
+            // return the API error code as Locked 423
+            asyncResp->res.result(boost::beast::http::status::locked);
+        }
+        else if ((pamrc != PAM_SUCCESS) && !isConfigureSelfOnly)
         {
             asyncResp->res.result(boost::beast::http::status::unauthorized);
         }

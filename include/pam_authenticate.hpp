@@ -3,10 +3,13 @@
 #include <security/pam_appl.h>
 #include <systemd/sd-journal.h>
 
+#include <dbus_utility.hpp>
+
 #include <cstring>
 #include <memory>
 #include <span>
 #include <string_view>
+#include <variant>
 
 // function used to get user input
 inline int pamFunctionConversation(int numMsg, const struct pam_message** msg,
@@ -81,6 +84,42 @@ inline int pamFunctionConversation(int numMsg, const struct pam_message** msg,
     return PAM_CONV_ERR;
 }
 
+// checking the UserLockedForFailedAttempt, if it is true then
+// pam_athenticate will return PAM_MAXTRIES
+
+static bool pamMaxtriescheck(std::string& userName)
+{
+    const char* userNameStr = userName.c_str();
+    const char* serviceName = "xyz.openbmc_project.User.Manager";
+    std::string objPath = "/xyz/openbmc_project/user/";
+    objPath += userNameStr;
+    const char* UserObjPath = objPath.c_str();
+    std::string lockedUserIface = "xyz.openbmc_project.User.Attributes";
+    std::string lockedUserProperty = "UserLockedForFailedAttempt";
+    std::variant<bool> lockedUserValue;
+    bool UserMaxtriesReached;
+    sdbusplus::message::message getlockedUser =
+        crow::connections::systemBus->new_method_call(
+            serviceName, UserObjPath, "org.freedesktop.DBus.Properties", "Get");
+    getlockedUser.append(lockedUserIface, lockedUserProperty);
+    try
+    {
+        sdbusplus::message::message getlockedUserResp =
+            crow::connections::systemBus->call(getlockedUser);
+        getlockedUserResp.read(lockedUserValue);
+    }
+    catch (sdbusplus::exception_t&)
+    {
+        return false;
+    }
+    UserMaxtriesReached = std::get<bool>(lockedUserValue);
+    if (UserMaxtriesReached == true)
+    {
+        return true;
+    }
+    return false;
+}
+
 /**
  * @brief Attempt username/password authentication via PAM.
  * @param username The provided username aka account name.
@@ -96,6 +135,8 @@ inline int pamAuthenticateUser(std::string_view username,
     const struct pam_conv localConversation = {pamFunctionConversation,
                                                passStrNoConst};
     pam_handle_t* localAuthHandle = nullptr; // this gets set by pam_start
+
+    bool pamMaxerror;
 
     int retval = pam_start("webserver", userStr.c_str(), &localConversation,
                            &localAuthHandle);
@@ -113,6 +154,11 @@ inline int pamAuthenticateUser(std::string_view username,
                         "OpenBMC.0.1.InvalidLoginAttempted",
                         "REDFISH_MESSAGE_ARGS=%s", "HTTPS", NULL);
         pam_end(localAuthHandle, PAM_SUCCESS); // ignore retval
+        pamMaxerror = pamMaxtriescheck(userStr);
+        if (pamMaxerror == true)
+        {
+            return PAM_MAXTRIES;
+        }
         return retval;
     }
 

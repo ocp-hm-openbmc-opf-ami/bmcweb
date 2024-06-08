@@ -42,7 +42,7 @@ namespace redfish
 
 static constexpr const std::array<const char*, 2> supportedEvtFormatTypes = {
     eventFormatType, metricReportFormatType};
-static constexpr const std::array<const char*, 2> supportedRegPrefixes = {
+static constexpr const std::array<const char*, 3> supportedRegPrefixes = {
     "OpenBMC", "TaskEvent"};
 static constexpr const std::array<const char*, 3> supportedRetryPolicies = {
     "TerminateAfterRetries", "SuspendRetries", "RetryForever"};
@@ -1560,12 +1560,7 @@ inline void requestRoutesSubmitTestEvent(App& app)
         {
             return;
         }
-        if (!EventServiceManager::getInstance().sendTestEventLog())
-        {
-            messages::serviceDisabled(asyncResp->res,
-                                      "/redfish/v1/EventService/");
-            return;
-        }
+        EventServiceManager::getInstance().readEventLogsFromFile();
         asyncResp->res.result(boost::beast::http::status::no_content);
     });
 }
@@ -2275,6 +2270,7 @@ inline void requestRoutesEventDestination(App& app)
         }
 
         EventServiceManager::getInstance().deleteSubscription(param);
+        asyncResp->res.result(boost::beast::http::status::no_content);
     });
 }
 
