@@ -42,15 +42,17 @@ std::string getHostName();
 
 static constexpr const char* sshServiceName = "dropbear";
 static constexpr const char* httpsServiceName = "bmcweb";
-static constexpr const char* ipmiServiceName = "phosphor_2dipmi_2dnet";
+static constexpr const char* ipmbServiceName = "ipmb";
+static constexpr const char* ipmiServiceName = "phosphor_2dipmi_2dnet_40eth0";
 
 // Mapping from Redfish NetworkProtocol key name to backend service that hosts
 // that protocol.
-static constexpr std::array<std::pair<const char*, const char*>, 3>
+static constexpr std::array<std::pair<const char*, const char*>, 4>
 
     networkProtocolToDbus = {{{"SSH", sshServiceName},
                               {"HTTPS", httpsServiceName},
-                              {"IPMI", ipmiServiceName}}};
+                              {"IPMI", ipmiServiceName},
+                              {"IPMB", ipmbServiceName}}};
 
 inline void extractNTPServersAndDomainNamesData(
     const dbus::utility::ManagedObjectType& dbusData,
@@ -563,6 +565,8 @@ inline void handleManagersNetworkProtocolPatch(
     std::optional<std::string> newHostName;
     std::optional<nlohmann::json> ntp;
     std::optional<nlohmann::json> ipmi;
+    std::optional<nlohmann::json> ipmb;
+    std::optional<nlohmann::json> bmcweb;
     std::optional<nlohmann::json> ssh;
     std::optional<nlohmann::json> snmp;
     std::optional<std::string> vId;
@@ -573,6 +577,8 @@ inline void handleManagersNetworkProtocolPatch(
                 "HostName", newHostName,
                 "NTP",ntp,
                 "IPMI",ipmi,
+                "IPMB",ipmb,
+                "HTTPS", bmcweb,
                 "SSH",ssh,
                 "Id", vId,
                 "SNMP",snmp))
@@ -634,6 +640,7 @@ inline void handleManagersNetworkProtocolPatch(
     if (ipmi)
     {
         std::optional<bool> ipmiEnabled;
+        std::optional<bool> ipmiMasked;
         std::size_t ipmi_size = ipmi.value().size();
         if (ipmi_size == 0)
         {
@@ -641,7 +648,7 @@ inline void handleManagersNetworkProtocolPatch(
                                              "IPMI");
         }
         if (!json_util::readJson(*ipmi, asyncResp->res, "ProtocolEnabled",
-                                 ipmiEnabled))
+                                 ipmiEnabled, "Masked", ipmiMasked))
         {
             return;
         }
@@ -651,10 +658,69 @@ inline void handleManagersNetworkProtocolPatch(
                 *ipmiEnabled, asyncResp,
                 encodeServiceObjectPath(std::string(ipmiServiceName)));
         }
+        if (ipmiMasked)
+        {
+            service_util::setMasked(asyncResp, ipmiServiceName, *ipmiMasked);
+        }
+    }
+    if (bmcweb)
+    {
+        std::optional<bool> bmcwebEnabled;
+        std::optional<bool> bmcwebMasked;
+        std::size_t bmcweb_size = bmcweb.value().size();
+        if (bmcweb_size == 0)
+        {
+            messages::propertyValueTypeError(asyncResp->res, bmcweb.value(),
+                                             "HTTPS");
+            return;
+        }
+        if (!json_util::readJson(*bmcweb, asyncResp->res, "ProtocolEnabled",
+                                 bmcwebEnabled, "Masked", bmcwebMasked))
+        {
+            return;
+        }
+        if (bmcwebEnabled)
+        {
+            handleProtocolEnabled(
+                *bmcwebEnabled, asyncResp,
+                encodeServiceObjectPath(std::string(httpsServiceName)));
+        }
+        if (bmcwebMasked)
+        {
+            service_util::setMasked(asyncResp, httpsServiceName, *bmcwebMasked);
+        }
+    }
+    if (ipmb)
+    {
+        std::optional<bool> ipmbEnabled;
+        std::optional<bool> ipmbMasked;
+        std::size_t ipmb_size = ipmb.value().size();
+        if (ipmb_size == 0)
+        {
+            messages::propertyValueTypeError(asyncResp->res, ipmb.value(),
+                                             "IPMB");
+            return;
+        }
+        if (!json_util::readJson(*ipmb, asyncResp->res, "ProtocolEnabled",
+                                 ipmbEnabled, "Masked", ipmbMasked))
+        {
+            return;
+        }
+        if (ipmbEnabled)
+        {
+            handleProtocolEnabled(
+                *ipmbEnabled, asyncResp,
+                encodeServiceObjectPath(std::string(ipmbServiceName)));
+        }
+        if (ipmbMasked)
+        {
+            service_util::setMasked(asyncResp, ipmbServiceName, *ipmbMasked);
+        }
     }
     if (ssh)
     {
         std::optional<bool> sshEnabled;
+        std::optional<bool> sshMasked;
         std::size_t ssh_size = ssh.value().size();
         if (ssh_size == 0)
         {
@@ -662,7 +728,7 @@ inline void handleManagersNetworkProtocolPatch(
                                              "SSH");
         }
         if (!json_util::readJson(*ssh, asyncResp->res, "ProtocolEnabled",
-                                 sshEnabled))
+                                 sshEnabled, "Masked", sshMasked))
         {
             return;
         }
@@ -670,6 +736,10 @@ inline void handleManagersNetworkProtocolPatch(
         {
             handleProtocolEnabled(*sshEnabled, asyncResp,
                                   encodeServiceObjectPath(sshServiceName));
+        }
+        if (sshMasked)
+        {
+            service_util::setMasked(asyncResp, sshServiceName, *sshMasked);
         }
     }
     if (snmp)
@@ -723,6 +793,25 @@ inline void handleManagersNetworkProtocolHead(
     }
 }
 
+inline void getIpmiMasked(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    service_util::getMasked(asyncResp, ipmiServiceName, "IPMI", "Masked");
+}
+
+inline void getSSHMasked(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    service_util::getMasked(asyncResp, sshServiceName, "SSH", "Masked");
+}
+
+inline void getBMCWEBMasked(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    service_util::getMasked(asyncResp, httpsServiceName, "HTTPS", "Masked");
+}
+inline void getIpmbMasked(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    service_util::getMasked(asyncResp, ipmbServiceName, "IPMB", "Masked");
+}
+
 inline void handleManagersNetworkProtocolGet(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -742,6 +831,10 @@ inline void handleManagersNetworkProtocolGet(
     }
 
     getNetworkData(asyncResp, req);
+    getIpmiMasked(asyncResp);
+    getSSHMasked(asyncResp);
+    getBMCWEBMasked(asyncResp);
+    getIpmbMasked(asyncResp);
 }
 
 inline void requestRoutesNetworkProtocol(App& app)

@@ -3315,6 +3315,9 @@ inline void
     asyncResp->res.jsonValue["SerialConsole"]["MaxConcurrentSessions"] = 1;
     asyncResp->res.jsonValue["SerialConsole"]["IPMI"]["ServiceEnabled"] = true;
 
+    service_util::getSerialConsoleSshMasked(asyncResp,
+                                            serialConsoleSshServiceName,
+                                            "SerialConsole", "IPMI", "Masked");
     getPortStatusAndPath(std::span{protocolToDBusForSystems},
                          std::bind_front(afterPortRequest, asyncResp));
 
@@ -3521,6 +3524,7 @@ inline void handleComputerSystemPatch(
     if (kvmConfig)
     {
         std::optional<bool> kvmServiceEnabled;
+        std::optional<bool> kvmServiceMasked;
 
         if (!json_util::readJson(*kvmConfig, asyncResp->res, "ServiceEnabled",
                                  kvmServiceEnabled))
@@ -3537,6 +3541,11 @@ inline void handleComputerSystemPatch(
                 {"ConnectTypesSupported", {"KVMIP"}},
             };
         }
+        if (kvmServiceMasked)
+        {
+            service_util::setMasked(asyncResp, kvmServiceName,
+                                    *kvmServiceMasked);
+        }
     }
 
     if (serialConsole)
@@ -3550,9 +3559,11 @@ inline void handleComputerSystemPatch(
         if (ssh)
         {
             std::optional<bool> sshServiceEnabled;
+            std::optional<bool> sshServiceMasked;
             std::optional<uint16_t> sshPortNumber;
             if (!json_util::readJson(*ssh, asyncResp->res, "ServiceEnabled",
-                                     sshServiceEnabled, "Port", sshPortNumber))
+                                     sshServiceEnabled, "Port", sshPortNumber,
+                                     "Masked", sshServiceMasked))
             {
                 return;
             }
@@ -3561,6 +3572,12 @@ inline void handleComputerSystemPatch(
             {
                 service_util::setEnabled(asyncResp, serialConsoleSshServiceName,
                                          *sshServiceEnabled);
+            }
+
+            if (sshServiceMasked)
+            {
+                service_util::setMasked(asyncResp, kvmServiceName,
+                                        *sshServiceMasked);
             }
 
             if (sshPortNumber)
@@ -3574,8 +3591,10 @@ inline void handleComputerSystemPatch(
     if (virtualMediaConfig)
     {
         std::optional<bool> vmServiceEnabled;
+        std::optional<bool> vmServiceMasked;
         if (!json_util::readJson(*virtualMediaConfig, asyncResp->res,
-                                 "ServiceEnabled", vmServiceEnabled))
+                                 "ServiceEnabled", vmServiceEnabled, "Masked",
+                                 vmServiceMasked))
         {
             return;
         }
@@ -3584,6 +3603,11 @@ inline void handleComputerSystemPatch(
         {
             service_util::setEnabled(asyncResp, virtualMediaServiceName,
                                      *vmServiceEnabled);
+        }
+        if (vmServiceMasked)
+        {
+            service_util::setMasked(asyncResp, virtualMediaServiceName,
+                                    *vmServiceMasked);
         }
     }
 }
