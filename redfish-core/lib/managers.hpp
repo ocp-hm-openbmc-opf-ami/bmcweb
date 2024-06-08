@@ -106,6 +106,34 @@ inline void
     });
 }
 
+inline void
+    writeRestoreOptions(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                        const std::string& resetType)
+{
+    constexpr const char* restoreOpFname = "/tmp/.rwfs/.restore_op";
+    int option = 0;
+
+    if (resetType == "ResetAll")
+    {
+        option = 2; // full restore
+    }
+    else if (resetType == "ResetToDefaultButKeepReservedSettings")
+    {
+        option = 5; // reset to factory defaults but reserve user and lan
+                    // configuration
+    }
+
+    std::ofstream restoreFile(restoreOpFname, std::ios::trunc);
+    if (!restoreFile)
+    {
+        // BMCWEB_LOG_ERROR << "error in opring output stream " <<
+        // restoreOpFname;
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    restoreFile << option << "\n";
+}
+
 /**
  * ManagerResetAction class supports the POST method for the Reset (reboot)
  * action.
@@ -224,7 +252,8 @@ inline void requestRoutesManagerResetToDefaultsAction(App& app)
             resetType = resetToDefaultsType;
         }
 
-        if (resetType != "ResetAll")
+        if (resetType != "ResetAll" &&
+            resetType != "ResetToDefaultButKeepReservedSettings")
         {
             BMCWEB_LOG_DEBUG("Invalid property value for ResetType: {}",
                              *resetType);
@@ -234,18 +263,18 @@ inline void requestRoutesManagerResetToDefaultsAction(App& app)
         }
 
         crow::connections::systemBus->async_method_call(
-            [asyncResp](const boost::system::error_code& ec) {
+            [asyncResp, resetType](const boost::system::error_code& ec) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("Failed to ResetToDefaults: {}", ec);
                 messages::internalError(asyncResp->res);
                 return;
             }
+            writeRestoreOptions(asyncResp, resetType);
             // Factory Reset doesn't actually happen until a reboot
             // Can't erase what the BMC is running on
             doBMCGracefulRestart(asyncResp);
-        },
-            "xyz.openbmc_project.Software.BMC.Updater",
+        }, "xyz.openbmc_project.Software.BMC.Updater",
             "/xyz/openbmc_project/software",
             "xyz.openbmc_project.Common.FactoryReset", "Reset");
     });
@@ -851,8 +880,7 @@ inline CreatePIDRet createPidInterface(
                 return;
             }
             messages::success(response->res);
-        },
-            "xyz.openbmc_project.EntityManager", path, iface, "Delete");
+        }, "xyz.openbmc_project.EntityManager", path, iface, "Delete");
         return CreatePIDRet::del;
     }
 
@@ -1357,8 +1385,7 @@ struct SetPIDValues : std::enable_shared_from_this<SetPIDValues>
             std::pair<std::string, std::optional<nlohmann::json::object_t>>>&&
             configurationsIn,
         std::optional<std::string>& profileIn) :
-        asyncResp(asyncRespIn),
-        configuration(std::move(configurationsIn)),
+        asyncResp(asyncRespIn), configuration(std::move(configurationsIn)),
         profile(std::move(profileIn))
     {}
 
@@ -1669,8 +1696,7 @@ struct SetPIDValues : std::enable_shared_from_this<SetPIDValues>
                             return;
                         }
                         messages::success(response->res);
-                    },
-                        "xyz.openbmc_project.EntityManager", chassis,
+                    }, "xyz.openbmc_project.EntityManager", chassis,
                         "xyz.openbmc_project.AddObject", "AddObject", output);
                 }
             }
@@ -2045,7 +2071,8 @@ inline void requestRoutesManager(App& app)
             "/redfish/v1/Managers/{}/Actions/Manager.ResetToDefaults",
             BMCWEB_REDFISH_MANAGER_URI_NAME);
         resetToDefaults["ResetType@Redfish.AllowableValues"] =
-            nlohmann::json::array_t({"ResetAll"});
+            nlohmann::json::array_t(
+                {"ResetAll", "ResetToDefaultButKeepReservedSettings"});
 
         std::pair<std::string, std::string> redfishDateTimeOffset =
             redfish::time_utils::getDateTimeOffsetNow();

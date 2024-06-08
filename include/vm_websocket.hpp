@@ -189,13 +189,15 @@ struct NbdProxyServer : std::enable_shared_from_this<NbdProxyServer>
     NbdProxyServer(crow::websocket::Connection& connIn,
                    const std::string& socketIdIn,
                    const std::string& endpointIdIn, const std::string& pathIn) :
-        socketId(socketIdIn),
-        endpointId(endpointIdIn), path(pathIn),
+        socketId(socketIdIn), endpointId(endpointIdIn), path(pathIn),
 
         peerSocket(connIn.getIoContext()),
         acceptor(connIn.getIoContext(), stream_protocol::endpoint(socketId)),
         connection(connIn)
-    {}
+    {
+        std::filesystem::path endpointPath(endpointIdIn);
+        endpointIndex = std::stoul(endpointPath.filename().string());
+    }
 
     NbdProxyServer(const NbdProxyServer&) = delete;
     NbdProxyServer(NbdProxyServer&&) = delete;
@@ -269,6 +271,11 @@ struct NbdProxyServer : std::enable_shared_from_this<NbdProxyServer>
         self->peerSocket = std::move(socket);
         //  Start reading from socket
         self->doRead();
+    }
+
+    unsigned getEndpointIndex() const
+    {
+        return endpointIndex;
     }
 
     void run()
@@ -391,6 +398,7 @@ struct NbdProxyServer : std::enable_shared_from_this<NbdProxyServer>
     const std::string socketId;
     const std::string endpointId;
     const std::string path;
+    unsigned endpointIndex; // endpoint id represented in unsigned int
 
     bool uxWriteInProgress = false;
 
@@ -469,6 +477,7 @@ inline void
     sessions[&conn] = std::make_shared<NbdProxyServer>(conn, socket, endpointId,
                                                        path);
     sessions[&conn]->run();
+    conn.session->vmNbdActive[sessions[&conn]->getEndpointIndex()] = true;
 }
 
 inline void onOpen(crow::websocket::Connection& conn)
@@ -510,6 +519,7 @@ inline void onClose(crow::websocket::Connection& conn,
         BMCWEB_LOG_DEBUG("No session to close");
         return;
     }
+    conn.session->vmNbdActive[sessions[&conn]->getEndpointIndex()] = false;
     // Remove reference to session in global map
     sessions.erase(session);
 }

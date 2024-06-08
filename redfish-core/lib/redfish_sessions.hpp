@@ -44,6 +44,17 @@ inline void fillSessionObject(crow::Response& res,
     res.jsonValue["Name"] = "User Session";
     res.jsonValue["Description"] = "Manager User Session";
     res.jsonValue["ClientOriginIPAddress"] = session.clientIp;
+    res.jsonValue["SessionType"] = "WebUI";
+    res.jsonValue["Oem"]["AMI_WebSession"]["@odata.type"] =
+        "#AMIWebSession.v1_0_0.WebSession";
+    res.jsonValue["Oem"]["AMI_WebSession"]["KvmActive"] =
+        static_cast<bool>(session.kvmConnections);
+    res.jsonValue["Oem"]["AMI_WebSession"]["VmActive"] =
+        nlohmann::json::array();
+    for (const bool status : session.vmNbdActive)
+    {
+        res.jsonValue["Oem"]["AMI_WebSession"]["VmActive"].push_back(status);
+    }
     if (session.clientId)
     {
         res.jsonValue["Context"] = *session.clientId;
@@ -171,6 +182,7 @@ inline void
                 ipAddr.s_addr = remoteIpAddr;
                 asyncResp->res.jsonValue["ClientOriginIPAddress"] =
                     inet_ntoa(ipAddr);
+                asyncResp->res.jsonValue["SessionType"] = "IPMI";
             }
             catch (const sdbusplus::exception::UnpackPropertyError& error)
             {
@@ -441,7 +453,6 @@ inline void handleSessionCollectionPost(
         asyncResp->res.result(boost::beast::http::status::created);
         fillSessionObject(asyncResp->res, *session);
     }
-
 }
 inline void handleSessionServiceHead(
     crow::App& app, const crow::Request& req,
@@ -612,8 +623,7 @@ inline void handleSessionServicePatch(
                         return;
                     }
                     messages::success(asyncResp->res);
-                },
-                    "xyz.openbmc_project.Control.Service.Manager",
+                }, "xyz.openbmc_project.Control.Service.Manager",
                     "/xyz/openbmc_project/control/service/start_2dipkvm",
                     "org.freedesktop.DBus.Properties", "Set",
                     "xyz.openbmc_project.Control.Service.Attributes",
@@ -632,8 +642,7 @@ inline void handleSessionServicePatch(
                         return;
                     }
                     messages::success(asyncResp->res);
-                },
-                    "xyz.openbmc_project.Control.Service.Manager",
+                }, "xyz.openbmc_project.Control.Service.Manager",
                     "/xyz/openbmc_project/control/service/bmcweb",
                     "org.freedesktop.DBus.Properties", "Set",
                     "xyz.openbmc_project.Control.Service.SocketAttributes",

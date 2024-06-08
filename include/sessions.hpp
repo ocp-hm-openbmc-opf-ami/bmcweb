@@ -40,6 +40,10 @@ struct UserSession
     bool isConfigureSelfOnly = false;
     std::string userRole;
     std::vector<std::string> userGroups;
+    // Use counter since one user can have multiple kvm connections
+    int kvmConnections = 0;
+    // currently there is only 2 nbd slots
+    std::array<bool, 2> vmNbdActive = {false, false};
 
     // There are two sources of truth for isConfigureSelfOnly:
     //  1. When pamAuthenticateUser() returns PAM_NEW_AUTHTOK_REQD.
@@ -355,7 +359,8 @@ class SessionStore
     {
         return std::chrono::seconds(timeoutInSeconds).count();
     }
-    std::chrono::time_point<std::chrono::steady_clock> getTimeSinceLastTimeoutInSeconds() const
+    std::chrono::time_point<std::chrono::steady_clock>
+        getTimeSinceLastTimeoutInSeconds() const
     {
         return lastTimeoutUpdate;
     }

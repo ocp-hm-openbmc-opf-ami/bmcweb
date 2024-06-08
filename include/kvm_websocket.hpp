@@ -13,7 +13,8 @@ namespace crow
 namespace obmc_kvm
 {
 
-static constexpr const uint maxSessions = 4;
+static constexpr const uint maxSessions = 1;
+int kvmActiveStatus = 0;
 
 class KvmSession : public std::enable_shared_from_this<KvmSession>
 {
@@ -66,7 +67,8 @@ class KvmSession : public std::enable_shared_from_this<KvmSession>
         BMCWEB_LOG_DEBUG("conn:{}, inputbuffer size {}", logPtr(&conn),
                          inputBuffer.size());
         doWrite();
-        lastActivityTime = persistent_data::SessionStore::getInstance().getTimeSinceLastTimeoutInSeconds();
+        lastActivityTime = persistent_data::SessionStore::getInstance()
+                               .getTimeSinceLastTimeoutInSeconds();
     }
 
     ~KvmSession()
@@ -173,7 +175,11 @@ class KvmSession : public std::enable_shared_from_this<KvmSession>
         if (!timerRunning) // Check if the timer is not already running
         {
             timerRunning = true;
-            lastActivityTime = persistent_data::SessionStore::getInstance().getTimeSinceLastTimeoutInSeconds(); // Get the current time and store it in lastActivityTime
+            lastActivityTime =
+                persistent_data::SessionStore::getInstance()
+                    .getTimeSinceLastTimeoutInSeconds(); // Get the current time
+                                                         // and store it in
+                                                         // lastActivityTime
 
             // Start a new thread (timeoutTimer) to handle the timeout logic
             timeoutTimer = std::thread([this]() {
@@ -265,9 +271,13 @@ inline void requestRoutes(App& app)
         }
 
         sessions[&conn] = std::make_shared<KvmSession>(conn);
+        conn.session->kvmConnections++;
+        kvmActiveStatus = 1;
     })
         .onclose([](crow::websocket::Connection& conn, const std::string&) {
         sessions.erase(&conn);
+        conn.session->kvmConnections--;
+        kvmActiveStatus = 0;
     })
         .onmessage([](crow::websocket::Connection& conn,
                       const std::string& data, bool) {
@@ -275,6 +285,18 @@ inline void requestRoutes(App& app)
         {
             sessions[&conn]->onMessage(data);
         }
+    });
+    BMCWEB_ROUTE(app, "/kvm/kvmActiveStatus")
+        .privileges({{"ConfigureComponents", "ConfigureManager"}})
+        .methods(boost::beast::http::verb::get)(
+            [](const crow::Request& req,
+               const std::shared_ptr<bmcweb::AsyncResp>& ares) {
+        if (req.session == nullptr)
+        {
+            BMCWEB_LOG_DEBUG("Internal Server Error");
+            return;
+        }
+        ares->res.jsonValue["kvmActiveStatus"] = kvmActiveStatus;
     });
 }
 
