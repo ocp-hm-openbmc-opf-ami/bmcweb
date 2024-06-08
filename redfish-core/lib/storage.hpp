@@ -186,6 +186,21 @@ inline void afterSystemsStorageGetSubtree(
                             BMCWEB_REDFISH_SYSTEM_URI_NAME, storageId);
 }
 
+inline void handleSystemsStorageGetSingleInstance(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    asyncResp->res.jsonValue["@odata.type"] = "#Storage.v1_13_0.Storage";
+    asyncResp->res.jsonValue["@odata.id"] =
+        "/redfish/v1/Systems/system/Storage/1";
+    asyncResp->res.jsonValue["Name"] = "Storage";
+    asyncResp->res.jsonValue["Id"] = "1";
+    asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
+
+    getDrives(asyncResp);
+    asyncResp->res.jsonValue["Controllers"]["@odata.id"] =
+        "/redfish/v1/Systems/system/Storage/1/Controllers";
+}
+
 inline void
     handleSystemsStorageGet(App& app, const crow::Request& req,
                             const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -201,6 +216,12 @@ inline void
         // Option currently returns no systems.  TBD
         messages::resourceNotFound(asyncResp->res, "ComputerSystem",
                                    systemName);
+        return;
+    }
+
+    if (storageId == "1")
+    {
+        handleSystemsStorageGetSingleInstance(asyncResp);
         return;
     }
 
@@ -256,6 +277,25 @@ inline void afterSubtree(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     asyncResp->res.jsonValue["Links"]["StorageServices@odata.count"] = 1;
 }
 
+inline void handleStorageGetSingleInstance(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    asyncResp->res.jsonValue["@odata.type"] = "#Storage.v1_13_0.Storage";
+    asyncResp->res.jsonValue["@odata.id"] = "/redfish/v1/Storage/1";
+    asyncResp->res.jsonValue["Name"] = "Storage";
+    asyncResp->res.jsonValue["Id"] = "1";
+    asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
+
+    // Storage subsystem to Storage link.
+    nlohmann::json::array_t storageServices;
+    nlohmann::json::object_t storageService;
+    storageService["@odata.id"] = "/redfish/v1/Systems/system/Storage/1";
+    storageServices.emplace_back(storageService);
+    asyncResp->res.jsonValue["Links"]["StorageServices"] =
+        std::move(storageServices);
+    asyncResp->res.jsonValue["Links"]["StorageServices@odata.count"] = 1;
+}
+
 inline void
     handleStorageGet(App& app, const crow::Request& req,
                      const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -264,6 +304,12 @@ inline void
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         BMCWEB_LOG_DEBUG("requestRoutesStorage setUpRedfishRoute failed");
+        return;
+    }
+
+    if (storageId == "1")
+    {
+        handleStorageGetSingleInstance(asyncResp);
         return;
     }
 
