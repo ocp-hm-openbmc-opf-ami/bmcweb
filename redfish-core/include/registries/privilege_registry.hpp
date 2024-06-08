@@ -590,6 +590,14 @@ const static auto& postEthernetInterfaceCollection = privilegeSetConfigureCompon
 const static auto& putEthernetInterfaceCollection = privilegeSetConfigureComponents;
 const static auto& deleteEthernetInterfaceCollection = privilegeSetConfigureComponents;
 
+// SubOverManagerEthernetInterfaceCollection
+const static auto& getSubOverManagerEthernetInterfaceCollection = privilegeSetLogin;
+const static auto& headSubOverManagerEthernetInterfaceCollection = privilegeSetLogin;
+const static auto& patchSubOverManagerEthernetInterfaceCollection = privilegeSetConfigureManager;
+const static auto& postSubOverManagerEthernetInterfaceCollection = privilegeSetConfigureManager;
+const static auto& putSubOverManagerEthernetInterfaceCollection = privilegeSetConfigureManager;
+const static auto& deleteSubOverManagerEthernetInterfaceCollection = privilegeSetConfigureManager;
+
 // EventDestination
 const static auto& getEventDestination = privilegeSetLogin;
 const static auto& headEventDestination = privilegeSetLogin;

@@ -2098,17 +2098,6 @@ inline void requestRoutesManager(App& app)
         asyncResp->res.jsonValue["CommandShell"]["ConnectTypesSupported"] = {
             "SSH", "IPMI"};
 
-        if constexpr (BMCWEB_KVM)
-        {
-            // Fill in GraphicalConsole info
-            asyncResp->res.jsonValue["GraphicalConsole"]["ServiceEnabled"] =
-                true;
-            asyncResp->res
-                .jsonValue["GraphicalConsole"]["MaxConcurrentSessions"] = 4;
-            asyncResp->res
-                .jsonValue["GraphicalConsole"]["ConnectTypesSupported"] =
-                nlohmann::json::array_t({"KVMIP"});
-        }
         if constexpr (!BMCWEB_EXPERIMENTAL_REDFISH_MULTI_COMPUTER_SYSTEM)
         {
             asyncResp->res.jsonValue["Links"]["ManagerForServers@odata.count"] =

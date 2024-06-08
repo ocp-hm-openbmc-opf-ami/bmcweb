@@ -2296,7 +2296,8 @@ inline void requestEthernetInterfacesRoutes(App& app)
     });
 
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/EthernetInterfaces/<str>/")
-        .privileges(redfish::privileges::patchEthernetInterface)
+        .privileges(
+            redfish::privileges::patchSubOverManagerEthernetInterfaceCollection)
         .methods(boost::beast::http::verb::patch)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -2456,7 +2457,7 @@ inline void requestEthernetInterfacesRoutes(App& app)
                 handleMTUSizePatch(ifaceId, *mtuSize, asyncResp);
             }
         });
-    });
+        });
 
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/EthernetInterfaces/<str>/")
         .privileges(redfish::privileges::deleteEthernetInterface)

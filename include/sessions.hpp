@@ -34,6 +34,7 @@ struct UserSession
     std::string csrfToken;
     std::optional<std::string> clientId;
     std::string clientIp;
+    std::string sessionType;
     std::chrono::time_point<std::chrono::steady_clock> lastUpdated;
     PersistenceType persistence{PersistenceType::TIMEOUT};
     bool cookieAuth = false;
@@ -233,6 +234,7 @@ class SessionStore
             }
         }
 
+        std::string sessionType = "WebUI";
         auto session = std::make_shared<UserSession>(
             UserSession{uniqueId,
                         sessionToken,
@@ -240,6 +242,7 @@ class SessionStore
                         csrfToken,
                         clientId,
                         redfish::ip_util::toString(clientIp),
+                        sessionType,
                         std::chrono::steady_clock::now(),
                         persistence,
                         false,

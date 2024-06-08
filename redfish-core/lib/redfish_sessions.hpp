@@ -44,7 +44,7 @@ inline void fillSessionObject(crow::Response& res,
     res.jsonValue["Name"] = "User Session";
     res.jsonValue["Description"] = "Manager User Session";
     res.jsonValue["ClientOriginIPAddress"] = session.clientIp;
-    res.jsonValue["SessionType"] = "WebUI";
+    res.jsonValue["SessionType"] = session.sessionType;
     res.jsonValue["Oem"]["AMI_WebSession"]["@odata.type"] =
         "#AMIWebSession.v1_0_0.WebSession";
     res.jsonValue["Oem"]["AMI_WebSession"]["KvmActive"] =
@@ -451,6 +451,7 @@ inline void handleSessionCollectionPost(
     else
     {
         asyncResp->res.result(boost::beast::http::status::created);
+        session->sessionType = "Redfish";
         fillSessionObject(asyncResp->res, *session);
     }
 }

@@ -3061,7 +3061,8 @@ inline void handleComputerSystemCollectionGet(
 /**
  * Function transceives data with dbus directly.
  */
-inline void doNMI(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+//Currently NMI is not supported
+/*inline void doNMI(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     constexpr const char* serviceName = "xyz.openbmc_project.Control.Host.NMI";
     constexpr const char* objectPath = "/xyz/openbmc_project/control/host0/nmi";
@@ -3079,7 +3080,7 @@ inline void doNMI(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
         }
         messages::success(asyncResp->res);
     }, serviceName, objectPath, interfaceName, method);
-}
+}*/
 
 inline void handleComputerSystemResetActionPost(
     crow::App& app, const crow::Request& req,
@@ -3143,11 +3144,11 @@ inline void handleComputerSystemResetActionPost(
         command = "xyz.openbmc_project.State.Host.Transition.Reboot";
         hostCommand = true;
     }
-    else if (resetType == "Nmi")
+/*    else if (resetType == "Nmi")
     {
         doNMI(asyncResp);
         return;
-    }
+    }*/
     else
     {
         messages::actionParameterUnknown(asyncResp->res, "Reset", resetType);
@@ -3635,7 +3636,7 @@ inline void afterGetAllowedHostTransitions(
     // Supported on all systems currently
     allowableValues.emplace_back(resource::ResetType::ForceOff);
     allowableValues.emplace_back(resource::ResetType::PowerCycle);
-    allowableValues.emplace_back(resource::ResetType::Nmi);
+//  allowableValues.emplace_back(resource::ResetType::Nmi);
 
     if (ec)
     {
