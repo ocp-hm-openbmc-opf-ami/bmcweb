@@ -101,8 +101,8 @@ inline void handleServiceRootGetImpl(
     asyncResp->res.jsonValue["Oem"]["Intel"]["CupsService"] = {
         {"@odata.id", "/redfish/v1/Oem/Intel/CupsService"}};
 
-    asyncResp->res.jsonValue["Oem"]["AMI"]["LicenseControl"] = {
-        {"@odata.id", "/redfish/v1/Oem/AMI/LicenseControl"}};
+    asyncResp->res.jsonValue["Oem"]["Ami]["LicenseControl"] = {
+        {"@odata.id", "/redfish/v1/Oem/Ami/LicenseControl"}};
 
     asyncResp->res.jsonValue["Links"]["ManagerProvidingService"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Managers/{}",

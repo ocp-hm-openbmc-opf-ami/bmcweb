@@ -15,7 +15,8 @@
 
 namespace redfish
 {
-    constexpr std::array<std::string_view,139> schemas {
+    constexpr std::array<std::string_view,140> schemas {
+        "AmiLicenseControl"
         "AccelerationFunctionCollection",
         "AccountService",
         "ActionInfo",

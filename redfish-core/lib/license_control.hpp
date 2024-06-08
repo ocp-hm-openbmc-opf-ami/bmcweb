@@ -29,7 +29,7 @@ inline void getLicenseKey(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
             BMCWEB_LOG_ERROR("Get License Key DBUS response error: {}", ec);
             return;
         }
-        asyncResp->res.jsonValue["Oem"]["AMI"]["LicenseKey"] = licenseKey;
+        asyncResp->res.jsonValue["Oem"]["Ami"]["LicenseKey"] = licenseKey;
         },
         "xyz.openbmc_project.License", "/xyz/openbmc_project/License",
         "xyz.openbmc_project.License.LicenseControl", "GetLicenseKey");
@@ -47,7 +47,7 @@ inline void getGlobalLicenseValidity(
                 "Get GlobalLicense Validity DBUS response error: {}", ec);
             return;
         }
-        asyncResp->res.jsonValue["Oem"]["AMI"]["GlobalLicenseValidity"] =
+        asyncResp->res.jsonValue["Oem"]["Ami"]["GlobalLicenseValidity"] =
             globalLicenseValidity;
         },
         "xyz.openbmc_project.License", "/xyz/openbmc_project/License",
@@ -66,7 +66,7 @@ inline void
                 "Get Services UpCount Days DBUS response error: {}", ec);
             return;
         }
-        asyncResp->res.jsonValue["Oem"]["AMI"]["ServicesUpCountDays"] =
+        asyncResp->res.jsonValue["Oem"]["Ami"]["ServicesUpCountDays"] =
             servicesUpCountDays;
         },
         "xyz.openbmc_project.License", "/xyz/openbmc_project/License",
@@ -89,7 +89,7 @@ inline void getAlertMessage(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 
         BMCWEB_LOG_DEBUG("Alert Message: {}", alertMessage);
 
-        asyncResp->res.jsonValue["Oem"]["AMI"]["AlertMessage"] = alertMessage;
+        asyncResp->res.jsonValue["Oem"]["Ami"]["AlertMessage"] = alertMessage;
         });
 }
 
@@ -110,7 +110,7 @@ inline void
 
         BMCWEB_LOG_DEBUG("User Alert Count {}", userAlertCount);
 
-        asyncResp->res.jsonValue["Oem"]["AMI"]["userAlertCount"] =
+        asyncResp->res.jsonValue["Oem"]["Ami"]["UserAlertCount"] =
             userAlertCount;
         });
 }
@@ -125,9 +125,9 @@ inline void
     }
 
     asyncResp->res.jsonValue["@odata.id"] =
-        "/redfish/v1/Oem/AMI/LicenseControl";
+        "/redfish/v1/Oem/Ami/LicenseControl";
     asyncResp->res.jsonValue["@odata.type"] =
-        "#AMILicenseControl.v1_0_0.AMILicenseControl";
+        "#AmiLicenseControl.v1_0_0.AmiLicenseControl";
     asyncResp->res.jsonValue["Name"] = "License Control";
     asyncResp->res.jsonValue["Id"] = "License Control";
 
@@ -301,17 +301,17 @@ inline void handleLicenseControlPost(
 
 inline void requestRoutesLicenseControl(App& app)
 {
-    BMCWEB_ROUTE(app, "/redfish/v1/Oem/AMI/LicenseControl/")
+    BMCWEB_ROUTE(app, "/redfish/v1/Oem/Ami/LicenseControl/")
         .privileges(redfish::privileges::getLicenseControl)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleLicenseControlGet, std::ref(app)));
 
-    BMCWEB_ROUTE(app, "/redfish/v1/Oem/AMI/LicenseControl/")
+    BMCWEB_ROUTE(app, "/redfish/v1/Oem/Ami/LicenseControl/")
         .privileges(redfish::privileges::postLicenseControl)
         .methods(boost::beast::http::verb::post)(
             std::bind_front(handleLicenseControlPost, std::ref(app)));
 
-    BMCWEB_ROUTE(app, "/redfish/v1/Oem/AMI/LicenseControl/")
+    BMCWEB_ROUTE(app, "/redfish/v1/Oem/Ami/LicenseControl/")
         .privileges(redfish::privileges::patchLicenseControl)
         .methods(boost::beast::http::verb::patch)(
             std::bind_front(handleLicenseControlPatch, std::ref(app)));
