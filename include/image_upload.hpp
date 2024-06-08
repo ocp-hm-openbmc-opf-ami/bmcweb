@@ -1,5 +1,7 @@
 #pragma once
 
+#include "bmcweb_config.h"
+
 #include "app.hpp"
 #include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
@@ -97,7 +99,8 @@ inline void
         "member='InterfacesAdded',path='/xyz/openbmc_project/software'",
         callback);
 
-    std::string filepath("/tmp/images/" + bmcweb::getRandomUUID());
+    std::string filepath(std::string(BMCWEB_IMAGE_UPLOAD_DIR) +
+                         bmcweb::getRandomUUID());
     BMCWEB_LOG_DEBUG("Writing file to {}", filepath);
     std::ofstream out(filepath, std::ofstream::out | std::ofstream::binary |
                                     std::ofstream::trunc);

@@ -34,6 +34,8 @@ inline void handleTelemetryServiceGet(
         "/redfish/v1/TelemetryService/MetricReports";
     asyncResp->res.jsonValue["Triggers"]["@odata.id"] =
         "/redfish/v1/TelemetryService/Triggers";
+    asyncResp->res.jsonValue["LogService"]["@odata.id"] =
+        "/redfish/v1/Managers/bmc/LogServices/Journal";
 
     sdbusplus::asio::getAllProperties(
         *crow::connections::systemBus, telemetry::service,

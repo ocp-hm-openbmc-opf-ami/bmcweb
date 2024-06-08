@@ -1,5 +1,6 @@
 #pragma once
 #include "baserule.hpp"
+#include "privilegeparametertraits.hpp"
 #include "ruleparametertraits.hpp"
 #include "websocket.hpp"
 

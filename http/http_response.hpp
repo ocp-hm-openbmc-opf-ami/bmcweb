@@ -21,10 +21,18 @@ class Connection;
 
 namespace http = boost::beast::http;
 
+namespace sse_socket
+{
+template <typename Adaptor>
+class ConnectionImpl;
+} // namespace sse_socket
+
 struct Response
 {
     template <typename Adaptor, typename Handler>
     friend class crow::Connection;
+    template <typename Adaptor>
+    friend class crow::sse_socket::ConnectionImpl;
 
     http::response<bmcweb::HttpBody> response;
 

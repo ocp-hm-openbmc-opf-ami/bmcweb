@@ -1,0 +1,62 @@
+{
+    "$id": "http://redfish.dmtf.org/schemas/v1/OemProcessor.v1_0_0.json",
+    "$schema": "http://redfish.dmtf.org/schemas/v1/redfish-schema-v1.json",
+    "copyright": "Copyright 2014-2019 DMTF. For the full DMTF copyright policy, see http://www.dmtf.org/about/policies/copyright",
+    "definitions": {
+        "Processor": {
+            "additionalProperties": false,
+            "description": "OEM Extension for Processor",
+            "longDescription": "OEM Extension for Processor to support oem services.",
+            "patternProperties": {
+                "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
+                    "description": "This property shall specify a valid odata or Redfish property.",
+                    "type": [
+                        "array",
+                        "boolean",
+                        "integer",
+                        "number",
+                        "null",
+                        "object",
+                        "string"
+                    ]
+                }
+            },
+            "properties": {
+                "DynamicFeature": {
+                    "$ref": "/redfish/v1/schema/ProvisionDynamicFeature.json#/definitions/ProvisionDynamicFeature",
+                    "description": "The link to the Dynamic Feature.",
+                    "longDescription": "This property shall contain a link to Dynamic Feature .",
+                    "readonly": true
+                },
+                "MeteringFeature": {
+                    "$ref": "/redfish/v1/schema/MeterStateFeature.json#/definitions/MeterStateFeature",
+                    "description": "The link to the Metering Feature.",
+                    "longDescription": "This property shall contain a link to Metering Feature .",
+                    "readonly": true
+                },
+                "UnsignedMeteringFeature": {
+                    "$ref": "/redfish/v1/schema/MeterStateFeature.json#/definitions/UnsignedMeterStateFeature",
+                    "description": "The link to the Unsigned Metering Feature.",
+                    "longDescription": "This property shall contain a link to Unsigned Metering Feature .",
+                    "readonly": true
+                },
+                "ProvisionFeature": {
+                    "$ref": "/redfish/v1/schema/ProvisionDynamicFeature.json#/definitions/ProvisionDynamicFeature",
+                    "description": "The link to the Provision Feature.",
+                    "longDescription": "This property shall contain a link to Provision Feature .",
+                    "readonly": true
+                },
+                "StateFeature": {
+                    "$ref": "/redfish/v1/schema/MeterStateFeature.json#/definitions/MeterStateFeature",
+                    "description": "The link to the Nm Service.",
+                    "longDescription": "This property shall contain a link to a Resource of type NmService.",
+                    "readonly": true
+                }
+            },
+            "type": "object"
+        }
+    },
+    "owningEntity": "Intel",
+    "release": "1.0",
+    "title": "#OemProcessor.v1_0_0"
+}

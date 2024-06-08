@@ -6,6 +6,7 @@
 #include <sys/socket.h>
 
 #include <boost/container/flat_map.hpp>
+#include <registries/privilege_registry.hpp>
 
 namespace crow
 {
@@ -172,8 +173,8 @@ inline void requestRoutes(App& app)
     sessions.reserve(maxSessions);
 
     BMCWEB_ROUTE(app, "/kvm/0")
-        .privileges({{"ConfigureComponents", "ConfigureManager"}})
         .websocket()
+        .privileges(redfish::privileges::privilegeSetConfigureManager)
         .onopen([](crow::websocket::Connection& conn) {
         BMCWEB_LOG_DEBUG("Connection {} opened", logPtr(&conn));
 

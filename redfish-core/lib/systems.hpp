@@ -151,8 +151,41 @@ inline void getProcessorProperties(
 {
     BMCWEB_LOG_DEBUG("Got {} Cpu properties.", properties.size());
 
-    // TODO: Get Model
+    const std::string* modelStr = nullptr;
 
+    const bool modelsuccess = sdbusplus::unpackPropertiesNoThrow(
+        dbus_utils::UnpackErrorPrinter(), properties, "Family", modelStr);
+
+    if (!modelsuccess)
+    {
+        return;
+    }
+
+    if ((modelStr != nullptr) && (*modelStr != ""))
+    {
+        nlohmann::json& prevModel =
+            asyncResp->res.jsonValue["ProcessorSummary"]["Model"];
+        std::string* prevModelPtr = prevModel.get_ptr<std::string*>();
+
+        // If CPU Models are different, use the first entry in
+        // alphabetical order
+
+        // If Model has never been set
+        // before, set it to *modelStr
+        if (prevModelPtr == nullptr)
+        {
+            prevModel = *modelStr;
+        }
+        // If Model has been set before, only change if new Model is
+        // higher in alphabetical order
+        else
+        {
+            if (*modelStr < *prevModelPtr)
+            {
+                prevModel = *modelStr;
+            }
+        }
+    }
     const uint16_t* coreCount = nullptr;
 
     const bool success = sdbusplus::unpackPropertiesNoThrow(
@@ -874,6 +907,65 @@ inline void getBootProgressLastStateTime(
         asyncResp->res.jsonValue["BootProgress"]["LastStateTime"] =
             redfish::time_utils::getDateTimeUintUs(lastStateTime);
     });
+}
+
+/**
+ * @brief Retrieves boot progress of the system
+ *
+ * @param[in] aResp  Shared pointer for generating response message.
+ *
+ * @return None.
+ */
+inline void getCPLDBootProgress(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
+{
+    BMCWEB_LOG_DEBUG("Get OEM information.");
+    crow::connections::systemBus->async_method_call(
+        [aResp](const boost::system::error_code ec,
+                const std::vector<
+                    std::pair<std::string, dbus::utility::DbusVariantType>>&
+                    propertiesList) {
+        if (ec)
+        {
+            BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
+            // not an error, don't have to have the interface
+            return;
+        }
+
+        aResp->res.jsonValue["BootProgress"]["Oem"]["Intel"]["@odata.type"] =
+            "#OemComputerSystem.Intel";
+        const std::string* errorSource = nullptr;
+        const std::string* powerState = nullptr;
+        for (const std::pair<std::string, dbus::utility::DbusVariantType>&
+                 property : propertiesList)
+        {
+            if (property.first == "ErrorSource")
+            {
+                errorSource = std::get_if<std::string>(&property.second);
+            }
+            else if (property.first == "PowerState")
+            {
+                powerState = std::get_if<std::string>(&property.second);
+            }
+        }
+
+        if ((errorSource == nullptr) || (powerState == nullptr))
+        {
+            BMCWEB_LOG_DEBUG("Unable to get CPLD power sequence state.");
+            messages::internalError(aResp->res);
+            return;
+        }
+
+        BMCWEB_LOG_DEBUG("CPLD Boot Progress: {} Err {}", *powerState,
+                         *errorSource);
+        aResp->res.jsonValue["BootProgress"]["Oem"]["Intel"]["CpldLastState"] =
+            *powerState;
+        aResp->res.jsonValue["BootProgress"]["Oem"]["Intel"]["CpldErr"] =
+            *errorSource;
+        },
+        "xyz.openbmc_project.DCSCM.Cpld.Manager",
+        "/xyz/openbmc_project/dcscm/cpld/manager/CPU",
+        "org.freedesktop.DBus.Properties", "GetAll",
+        "xyz.openbmc_project.DCSCM.CPU.PostCode");
 }
 
 /**
@@ -1939,6 +2031,61 @@ inline void
 }
 
 /**
+ * @brief Retrieves provisioned platform state
+ *
+ * @param[in] aResp     Shared pointer for completing asynchronous calls.
+ *
+ * @return None.
+ */
+inline void getPlatformState(std::shared_ptr<bmcweb::AsyncResp> aResp)
+{
+    BMCWEB_LOG_DEBUG("Get OEM information.");
+    crow::connections::systemBus->async_method_call(
+        [aResp](const boost::system::error_code ec,
+                const std::vector<
+                    std::pair<std::string, dbus::utility::DbusVariantType>>&
+                    propertiesList) {
+        nlohmann::json& oemPFR =
+            aResp->res
+                .jsonValue["Oem"]["OpenBmc"]["FirmwareProvisioning"]["Status"];
+
+        if (ec)
+        {
+            BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
+            // not an error, don't have to have the interface
+            return;
+        }
+
+        const uint8_t* postcode = nullptr;
+        const std::string* platformState = nullptr;
+        for (const std::pair<std::string, dbus::utility::DbusVariantType>&
+                 property : propertiesList)
+        {
+            if (property.first == "Data")
+            {
+                postcode = std::get_if<uint8_t>(&property.second);
+            }
+            else if (property.first == "PlatformState")
+            {
+                platformState = std::get_if<std::string>(&property.second);
+            }
+        }
+
+        if ((postcode == nullptr) || (platformState == nullptr))
+        {
+            BMCWEB_LOG_DEBUG("Unable to get PFR platform state.");
+            messages::internalError(aResp->res);
+            return;
+        }
+        oemPFR["Data"] = *postcode;
+        oemPFR["PlatformState"] = *platformState;
+    },
+        "xyz.openbmc_project.PFR.Manager", "/xyz/openbmc_project/pfr",
+        "org.freedesktop.DBus.Properties", "GetAll",
+        "xyz.openbmc_project.State.Boot.Platform");
+}
+
+/**
  * @brief Retrieves provisioning status
  *
  * @param[in] asyncResp     Shared pointer for completing asynchronous
@@ -1999,6 +2146,7 @@ inline void
             {
                 oemPFR["ProvisioningStatus"] = "ProvisionedButNotLocked";
             }
+            getPlatformState(asyncResp);
         }
         else
         {
@@ -3110,6 +3258,7 @@ inline void
     getBootProperties(asyncResp);
     getBootProgress(asyncResp);
     getBootProgressLastStateTime(asyncResp);
+    getCPLDBootProgress(asyncResp);
     pcie_util::getPCIeDeviceList(asyncResp,
                                  nlohmann::json::json_pointer("/PCIeDevices"));
     getHostWatchdogTimer(asyncResp);

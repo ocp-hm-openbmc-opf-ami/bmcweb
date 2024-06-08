@@ -443,8 +443,11 @@ inline void
                         chassis = "#IllegalValue";
                     }
                     nlohmann::json& zone = zones[name];
-                    zone["Chassis"]["@odata.id"] =
-                        boost::urls::format("/redfish/v1/Chassis/{}", chassis);
+                    if (name.find("PSU") == std::string::npos)
+                    {
+                        zone["Chassis"]["@odata.id"] = boost::urls::format(
+                            "/redfish/v1/Chassis/{}", chassis);
+                    }
                     url.set_fragment(
                         ("/Oem/OpenBmc/Fan/FanZones"_json_pointer / name)
                             .to_string());
@@ -1967,7 +1970,7 @@ inline void requestRoutesManager(App& app)
 
         asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
             "/redfish/v1/Managers/{}", BMCWEB_REDFISH_MANAGER_URI_NAME);
-        asyncResp->res.jsonValue["@odata.type"] = "#Manager.v1_14_0.Manager";
+        asyncResp->res.jsonValue["@odata.type"] = "#Manager.v1_16_0.Manager";
         asyncResp->res.jsonValue["Id"] = BMCWEB_REDFISH_MANAGER_URI_NAME;
         asyncResp->res.jsonValue["Name"] = "OpenBmc Manager";
         asyncResp->res.jsonValue["Description"] =
@@ -1988,6 +1991,9 @@ inline void requestRoutesManager(App& app)
         asyncResp->res.jsonValue["EthernetInterfaces"]["@odata.id"] =
             boost::urls::format("/redfish/v1/Managers/{}/EthernetInterfaces",
                                 BMCWEB_REDFISH_MANAGER_URI_NAME);
+        asyncResp->res.jsonValue["SecurityPolicy"]["@odata.id"] =
+            boost::urls::format("/redfish/v1/Managers/{}/SecurityPolicy",
+                                BMCWEB_REDFISH_MANAGER_URI_NAME);
 
         if constexpr (BMCWEB_VM_NBDPROXY)
         {
@@ -1999,6 +2005,12 @@ inline void requestRoutesManager(App& app)
         // default oem data
         nlohmann::json& oem = asyncResp->res.jsonValue["Oem"];
         nlohmann::json& oemOpenbmc = oem["OpenBmc"];
+        nlohmann::json& oemIntel = oem["Intel"];
+        oemIntel["@odata.type"] = "#OemManager.Intel";
+        oemIntel["@odata.id"] = "/redfish/v1/Managers/bmc#/Oem/Intel";
+        oemIntel["NodeManager"] = {
+            {"@odata.id", "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager"}};
+
         oem["@odata.type"] = "#OemManager.Oem";
         oem["@odata.id"] = boost::urls::format("/redfish/v1/Managers/{}#/Oem",
                                                BMCWEB_REDFISH_MANAGER_URI_NAME);
@@ -2048,8 +2060,15 @@ inline void requestRoutesManager(App& app)
         // Fill in SerialConsole info
         asyncResp->res.jsonValue["SerialConsole"]["ServiceEnabled"] = true;
         asyncResp->res.jsonValue["SerialConsole"]["MaxConcurrentSessions"] = 15;
-        asyncResp->res.jsonValue["SerialConsole"]["ConnectTypesSupported"] =
-            nlohmann::json::array_t({"IPMI", "SSH"});
+        asyncResp->res.jsonValue["SerialConsole"]["ConnectTypesSupported"] = {
+            "IPMI", "SSH"};
+
+        // Fill in CommandShell info
+        asyncResp->res.jsonValue["CommandShell"]["ServiceEnabled"] = true;
+        asyncResp->res.jsonValue["CommandShell"]["MaxConcurrentSessions"] = 4;
+        asyncResp->res.jsonValue["CommandShell"]["ConnectTypesSupported"] = {
+            "SSH", "IPMI"};
+
         if constexpr (BMCWEB_KVM)
         {
             // Fill in GraphicalConsole info

@@ -24,6 +24,20 @@
                 <Annotation Term="OData.AutoExpand"/>
                 <Property Name="OpenBmc" Type="OemComputerSystem.OpenBmc"/>
             </ComplexType>
+	    <ComplexType Name="Intel" BaseType="Resource.OemObject">
+                <Annotation Term="OData.AdditionalProperties" Bool="true" />
+                <Annotation Term="OData.Description" String="Oem properties for Intel." />
+                <Property Name="CpldErr" Type="Edm.String">
+			<Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+			<Annotation Term="OData.Description" String="CpldErr is the error source."/>
+			<Annotation Term="OData.LongDescription" String="CPLD Postcode displayed."/>
+                </Property>
+                <Property Name="CpldLastState" Type="Edm.String">
+			<Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+			<Annotation Term="OData.Description" String="CpldLastState is the Power state."/>
+			<Annotation Term="OData.LongDescription" String="Power state displayed."/>
+                </Property>
+            </ComplexType>
 
             <ComplexType Name="OpenBmc" BaseType="Resource.OemObject">
                 <Annotation Term="OData.AdditionalProperties" Bool="true" />

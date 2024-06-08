@@ -60,7 +60,6 @@ static constexpr std::string_view thermal = "Thermal";
 namespace dbus
 {
 constexpr auto powerPaths = std::to_array<std::string_view>({
-    "/xyz/openbmc_project/sensors/voltage",
     "/xyz/openbmc_project/sensors/power"
 });
 
@@ -69,6 +68,7 @@ constexpr auto getSensorPaths(){
     return std::to_array<std::string_view>({
         "/xyz/openbmc_project/sensors/power",
         "/xyz/openbmc_project/sensors/current",
+        "/xyz/openbmc_project/sensors/count",
         "/xyz/openbmc_project/sensors/airflow",
         "/xyz/openbmc_project/sensors/humidity",
         "/xyz/openbmc_project/sensors/voltage",
@@ -81,6 +81,7 @@ constexpr auto getSensorPaths(){
     } else {
       return  std::to_array<std::string_view>({"/xyz/openbmc_project/sensors/power",
         "/xyz/openbmc_project/sensors/current",
+        "/xyz/openbmc_project/sensors/count",
         "/xyz/openbmc_project/sensors/airflow",
         "/xyz/openbmc_project/sensors/humidity",
         "/xyz/openbmc_project/sensors/utilization"});
@@ -490,15 +491,12 @@ inline void reduceSensorList(
 inline void populateChassisNode(nlohmann::json& jsonValue,
                                 std::string_view chassisSubNode)
 {
-    if (chassisSubNode == sensors::node::power)
-    {
-        jsonValue["@odata.type"] = "#Power.v1_5_2.Power";
-    }
-    else if (chassisSubNode == sensors::node::thermal)
+    if (chassisSubNode == sensors::node::thermal)
     {
         jsonValue["@odata.type"] = "#Thermal.v1_4_0.Thermal";
         jsonValue["Fans"] = nlohmann::json::array();
         jsonValue["Temperatures"] = nlohmann::json::array();
+        jsonValue["Id"] = chassisSubNode;
     }
     else if (chassisSubNode == sensors::node::sensors)
     {
@@ -508,11 +506,10 @@ inline void populateChassisNode(nlohmann::json& jsonValue,
         jsonValue["Members@odata.count"] = 0;
     }
 
-    if (chassisSubNode != sensors::node::sensors)
+    if (chassisSubNode != sensors::node::power)
     {
-        jsonValue["Id"] = chassisSubNode;
+        jsonValue["Name"] = chassisSubNode;
     }
-    jsonValue["Name"] = chassisSubNode;
 }
 
 /**
@@ -569,8 +566,11 @@ void getChassis(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         }
         populateChassisNode(asyncResp->res.jsonValue, chassisSubNode);
 
-        asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
-            "/redfish/v1/Chassis/{}/{}", chassisIdStr, chassisSubNode);
+        if (chassisSubNode != sensors::node::power)
+        {
+            asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
+                "/redfish/v1/Chassis/{}/{}", chassisIdStr, chassisSubNode);
+        }
 
         // Get the list of all sensors for this Chassis element
         std::string sensorPath = *chassisPath + "/all_sensors";
@@ -809,6 +809,25 @@ inline void objectPropertiesToJson(
         else
         {
             sensorJson["ReadingType"] = readingType;
+            if (readingType == sensor::ReadingType::Temperature)
+            {
+                if (sensorName.find("CPU") != std::string::npos)
+                {
+                    sensorJson["PhysicalContext"] = "CPU";
+                }
+                else if (sensorName.find("Inlet") != std::string::npos)
+                {
+                    sensorJson["PhysicalContext"] = "Intake";
+                }
+                else if (sensorName.find("HSBP") != std::string::npos)
+                {
+                    sensorJson["PhysicalContext"] = "Backplane";
+                }
+                else
+                {
+                    sensorJson["PhysicalContext"] = "SystemBoard";
+                }
+            }
         }
 
         std::string_view readingUnits = sensors::toReadingUnits(sensorType);
@@ -866,11 +885,11 @@ inline void objectPropertiesToJson(
         }
         else if (lower.find("input") != std::string::npos)
         {
-            unit = "/PowerInputWatts"_json_pointer;
+            unit = "/PowerCapacityWatts"_json_pointer;
         }
-        else
+        else if (!(boost::ifind_first(sensorName, "output").empty()))
         {
-            unit = "/PowerOutputWatts"_json_pointer;
+            return;
         }
     }
     else
@@ -2234,7 +2253,7 @@ inline nlohmann::json& getPowerSupply(nlohmann::json& powerSupplyArray,
         {
             continue;
         }
-        if (nameS == *name)
+        if(powerSupply["Id"] == inventoryItem.name)
         {
             return powerSupply;
         }
@@ -2246,7 +2265,12 @@ inline nlohmann::json& getPowerSupply(nlohmann::json& powerSupplyArray,
     boost::urls::url url = boost::urls::format("/redfish/v1/Chassis/{}/Power",
                                                chassisId);
     url.set_fragment(("/PowerSupplies"_json_pointer).to_string());
-    powerSupply["@odata.id"] = std::move(url);
+    powerSupply["@odata.id"] = "/redfish/v1/Chassis/" + chassisId +
+                               "/PowerSubsystem/PowerSupplies/" +
+                               inventoryItem.name;
+    powerSupply["@odata.type"] = "#PowerSupply.v1_5_0.PowerSupply";
+    powerSupply["Id"] = inventoryItem.name;
+
     std::string escaped;
     escaped.resize(inventoryItem.name.size());
     std::ranges::replace_copy(inventoryItem.name, escaped.begin(), '_', ' ');
@@ -2266,7 +2290,6 @@ inline nlohmann::json& getPowerSupply(nlohmann::json& powerSupplyArray,
     powerSupply["Status"]["State"] = getState(&inventoryItem, true);
     const char* health = inventoryItem.isFunctional ? "OK" : "Critical";
     powerSupply["Status"]["Health"] = health;
-
     return powerSupply;
 }
 
@@ -2408,7 +2431,16 @@ inline void getSensorData(
                         else if ((inventoryItem != nullptr) &&
                                  (inventoryItem->isPowerSupply))
                         {
-                            fieldName = "PowerSupplies";
+                            if (inventoryItem->name ==
+                                std::string(sensorsAsyncResp->asyncResp->res
+                                                .jsonValue["Id"]))
+                            {
+                                fieldName = "PowerSupplies";
+                            }
+                            else
+                            {
+                                continue;
+                            }
                         }
                         else
                         {
@@ -2501,8 +2533,21 @@ inline void getSensorData(
                     sensorsAsyncResp->addMetadata(*sensorJson, path);
                 }
             }
+
             if (sensorsAsyncResp.use_count() == 1)
             {
+                if (sensorsAsyncResp->chassisSubNode == sensors::node::power)
+                {
+                    // nlohmann::json& tempArray =
+                    // sensorsAsyncResp->asyncResp->res.jsonValue
+                    if (sensorsAsyncResp->asyncResp->res
+                            .jsonValue["PowerSupplies"] != nullptr)
+                    {
+                        sensorsAsyncResp->asyncResp->res.jsonValue =
+                            sensorsAsyncResp->asyncResp->res
+                                .jsonValue["PowerSupplies"][0];
+                    }
+                }
                 sortJSONResponse(sensorsAsyncResp);
                 if (sensorsAsyncResp->chassisSubNode ==
                         sensors::node::sensors &&

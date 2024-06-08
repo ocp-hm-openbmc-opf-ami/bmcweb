@@ -14,6 +14,7 @@
 #include <boost/container/flat_map.hpp>
 #include <boost/process/v2/process.hpp>
 #include <boost/process/v2/stdio.hpp>
+#include <registries/privilege_registry.hpp>
 #include <sdbusplus/asio/property.hpp>
 
 #include <csignal>
@@ -455,6 +456,16 @@ inline void
     std::filesystem::remove(socket.c_str(), ec2);
     // Ignore failures.  File might not exist.
 
+    std::filesystem::path socketPath(socket);
+    std::error_code fsErr;
+    if (!std::filesystem::exists(socketPath.parent_path(), fsErr))
+    {
+        BMCWEB_LOG_ERROR("VirtualMedia socket directory not present. {}",
+                         socketPath.parent_path().string());
+        conn.close("Unable to create unix socket");
+        return;
+    }
+
     sessions[&conn] = std::make_shared<NbdProxyServer>(conn, socket, endpointId,
                                                        path);
     sessions[&conn]->run();
@@ -533,15 +544,15 @@ inline void requestRoutes(App& app)
     if constexpr (BMCWEB_VM_NBDPROXY)
     {
         BMCWEB_ROUTE(app, "/nbd/<str>")
-            .privileges({{"ConfigureComponents", "ConfigureManager"}})
             .websocket()
+            .privileges(redfish::privileges::privilegeSetConfigureManager)
             .onopen(nbd_proxy::onOpen)
             .onclose(nbd_proxy::onClose)
             .onmessageex(nbd_proxy::onMessage);
 
         BMCWEB_ROUTE(app, "/vm/0/0")
-            .privileges({{"ConfigureComponents", "ConfigureManager"}})
             .websocket()
+            .privileges(redfish::privileges::privilegeSetConfigureManager)
             .onopen(nbd_proxy::onOpen)
             .onclose(nbd_proxy::onClose)
             .onmessageex(nbd_proxy::onMessage);
@@ -549,8 +560,8 @@ inline void requestRoutes(App& app)
     if constexpr (BMCWEB_VM_WEBSOCKET)
     {
         BMCWEB_ROUTE(app, "/vm/0/0")
-            .privileges({{"ConfigureComponents", "ConfigureManager"}})
             .websocket()
+            .privileges(redfish::privileges::privilegeSetConfigureManager)
             .onopen([](crow::websocket::Connection& conn) {
             BMCWEB_LOG_DEBUG("Connection {} opened", logPtr(&conn));
 

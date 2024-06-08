@@ -1998,5 +1998,9 @@ const static auto& postZoneCollection = privilegeSetConfigureComponents;
 const static auto& putZoneCollection = privilegeSetConfigureComponents;
 const static auto& deleteZoneCollection = privilegeSetConfigureComponents;
 
+// FIPS Enablement
+const static auto& getFIPS = privilegeSetLogin;
+const static auto& patchFIPS = privilegeSetConfigureComponents;
+
 } // namespace redfish::privileges
 // clang-format on

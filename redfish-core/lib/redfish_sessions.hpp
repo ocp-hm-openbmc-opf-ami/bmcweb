@@ -22,6 +22,7 @@
 #include "persistent_data.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
+#include "sdbusplus/unpack_properties.hpp"
 #include "utils/json_utils.hpp"
 
 #include <boost/url/format.hpp>
@@ -80,13 +81,112 @@ inline void
     auto session =
         persistent_data::SessionStore::getInstance().getSessionByUid(sessionId);
 
-    if (session == nullptr)
+    if (session)
     {
-        messages::resourceNotFound(asyncResp->res, "Session", sessionId);
+        fillSessionObject(asyncResp->res, *session);
         return;
     }
 
-    fillSessionObject(asyncResp->res, *session);
+    // Check the IPMI sessions and get session info
+    std::array<std::string, 1> interfaces = {
+        "xyz.openbmc_project.Ipmi.SessionInfo"};
+    crow::connections::systemBus->async_method_call(
+        [asyncResp,
+         sessionId](const boost::system::error_code ec,
+                    const dbus::utility::MapperGetSubTreeResponse& subtree) {
+        if (ec)
+        {
+            BMCWEB_LOG_DEBUG(
+                "Error in querying GetSubTree with Object Mapper. {}", ec);
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        if (subtree.size() == 0)
+        {
+            BMCWEB_LOG_DEBUG("Can't find  Session Info Attributes!");
+            messages::resourceNotFound(asyncResp->res, "Session", sessionId);
+            return;
+        }
+        bool ipmiSessionFound = false;
+        std::string ipmiSessionService;
+        std::string ipmiSessionInfPath;
+        for (const auto& [ipmiSessionPath, object] : subtree)
+        {
+            if (ipmiSessionPath.empty() || object.empty())
+            {
+                BMCWEB_LOG_DEBUG("Session Info Attributes mapper error!");
+                continue;
+            }
+            if (!boost::ends_with(ipmiSessionPath, sessionId))
+            {
+                continue;
+            }
+            ipmiSessionFound = true;
+            ipmiSessionService = object[0].first;
+            ipmiSessionInfPath = ipmiSessionPath;
+            break;
+        }
+        if (!ipmiSessionFound)
+        {
+            messages::resourceNotFound(asyncResp->res, "Session", sessionId);
+            return;
+        }
+        if (ipmiSessionService.empty())
+        {
+            BMCWEB_LOG_DEBUG("Session Info Attributes mapper error!");
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        crow::connections::systemBus->async_method_call(
+            [asyncResp, sessionId](
+                const boost::system::error_code ec2,
+                const std::vector<std::pair<
+                    std::string, std::variant<std::monostate, std::string,
+                                              uint32_t>>>& properties) {
+            if (ec2)
+            {
+                BMCWEB_LOG_DEBUG(
+                    "Error in querying Session Info State property {}", ec2);
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            std::string userName = "";
+            uint32_t remoteIpAddr;
+            try
+            {
+                sdbusplus::unpackProperties(properties, "Username", userName,
+                                            "RemoteIPAddr", remoteIpAddr);
+                asyncResp->res.jsonValue["Id"] = sessionId;
+                asyncResp->res.jsonValue["UserName"] = userName;
+                asyncResp->res.jsonValue["@odata.id"] =
+                    "/redfish/v1/SessionService/"
+                    "Sessions/" +
+                    sessionId;
+                asyncResp->res.jsonValue["@odata.type"] =
+                    "#Session.v1_3_0.Session";
+                asyncResp->res.jsonValue["Name"] = "User Session";
+                asyncResp->res.jsonValue["Description"] =
+                    "Manager User Session";
+                struct in_addr ipAddr;
+                ipAddr.s_addr = remoteIpAddr;
+                asyncResp->res.jsonValue["ClientOriginIPAddress"] =
+                    inet_ntoa(ipAddr);
+            }
+            catch (const sdbusplus::exception::UnpackPropertyError& error)
+            {
+                BMCWEB_LOG_ERROR("{}", error.what());
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            return;
+        },
+            ipmiSessionService, ipmiSessionInfPath,
+            "org.freedesktop.DBus.Properties", "GetAll",
+            "xyz.openbmc_project.Ipmi.SessionInfo");
+    },
+        "xyz.openbmc_project.ObjectMapper",
+        "/xyz/openbmc_project/object_mapper",
+        "xyz.openbmc_project.ObjectMapper", "GetSubTree", "/", 0, interfaces);
 }
 
 inline void
@@ -101,32 +201,73 @@ inline void
     auto session =
         persistent_data::SessionStore::getInstance().getSessionByUid(sessionId);
 
-    if (session == nullptr)
-    {
-        messages::resourceNotFound(asyncResp->res, "Session", sessionId);
-        return;
-    }
-
     // Perform a proper ConfigureSelf authority check.  If a
     // session is being used to DELETE some other user's session,
     // then the ConfigureSelf privilege does not apply.  In that
     // case, perform the authority check again without the user's
     // ConfigureSelf privilege.
-    if (req.session != nullptr && !session->username.empty() &&
-        session->username != req.session->username)
+    if (session)
     {
-        Privileges effectiveUserPrivileges =
-            redfish::getUserPrivileges(*req.session);
-
-        if (!effectiveUserPrivileges.isSupersetOf({"ConfigureUsers"}))
+        if (session->username != req.session->username)
         {
-            messages::insufficientPrivilege(asyncResp->res);
-            return;
+            Privileges effectiveUserPrivileges =
+                redfish::getUserPrivileges(*req.session);
+
+            if (!effectiveUserPrivileges.isSupersetOf({"ConfigureUsers"}))
+            {
+                messages::insufficientPrivilege(asyncResp->res);
+                return;
+            }
         }
+
+        persistent_data::SessionStore::getInstance().removeSession(session);
+        messages::success(asyncResp->res);
+        return;
     }
 
-    persistent_data::SessionStore::getInstance().removeSession(session);
-    messages::success(asyncResp->res);
+    // Check is it IPMI session and delete that session
+    std::array<std::string, 1> interfaces = {
+        "xyz.openbmc_project.Ipmi.SessionInfo"};
+    crow::connections::systemBus->async_method_call(
+        [asyncResp, sessionId](const boost::system::error_code ec,
+                               const std::vector<std::string>& ifaceList) {
+        if (ec)
+        {
+            BMCWEB_LOG_DEBUG(
+                "Error in querying GetSubTreePaths with Object Mapper. {}", ec);
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        if (ifaceList.size() == 0)
+        {
+            BMCWEB_LOG_DEBUG("Can't find  Session Info Attributes!");
+            return;
+        }
+        bool ipmiSessionFound = false;
+        for (const std::string& ipmiSessionPath : ifaceList)
+        {
+            if (!boost::ends_with(ipmiSessionPath, sessionId))
+            {
+                continue;
+            }
+            ipmiSessionFound = true;
+            break;
+        }
+        if (ipmiSessionFound)
+        {
+            BMCWEB_LOG_DEBUG(
+                "Deleting IPMI session from Redfish is not allowed.");
+            messages::actionNotSupported(asyncResp->res,
+                                         "deleting IPMI session from Redfish");
+            return;
+        }
+        messages::resourceNotFound(asyncResp->res, "Session", sessionId);
+        return;
+    },
+        "xyz.openbmc_project.ObjectMapper",
+        "/xyz/openbmc_project/object_mapper",
+        "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths", "/", 0,
+        interfaces);
 }
 
 inline nlohmann::json getSessionCollectionMembers()
@@ -179,6 +320,44 @@ inline void handleSessionCollectionGet(
         "/redfish/v1/SessionService/Sessions";
     asyncResp->res.jsonValue["Name"] = "Session Collection";
     asyncResp->res.jsonValue["Description"] = "Session Collection";
+
+    // Collect IPMI sessions information
+    std::array<std::string, 1> interfaces = {
+        "xyz.openbmc_project.Ipmi.SessionInfo"};
+    crow::connections::systemBus->async_method_call(
+        [asyncResp](const boost::system::error_code ec,
+                    const std::vector<std::string>& ifaceList) {
+        if (ec)
+        {
+            BMCWEB_LOG_DEBUG(
+                "Error in querying GetSubTreePaths with Object Mapper. {}", ec);
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        if (ifaceList.size() == 0)
+        {
+            BMCWEB_LOG_DEBUG("Can't find  Session Info Attributes!");
+            return;
+        }
+        for (const std::string& ipmiSessionPath : ifaceList)
+        {
+            std::filesystem::path filePath(ipmiSessionPath);
+            std::string ipmiSessionID =
+                filePath.has_filename() ? filePath.filename() : "";
+            if (!ipmiSessionID.empty() && ipmiSessionID != "0")
+            {
+                asyncResp->res.jsonValue["Members"].push_back(
+                    {{"@odata.id",
+                      "/redfish/v1/SessionService/Sessions/" + ipmiSessionID}});
+            }
+        }
+        asyncResp->res.jsonValue["Members@odata.count"] =
+            asyncResp->res.jsonValue["Members"].size();
+    },
+        "xyz.openbmc_project.ObjectMapper",
+        "/xyz/openbmc_project/object_mapper",
+        "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths", "/", 0,
+        interfaces);
 }
 
 inline void handleSessionCollectionMembersGet(

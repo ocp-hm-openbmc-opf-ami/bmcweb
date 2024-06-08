@@ -40,7 +40,27 @@ namespace crow
 static int connectionCount = 0;
 
 // request body limit size set by the BMCWEB_HTTP_BODY_LIMIT option
-constexpr uint64_t httpReqBodyLimit = 1024UL * 1024UL * BMCWEB_HTTP_BODY_LIMIT;
+constexpr uint64_t httpReqBodyLimit = 1024UL * BMCWEB_HTTP_BODY_LIMIT;
+constexpr uint64_t maxPayloadLimit = 1024UL * 1024UL *
+                                     BMCWEB_IMAGE_PAYLOAD_LIMIT;
+constexpr uint64_t smallPayloadLimit = 1024UL * 1024UL;
+constexpr uint64_t peciCmdsReqBodyLimit = smallPayloadLimit * 2; // 2 MiB
+constexpr uint64_t telemetryBodyLimit = 1024UL * 128UL;
+// clang-format off
+constexpr static auto perRouteReqBodyLimit =
+  std::to_array<std::tuple<std::string_view, uint64_t,boost::beast::http::verb>>({
+    {"/redfish/v1/Systems/system/LogServices/Crashdump/Actions/Oem/Crashdump.SendRawPeci", peciCmdsReqBodyLimit, boost::beast::http::verb::post},
+    {"/redfish/v1/UpdateService", maxPayloadLimit, boost::beast::http::verb::post},
+    {"/redfish/v1/UpdateService/update", maxPayloadLimit, boost::beast::http::verb::post},
+    {"/redfish/v1/TelemetryService/MetricReportDefinitions", telemetryBodyLimit, boost::beast::http::verb::post},
+    {"/redfish/v1/TelemetryService/MetricReportDefinitions", telemetryBodyLimit, boost::beast::http::verb::put},
+    {"/redfish/v1/TelemetryService/MetricReportDefinitions", telemetryBodyLimit, boost::beast::http::verb::patch},
+    {"/redfish/v1/TelemetryService/MetricReportDefinitions/PeriodicReport", telemetryBodyLimit, boost::beast::http::verb::patch},
+    {"/redfish/v1/TelemetryService/Triggers", telemetryBodyLimit, boost::beast::http::verb::post},
+    {"/redfish/v1/TelemetryService/Triggers", telemetryBodyLimit, boost::beast::http::verb::put},
+    {"/redfish/v1/TelemetryService/Triggers", telemetryBodyLimit, boost::beast::http::verb::patch},
+  });
+// clang-format on
 
 constexpr uint64_t loggedOutPostBodyLimit = 4096U;
 
@@ -295,9 +315,17 @@ class Connection :
             [self(shared_from_this())](crow::Response& thisRes) {
             self->completeRequest(thisRes);
         });
+
+        // Check request hedder for SSE is not correct way but upstream,
+        // using that way. Need to work with ustream is sort it out. Meanwhile
+        // checking with URI is most realibale way and so used it. Need to
+        // find more appropriate way and work with upstream community to
+        // resolve.
+        // bool isSse =
+        //     isContentTypeAllowed(req.getHeaderValue("Accept"),
+        //
         bool isSse =
-            isContentTypeAllowed(req->getHeaderValue("Accept"),
-                                 http_helpers::ContentType::EventStream, false);
+            (req->url().encoded_path() == "/redfish/v1/EventService/SSE");
         std::string_view upgradeType(
             req->getHeaderValue(boost::beast::http::field::upgrade));
         if ((req->isUpgrade() &&
@@ -405,7 +433,25 @@ class Connection :
     }
 
   private:
-    uint64_t getContentLengthLimit()
+    uint64_t getMaxRequestBodySize(boost::beast::http::verb method,
+                                   std::string_view target)
+    {
+        uint64_t maxBodySize = httpReqBodyLimit;
+
+        for (const auto& [route, limit, verb] : perRouteReqBodyLimit)
+        {
+            if (target == route && method == verb)
+            {
+                maxBodySize = limit;
+                break;
+            }
+        }
+
+        return maxBodySize;
+    }
+
+    uint64_t getContentLengthLimit(boost::beast::http::verb method,
+                                   std::string_view target)
     {
         if constexpr (!BMCWEB_INSECURE_DISABLE_AUTH)
         {
@@ -415,7 +461,7 @@ class Connection :
             }
         }
 
-        return httpReqBodyLimit;
+        return getMaxRequestBodySize(method, target);
     }
 
     // Returns true if content length was within limits
@@ -435,7 +481,8 @@ class Connection :
             return true;
         }
 
-        uint64_t maxAllowedContentLength = getContentLengthLimit();
+        uint64_t maxAllowedContentLength = getContentLengthLimit(
+            parser->get().method(), parser->get().target());
 
         if (*contentLength > maxAllowedContentLength)
         {
@@ -541,7 +588,10 @@ class Connection :
                 return;
             }
 
-            parser->body_limit(getContentLengthLimit());
+            boost::beast::http::verb method = parser->get().method();
+            std::string_view target = parser->get().target();
+
+            parser->body_limit(getContentLengthLimit(method, target));
 
             if (parser->is_done())
             {

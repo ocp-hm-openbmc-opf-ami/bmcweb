@@ -1491,6 +1491,16 @@ inline void handleAccountServicePatch(
 
     if (unlockTimeout)
     {
+        // Account will be locked permanently after the N number of failed login
+        // attempts if we set unlockTimeout value to be 0.
+        if (unlockTimeout.value() == 0)
+        {
+            BMCWEB_LOG_INFO("Unlock timeout value must be greater than zero");
+            messages::propertyValueNotInList(asyncResp->res, "unlockTimeout",
+                                             "AccountLockoutDuration");
+            return;
+        }
+
         setDbusProperty(
             asyncResp, "xyz.openbmc_project.User.Manager",
             sdbusplus::message::object_path("/xyz/openbmc_project/user"),

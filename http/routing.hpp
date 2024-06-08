@@ -585,9 +585,8 @@ class Router
         // TODO(ed) This should be able to use std::bind_front, but it doesn't
         // appear to work with the std::move on adaptor.
         validatePrivilege(req, asyncResp, rule,
-                          [req, &rule, asyncResp,
-                           adaptor = std::forward<Adaptor>(adaptor)]() mutable {
-            rule.handleUpgrade(*req, asyncResp, std::move(adaptor));
+                          [req, &rule, asyncResp, &adaptor]() mutable {
+            rule.handleUpgrade(*req, asyncResp, std::forward<Adaptor>(adaptor));
         });
     }
 

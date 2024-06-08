@@ -18,6 +18,7 @@
 #include "error_messages.hpp"
 #include "event_service_store.hpp"
 #include "http_client.hpp"
+#include "kafka_manager.hpp"
 #include "metric_report.hpp"
 #include "ossl_random.hpp"
 #include "persistent_data.hpp"
@@ -56,6 +57,9 @@ static constexpr const char* metricReportFormatType = "MetricReport";
 static constexpr const char* subscriptionTypeSSE = "SSE";
 static constexpr const char* eventServiceFile =
     "/var/lib/bmcweb/eventservice_config.json";
+
+static std::function<void(const std::string&)> retryExhaustCallback =
+    [](const std::string&) {};
 
 static constexpr const uint8_t maxNoOfSubscriptions = 20;
 static constexpr const uint8_t maxNoOfSSESubscriptions = 10;
@@ -347,6 +351,25 @@ inline bool
     return true;
 }
 
+inline boost::system::error_code subRetryHandler(unsigned int respCode)
+{
+    // Allow all response codes because we want to surface Listener
+    // issue to the client
+    BMCWEB_LOG_DEBUG("Received {} response from Listener", respCode);
+    return boost::system::errc::make_error_code(boost::system::errc::success);
+}
+
+constexpr unsigned int subReadBodyLimit = 4 * 1024 * 1024; // 4MB
+inline crow::ConnectionPolicy getSubPolicy()
+{
+    return {.maxRetryAttempts = 1,
+            .requestByteLimit = subReadBodyLimit,
+            .maxConnections = 20,
+            .retryPolicyAction = "TerminateAfterRetries",
+            .retryIntervalSecs = std::chrono::seconds(30),
+            .invalidResp = subRetryHandler};
+}
+
 class Subscription : public persistent_data::UserSubscription
 {
   public:
@@ -357,7 +380,7 @@ class Subscription : public persistent_data::UserSubscription
 
     Subscription(const boost::urls::url_view_base& url,
                  boost::asio::io_context& ioc) :
-        policy(std::make_shared<crow::ConnectionPolicy>())
+        policy(std::make_shared<crow::ConnectionPolicy>(getSubPolicy()))
     {
         destinationUrl = url;
         client.emplace(ioc, policy);
@@ -365,9 +388,14 @@ class Subscription : public persistent_data::UserSubscription
         policy->invalidResp = retryRespHandler;
     }
 
-    explicit Subscription(crow::sse_socket::Connection& connIn) :
-        sseConn(&connIn)
-    {}
+    explicit Subscription(
+        std::shared_ptr<crow::sse_socket::Connection>& connIn) :
+        policy(std::make_shared<crow::ConnectionPolicy>(getSubPolicy())),
+        sseConn(connIn)
+    {
+        // Subscription constructor
+        policy->invalidResp = retryRespHandler;
+    }
 
     ~Subscription() = default;
 
@@ -381,11 +409,36 @@ class Subscription : public persistent_data::UserSubscription
             return false;
         }
 
+        // For Suspended subscriptions, State is set to "Disabled". So
+        // stop sending events to that subscription.
+        if (state == "Disabled")
+        {
+            BMCWEB_LOG_DEBUG(
+                "Subscription is suspended, so not sending events.");
+            return false;
+        }
+
         // A connection pool will be created if one does not already exist
         if (client)
         {
-            client->sendData(std::move(msg), destinationUrl, httpHeaders,
-                             boost::beast::http::verb::post);
+            std::function<void(crow::Response&)> sendEventCallback =
+                [subId(id), retryPolicy(retryPolicy),
+                 retryExhaustCallback(retryExhaustCallback)](
+                    crow::Response& res) {
+                if (res.result() == boost::beast::http::status::bad_gateway)
+                {
+                    // Response is going to have bad_gateway result if the event
+                    // listener was not able to receive the event even after
+                    // multiple retries. This response is received only when
+                    // retry policy is Suspend after retires or Terminate after
+                    // reties.
+                    retryExhaustCallback(subId);
+                }
+            };
+
+            client->sendDataWithCallback(
+                std::move(msg), destinationUrl, verifyCertificate, httpHeaders,
+                boost::beast::http::verb::post, sendEventCallback);
             return true;
         }
 
@@ -556,9 +609,16 @@ class Subscription : public persistent_data::UserSubscription
         return subId;
     }
 
-    bool matchSseId(const crow::sse_socket::Connection& thisConn)
+    std::optional<std::string> getSubscriptionId(
+        const std::shared_ptr<crow::sse_socket::Connection>& connPtr)
     {
-        return &thisConn == sseConn;
+        if (sseConn != nullptr && connPtr == sseConn)
+        {
+            BMCWEB_LOG_DEBUG("{} conn matched, subId: {}", __FUNCTION__, subId);
+            return subId;
+        }
+
+        return std::nullopt;
     }
 
   private:
@@ -566,10 +626,15 @@ class Subscription : public persistent_data::UserSubscription
     uint64_t eventSeqNum = 1;
     boost::urls::url host;
     std::shared_ptr<crow::ConnectionPolicy> policy;
-    crow::sse_socket::Connection* sseConn = nullptr;
+    std::shared_ptr<crow::sse_socket::Connection> sseConn = nullptr;
     std::optional<crow::HttpClient> client;
     std::string path;
     std::string uriProto;
+
+    // As per DMTF Redfish EventDestination schema, if 'VerifyCertificate'
+    // is not supported by service, It shall be assumed 'false'. So setting
+    // this value to false default till EventService add support it.
+    bool verifyCertificate = false;
 
     // Check used to indicate what response codes are valid as part of our retry
     // policy.  2XX is considered acceptable
@@ -616,8 +681,36 @@ class EventServiceManager
 
     explicit EventServiceManager(boost::asio::io_context& iocIn) : ioc(iocIn)
     {
+        // Set Lambda for DeliveryRetry attempts exhaust
+        retryExhaustCallback = [](const std::string& id) {
+            std::shared_ptr<Subscription> subValue =
+                EventServiceManager::getInstance().getSubscription(id);
+            if (subValue == nullptr)
+            {
+                return;
+            }
+            if (subValue->retryPolicy == "TerminateAfterRetries")
+            {
+                // As per spec, Subscription should be deleted in this case.
+                BMCWEB_LOG_DEBUG("Deleting Terminated Subscription: {}", id);
+                EventServiceManager::getInstance().deleteSubscription(id);
+            }
+            else if (subValue->retryPolicy == "SuspendRetries")
+            {
+                // As per spec, Subscription state should be set to disabled in
+                // this case.
+                BMCWEB_LOG_DEBUG(
+                    "Setting state to Disabled for Suspended Subscription: {}",
+                    id);
+                subValue->state = "Disabled";
+                EventServiceManager::getInstance().updateSubscription(id);
+            }
+            // Other case, do nothing
+        };
+
         // Load config from persist store.
         initConfig();
+        redfish::KafkaManager::getInstance(&ioc);
     }
 
     static EventServiceManager&
@@ -669,6 +762,8 @@ class EventServiceManager
             subValue->resourceTypes = newSub->resourceTypes;
             subValue->httpHeaders = newSub->httpHeaders;
             subValue->metricReportDefinitions = newSub->metricReportDefinitions;
+            subValue->state = newSub->state;
+            subValue->owner = newSub->owner;
 
             if (subValue->id.empty())
             {
@@ -777,7 +872,7 @@ class EventServiceManager
         }
     }
 
-    void updateSubscriptionData() const
+    void persistSubscriptionData() const
     {
         persistent_data::EventServiceStore::getInstance()
             .eventServiceConfig.enabled = serviceEnabled;
@@ -824,7 +919,7 @@ class EventServiceManager
 
         if (updateConfig)
         {
-            updateSubscriptionData();
+            persistSubscriptionData();
         }
 
         if (updateRetryCfg)
@@ -914,6 +1009,7 @@ class EventServiceManager
             return "";
         }
 
+        subValue->id = id;
         std::shared_ptr<persistent_data::UserSubscription> newSub =
             std::make_shared<persistent_data::UserSubscription>();
         newSub->id = id;
@@ -928,6 +1024,9 @@ class EventServiceManager
         newSub->resourceTypes = subValue->resourceTypes;
         newSub->httpHeaders = subValue->httpHeaders;
         newSub->metricReportDefinitions = subValue->metricReportDefinitions;
+        newSub->state = subValue->state;
+        newSub->owner = subValue->owner;
+
         persistent_data::EventServiceStore::getInstance()
             .subscriptionsConfigMap.emplace(newSub->id, newSub);
 
@@ -935,7 +1034,7 @@ class EventServiceManager
 
         if (updateFile)
         {
-            updateSubscriptionData();
+            persistSubscriptionData();
         }
 
         if constexpr (!BMCWEB_REDFISH_DBUS_LOG)
@@ -950,6 +1049,12 @@ class EventServiceManager
 
         // Set Subscription ID for back trace
         subValue->setSubscriptionId(id);
+
+        /* Log event for subscription addition */
+        sd_journal_send("MESSAGE=Event subscription added(Id: %s)", id.c_str(),
+                        "PRIORITY=%i", LOG_INFO, "REDFISH_MESSAGE_ID=%s",
+                        "OpenBMC.0.1.EventSubscriptionAdded",
+                        "REDFISH_MESSAGE_ARGS=%s", id.c_str(), NULL);
         return id;
     }
 
@@ -970,26 +1075,47 @@ class EventServiceManager
             persistent_data::EventServiceStore::getInstance()
                 .subscriptionsConfigMap.erase(obj2);
             updateNoOfSubscribersCount();
-            updateSubscriptionData();
+            persistSubscriptionData();
+
+            /* Log event for subscription delete. */
+            sd_journal_send("MESSAGE=Event subscription removed.(Id = %s)",
+                            id.c_str(), "PRIORITY=%i", LOG_INFO,
+                            "REDFISH_MESSAGE_ID=%s",
+                            "OpenBMC.0.1.EventSubscriptionRemoved",
+                            "REDFISH_MESSAGE_ARGS=%s", id.c_str(), NULL);
         }
     }
 
-    void deleteSseSubscription(const crow::sse_socket::Connection& thisConn)
+    void deleteSseSubscription(
+        const std::shared_ptr<crow::sse_socket::Connection>& thisConn)
     {
         for (auto it = subscriptionsMap.begin(); it != subscriptionsMap.end();)
         {
             std::shared_ptr<Subscription> entry = it->second;
-            bool entryIsThisConn = entry->matchSseId(thisConn);
-            if (entryIsThisConn)
+            if (entry->subscriptionType == subscriptionTypeSSE)
             {
-                persistent_data::EventServiceStore::getInstance()
-                    .subscriptionsConfigMap.erase(
-                        it->second->getSubscriptionId());
-                it = subscriptionsMap.erase(it);
-                return;
+                std::optional<std::string> id =
+                    entry->getSubscriptionId(thisConn);
+                if (id)
+                {
+                    deleteSubscription(*id);
+                    return;
+                }
             }
             it++;
         }
+    }
+
+    void updateSubscription(const std::string& id) const
+    {
+        persistSubscriptionData();
+
+        /* Log event for subscription update. */
+        sd_journal_send("MESSAGE=Event subscription updated.(Id = %s)",
+                        id.c_str(), "PRIORITY=%i", LOG_INFO,
+                        "REDFISH_MESSAGE_ID=%s",
+                        "OpenBMC.0.1.EventSubscriptionUpdated",
+                        "REDFISH_MESSAGE_ARGS=%s", id.c_str(), NULL);
     }
 
     size_t getNumberOfSubscriptions() const

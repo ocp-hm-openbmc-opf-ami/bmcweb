@@ -3,6 +3,40 @@
     "$schema": "http://redfish.dmtf.org/schemas/v1/redfish-schema-v1.json",
     "copyright": "Copyright 2014-2019 DMTF. For the full DMTF copyright policy, see http://www.dmtf.org/about/policies/copyright",
     "definitions": {
+        "Intel": {
+            "additionalProperties": false,
+            "description": "Oem Properties for Intel",
+            "longDescription": "Oem Properties for Intel",
+            "patternProperties": {
+                "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
+                    "description": "This property shall specify a valid odata or Redfish property.",
+                    "type": [
+                        "array",
+                        "boolean",
+                        "integer",
+                        "number",
+                        "null",
+                        "object",
+                        "string"
+                    ]
+                }
+            },
+            "properties": {
+                "CpldErr": {
+                    "description": "CpldErr is the error source.",
+                    "longDescription": "CPLD Postcode displayed.",
+                    "readonly": true,
+                    "type": "string"
+                },
+		"CpldLastState": {
+                    "description": "CpldLastState is the Power state.",
+                    "longDescription": "Power state displayed.",
+                    "readonly": true,
+                    "type": "string"
+                }
+            },
+            "type": "object"
+        },
         "FirmwareProvisioning": {
             "additionalProperties": false,
             "description": "Configuration data for platform firmware provisioning.",
@@ -73,6 +107,11 @@
                 }
             },
             "properties": {
+		"Intel": {
+                    "$ref": "#/definitions/Intel",
+                    "description": "OemComputerSystem Properties for Intel",
+                    "readonly": true
+                },
                 "OpenBmc": {
                     "anyOf": [
                         {

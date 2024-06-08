@@ -39,8 +39,8 @@ namespace redfish
 
 static constexpr const std::array<const char*, 2> supportedEvtFormatTypes = {
     eventFormatType, metricReportFormatType};
-static constexpr const std::array<const char*, 3> supportedRegPrefixes = {
-    "Base", "OpenBMC", "TaskEvent"};
+static constexpr const std::array<const char*, 2> supportedRegPrefixes = {
+    "OpenBMC", "TaskEvent"};
 static constexpr const std::array<const char*, 3> supportedRetryPolicies = {
     "TerminateAfterRetries", "SuspendRetries", "RetryForever"};
 
@@ -194,14 +194,8 @@ inline void doSubscriptionCollection(
 {
     if (ec)
     {
-        if (ec.value() == EBADR || ec.value() == EHOSTUNREACH)
-        {
-            // This is an optional process so just return if it isn't there
-            return;
-        }
-
-        BMCWEB_LOG_ERROR("D-Bus response error on GetManagedObjects {}", ec);
-        messages::internalError(asyncResp->res);
+        // This is an optional process so just return if it isn't there
+        BMCWEB_LOG_DEBUG("EventService: The SNMP service is not enabled");
         return;
     }
     nlohmann::json& memberArray = asyncResp->res.jsonValue["Members"];
@@ -251,6 +245,19 @@ inline void requestRoutesEventDestinationCollection(App& app)
                 "/redfish/v1/EventService/Subscriptions/{}" + id);
             memberArray.emplace_back(std::move(member));
         }
+
+        // Fill in Kafka subscriptions
+        std::vector<std::string> kafkaIds =
+            KafkaManager::getInstance().getAllIDs();
+        asyncResp->res.jsonValue["Members@odata.count"] = subscripIds.size() +
+                                                          kafkaIds.size();
+        for (const std::string& id : kafkaIds)
+        {
+            memberArray.push_back(
+                {{"@odata.id",
+                  "/redfish/v1/EventService/Subscriptions/" + id}});
+        }
+
         crow::connections::systemBus->async_method_call(
             [asyncResp](const boost::system::error_code& ec,
                         const dbus::utility::ManagedObjectType& resp) {
@@ -287,6 +294,7 @@ inline void requestRoutesEventDestinationCollection(App& app)
         std::optional<std::vector<std::string>> resTypes;
         std::optional<std::vector<nlohmann::json::object_t>> headers;
         std::optional<std::vector<nlohmann::json::object_t>> mrdJsonArray;
+        std::optional<nlohmann::json> oemObj;
 
         if (!json_util::readJsonPatch(
                 req, asyncResp->res, "Destination", destUrl, "Context", context,
@@ -294,8 +302,16 @@ inline void requestRoutesEventDestinationCollection(App& app)
                 "EventFormatType", eventFormatType2, "HttpHeaders", headers,
                 "RegistryPrefixes", regPrefixes, "MessageIds", msgIds,
                 "DeliveryRetryPolicy", retryPolicy, "MetricReportDefinitions",
-                mrdJsonArray, "ResourceTypes", resTypes))
+                mrdJsonArray, "ResourceTypes", resTypes, "Oem", oemObj))
         {
+            return;
+        }
+
+        if (protocol == "Oem")
+        {
+            // Handle to support Kafka streaming support
+            KafkaManager::getInstance().createSubscription(*oemObj, destUrl,
+                                                           context, asyncResp);
             return;
         }
 
@@ -405,10 +421,18 @@ inline void requestRoutesEventDestinationCollection(App& app)
             return;
         }
 
+        if (req.session == nullptr || req.session->username.empty())
+        {
+            BMCWEB_LOG_ERROR("Request Session Undefined");
+            messages::noValidSession(asyncResp->res);
+            return;
+        }
+
         std::shared_ptr<Subscription> subValue =
             std::make_shared<Subscription>(*url, app.ioContext());
 
         subValue->destinationUrl = std::move(*url);
+        subValue->owner = req.session->username;
 
         if (subscriptionType)
         {
@@ -611,6 +635,10 @@ inline void requestRoutesEventDestinationCollection(App& app)
             }
         }
 
+        // Default is Enabled, when subscription is suspended, this will
+        // be set to "Disabled" state.
+        subValue->state = "Enabled";
+
         std::string id =
             EventServiceManager::getInstance().addSubscription(subValue);
         if (id.empty())
@@ -623,6 +651,43 @@ inline void requestRoutesEventDestinationCollection(App& app)
         asyncResp->res.addHeader(
             "Location", "/redfish/v1/EventService/Subscriptions/" + id);
     });
+}
+
+bool isConfigureManagerOrSelf(const crow::Request& req,
+                              const std::shared_ptr<Subscription>& subValue)
+{
+    Privileges effectiveUserPrivileges =
+        redfish::getUserPrivileges(*req.session);
+    bool isConfigureManager =
+        effectiveUserPrivileges.isSupersetOf({"ConfigureManager"});
+
+    if (!isConfigureManager)
+    {
+        // If the user does not have Configure manager privilege
+        // then the user must be an Operator (i.e. Configure
+        // Components and Self)
+        // We need to ensure that the User is the actual owner of
+        // the Subscription being patched
+        // This also supports backward compatibility as subscription
+        // owner would be empty which would not be equal to current
+        // user, enabling only Admin to be able to patch the
+        // Subscription
+
+        if (req.session == nullptr || req.session->username.empty())
+        {
+            BMCWEB_LOG_ERROR(
+                "Insufficient Privilege. Request Session Undefined");
+            return false;
+        }
+
+        if (subValue->owner != req.session->username)
+        {
+            BMCWEB_LOG_ERROR(
+                "Insufficient Privilege. User is not the owner of this Subscription");
+            return false;
+        }
+    }
+    return true;
 }
 
 inline void requestRoutesEventDestination(App& app)
@@ -648,7 +713,8 @@ inline void requestRoutesEventDestination(App& app)
             EventServiceManager::getInstance().getSubscription(param);
         if (subValue == nullptr)
         {
-            asyncResp->res.result(boost::beast::http::status::not_found);
+            // Lookup in Kafka subscriptions
+            KafkaManager::getInstance().getSubscription(param, asyncResp);
             return;
         }
         const std::string& id = param;
@@ -672,6 +738,8 @@ inline void requestRoutesEventDestination(App& app)
 
         asyncResp->res.jsonValue["MessageIds"] = subValue->registryMsgIds;
         asyncResp->res.jsonValue["DeliveryRetryPolicy"] = subValue->retryPolicy;
+        asyncResp->res.jsonValue["Status"]["Health"] = "OK";
+        asyncResp->res.jsonValue["Status"]["State"] = subValue->state;
 
         nlohmann::json::array_t mrdJsonArray;
         for (const auto& mdrUri : subValue->metricReportDefinitions)
@@ -683,11 +751,7 @@ inline void requestRoutesEventDestination(App& app)
         asyncResp->res.jsonValue["MetricReportDefinitions"] = mrdJsonArray;
     });
     BMCWEB_ROUTE(app, "/redfish/v1/EventService/Subscriptions/<str>/")
-        // The below privilege is wrong, it should be ConfigureManager OR
-        // ConfigureSelf
-        // https://github.com/openbmc/bmcweb/issues/220
-        //.privileges(redfish::privileges::patchEventDestination)
-        .privileges({{"ConfigureManager"}})
+        .privileges(redfish::privileges::patchEventDestination)
         .methods(boost::beast::http::verb::patch)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -700,7 +764,15 @@ inline void requestRoutesEventDestination(App& app)
             EventServiceManager::getInstance().getSubscription(param);
         if (subValue == nullptr)
         {
-            asyncResp->res.result(boost::beast::http::status::not_found);
+            // Lookup in Kafka subscriptions
+            KafkaManager::getInstance().updateSubscription(req, param,
+                                                           asyncResp);
+            return;
+        }
+
+        if (!isConfigureManagerOrSelf(req, subValue))
+        {
+            messages::insufficientPrivilege(asyncResp->res);
             return;
         }
 
@@ -754,14 +826,10 @@ inline void requestRoutesEventDestination(App& app)
             subValue->retryPolicy = *retryPolicy;
         }
 
-        EventServiceManager::getInstance().updateSubscriptionData();
+        EventServiceManager::getInstance().updateSubscription(param);
     });
     BMCWEB_ROUTE(app, "/redfish/v1/EventService/Subscriptions/<str>/")
-        // The below privilege is wrong, it should be ConfigureManager OR
-        // ConfigureSelf
-        // https://github.com/openbmc/bmcweb/issues/220
-        //.privileges(redfish::privileges::deleteEventDestination)
-        .privileges({{"ConfigureManager"}})
+        .privileges(redfish::privileges::deleteEventDestination)
         .methods(boost::beast::http::verb::delete_)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -778,11 +846,21 @@ inline void requestRoutesEventDestination(App& app)
             return;
         }
 
-        if (!EventServiceManager::getInstance().isSubscriptionExist(param))
+        std::shared_ptr<Subscription> subValue =
+            EventServiceManager::getInstance().getSubscription(param);
+        if (subValue == nullptr)
         {
-            asyncResp->res.result(boost::beast::http::status::not_found);
+            // Lookup in Kafka subscription.
+            KafkaManager::getInstance().deleteSubscription(param, asyncResp);
             return;
         }
+
+        if (!isConfigureManagerOrSelf(req, subValue))
+        {
+            messages::insufficientPrivilege(asyncResp->res);
+            return;
+        }
+
         EventServiceManager::getInstance().deleteSubscription(param);
     });
 }

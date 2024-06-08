@@ -134,6 +134,7 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
     std::string subId;
     std::shared_ptr<ConnectionPolicy> connPolicy;
     boost::urls::url host;
+    bool verifyCert;
     uint32_t connId;
 
     // Data buffers
@@ -161,6 +162,31 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
 
     friend class ConnectionPool;
 
+    void setupSSLConn()
+    {
+        if (host.scheme() == "https")
+        {
+            std::optional<boost::asio::ssl::context> sslCtx =
+                ensuressl::getSSLClientContext(verifyCert);
+
+            if (!sslCtx)
+            {
+                BMCWEB_LOG_ERROR("prepareSSLContext failed - {}, id: {}", host,
+                                 connId);
+                // Don't retry if failure occurs while preparing SSL context
+                // such as certificate is invalid or set cipher failure or set
+                // host name failure etc... Setting conn state to sslInitFailed
+                // and connection state will be transitioned to next state
+                // depending on retry policy set by subscription.
+                state = ConnState::sslInitFailed;
+                sslConn = std::nullopt;
+                return;
+            }
+            sslConn.emplace(conn, *sslCtx);
+            setCipherSuiteTLSext();
+        }
+    }
+
     void doResolve()
     {
         state = ConnState::resolveInProgress;
@@ -184,6 +210,16 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
         }
         BMCWEB_LOG_DEBUG("Resolved {}, id: {}", host, connId);
         state = ConnState::connectInProgress;
+
+        if (host.scheme() == "https")
+        {
+            setupSSLConn();
+            if (!sslConn)
+            {
+                waitAndRetry();
+                return;
+            }
+        }
 
         BMCWEB_LOG_DEBUG("Trying to connect to: {}, id: {}", host, connId);
 
@@ -608,7 +644,7 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
         if (ssl)
         {
             std::optional<boost::asio::ssl::context> sslCtx =
-                ensuressl::getSSLClientContext();
+                ensuressl::getSSLClientContext(verifyCert);
 
             if (!sslCtx)
             {
@@ -633,10 +669,11 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
     explicit ConnectionInfo(
         boost::asio::io_context& iocIn, const std::string& idIn,
         const std::shared_ptr<ConnectionPolicy>& connPolicyIn,
-        const boost::urls::url_view_base& hostIn, unsigned int connIdIn) :
+        const boost::urls::url_view_base& hostIn, bool verifyCertIn,
+        unsigned int connIdIn) :
         subId(idIn),
-        connPolicy(connPolicyIn), host(hostIn), connId(connIdIn), ioc(iocIn),
-        resolver(iocIn), conn(iocIn), timer(iocIn)
+        connPolicy(connPolicyIn), host(hostIn), verifyCert(verifyCertIn),
+        connId(connIdIn), ioc(iocIn), resolver(iocIn), conn(iocIn), timer(iocIn)
     {
         initializeConnection(host.scheme() == "https");
     }
@@ -649,6 +686,7 @@ class ConnectionPool : public std::enable_shared_from_this<ConnectionPool>
     std::string id;
     std::shared_ptr<ConnectionPolicy> connPolicy;
     boost::urls::url destIP;
+    bool verifyCert;
     std::vector<std::shared_ptr<ConnectionInfo>> connections;
     boost::container::devector<PendingRequest> requestQueue;
 
@@ -820,7 +858,7 @@ class ConnectionPool : public std::enable_shared_from_this<ConnectionPool>
         unsigned int newId = static_cast<unsigned int>(connections.size());
 
         auto& ret = connections.emplace_back(std::make_shared<ConnectionInfo>(
-            ioc, id, connPolicy, destIP, newId));
+            ioc, id, connPolicy, destIP, verifyCert, newId));
 
         BMCWEB_LOG_DEBUG("Added connection {} to pool {}",
                          connections.size() - 1, id);
@@ -832,9 +870,10 @@ class ConnectionPool : public std::enable_shared_from_this<ConnectionPool>
     explicit ConnectionPool(
         boost::asio::io_context& iocIn, const std::string& idIn,
         const std::shared_ptr<ConnectionPolicy>& connPolicyIn,
-        const boost::urls::url_view_base& destIPIn) :
+        const boost::urls::url_view_base& destIPIn, bool verifyCertIn) :
         ioc(iocIn),
-        id(idIn), connPolicy(connPolicyIn), destIP(destIPIn)
+        id(idIn), connPolicy(connPolicyIn), destIP(destIPIn),
+        verifyCert(verifyCertIn)
     {
         BMCWEB_LOG_DEBUG("Initializing connection pool for {}", id);
 
@@ -876,17 +915,19 @@ class HttpClient
     // Send a request to destIP where additional processing of the
     // result is not required
     void sendData(std::string&& data, const boost::urls::url_view_base& destUri,
-                  const boost::beast::http::fields& httpHeader,
+                  bool verifyCert, const boost::beast::http::fields& httpHeader,
                   const boost::beast::http::verb verb)
     {
         const std::function<void(Response&)> cb = genericResHandler;
-        sendDataWithCallback(std::move(data), destUri, httpHeader, verb, cb);
+        sendDataWithCallback(std::move(data), destUri, verifyCert, httpHeader,
+                             verb, cb);
     }
 
     // Send request to destIP and use the provided callback to
     // handle the response
     void sendDataWithCallback(std::string&& data,
                               const boost::urls::url_view_base& destUrl,
+                              bool verifyCert,
                               const boost::beast::http::fields& httpHeader,
                               const boost::beast::http::verb verb,
                               const std::function<void(Response&)>& resHandler)
@@ -897,7 +938,7 @@ class HttpClient
         if (pool.first->second == nullptr)
         {
             pool.first->second = std::make_shared<ConnectionPool>(
-                ioc, clientKey, connPolicy, destUrl);
+                ioc, clientKey, connPolicy, destUrl, verifyCert);
         }
         // Send the data using either the existing connection pool or the
         // newly created connection pool

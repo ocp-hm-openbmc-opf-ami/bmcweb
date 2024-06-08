@@ -1107,6 +1107,15 @@ nlohmann::json arraySizeTooLong(std::string_view property, uint64_t length);
 void arraySizeTooLong(crow::Response& res, std::string_view property,
                       uint64_t length);
 
+/**
+ * @brief Formats InvalidQueryFilter message into JSON
+ * Message body: "The requested URL contains the invalid query filters"
+ *
+ * @returns Message InvalidQueryFilter formatted to JSON */
+nlohmann::json invalidQueryFilter();
+
+void invalidQueryFilter(crow::Response& res);
+
 } // namespace messages
 
 } // namespace redfish
