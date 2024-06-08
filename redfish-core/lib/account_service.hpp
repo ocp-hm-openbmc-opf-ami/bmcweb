@@ -1132,8 +1132,11 @@ inline void updateUserProperties(
          accountTypes(std::move(accountTypes)), userSelf, session,
          passwordChangeRequired, oemAccountTypes,
          asyncResp{std::move(asyncResp)}](int rc) {
+        // isDuplicateCreated used to reduce success message for each patch
+        std::optional<bool> isDuplicateCreated = false;
         if (rc <= 0)
         {
+            isDuplicateCreated = false;
             messages::resourceNotFound(asyncResp->res, "ManagerAccount",
                                        username);
             return;
@@ -1141,6 +1144,7 @@ inline void updateUserProperties(
 
         if (passwordChangeRequired)
         {
+            isDuplicateCreated = false;
             messages::propertyNotWritable(asyncResp->res,
                                           "PasswordChangeRequired");
         }
@@ -1150,6 +1154,7 @@ inline void updateUserProperties(
             int pamrc = pamAuthenticateUser(username, *password);
             if ((pamrc == PAM_NEW_AUTHTOK_REQD))
             {
+                isDuplicateCreated = false;
                 BMCWEB_LOG_ERROR("Need to provide new Password");
                 messages::passwordResetFailed(asyncResp->res);
                 return;
@@ -1158,11 +1163,13 @@ inline void updateUserProperties(
 
             if (retval == PAM_USER_UNKNOWN)
             {
+                isDuplicateCreated = false;
                 messages::resourceNotFound(asyncResp->res, "ManagerAccount",
                                            username);
             }
             else if (retval == PAM_AUTHTOK_ERR)
             {
+                isDuplicateCreated = false;
                 // If password is invalid
                 messages::propertyValueFormatError(asyncResp->res, nullptr,
                                                    "Password");
@@ -1170,15 +1177,13 @@ inline void updateUserProperties(
             }
             else if (retval != PAM_SUCCESS)
             {
+                isDuplicateCreated = false;
                 messages::passwordResetFailed(asyncResp->res);
                 return;
             }
             else
             {
-                // Remove existing sessions of the user when password changed
-                persistent_data::SessionStore::getInstance()
-                    .removeSessionsByUsernameExceptSession(username, session);
-                messages::success(asyncResp->res);
+                isDuplicateCreated = false;
             }
         }
 
@@ -1188,6 +1193,7 @@ inline void updateUserProperties(
                             dbusObjectPath,
                             "xyz.openbmc_project.User.Attributes",
                             "UserEnabled", "Enabled", *enabled);
+            isDuplicateCreated = true;
         }
 
         if ((username == "root") && roleId)
@@ -1204,6 +1210,7 @@ inline void updateUserProperties(
             std::string priv = getPrivilegeFromRoleId(*roleId);
             if (priv.empty())
             {
+                isDuplicateCreated = false;
                 messages::propertyValueNotInList(asyncResp->res, true,
                                                  "Locked");
                 return;
@@ -1212,6 +1219,7 @@ inline void updateUserProperties(
                             dbusObjectPath,
                             "xyz.openbmc_project.User.Attributes",
                             "UserPrivilege", "RoleId", priv);
+             isDuplicateCreated = true;
         }
 
         if (locked)
@@ -1289,6 +1297,10 @@ inline void updateUserProperties(
                     return;
                 }
             });
+        }
+        if (isDuplicateCreated)
+        {
+            messages::success(asyncResp->res);
         }
     });
 }
