@@ -27,6 +27,7 @@
 #include <boost/system/error_code.hpp>
 #include <boost/url/format.hpp>
 #include <sdbusplus/asio/property.hpp>
+#include <utils/service_utils.hpp>
 
 #include <array>
 #include <optional>
@@ -39,13 +40,14 @@ namespace redfish
 void getNTPProtocolEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp);
 std::string getHostName();
 
-static constexpr std::string_view sshServiceName = "dropbear";
-static constexpr std::string_view httpsServiceName = "bmcweb";
-static constexpr std::string_view ipmiServiceName = "phosphor-ipmi-net";
+static constexpr const char* sshServiceName = "dropbear";
+static constexpr const char* httpsServiceName = "bmcweb";
+static constexpr const char* ipmiServiceName = "phosphor_2dipmi_2dnet";
 
 // Mapping from Redfish NetworkProtocol key name to backend service that hosts
 // that protocol.
-static constexpr std::array<std::pair<std::string_view, std::string_view>, 3>
+static constexpr std::array<std::pair<const char*, const char*>, 3>
+
     networkProtocolToDbus = {{{"SSH", sshServiceName},
                               {"HTTPS", httpsServiceName},
                               {"IPMI", ipmiServiceName}}};
@@ -237,8 +239,21 @@ inline void getNetworkData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 BMCWEB_REDFISH_MANAGER_URI_NAME);
     }
 
-    getPortStatusAndPath(std::span(networkProtocolToDbus),
-                         std::bind_front(afterNetworkPortRequest, asyncResp));
+    for (const auto& protocol : networkProtocolToDbus)
+    {
+        const std::string& protocolName = protocol.first;
+        const std::string& serviceName = protocol.second;
+
+        service_util::getEnabled(
+            asyncResp, serviceName,
+            nlohmann::json::json_pointer(std::string("/") + protocolName +
+                                         "/ProtocolEnabled"));
+        service_util::getPortNumber(
+            asyncResp, serviceName,
+            nlohmann::json::json_pointer(std::string("/") + protocolName +
+                                         "/Port"));
+    }
+
 } // namespace redfish
 
 inline void afterSetNTP(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -271,20 +286,57 @@ inline void handleNTPProtocolEnabled(
 // string, to set a value
 // null, to delete the value
 // object_t, empty json object, to ignore the value
-using IpAddress =
-    std::variant<std::string, nlohmann::json::object_t, std::nullptr_t>;
+//using IpAddress =
+//    std::variant<std::string, nlohmann::json::object_t, std::nullptr_t>;
 
 inline void
     handleNTPServersPatch(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                          const std::vector<IpAddress>& ntpServerObjects,
+                          const std::vector<nlohmann::json>& ntpServerObjects,
                           std::vector<std::string> currentNtpServers)
 {
     std::vector<std::string>::iterator currentNtpServer =
         currentNtpServers.begin();
+
+    size_t limit = 3;
+
+    if (ntpServerObjects.size() > limit)
+    {
+        BMCWEB_LOG_DEBUG("out of Limit");
+        asyncResp->res.result(boost::beast::http::status::bad_request);
+        return;
+    }
+
+    auto isValidNtpServer = [](const std::string& server) -> bool {
+        for (char c : server)
+        {
+            if (!isdigit(c) && !isalpha(c) && c != '-' && c != '.')
+            {
+                return false; // Found an invalid character
+            }
+        }
+        return true; // All characters are valid
+    };
+
+    for (const auto& ntpServerObject : ntpServerObjects)
+    {
+        std::string ntpServerAddress = ntpServerObject.get<std::string>();
+        //const std::string* ntpServerAddress =
+        //    std::get_if<std::string>(&ntpServerObject);
+
+        if (!isValidNtpServer(ntpServerAddress))
+        {
+            BMCWEB_LOG_DEBUG("Invalid character found in NTP server address.");
+            messages::propertyValueFormatError(asyncResp->res, ntpServerAddress,
+                                               "NTPServers");
+            return;
+        }
+    }
+
     for (size_t index = 0; index < ntpServerObjects.size(); index++)
     {
-        const IpAddress& ntpServer = ntpServerObjects[index];
-        if (std::holds_alternative<std::nullptr_t>(ntpServer))
+        const nlohmann::json& ntpServer = ntpServerObjects[index];
+        //if (std::holds_alternative<std::nullptr_t>(ntpServer))
+	if (ntpServer.is_null())
         {
             // Can't delete an item that doesn't exist
             if (currentNtpServer == currentNtpServers.end())
@@ -299,7 +351,8 @@ inline void
             continue;
         }
         const nlohmann::json::object_t* ntpServerObject =
-            std::get_if<nlohmann::json::object_t>(&ntpServer);
+            //std::get_if<nlohmann::json::object_t>(&ntpServer);
+	    ntpServer.get_ptr<const nlohmann::json::object_t*>();
         if (ntpServerObject != nullptr)
         {
             if (!ntpServerObject->empty())
@@ -323,7 +376,7 @@ inline void
             continue;
         }
 
-        const std::string* ntpServerStr = std::get_if<std::string>(&ntpServer);
+        const std::string* ntpServerStr = ntpServer.get_ptr<const std::string*>(); 
         if (ntpServerStr == nullptr)
         {
             messages::internalError(asyncResp->res);
@@ -417,7 +470,7 @@ inline std::string getHostName()
 {
     std::string hostName;
 
-    std::array<char, HOST_NAME_MAX> hostNameCStr{};
+    std::array<char, HOST_NAME_MAX + 1> hostNameCStr{};
     if (gethostname(hostNameCStr.data(), hostNameCStr.size()) == 0)
     {
         hostName = hostNameCStr.data();
@@ -482,7 +535,7 @@ inline void handleManagersNetworkProtocolPatch(
 
     std::optional<std::string> newHostName;
 
-    std::optional<std::vector<IpAddress>> ntpServerObjects;
+    std::optional<std::vector<nlohmann::json>> ntpServerObjects;
     std::optional<bool> ntpEnabled;
     std::optional<bool> ipmiEnabled;
     std::optional<bool> sshEnabled;
@@ -531,7 +584,7 @@ inline void handleManagersNetworkProtocolPatch(
     {
         handleProtocolEnabled(
             *ipmiEnabled, asyncResp,
-            encodeServiceObjectPath(std::string(ipmiServiceName) + '@'));
+            encodeServiceObjectPath(std::string(ipmiServiceName)));
     }
 
     if (sshEnabled)

@@ -1015,7 +1015,7 @@ void propertyValueTypeError(crow::Response& res, const nlohmann::json& arg1,
                             std::string_view arg2)
 {
     res.result(boost::beast::http::status::bad_request);
-    addMessageToJson(res.jsonValue, propertyValueTypeError(arg1, arg2), arg2);
+    addMessageToErrorJson(res.jsonValue, propertyValueTypeError(arg1, arg2));
 }
 
 /**
@@ -1075,7 +1075,7 @@ nlohmann::json propertyNotWritable(std::string_view arg1)
 
 void propertyNotWritable(crow::Response& res, std::string_view arg1)
 {
-    res.result(boost::beast::http::status::forbidden);
+    res.result(boost::beast::http::status::bad_request);
     addMessageToJson(res.jsonValue, propertyNotWritable(arg1), arg1);
 }
 
@@ -1318,7 +1318,7 @@ void success(crow::Response& res)
 {
     // don't set res.result here because success is the default and any
     // error should overwrite the default
-    addMessageToJsonRoot(res.jsonValue, success());
+    addMessageToErrorJson(res.jsonValue, success());
 }
 
 /**
@@ -1914,6 +1914,19 @@ void invalidQueryFilter(crow::Response& res)
 {
     res.result(boost::beast::http::status::bad_request);
     addMessageToErrorJson(res.jsonValue, invalidQueryFilter());
+}
+
+nlohmann::json invalidip(std::string_view arg1, std::string_view arg2)
+{
+    return getLog(redfish::registries::base::Index::invalidip,
+                  std::to_array({arg1, arg2}));
+}
+
+void invalidip(crow::Response& res, std::string_view arg1,
+               std::string_view arg2)
+{
+    res.result(boost::beast::http::status::bad_request);
+    addMessageToErrorJson(res.jsonValue, invalidip(arg1, arg2));
 }
 
 } // namespace messages

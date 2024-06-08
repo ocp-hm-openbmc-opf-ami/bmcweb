@@ -206,6 +206,10 @@ inline std::string getTransferProtocolTypeFromUri(const std::string& imageUri)
     {
         return "HTTPS";
     }
+    if (scheme == "nfs")
+    {
+        return "NFS";
+    }
 
     return "None";
 }
@@ -422,6 +426,7 @@ enum class TransferProtocol
 {
     https,
     smb,
+    nfs,
     invalid
 };
 
@@ -440,6 +445,10 @@ inline std::optional<TransferProtocol>
     if (scheme == "https")
     {
         return TransferProtocol::https;
+    }
+    if (scheme == "nfs")
+    {
+        return TransferProtocol::nfs;
     }
     if (!scheme.empty())
     {
@@ -466,6 +475,11 @@ inline std::optional<TransferProtocol> getTransferProtocolFromParam(
         return TransferProtocol::smb;
     }
 
+    if (*transferProtocolType == "NFS")
+    {
+        return TransferProtocol::nfs;
+    }
+
     if (*transferProtocolType == "HTTPS")
     {
         return TransferProtocol::https;
@@ -485,6 +499,11 @@ inline std::string
     if (transferProtocol == TransferProtocol::smb)
     {
         return "smb://" + imageUri;
+    }
+
+    if (transferProtocol == TransferProtocol::nfs)
+    {
+        return "nfs://" + imageUri;
     }
 
     if (transferProtocol == TransferProtocol::https)
@@ -617,6 +636,7 @@ inline void doMountVmLegacy(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                             std::string&& userName, std::string&& password)
 {
     int fd = -1;
+    dbus::utility::DbusVariantType unixFd = -1;
     std::shared_ptr<CredentialsPipe> secretPipe;
     if (!userName.empty() || !password.empty())
     {
@@ -652,8 +672,10 @@ inline void doMountVmLegacy(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     auto wrapper = doListenForCompletion(name, objectPath, action, true,
                                          asyncResp);
 
-    dbus::utility::DbusVariantType unixFd(
-        std::in_place_type<sdbusplus::message::unix_fd>, fd);
+    if(imageUrl.find("nfs://") != 0){
+    unixFd = dbus::utility::DbusVariantType(
+    std::in_place_type<sdbusplus::message::unix_fd>, fd);
+    }
 
     sdbusplus::message::object_path path(
         "/xyz/openbmc_project/VirtualMedia/Legacy");
@@ -709,7 +731,7 @@ inline void validateParams(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     {
         BMCWEB_LOG_ERROR("Request action parameter Image is empty.");
 
-        messages::propertyValueFormatError(asyncResp->res, "<empty>", "Image");
+	messages::actionParameterMissing(asyncResp->res, "<empty>", "Image");
 
         return;
     }
@@ -758,7 +780,7 @@ inline void validateParams(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     {
         BMCWEB_LOG_ERROR("Request action parameter ImageUrl must "
                          "contain specified protocol type from list: "
-                         "(smb, https).");
+                         "(smb, nfs, https).");
 
         messages::resourceAtUriInUnknownFormat(asyncResp->res, *url);
 
@@ -810,6 +832,32 @@ inline void validateParams(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         }
     }
 
+    // validate the Username and Password for CIFS and HTTPS
+
+   if (actionParams.transferProtocolType == "CIFS" || actionParams.transferProtocolType == "HTTPS")
+   {
+      if (!actionParams.userName || actionParams.userName == "")
+
+       {
+          BMCWEB_LOG_ERROR("Request action parameter UserName is Missing.");
+
+          messages::actionParameterMissing(asyncResp->res, "InsertMedia", "Username");
+
+          return;
+
+       }
+      if (!actionParams.password || actionParams.password == "")
+
+       {
+          BMCWEB_LOG_ERROR("Request action parameter Password is Missing.");
+
+          messages::actionParameterMissing(asyncResp->res, "InsertMedia", "Password");
+
+          return;
+
+       }
+
+   }
     // validation passed, add protocol to URI if needed
     if (!uriTransferProtocolType && paramTransferProtocolType)
     {
@@ -1117,8 +1165,8 @@ void insertMediaCheckMode(
     {
         BMCWEB_LOG_DEBUG(
             "InsertMedia only allowed with POST method in legacy mode");
-        aResp->res.result(boost::beast::http::status::method_not_allowed);
-
+        //aResp->res.result(boost::beast::http::status::method_not_allowed);
+        messages::operationNotAllowed(aResp->res);
         return;
     }
     // Check if dbus path is Proxy type

@@ -171,6 +171,9 @@ inline void
         {"target", "/redfish/v1/Systems/system/Bios/Actions/"
                    "Bios.ChangePassword"}};
 
+    asyncResp->res.jsonValue["Settings"]["@odata.id"] =
+            "/redfish/v1/Systems/system/Bios/Settings";
+
     // Get the ActiveSoftwareImage and SoftwareImages
     sw_util::populateSoftwareInformation(asyncResp, sw_util::biosPurpose, "",
                                          true);

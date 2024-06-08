@@ -22,8 +22,8 @@ inline void
     if ((manager.getNumberOfSubscriptions() >= maxNoOfSubscriptions) ||
         manager.getNumberOfSSESubscriptions() >= maxNoOfSSESubscriptions)
     {
-        BMCWEB_LOG_WARNING("Max SSE subscriptions reached");
         messages::eventSubscriptionLimitExceeded(asyncResp->res);
+        asyncResp->res.result(boost::beast::http::status::bad_request);
         return;
     }
 

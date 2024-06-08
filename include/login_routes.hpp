@@ -175,6 +175,30 @@ inline void handleLogin(const crow::Request& req,
 
             // if content type is json, assume json token
             asyncResp->res.jsonValue["token"] = session->sessionToken;
+
+            if (std::filesystem::exists("/usr/lib/redfish/core/libami.so.1"))
+            {
+            std::string user(username);
+            sdbusplus::asio::getProperty<bool>(
+                *crow::connections::systemBus,
+                "xyz.openbmc_project.User.Manager",
+                "/xyz/openbmc_project/user/" + user,
+                "xyz.openbmc_project.User.Attributes", "TwoFacEnableStatus",
+                [asyncResp](const boost::system::error_code& ec,
+                            bool ServiceEnabled) {
+                if (ec)
+                {
+                    asyncResp->res.result(
+                        boost::beast::http::status::internal_server_error);
+                    return;
+                }
+                asyncResp->res.jsonValue["TwoFacEnableStatus"] = ServiceEnabled;
+            });
+            }
+            else
+            {
+                asyncResp->res.jsonValue["TwoFacEnableStatus"] = "N/A";
+            }
         }
     }
     else

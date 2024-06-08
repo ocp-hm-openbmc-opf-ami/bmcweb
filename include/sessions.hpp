@@ -355,11 +355,20 @@ class SessionStore
     {
         return std::chrono::seconds(timeoutInSeconds).count();
     }
+    std::chrono::time_point<std::chrono::steady_clock> getTimeSinceLastTimeoutInSeconds() const
+    {
+        return lastTimeoutUpdate;
+    }
 
     void updateSessionTimeout(std::chrono::seconds newTimeoutInSeconds)
     {
         timeoutInSeconds = newTimeoutInSeconds;
         needWrite = true;
+    }
+    void updatelastSessionTime()
+    {
+        auto timeNow = std::chrono::steady_clock::now();
+        lastTimeoutUpdate = timeNow;
     }
 
     static SessionStore& getInstance()

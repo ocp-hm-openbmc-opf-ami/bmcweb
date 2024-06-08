@@ -2011,6 +2011,66 @@ constexpr std::array registry =
             "None.",
         }},
     MessageEntry{
+        "SensorProcessorPresence",
+        {
+            "Indicates that Processor Presence is detected",
+            "%1 asserted %2 Event",
+            "OK",
+            2,
+            {"string", "string"},
+            "None.",
+        }},
+    MessageEntry{
+        "SensorWatchdog2",
+        {
+            "Indicates that Watchdog2 Event Detected",
+            "%1 asserted %2 Event",
+            "OK",
+            2,
+            {"string", "string"},
+            "None.",
+        }},
+    MessageEntry{
+        "OSCriticalStop",
+        {
+            "Indicates that Critical Event in Operating System is Detected",
+            "%1 Event is detected in Operating System",
+            "OK",
+            1,
+            {"string"},
+            "None.",
+        }},
+    MessageEntry{
+        "SensorSystemACPIPowerState",
+        {
+            "Indicates System ACPI Power State Event Detected",
+            "%1 asserted %2 Event",
+            "OK",
+            2,
+            {"string", "string"},
+            "None.",
+        }},
+    MessageEntry{
+        "SensorDeviceACPIPowerStateAssert",
+        {
+            "Indicates Device ACPI Power State Event Detected",
+            "%1 asserted %2 Event",
+            "OK",
+            2,
+            {"string", "string"},
+            "None.",
+        }},
+    MessageEntry{
+        "SensorDeviceACPIPowerStateDeassert",
+        {
+            "Indicates Device ACPI Power State Event Detected",
+            "%1 deasserted %2 Event",
+            "OK",
+            2,
+            {"string", "string"},
+            "None.",
+        }},
+    MessageEntry{
         "ResetButtonPressed",
         {
             "Indicates that the reset button was pressed.",

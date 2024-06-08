@@ -1116,6 +1116,9 @@ nlohmann::json invalidQueryFilter();
 
 void invalidQueryFilter(crow::Response& res);
 
+nlohmann::json invalidip(std::string_view arg1, std::string_view arg2);
+void invalidip(crow::Response& res, std::string_view arg1,
+               std::string_view arg2);
 } // namespace messages
 
 } // namespace redfish

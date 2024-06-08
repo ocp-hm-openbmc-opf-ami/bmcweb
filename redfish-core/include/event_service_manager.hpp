@@ -399,6 +399,12 @@ class Subscription : public persistent_data::UserSubscription
 
     ~Subscription() = default;
 
+    void getSseConnection(std::shared_ptr<crow::sse_socket::Connection>& connPtr)
+    {
+	connPtr = sseConn;
+	return;
+    }
+
     bool sendEvent(std::string&& msg)
     {
         persistent_data::EventServiceConfig eventServiceConfig =
@@ -444,7 +450,6 @@ class Subscription : public persistent_data::UserSubscription
 
         if (sseConn != nullptr)
         {
-            eventSeqNum++;
             sseConn->sendEvent(std::to_string(eventSeqNum), msg);
         }
         return true;
@@ -1067,8 +1072,15 @@ class EventServiceManager
     void deleteSubscription(const std::string& id)
     {
         auto obj = subscriptionsMap.find(id);
+        std::shared_ptr<crow::sse_socket::Connection> sseConnPtr = NULL;
         if (obj != subscriptionsMap.end())
         {
+	    std::shared_ptr<Subscription> entry = obj->second;
+	    if (entry->subscriptionType == subscriptionTypeSSE)
+	    {
+		entry->getSseConnection(sseConnPtr);
+	    }	
+
             subscriptionsMap.erase(obj);
             auto obj2 = persistent_data::EventServiceStore::getInstance()
                             .subscriptionsConfigMap.find(id);
@@ -1084,6 +1096,10 @@ class EventServiceManager
                             "OpenBMC.0.1.EventSubscriptionRemoved",
                             "REDFISH_MESSAGE_ARGS=%s", id.c_str(), NULL);
         }
+        if(sseConnPtr)
+        {
+            sseConnPtr->close("subscription deleted");
+        }	
     }
 
     void deleteSseSubscription(

@@ -1235,6 +1235,7 @@ inline void clearDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             messages::internalError(asyncResp->res);
             return;
         }
+        messages::success(asyncResp->res);
     },
         "xyz.openbmc_project.Dump.Manager", getDumpPath(dumpType),
         "xyz.openbmc_project.Collection.DeleteAll", "DeleteAll");
@@ -3090,9 +3091,17 @@ inline void handleDBusEventLogEntryDownloadGet(
     {
         return;
     }
-    if (!http_helpers::isContentTypeAllowed(
+    /*if (!http_helpers::isContentTypeAllowed(
             req.getHeaderValue("Accept"),
             http_helpers::ContentType::OctetStream, true))
+    {
+        asyncResp->res.result(boost::beast::http::status::bad_request);
+        return;
+    }*/
+    std::string_view Accept = req.getHeaderValue("Accept");
+    if (Accept.find("text/html, */*") == std::string::npos &&
+        Accept.find("text/html, */*;q=0.8") == std::string::npos &&
+        Accept.find("*/*") == std::string::npos)
     {
         asyncResp->res.result(boost::beast::http::status::bad_request);
         return;
@@ -3802,7 +3811,6 @@ inline void requestRoutesCrashdumpCollect(App& app)
             messages::actionParameterValueFormatError(
                 asyncResp->res, diagnosticDataType, "DiagnosticDataType",
                 "CollectDiagnosticData");
-            return;
         }
 
         OEMDiagnosticType oemDiagType =

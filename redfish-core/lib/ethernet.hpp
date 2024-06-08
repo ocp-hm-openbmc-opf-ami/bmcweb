@@ -132,6 +132,8 @@ struct DHCPParameters
     std::optional<std::string> dhcpv6OperatingMode;
 };
 
+std::optional<std::string> defaultGatewayValue;
+
 // Helper function that changes bits netmask notation (i.e. /24)
 // into full dot notation
 inline std::string getNetmask(unsigned int bits)
@@ -747,8 +749,7 @@ inline void deleteIPAddress(const std::string& ifaceId,
         {
             messages::internalError(asyncResp->res);
         }
-    },
-        "xyz.openbmc_project.Network",
+    }, "xyz.openbmc_project.Network",
         "/xyz/openbmc_project/network/" + ifaceId + ipHash,
         "xyz.openbmc_project.Object.Delete", "Delete");
 }
@@ -815,13 +816,12 @@ inline void deleteAndCreateIPAddress(
         std::string protocol = "xyz.openbmc_project.Network.IP.Protocol.";
         protocol += version == IpVersion::IpV4 ? "IPv4" : "IPv6";
         crow::connections::systemBus->async_method_call(
-            [asyncResp](const boost::system::error_code& ec2) {
+            [asyncResp, address](const boost::system::error_code& ec2) {
             if (ec2)
             {
-                messages::internalError(asyncResp->res);
+                messages::invalidip(asyncResp->res, "Address", address);
             }
-        },
-            "xyz.openbmc_project.Network",
+        }, "xyz.openbmc_project.Network",
             "/xyz/openbmc_project/network/" + ifaceId,
             "xyz.openbmc_project.Network.IP.Create", "IP", protocol, address,
             prefixLength, gateway);
@@ -893,8 +893,7 @@ inline void createIPv6(const std::string& ifaceId, uint8_t prefixLength,
         {
             if (ec == boost::system::errc::io_error)
             {
-                messages::propertyValueFormatError(asyncResp->res, address,
-                                                   "Address");
+                messages::invalidip(asyncResp->res, "Address", address);
             }
             else
             {
@@ -932,9 +931,8 @@ inline void
         {
             messages::internalError(asyncResp->res);
         }
-    },
-        "xyz.openbmc_project.Network", path,
-        "xyz.openbmc_project.Object.Delete", "Delete");
+    }, "xyz.openbmc_project.Network", path, "xyz.openbmc_project.Object.Delete",
+        "Delete");
 }
 
 /**
@@ -1275,6 +1273,7 @@ inline bool isHostnameValid(const std::string& hostname)
     // MUST handle host names of up to 63 characters (RFC 1123)
     // labels cannot start or end with hyphens (RFC 952)
     // labels can start with numbers (RFC 1123)
+    // hostname starts with an alphanumeric character
     const static std::regex pattern(
         "^[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\\-]{0,61}[a-zA-Z0-9]$");
 
@@ -1283,10 +1282,16 @@ inline bool isHostnameValid(const std::string& hostname)
 
 inline bool isDomainnameValid(const std::string& domainname)
 {
-    // Can have multiple subdomains
-    // Top Level Domain's min length is 2 character
+    // Can have Multiple Sub Domains
+    // Top Level Domain is mandatory and max length is 63 characters, although
+    // most are around 2-3 characters. Can have only alphabetical characters.
+    // For Top Level Domain, we have limited max length and min length as 6 and
+    // 2 respectively. Need to have at least one Sub Domain, apart from the Top
+    // Level Domain(TLD) Each Sub Domain(label) can have up to 63 characters.
+    // Each Sub Domain(label) can have alphanumeric characters, cannot start or
+    // end with hyphens, need to have a trailing dot after each subdomain.
     const static std::regex pattern(
-        "^([A-Za-z0-9][a-zA-Z0-9\\-]{1,61}|[a-zA-Z0-9]{1,30}\\.)*[a-zA-Z]{2,}$");
+        "^([a-zA-Z0-9]([a-zA-Z0-9\\-]{0,61}[a-zA-Z0-9])?\\.)+([a-zA-Z]{2,6})$");
 
     return std::regex_match(domainname, pattern);
 }
@@ -1584,6 +1589,13 @@ inline void handleIPv4StaticPatch(
             // current request.
             if (address)
             {
+                if (*address == *defaultGatewayValue)
+                {
+                    messages::propertyValueConflict(asyncResp->res, "Address",
+                                                    "DefaultGateway");
+                    return;
+                }
+
                 if (!ip_util::ipv4VerifyIpAndGetBitcount(*address))
                 {
                     messages::propertyValueFormatError(asyncResp->res, *address,
@@ -1640,6 +1652,13 @@ inline void handleIPv4StaticPatch(
                                                        pathString + "/Gateway");
                     return;
                 }
+                if (*address == *gateway)
+                {
+                    messages::propertyValueConflict(asyncResp->res, "Gateway",
+                                                    "Address");
+                    return;
+                }
+                defaultGatewayValue = gateway;
             }
             else if (nicIpEntry != ipv4Data.cend())
             {
@@ -1859,6 +1878,13 @@ inline void
         jsonResponse["LinkStatus"] = "NoLink";
         jsonResponse["Status"]["State"] = "Disabled";
     }
+    if (ipv6GatewayData.size() != 1)
+    {
+        messages::arraySizeTooLong(asyncResp->res, "IPv6StaticDefaultGateways",
+                                   ipv6GatewayData.size());
+        asyncResp->res.result(boost::beast::http::status::bad_request);
+        return;
+    }
 
     jsonResponse["SpeedMbps"] = ethData.speed;
     jsonResponse["MTUSize"] = ethData.mtuSize;
@@ -2021,6 +2047,7 @@ inline void afterDelete(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 inline void afterVlanCreate(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                             const std::string& parentInterfaceUri,
                             const std::string& vlanInterface,
+                            const uint32_t vlanId,
                             const boost::system::error_code& ec,
                             const sdbusplus::message_t& m
 
@@ -2049,8 +2076,20 @@ inline void afterVlanCreate(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 "xyz.openbmc_project.Common.Error.InvalidArgument") ==
             dbusError->name)
         {
-            messages::resourceAlreadyExists(asyncResp->res, "EthernetInterface",
-                                            "Id", vlanInterface);
+            // messages::resourceAlreadyExists(asyncResp->res,
+            // "EthernetInterface",
+            //                                 "Id", vlanInterface);
+            messages::propertyValueIncorrect(asyncResp->res, "VLANId",
+                                             std::to_string(vlanId));
+            return;
+        }
+        if (std::string_view("xyz.openbmc_project.Common.Error.NotAllowed") ==
+            dbusError->name)
+        {
+            messages::resourceCreationConflict(
+                asyncResp->res,
+                boost::urls::url(
+                    "/redfish/v1/Managers/bmc/EthernetInterfaces"));
             return;
         }
         messages::internalError(asyncResp->res);
@@ -2201,11 +2240,11 @@ inline void requestEthernetInterfacesRoutes(App& app)
         std::string vlanInterface = parentInterface + "_" +
                                     std::to_string(vlanId);
         crow::connections::systemBus->async_method_call(
-            [asyncResp, parentInterfaceUri,
-             vlanInterface](const boost::system::error_code& ec,
-                            const sdbusplus::message_t& m) {
-            afterVlanCreate(asyncResp, parentInterfaceUri, vlanInterface, ec,
-                            m);
+            [asyncResp, parentInterfaceUri, vlanInterface,
+             vlanId](const boost::system::error_code& ec,
+                     const sdbusplus::message_t& m) {
+            afterVlanCreate(asyncResp, parentInterfaceUri, vlanInterface,
+                            vlanId, ec, m);
         },
             "xyz.openbmc_project.Network", "/xyz/openbmc_project/network",
             "xyz.openbmc_project.Network.VLAN.Create", "VLAN", parentInterface,

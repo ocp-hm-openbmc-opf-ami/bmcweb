@@ -132,6 +132,7 @@ inline bool translateUserGroup(const std::vector<std::string>& userGroups,
         {
             accountTypes.emplace_back("Redfish");
             accountTypes.emplace_back("WebUI");
+            accountTypes.emplace_back("VirtualMedia");
         }
         else if (userGroup == "ipmi")
         {
@@ -385,7 +386,7 @@ inline void handleRoleMapPatch(
                     if (ec)
                     {
                         BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
-                        messages::internalError(asyncResp->res);
+                        messages::propertyValueFormatError(asyncResp->res,"Missing","Invalid");
                         return;
                     }
                     asyncResp->res.jsonValue[serverType]["RemoteRoleMapping"]
@@ -486,7 +487,17 @@ inline void handleRoleMapPatch(
                     if (ec)
                     {
                         BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
-                        messages::internalError(asyncResp->res);
+                        //messages::internalError(asyncResp->res);
+                        if(localRole.has_value())
+                        {
+                            messages::propertyValueIncorrect(
+                                    asyncResp->res, "LocalRole", *localRole);
+                        }
+                        if(remoteGroup.has_value())
+                        {
+                            messages::propertyValueIncorrect(
+                                    asyncResp->res, "RemoteGroup", *remoteGroup);
+                        }
                         return;
                     }
                     nlohmann::json& remoteRoleJson =

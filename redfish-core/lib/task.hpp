@@ -157,10 +157,9 @@ struct TaskData : std::enable_shared_from_this<TaskData>
             res.addHeader(boost::beast::http::field::retry_after,
                           std::to_string(retryAfterSeconds));
         }
-        else if (!gave204)
+        else if (!taskCompleted)
         {
-            res.result(boost::beast::http::status::no_content);
-            gave204 = true;
+            taskCompleted = true;
         }
     }
 
@@ -317,7 +316,7 @@ struct TaskData : std::enable_shared_from_this<TaskData>
     std::unique_ptr<sdbusplus::bus::match_t> match;
     std::optional<time_t> endTime;
     std::optional<Payload> payload;
-    bool gave204 = false;
+    bool taskCompleted = false;
     int percentComplete = 0;
 };
 
@@ -354,13 +353,13 @@ inline void requestRoutesTaskMonitor(App& app)
             return;
         }
         std::shared_ptr<task::TaskData>& ptr = *find;
-        // monitor expires after 204
-        if (ptr->gave204)
+        ptr->populateResp(asyncResp->res);
+        // monitor expires after taskCompleted
+        if (ptr->taskCompleted)
         {
             messages::resourceNotFound(asyncResp->res, "Task", strParam);
             return;
         }
-        ptr->populateResp(asyncResp->res);
     });
 }
 
@@ -412,7 +411,7 @@ inline void requestRoutesTask(App& app)
         asyncResp->res.jsonValue["Messages"] = ptr->messages;
         asyncResp->res.jsonValue["@odata.id"] =
             boost::urls::format("/redfish/v1/TaskService/Tasks/{}", strParam);
-        if (!ptr->gave204)
+        if (!ptr->taskCompleted)
         {
             asyncResp->res.jsonValue["TaskMonitor"] =
                 "/redfish/v1/TaskService/Tasks/" + strParam + "/Monitor";

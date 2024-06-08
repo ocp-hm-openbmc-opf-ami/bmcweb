@@ -361,7 +361,7 @@ inline void requestRoutesEventDestinationCollection(App& app)
 
         if (protocol == "SNMPv2c")
         {
-            if (context)
+            /*if (context)
             {
                 messages::propertyValueConflict(asyncResp->res, "Context",
                                                 "Protocol");
@@ -414,8 +414,13 @@ inline void requestRoutesEventDestinationCollection(App& app)
                 messages::propertyValueConflict(asyncResp->res, "Destination",
                                                 "Protocol");
                 return;
+            }*/
+            if (*subscriptionType == "RedfishEvent")
+            {
+                messages::propertyValueConflict(asyncResp->res, "SubscriptionType",
+                                                    "Protocol");
+                return;
             }
-
             addSnmpTrapClient(asyncResp, url->host_address(),
                               url->port_number());
             return;

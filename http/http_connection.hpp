@@ -697,6 +697,23 @@ class Connection :
             gracefulClose();
             return;
         }
+        if (res.keepAlive())
+        {
+            std::error_code reqEc;
+            req = std::make_shared<crow::Request>(parser->release(), reqEc);
+            if (reqEc)
+            {
+                BMCWEB_LOG_DEBUG("Request failed to construct",
+                                 reqEc.message());
+                return;
+            }
+            // close the request connection from HTTP 1.0
+            if (req->version() == 10)
+            {
+                gracefulClose();
+                return;
+            }
+        }
 
         BMCWEB_LOG_DEBUG("{} Clearing response", logPtr(this));
         res.clear();

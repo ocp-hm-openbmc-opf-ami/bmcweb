@@ -156,7 +156,7 @@ inline void requestRoutesNodeManagerService(App& app)
             "org.freedesktop.DBus.Properties", "Set",
             "xyz.openbmc_project.Object.Enable", "Enabled",
             std::variant<bool>(nmEnabled));
-        return;
+        asyncResp->res.result(boost::beast::http::status::no_content);
         });
 
     BMCWEB_ROUTE(

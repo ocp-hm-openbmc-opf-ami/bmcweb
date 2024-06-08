@@ -1081,6 +1081,7 @@ inline void
         {
             return;
         }
+        asyncResp->res.result(boost::beast::http::status::no_content);
     },
         "xyz.openbmc_project.Telemetry", getDbusReportPath(id),
         "org.freedesktop.DBus.Properties", "Set",

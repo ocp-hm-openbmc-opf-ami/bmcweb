@@ -41,6 +41,7 @@
 #include <sdbusplus/asio/property.hpp>
 #include <sdbusplus/message.hpp>
 #include <sdbusplus/unpack_properties.hpp>
+#include <utils/service_utils.hpp>
 
 #include <array>
 #include <memory>
@@ -52,6 +53,12 @@
 
 namespace redfish
 {
+
+static constexpr const char* serialConsoleSshServiceName =
+    "obmc_2dconsole_2dssh";
+static constexpr const char* virtualMediaServiceName =
+    "xyz_2eopenbmc_project_2eVirtualMedia";
+static constexpr const char* kvmServiceName = "start_2dipkvm";
 
 const static std::array<std::pair<std::string_view, std::string_view>, 2>
     protocolToDBusForSystems{
@@ -961,7 +968,7 @@ inline void getCPLDBootProgress(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
             *powerState;
         aResp->res.jsonValue["BootProgress"]["Oem"]["Intel"]["CpldErr"] =
             *errorSource;
-        },
+    },
         "xyz.openbmc_project.DCSCM.Cpld.Manager",
         "/xyz/openbmc_project/dcscm/cpld/manager/CPU",
         "org.freedesktop.DBus.Properties", "GetAll",
@@ -1569,9 +1576,26 @@ inline void getTrustedModuleRequiredToBoot(
  * @return None.
  */
 inline void setTrustedModuleRequiredToBoot(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, const bool tpmRequired)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& bootTrustedModuleRequired)
 {
-    BMCWEB_LOG_DEBUG("Set TrustedModuleRequiredToBoot.");
+    bool tpmRequired = false;
+
+    if (bootTrustedModuleRequired == "Required")
+    {
+        tpmRequired = true;
+    }
+    else if (bootTrustedModuleRequired == "Disabled")
+    {
+        tpmRequired = false;
+    }
+    else
+    {
+        messages::propertyValueNotInList(asyncResp->res,
+                                         bootTrustedModuleRequired,
+                                         "TrustedModuleRequiredToBoot");
+        return;
+    }
     constexpr std::array<std::string_view, 1> interfaces = {
         "xyz.openbmc_project.Control.TPM.Policy"};
     dbus::utility::getSubTree(
@@ -2901,6 +2925,65 @@ inline void
     BMCWEB_LOG_DEBUG("EXIT: Set idle power saver parameters");
 }
 
+/**
+ * @brief Retrieves Serial console over SSH properties
+ * // https://github.com/openbmc/docs/blob/master/console.md
+ *
+ * @param[in] aResp     Shared pointer for completing asynchronous calls.
++ * @return None.
+ */
+inline void getSerialConsoleSshStatus(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    service_util::getEnabled(
+        asyncResp, serialConsoleSshServiceName,
+        nlohmann::json::json_pointer("/SerialConsole/SSH/ServiceEnabled"));
+    service_util::getSerialConsoleSshMasked(asyncResp,
+                                            +serialConsoleSshServiceName,
+                                            "SerialConsole", "SSH", "Masked");
+    service_util::getPortNumber(
+        asyncResp, serialConsoleSshServiceName,
+        nlohmann::json::json_pointer("/SerialConsole/SSH/Port"));
+    asyncResp->res.jsonValue["SerialConsole"]["SSH"]["HotKeySequenceDisplay"] =
+        "Press ~. to exit console";
+}
+
+/**
+ * @brief Retrieves virtual media properties
+ *
+ * @param[in] aResp     Shared pointer for completing asynchronous calls.
+ *
+ * @return None.
+ */
+inline void
+    getVirtualMediaConfig(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    service_util::getEnabled(
+        asyncResp, virtualMediaServiceName,
+        nlohmann::json::json_pointer("/VirtualMediaConfig/ServiceEnabled"));
+    service_util::getMasked(asyncResp, virtualMediaServiceName,
+                            "VirtualMediaConfig", "Masked");
+}
+
+/**
+ * @brief Retrieves KVM properties
+ *
+ * @param[in] aResp     Shared pointer for completing asynchronous calls.
+ *
+ * @return None.
+ */
+inline void getKvmConfig(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    service_util::getEnabled(
+        asyncResp, kvmServiceName,
+        nlohmann::json::json_pointer("/GraphicalConsole/ServiceEnabled"));
+    asyncResp->res.jsonValue["GraphicalConsole"] = {
+        {"ConnectTypesSupported", {"KVMIP"}},
+    };
+    service_util::getMasked(asyncResp, kvmServiceName, "GraphicalConsole",
+                            "Masked");
+}
+
 inline void handleComputerSystemCollectionHead(
     crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
@@ -2995,8 +3078,7 @@ inline void doNMI(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
             return;
         }
         messages::success(asyncResp->res);
-    },
-        serviceName, objectPath, interfaceName, method);
+    }, serviceName, objectPath, interfaceName, method);
 }
 
 inline void handleComputerSystemResetActionPost(
@@ -3223,22 +3305,13 @@ inline void
     asyncResp->res.jsonValue["SerialConsole"]["MaxConcurrentSessions"] = 15;
     asyncResp->res.jsonValue["SerialConsole"]["IPMI"]["ServiceEnabled"] = true;
 
-    asyncResp->res.jsonValue["SerialConsole"]["SSH"]["ServiceEnabled"] = true;
-    asyncResp->res.jsonValue["SerialConsole"]["SSH"]["Port"] = 2200;
-    asyncResp->res.jsonValue["SerialConsole"]["SSH"]["HotKeySequenceDisplay"] =
-        "Press ~. to exit console";
     getPortStatusAndPath(std::span{protocolToDBusForSystems},
                          std::bind_front(afterPortRequest, asyncResp));
 
-    if constexpr (BMCWEB_KVM)
-    {
-        // Fill in GraphicalConsole info
-        asyncResp->res.jsonValue["GraphicalConsole"]["ServiceEnabled"] = true;
-        asyncResp->res.jsonValue["GraphicalConsole"]["MaxConcurrentSessions"] =
-            4;
-        asyncResp->res.jsonValue["GraphicalConsole"]["ConnectTypesSupported"] =
-            nlohmann::json::array_t({"KVMIP"});
-    }
+#ifdef BMCWEB_VM_NBDPROXY
+    asyncResp->res.jsonValue["VirtualMedia"] = {
+        {"@odata.id", "/redfish/v1/Managers/bmc/VirtualMedia"}};
+#endif
 
     getMainChassisId(asyncResp,
                      [](const std::string& chassisId,
@@ -3273,6 +3346,9 @@ inline void
     getTrustedModuleRequiredToBoot(asyncResp);
     getPowerMode(asyncResp);
     getIdlePowerSaver(asyncResp);
+    getSerialConsoleSshStatus(asyncResp);
+    getKvmConfig(asyncResp);
+    getVirtualMediaConfig(asyncResp);
 }
 
 inline void handleComputerSystemPatch(
@@ -3314,13 +3390,16 @@ inline void handleComputerSystemPatch(
     std::optional<std::string> bootEnable;
     std::optional<std::string> bootAutomaticRetry;
     std::optional<uint32_t> bootAutomaticRetryAttempts;
-    std::optional<bool> bootTrustedModuleRequired;
+    std::optional<std::string> bootTrustedModuleRequired;
     std::optional<std::string> stopBootOnFault;
     std::optional<bool> ipsEnable;
     std::optional<uint8_t> ipsEnterUtil;
     std::optional<uint64_t> ipsEnterTime;
     std::optional<uint8_t> ipsExitUtil;
     std::optional<uint64_t> ipsExitTime;
+    std::optional<nlohmann::json> serialConsole;
+    std::optional<nlohmann::json> virtualMediaConfig;
+    std::optional<nlohmann::json> kvmConfig;
 
     // clang-format off
                 if (!json_util::readJsonPatch(
@@ -3343,7 +3422,10 @@ inline void handleComputerSystemPatch(
                         "IdlePowerSaver/EnterUtilizationPercent", ipsEnterUtil,
                         "IdlePowerSaver/EnterDwellTimeSeconds", ipsEnterTime,
                         "IdlePowerSaver/ExitUtilizationPercent", ipsExitUtil,
-                        "IdlePowerSaver/ExitDwellTimeSeconds", ipsExitTime))
+                        "IdlePowerSaver/ExitDwellTimeSeconds", ipsExitTime,                        
+                        "SerialConsole", serialConsole,
+                        "VirtualMediaConfig", virtualMediaConfig,
+                        "GraphicalConsole", kvmConfig))
                 {
                     return;
                 }
@@ -3416,6 +3498,76 @@ inline void handleComputerSystemPatch(
         setIdlePowerSaver(asyncResp, ipsEnable, ipsEnterUtil, ipsEnterTime,
                           ipsExitUtil, ipsExitTime);
     }
+
+    if (kvmConfig)
+    {
+        std::optional<bool> kvmServiceEnabled;
+
+        if (!json_util::readJson(*kvmConfig, asyncResp->res, "ServiceEnabled",
+                                 kvmServiceEnabled))
+        {
+            return;
+        }
+
+        if (kvmServiceEnabled)
+        {
+            service_util::setEnabled(asyncResp, kvmServiceName,
+                                     *kvmServiceEnabled);
+            asyncResp->res.jsonValue["GraphicalConsole"] = {
+                {"MaxConcurrentSessions", *kvmServiceEnabled ? 4 : 0},
+                {"ConnectTypesSupported", {"KVMIP"}},
+            };
+        }
+    }
+
+    if (serialConsole)
+    {
+        std::optional<nlohmann::json> ssh;
+        if (!json_util::readJson(*serialConsole, asyncResp->res, "SSH", ssh))
+        {
+            return;
+        }
+
+        if (ssh)
+        {
+            std::optional<bool> sshServiceEnabled;
+            std::optional<uint16_t> sshPortNumber;
+            if (!json_util::readJson(*ssh, asyncResp->res, "ServiceEnabled",
+                                     sshServiceEnabled, "Port", sshPortNumber))
+            {
+                return;
+            }
+
+            if (sshServiceEnabled)
+            {
+                service_util::setEnabled(asyncResp, serialConsoleSshServiceName,
+                                         *sshServiceEnabled);
+            }
+
+            if (sshPortNumber)
+            {
+                service_util::setPortNumber(
+                    asyncResp, serialConsoleSshServiceName, *sshPortNumber);
+            }
+        }
+    }
+
+    if (virtualMediaConfig)
+    {
+        std::optional<bool> vmServiceEnabled;
+        if (!json_util::readJson(*virtualMediaConfig, asyncResp->res,
+                                 "ServiceEnabled", vmServiceEnabled))
+        {
+            return;
+        }
+
+        if (vmServiceEnabled)
+        {
+            service_util::setEnabled(asyncResp, virtualMediaServiceName,
+                                     *vmServiceEnabled);
+        }
+    }
+
 }
 
 inline void handleSystemCollectionResetActionHead(

@@ -1308,6 +1308,19 @@ constexpr std::array registry =
             {},
             "Correct the request body and resubmit the request if it failed.",
         }},
+    MessageEntry{
+	    "InvalidIP",
+	    {
+		"Indicates that a given IP address is invalid",
+		"The Requested IP address  is invalid",
+		"warning",
+		2,
+		{
+			"string"
+			"string",
+		},
+		"Provide Valid IP address",
+	}},
 
 };
 
@@ -1423,5 +1436,6 @@ enum class Index
     success = 107,
     undeterminedFault = 108,
     unrecognizedRequestBody = 109,
+    invalidip=110,
 };
 } // namespace redfish::registries::base

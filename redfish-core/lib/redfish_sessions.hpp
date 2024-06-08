@@ -424,19 +424,24 @@ inline void handleSessionCollectionPost(
         return;
     }
 
+    asyncResp->res.addHeader("X-XSS-Protection", "1; mode=block");
     asyncResp->res.addHeader("X-Auth-Token", session->sessionToken);
     asyncResp->res.addHeader(
         "Location", "/redfish/v1/SessionService/Sessions/" + session->uniqueId);
-    asyncResp->res.result(boost::beast::http::status::created);
     if (session->isConfigureSelfOnly)
     {
+        asyncResp->res.result(boost::beast::http::status::forbidden);
         messages::passwordChangeRequired(
             asyncResp->res,
             boost::urls::format("/redfish/v1/AccountService/Accounts/{}",
                                 session->username));
     }
+    else
+    {
+        asyncResp->res.result(boost::beast::http::status::created);
+        fillSessionObject(asyncResp->res, *session);
+    }
 
-    fillSessionObject(asyncResp->res, *session);
 }
 inline void handleSessionServiceHead(
     crow::App& app, const crow::Request& req,
@@ -469,12 +474,60 @@ inline void
     asyncResp->res.jsonValue["Name"] = "Session Service";
     asyncResp->res.jsonValue["Id"] = "SessionService";
     asyncResp->res.jsonValue["Description"] = "Session Service";
-    asyncResp->res.jsonValue["SessionTimeout"] =
-        persistent_data::SessionStore::getInstance().getTimeoutInSeconds();
+    // asyncResp->res.jsonValue["SessionTimeout"] =
+    //     persistent_data::SessionStore::getInstance().getTimeoutInSeconds();
     asyncResp->res.jsonValue["ServiceEnabled"] = true;
 
     asyncResp->res.jsonValue["Sessions"]["@odata.id"] =
         "/redfish/v1/SessionService/Sessions";
+    crow::connections::systemBus->async_method_call(
+        [asyncResp](const boost::system::error_code ec,
+                    const std::variant<uint64_t>& value) {
+        if (ec)
+        {
+            BMCWEB_LOG_DEBUG("failed to get property Value  ", ec);
+            return;
+        }
+
+        const uint64_t* s = std::get_if<uint64_t>(&value);
+        asyncResp->res.jsonValue["SessionTimeout"] = *s;
+    },
+        "xyz.openbmc_project.Control.Service.Manager",
+        "/xyz/openbmc_project/control/service/bmcweb",
+        "org.freedesktop.DBus.Properties", "Get",
+        "xyz.openbmc_project.Control.Service.Attributes", "SessionTimeOut");
+    crow::connections::systemBus->async_method_call(
+        [asyncResp](const boost::system::error_code ec,
+                    const std::variant<uint16_t>& value) {
+        if (ec)
+        {
+            BMCWEB_LOG_DEBUG("failed to get property Value  ", ec);
+            return;
+        }
+
+        const uint16_t* s = std::get_if<uint16_t>(&value);
+        asyncResp->res.jsonValue["Oem"]["OpenBmc"]["BMCwebPort"] = *s;
+    },
+        "xyz.openbmc_project.Control.Service.Manager",
+        "/xyz/openbmc_project/control/service/bmcweb",
+        "org.freedesktop.DBus.Properties", "Get",
+        "xyz.openbmc_project.Control.Service.SocketAttributes", "Port");
+    crow::connections::systemBus->async_method_call(
+        [asyncResp](const boost::system::error_code ec,
+                    const std::variant<uint64_t>& value) {
+        if (ec)
+        {
+            BMCWEB_LOG_DEBUG("failed to get property Value  ", ec);
+            return;
+        }
+
+        const uint64_t* s = std::get_if<uint64_t>(&value);
+        asyncResp->res.jsonValue["Oem"]["OpenBmc"]["KVMSessionTimeout"] = *s;
+    },
+        "xyz.openbmc_project.Control.Service.Manager",
+        "/xyz/openbmc_project/control/service/start_2dipkvm",
+        "org.freedesktop.DBus.Properties", "Get",
+        "xyz.openbmc_project.Control.Service.Attributes", "SessionTimeOut");
 }
 
 inline void handleSessionServicePatch(
@@ -485,9 +538,10 @@ inline void handleSessionServicePatch(
     {
         return;
     }
-    std::optional<int64_t> sessionTimeout;
+    std::optional<uint64_t> sessionTimeout;
+    std::optional<nlohmann::json> oem;
     if (!json_util::readJsonPatch(req, asyncResp->res, "SessionTimeout",
-                                  sessionTimeout))
+                                  sessionTimeout, "Oem", oem))
     {
         return;
     }
@@ -504,13 +558,87 @@ inline void handleSessionServicePatch(
             std::chrono::seconds sessionTimeoutInseconds(*sessionTimeout);
             persistent_data::SessionStore::getInstance().updateSessionTimeout(
                 sessionTimeoutInseconds);
-            messages::propertyValueModified(asyncResp->res, "SessionTimeOut",
-                                            std::to_string(*sessionTimeout));
+
+            crow::connections::systemBus->async_method_call(
+                [asyncResp,
+                 sessionTimeout](const boost::system::error_code ec) {
+                if (ec)
+                {
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+                messages::success(asyncResp->res);
+            },
+                "xyz.openbmc_project.Control.Service.Manager",
+                "/xyz/openbmc_project/control/service/bmcweb",
+                "org.freedesktop.DBus.Properties", "Set",
+                "xyz.openbmc_project.Control.Service.Attributes",
+                "SessionTimeOut", std::variant<uint64_t>(*sessionTimeout));
         }
         else
         {
             messages::propertyValueNotInList(asyncResp->res, *sessionTimeout,
                                              "SessionTimeOut");
+        }
+    }
+
+    if (oem)
+    {
+        std::optional<nlohmann::json> openBmc;
+
+        if (!json_util::readJson(*oem, asyncResp->res, "OpenBmc", openBmc))
+        {
+            return;
+        }
+        if (openBmc)
+        {
+            std::optional<uint64_t> kvmSessionTimeout;
+            std::optional<uint16_t> bmcwebPort;
+            if (!json_util::readJson(*openBmc, asyncResp->res,
+                                     "KVMSessionTimeout", kvmSessionTimeout,
+                                     "BMCwebPort", bmcwebPort))
+            {
+                return;
+            }
+
+            if (kvmSessionTimeout)
+            {
+                crow::connections::systemBus->async_method_call(
+                    [asyncResp](const boost::system::error_code ec) {
+                    if (ec)
+                    {
+                        BMCWEB_LOG_ERROR("Error patching {}", ec);
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    messages::success(asyncResp->res);
+                },
+                    "xyz.openbmc_project.Control.Service.Manager",
+                    "/xyz/openbmc_project/control/service/start_2dipkvm",
+                    "org.freedesktop.DBus.Properties", "Set",
+                    "xyz.openbmc_project.Control.Service.Attributes",
+                    "SessionTimeOut",
+                    std::variant<uint64_t>(*kvmSessionTimeout));
+            }
+
+            if (bmcwebPort)
+            {
+                crow::connections::systemBus->async_method_call(
+                    [asyncResp](const boost::system::error_code ec) {
+                    if (ec)
+                    {
+                        BMCWEB_LOG_ERROR("Error patching {}", ec);
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    messages::success(asyncResp->res);
+                },
+                    "xyz.openbmc_project.Control.Service.Manager",
+                    "/xyz/openbmc_project/control/service/bmcweb",
+                    "org.freedesktop.DBus.Properties", "Set",
+                    "xyz.openbmc_project.Control.Service.SocketAttributes",
+                    "Port", std::variant<uint16_t>(*bmcwebPort));
+            }
         }
     }
 }

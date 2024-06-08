@@ -25,6 +25,7 @@
 #include "utils/dbus_utils.hpp"
 #include "utils/json_utils.hpp"
 
+#include <boost/algorithm/string/predicate.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/url/format.hpp>
 #include <sdbusplus/asio/property.hpp>
@@ -668,6 +669,8 @@ inline void
         return;
     }
 
+    asyncResp->res.result(boost::beast::http::status::no_content);
+
     // TODO (Gunnar): Remove IndicatorLED after enough time has passed
     if (!locationIndicatorActive && !indicatorLed)
     {
@@ -828,30 +831,61 @@ inline void
 inline void handleChassisResetActionInfoPost(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& /*chassisId*/)
+    const std::string& chassisId)
 {
-    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-    {
-        return;
-    }
-    BMCWEB_LOG_DEBUG("Post Chassis Reset.");
+    crow::connections::systemBus->async_method_call(
+        [&app, asyncResp, chassisId,
+         req](const boost::system::error_code ec,
+              const std::vector<std::string>& objects) {
+        if (ec)
+        {
+            messages::internalError(asyncResp->res);
+            return;
+            return;
+        }
+        for (const std::string& object : objects)
+        {
+            if (!boost::ends_with(object, chassisId))
+            {
+                continue;
+            }
 
-    std::string resetType;
+            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+            {
+                return;
+            }
+            BMCWEB_LOG_DEBUG("Post Chassis Reset.");
 
-    if (!json_util::readJsonAction(req, asyncResp->res, "ResetType", resetType))
-    {
-        return;
-    }
+            std::string resetType;
 
-    if (resetType != "PowerCycle")
-    {
-        BMCWEB_LOG_DEBUG("Invalid property value for ResetType: {}", resetType);
-        messages::actionParameterNotSupported(asyncResp->res, resetType,
-                                              "ResetType");
+            if (!json_util::readJsonAction(req, asyncResp->res, "ResetType",
+                                           resetType))
+            {
+                return;
+            }
 
-        return;
-    }
-    doChassisPowerCycle(asyncResp);
+            if (resetType != "PowerCycle")
+            {
+                BMCWEB_LOG_DEBUG("Invalid property value for ResetType: {}",
+                                 resetType);
+                messages::actionParameterNotSupported(asyncResp->res, resetType,
+                                                      "ResetType");
+
+                return;
+            }
+            doChassisPowerCycle(asyncResp);
+            return;
+        }
+        messages::resourceNotFound(asyncResp->res, "#Chassis", chassisId);
+    },
+        "xyz.openbmc_project.ObjectMapper",
+        "/xyz/openbmc_project/object_mapper",
+        "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
+        "/xyz/openbmc_project/inventory", 0,
+        std::array<const char*, 2>{
+            "xyz.openbmc_project.Inventory.Item.Board",
+            "xyz.openbmc_project.Inventory.Item.Chassis"});
+    return;
 }
 
 /**

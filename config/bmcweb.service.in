@@ -5,6 +5,7 @@ Wants=network.target
 After=network.target
 
 [Service]
+Restart=always
 ExecReload=kill -s HUP $MAINPID
 ExecStart=@MESON_INSTALL_PREFIX@/bin/bmcweb
 Type=simple

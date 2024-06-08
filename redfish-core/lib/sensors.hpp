@@ -975,6 +975,7 @@ inline void objectPropertiesToJson(
             // The property we want to set may be nested json, so use
             // a json_pointer for easy indexing into the json structure.
             const nlohmann::json::json_pointer& key = std::get<2>(p);
+            const nlohmann::json::json_pointer& keyMax = nlohmann::json::json_pointer("/ReadingRangeMax");
 
             const double* doubleValue = std::get_if<double>(&valueVariant);
             if (doubleValue == nullptr)
@@ -989,7 +990,8 @@ inline void objectPropertiesToJson(
                     // Readings are allowed to be NAN for unavailable;  coerce
                     // them to null in the json response.
                     sensorJson[key] = nullptr;
-                    continue;
+                    sensorJson[keyMax] = nullptr;
+		    continue;
                 }
                 BMCWEB_LOG_WARNING("Sensor value for {} was unexpectedly {}",
                                    valueName, *doubleValue);
@@ -998,10 +1000,25 @@ inline void objectPropertiesToJson(
             if (forceToInt)
             {
                 sensorJson[key] = static_cast<int64_t>(*doubleValue);
+		sensorJson[keyMax] = static_cast<int64_t>(*doubleValue);
             }
             else
             {
-                sensorJson[key] = *doubleValue;
+                if (key == nlohmann::json::json_pointer("/Reading")) {
+                        double roundedValue = std::round(*doubleValue * 10000.0) / 10000.0;
+
+                        std::stringstream ss;
+                        ss << std::fixed << std::setprecision(4) << roundedValue;
+                        std::string roundedStringValue = ss.str();
+                        sensorJson[key] = roundedStringValue;
+                }
+                else {
+                        sensorJson[key] = *doubleValue;
+                }
+                if (keyMax == nlohmann::json::json_pointer("/ReadingRangeMax")) {
+                        double roundedValueMax = std::round(*doubleValue * 10000.0) / 10000.0;
+                        sensorJson[keyMax] = roundedValueMax;
+                }
             }
         }
     }
