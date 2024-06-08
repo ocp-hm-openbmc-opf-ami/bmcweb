@@ -423,6 +423,15 @@ inline void handleDecoratorAssetProperties(
             boost::urls::format("/redfish/v1/Chassis/{}/EnvironmentMetrics",
                                 chassisId);
     }
+
+    // FRU Device
+    asyncResp->res.jsonValue["Oem"]["AMI"]["FRU"]["@odata.id"] =
+        boost::urls::format("/redfish/v1/Chassis/{}/FRU", chassisId);
+    asyncResp->res.jsonValue["Oem"]["AMI"]["@odata.type"] =
+        "OemAMIChassis.v1_0_0.OemAMIChassis";
+    asyncResp->res.jsonValue["Oem"]["AMI"]["@odata.id"] =
+        boost::urls::format("/redfish/v1/Chassis/{}#/Oem/AMI", chassisId);
+
     // SensorCollection
     asyncResp->res.jsonValue["Sensors"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Chassis/{}/Sensors", chassisId);

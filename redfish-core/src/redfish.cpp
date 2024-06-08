@@ -18,6 +18,7 @@
 #include "fabric_adapters.hpp"
 #include "fan_from_sensor.hpp"
 #include "fips_manager.hpp"
+#include "fru.hpp"
 #include "hypervisor_system.hpp"
 #include "license_control.hpp"
 #include "license_service.hpp"
@@ -124,6 +125,9 @@ RedfishService::RedfishService(App& app)
     requestRoutesDrive(app);
     requestRoutesCable(app);
     requestRoutesCableCollection(app);
+
+    requestRoutesFru(app);
+    requestRoutesFruCollection(app);
 
     requestRoutesSystemLogServiceCollection(app);
     requestRoutesEventLogService(app);

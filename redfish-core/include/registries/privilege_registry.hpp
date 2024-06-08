@@ -722,6 +722,22 @@ const static auto& putFilterCollection = privilegeSetConfigureComponents;
 const static auto& deleteFilterCollection = privilegeSetConfigureComponents;
 const static auto& postFilterCollection = privilegeSetConfigureComponents;
 
+//FruCollection
+const static auto& getFruCollection = privilegeSetLogin;
+const static auto& headFruCollection = privilegeSetLogin;
+const static auto& patchFruCollection = privilegeSetConfigureComponents;
+const static auto& putFruCollection = privilegeSetConfigureManager;
+const static auto& deleteFruCollection = privilegeSetConfigureManager;
+const static auto& postFruCollection = privilegeSetConfigureManager;
+
+//Fru
+const static auto& getFru = privilegeSetLogin;
+const static auto& headFru = privilegeSetLogin;
+const static auto& patchFru = privilegeSetConfigureManager;
+const static auto& putFru  = privilegeSetConfigureManager;
+const static auto& deleteFru = privilegeSetConfigureManager;
+const static auto& postFru = privilegeSetConfigureManager;
+
 // GraphicsController
 const static auto& getGraphicsController = privilegeSetLogin;
 const static auto& headGraphicsController = privilegeSetLogin;
