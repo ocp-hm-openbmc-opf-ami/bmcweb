@@ -162,6 +162,10 @@ inline bool translateUserGroup(const std::vector<std::string>& userGroups,
             accountTypes.emplace_back("OEM");
             oemAccountTypes.emplace_back(userGroup);
         }
+        else if (userGroup == "snmp")
+        {
+            accountTypes.emplace_back("SNMP");
+        }
         else
         {
             // Invalid user group name. Caller throws an exception.
@@ -217,6 +221,10 @@ inline bool
         else if (accountType == "media")
         {
             userGroups.emplace_back("OEM");
+        }
+        else if (accountType == "SNMP")
+        {
+            userGroups.emplace_back("snmp");
         }
         else
         {

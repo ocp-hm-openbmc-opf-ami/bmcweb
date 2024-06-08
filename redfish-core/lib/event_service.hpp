@@ -1634,6 +1634,10 @@ inline void requestRoutesEventDestinationCollection(App& app)
 
         for (const std::string& id : subscripIds)
         {
+            if (id.starts_with("snmp"))
+            {
+                continue;
+            }
             nlohmann::json::object_t member;
             member["@odata.id"] = boost::urls::format(
                 "/redfish/v1/EventService/Subscriptions/{}" + id);
@@ -1755,79 +1759,78 @@ inline void requestRoutesEventDestinationCollection(App& app)
             url->set_path("/");
         }
 
-        if (url->has_userinfo())
+        if (protocol != "SNMPv3" && url->has_userinfo())
         {
             messages::propertyValueFormatError(asyncResp->res, destUrl,
                                                "Destination");
             return;
         }
 
-        if (protocol == "SNMPv2c")
-        {
-            /*if (context)
-            {
-                messages::propertyValueConflict(asyncResp->res, "Context",
-                                                "Protocol");
-                return;
-            }
-            if (eventFormatType2)
-            {
-                messages::propertyValueConflict(asyncResp->res,
-                                                "EventFormatType", "Protocol");
-                return;
-            }
-            if (retryPolicy)
-            {
-                messages::propertyValueConflict(asyncResp->res, "RetryPolicy",
-                                                "Protocol");
-                return;
-            }
-            if (msgIds)
-            {
-                messages::propertyValueConflict(asyncResp->res, "MessageIds",
-                                                "Protocol");
-                return;
-            }
-            if (regPrefixes)
-            {
-                messages::propertyValueConflict(asyncResp->res,
-                                                "RegistryPrefixes", "Protocol");
-                return;
-            }
-            if (resTypes)
-            {
-                messages::propertyValueConflict(asyncResp->res, "ResourceTypes",
-                                                "Protocol");
-                return;
-            }
-            if (headers)
-            {
-                messages::propertyValueConflict(asyncResp->res, "HttpHeaders",
-                                                "Protocol");
-                return;
-            }
-            if (mrdJsonArray)
-            {
-                messages::propertyValueConflict(
-                    asyncResp->res, "MetricReportDefinitions", "Protocol");
-                return;
-            }
-            if (url->scheme() != "snmp")
-            {
-                messages::propertyValueConflict(asyncResp->res, "Destination",
-                                                "Protocol");
-                return;
-            }*/
-            if (*subscriptionType == "RedfishEvent")
-            {
-                messages::propertyValueConflict(asyncResp->res,
-                                                "SubscriptionType", "Protocol");
-                return;
-            }
-            addSnmpTrapClient(asyncResp, url->host_address(),
-                              url->port_number());
-            return;
-        }
+        /* if (protocol == "SNMPv2c")
+         {
+            if (context)
+             {
+                 messages::propertyValueConflict(asyncResp->res, "Context",
+                                                 "Protocol");
+                 return;
+             }
+             if (eventFormatType2)
+             {
+                 messages::propertyValueConflict(asyncResp->res,
+                                                 "EventFormatType", "Protocol");
+                 return;
+             }
+             if (retryPolicy)
+             {
+                 messages::propertyValueConflict(asyncResp->res, "RetryPolicy",
+                                                 "Protocol");
+                 return;
+             }
+             if (msgIds)
+             {
+                 messages::propertyValueConflict(asyncResp->res, "MessageIds",
+                                                 "Protocol");
+                 return;
+             }
+             if (regPrefixes)
+             {
+                 messages::propertyValueConflict(asyncResp->res,
+                                                 "RegistryPrefixes",
+         "Protocol"); return;
+             }
+             if (resTypes)
+             {
+                 messages::propertyValueConflict(asyncResp->res,
+         "ResourceTypes", "Protocol"); return;
+             }
+             if (headers)
+             {
+                 messages::propertyValueConflict(asyncResp->res, "HttpHeaders",
+                                                 "Protocol");
+                 return;
+             }
+             if (mrdJsonArray)
+             {
+                 messages::propertyValueConflict(
+                     asyncResp->res, "MetricReportDefinitions", "Protocol");
+                 return;
+             }
+             if (url->scheme() != "snmp")
+             {
+                 messages::propertyValueConflict(asyncResp->res, "Destination",
+                                                 "Protocol");
+                 return;
+             }
+             if (*subscriptionType == "RedfishEvent")
+             {
+                 messages::propertyValueConflict(asyncResp->res,
+                                                 "SubscriptionType",
+         "Protocol"); return;
+             }
+             addSnmpTrapClient(asyncResp, url->host_address(),
+                               url->port_number());
+             return;
+         }*/
 
         if (req.session == nullptr || req.session->username.empty())
         {
@@ -1840,11 +1843,16 @@ inline void requestRoutesEventDestinationCollection(App& app)
             std::make_shared<Subscription>(*url, app.ioContext());
 
         subValue->destinationUrl = std::move(*url);
+        subValue->destinationUrl = *url;
         subValue->owner = req.session->username;
 
         if (subscriptionType)
         {
-            if (*subscriptionType != "RedfishEvent")
+            if ((protocol == "Redfish" &&
+                 *subscriptionType != "RedfishEvent") ||
+                (protocol == "SNMPv2c" && *subscriptionType != "SNMPTrap") ||
+                (protocol == "SNMPv3" && *subscriptionType != "SNMPTrap") ||
+                (protocol == "SNMPv1" && *subscriptionType != "SNMPTrap"))
             {
                 messages::propertyValueNotInList(
                     asyncResp->res, *subscriptionType, "SubscriptionType");
@@ -1854,10 +1862,19 @@ inline void requestRoutesEventDestinationCollection(App& app)
         }
         else
         {
-            subValue->subscriptionType = "RedfishEvent"; // Default
+            if (protocol == "SNMPv1" || protocol == "SNMPv2c" ||
+                protocol == "SNMPv3")
+            {
+                subValue->subscriptionType = "SNMPTrap";
+            }
+            else
+            {
+                subValue->subscriptionType = "RedfishEvent"; // Default
+            }
         }
 
-        if (protocol != "Redfish")
+        if ((protocol != "Redfish") && (protocol != "SNMPv2c") &&
+            (protocol != "SNMPv3") && (protocol != "SNMPv1"))
         {
             messages::propertyValueNotInList(asyncResp->res, protocol,
                                              "Protocol");
@@ -1867,14 +1884,29 @@ inline void requestRoutesEventDestinationCollection(App& app)
 
         if (eventFormatType2)
         {
-            if (std::ranges::find(supportedEvtFormatTypes, *eventFormatType2) ==
-                supportedEvtFormatTypes.end())
+            if (protocol == "SNMPv2c" || protocol == "SNMPv3" ||
+                protocol == "SNMPv1")
             {
-                messages::propertyValueNotInList(
-                    asyncResp->res, *eventFormatType2, "EventFormatType");
-                return;
+                if (*eventFormatType2 != "Event")
+                {
+                    messages::propertyValueNotInList(
+                        asyncResp->res, *eventFormatType2, "EventFormatType");
+                    return;
+                }
+                subValue->eventFormatType = *eventFormatType2;
             }
-            subValue->eventFormatType = *eventFormatType2;
+            else
+            {
+                if (std::ranges::find(supportedEvtFormatTypes,
+                                      *eventFormatType2) ==
+                    supportedEvtFormatTypes.end())
+                {
+                    messages::propertyValueNotInList(
+                        asyncResp->res, *eventFormatType2, "EventFormatType");
+                    return;
+                }
+                subValue->eventFormatType = *eventFormatType2;
+            }
         }
         else
         {
@@ -2047,13 +2079,27 @@ inline void requestRoutesEventDestinationCollection(App& app)
         // be set to "Disabled" state.
         subValue->state = "Enabled";
 
-        std::string id =
-            EventServiceManager::getInstance().addSubscription(subValue);
-        if (id.empty())
+        if (protocol == "SNMPv2c" || protocol == "SNMPv3" ||
+            protocol == "SNMPv1")
         {
-            messages::internalError(asyncResp->res);
+            // Default Enabled SNMPTrap before creating snmp client
+            setprotocolEnable(asyncResp);
+
+            if (protocol == "SNMPv3" && url->has_userinfo() == false)
+            {
+                BMCWEB_LOG_DEBUG("Missing UserName in Destination");
+                messages::propertyValueFormatError(asyncResp->res, destUrl,
+                                                   "Destination");
+                return;
+            }
+            addSnmpTrapClient(asyncResp, url->host_address(),
+                              url->port_number(), protocol, url->user(),
+                              subValue);
             return;
         }
+
+        std::string id;
+        EventServiceManager::getInstance().addSubscription(subValue, id);
 
         messages::created(asyncResp->res);
         asyncResp->res.addHeader(
@@ -2096,6 +2142,15 @@ bool isConfigureManagerOrSelf(const crow::Request& req,
         }
     }
     return true;
+}
+
+inline bool validAuthProtocol(std::optional<std::string> authProtocol)
+{
+    if (authProtocol == "SHA256" || authProtocol == "SHA384" ||
+        authProtocol == "SHA512")
+        return true;
+    else
+        return false;
 }
 
 inline void requestRoutesEventDestination(App& app)
@@ -2170,7 +2225,7 @@ inline void requestRoutesEventDestination(App& app)
         }
         std::shared_ptr<Subscription> subValue =
             EventServiceManager::getInstance().getSubscription(param);
-        if (subValue == nullptr)
+        if (subValue == nullptr && !param.starts_with("snmp"))
         {
             // Lookup in Kafka subscriptions
             KafkaManager::getInstance().updateSubscription(req, param,
@@ -2187,10 +2242,16 @@ inline void requestRoutesEventDestination(App& app)
         std::optional<std::string> context;
         std::optional<std::string> retryPolicy;
         std::optional<std::vector<nlohmann::json::object_t>> headers;
+        std::optional<std::string> authenticationProtocol;
+        std::optional<std::string> protocol;
+        std::optional<std::string> destUrl;
 
-        if (!json_util::readJsonPatch(req, asyncResp->res, "Context", context,
-                                      "DeliveryRetryPolicy", retryPolicy,
-                                      "HttpHeaders", headers))
+        if (!json_util::readJsonPatch(
+                req, asyncResp->res, "Context", context, "DeliveryRetryPolicy",
+                retryPolicy, "HttpHeaders", headers,
+                "SNMP/AuthenticationProtocol", authenticationProtocol,
+                "Protocol", protocol, "Destination", destUrl))
+
         {
             return;
         }
@@ -2234,7 +2295,87 @@ inline void requestRoutesEventDestination(App& app)
             subValue->retryPolicy = *retryPolicy;
         }
 
+        if (protocol)
+        {
+            if ((protocol != "Redfish") && (protocol != "SNMPv2c") &&
+                (protocol != "SNMPv3") && (protocol != "SNMPv1"))
+            {
+                messages::propertyValueNotInList(asyncResp->res, *protocol,
+                                                 "Protocol");
+                return;
+            }
+
+            if (protocol == "Redfish")
+            {
+                subValue->protocol = *protocol;
+            }
+            else if (protocol == "SNMPv1" || protocol == "SNMPv2c" ||
+                     protocol == "snmpv3")
+            {
+                if (protocol == "SNMPv3" && !destUrl)
+                {
+                    BMCWEB_LOG_DEBUG("Missing UserName in Destination");
+                    messages::propertyMissing(asyncResp->res, "Destination");
+                    return;
+                }
+                handleSetProptocol(asyncResp, param, protocol);
+                subValue->protocol = *protocol;
+            }
+        }
+        if (destUrl)
+        {
+            boost::system::result<boost::urls::url> url =
+                boost::urls::parse_absolute_uri(*destUrl);
+            if (!url)
+            {
+                BMCWEB_LOG_WARNING(
+                    "Failed to validate and split destination url");
+                messages::propertyValueFormatError(asyncResp->res, *destUrl,
+                                                   "Destination");
+                return;
+            }
+
+            url->normalize();
+            crow::utility::setProtocolDefaults(*url, subValue->protocol);
+            crow::utility::setPortDefaults(*url);
+            if ((protocol == "SNMPv3" || subValue->protocol == "SNMPv3") &&
+                url->has_userinfo() == false)
+            {
+                BMCWEB_LOG_DEBUG("Missing UserName in Destination");
+                messages::propertyValueFormatError(asyncResp->res, *destUrl,
+                                                   "Destination");
+                return;
+            }
+
+            if (protocol == "Redfish")
+            {
+                subValue->destinationUrl = *url;
+            }
+            else
+            {
+                handleDestUriPatch(asyncResp, param, url->host_address(),
+                                   url->user());
+                subValue->destinationUrl = *url;
+            }
+        }
+
+        if (authenticationProtocol)
+        {
+            if (validAuthProtocol(authenticationProtocol))
+            {
+                setSnmpTrapClient(asyncResp, param, authenticationProtocol);
+                return;
+            }
+            else
+            {
+                messages::propertyValueIncorrect(asyncResp->res,
+                                                 "AuthenticationProtocol",
+                                                 *authenticationProtocol);
+                return;
+            }
+        }
         EventServiceManager::getInstance().updateSubscription(param);
+        asyncResp->res.result(boost::beast::http::status::no_content);
     });
     BMCWEB_ROUTE(app, "/redfish/v1/EventService/Subscriptions/<str>/")
         .privileges(redfish::privileges::deleteEventDestination)

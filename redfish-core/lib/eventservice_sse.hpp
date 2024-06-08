@@ -172,7 +172,9 @@ inline void
     subValue->registryPrefixes = regPrefixes;
     subValue->metricReportDefinitions = mrdsArray;
 
-    std::string id = manager.addSubscription(subValue, false);
+    std::string id;
+    manager.addSubscription(subValue, id, false);
+
     if (id.empty())
     {
         BMCWEB_LOG_WARNING("SSE subscriptions creation failed !");

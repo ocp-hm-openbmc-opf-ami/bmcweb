@@ -503,7 +503,7 @@ inline void setProtocolDefaults(boost::urls::url& url,
             }
         }
     }
-    else if (protocol == "SNMPv2c")
+    else if (protocol == "SNMPv2c" || protocol == "SNMPv1" || protocol == "SNMPv3")
     {
         url.set_scheme("snmp");
     }

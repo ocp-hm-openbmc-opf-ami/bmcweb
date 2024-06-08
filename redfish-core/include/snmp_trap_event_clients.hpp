@@ -12,6 +12,7 @@
 
 #include <boost/system/error_code.hpp>
 #include <boost/url/format.hpp>
+#include <sdbusplus/asio/property.hpp>
 #include <sdbusplus/unpack_properties.hpp>
 
 #include <memory>
@@ -20,6 +21,18 @@
 
 namespace redfish
 {
+
+inline std::string getProtocol(const std::string& snmpProtol)
+{
+    if (snmpProtol == "SNMPv1")
+        return "v1";
+    else if (snmpProtol == "SNMPv2c")
+        return "v2c";
+    else if (snmpProtol == "SNMPv3")
+        return "v3";
+    else
+        return "";
+}
 
 inline void afterGetSnmpTrapClientdata(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -34,11 +47,13 @@ inline void afterGetSnmpTrapClientdata(
     }
 
     std::string address;
+    std::string version;
+    std::string algorithm;
     uint16_t port = 0;
 
     bool success = sdbusplus::unpackPropertiesNoThrow(
         dbus_utils::UnpackErrorPrinter(), propertiesList, "Address", address,
-        "Port", port);
+        "Port", port, "Version", version, "Algorithm", algorithm);
 
     if (!success)
     {
@@ -46,8 +61,17 @@ inline void afterGetSnmpTrapClientdata(
         return;
     }
 
+    if (version == "v3" && !algorithm.empty())
+    {
+        asyncResp->res.jsonValue["SNMP"]["AuthenticationProtocol"] = algorithm;
+    }
+    else if (version == "v3" && algorithm.empty())
+    {
+        asyncResp->res.jsonValue["SNMP"]["AuthenticationProtocol"] = "None";
+    }
+    asyncResp->res.jsonValue["Protocol"] = "SNMP" + version;
     asyncResp->res.jsonValue["Destination"] =
-        boost::urls::format("snmp://{}:{}", address, port);
+        "snmp://" + address + ":" + std::to_string(port);
 }
 
 inline void
@@ -56,7 +80,6 @@ inline void
 {
     asyncResp->res.jsonValue["@odata.type"] =
         "#EventDestination.v1_8_0.EventDestination";
-    asyncResp->res.jsonValue["Protocol"] = "SNMPv2c";
     asyncResp->res.jsonValue["@odata.id"] =
         boost::urls::format("/redfish/v1/EventService/Subscriptions/{}", id);
 
@@ -129,10 +152,139 @@ inline void
         "org.freedesktop.DBus.ObjectManager", "GetManagedObjects");
 }
 
+inline void
+    setSnmpTrapClient(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                      const std::string& id,
+                      std::optional<std::string>& authenticateProtocol)
+{
+    std::string_view snmpTrapId = id;
+
+    // Erase "snmp" in the request to find the corresponding
+    // dbus snmp client id. For example, the snmpid in the
+    // request is "snmp1", which will be "1" after being erased.
+    snmpTrapId.remove_prefix(4);
+
+    sdbusplus::message::object_path snmpPath =
+        sdbusplus::message::object_path(
+            "/xyz/openbmc_project/network/snmp/manager") /
+        std::string(snmpTrapId);
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus, "xyz.openbmc_project.Network.SNMP",
+        static_cast<std::string>(snmpPath),
+        "xyz.openbmc_project.Network.Client", "Algorithm",
+        *authenticateProtocol,
+        [asyncResp](const boost::system::error_code& ec) {
+        if (ec)
+        {
+            BMCWEB_LOG_DEBUG(
+                "Error occurred in updating the AuthenticateProtocol");
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        messages::success(asyncResp->res);
+        });
+}
+
+inline void
+    setprotocolEnable(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus, "xyz.openbmc_project.Snmp",
+        "/xyz/openbmc_project/Snmp", "xyz.openbmc_project.Snmp.SnmpUtils",
+        "SnmpTrapStatus", true,
+        [asyncResp](const boost::system::error_code& ec) {
+        if (ec)
+        {
+            BMCWEB_LOG_DEBUG("Unable to set SNMPTrap");
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        });
+}
+
+inline void
+    handleSetProptocol(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                       const std::string& id,
+                       std::optional<std::string>& protocol)
+{
+    std::string_view snmpTrapId = id;
+    snmpTrapId.remove_prefix(4);
+
+    sdbusplus::message::object_path snmpPath =
+        sdbusplus::message::object_path(
+            "/xyz/openbmc_project/network/snmp/manager") /
+        std::string(snmpTrapId);
+    std::string snmpProp = *protocol;
+    if (protocol.has_value())
+    {
+        sdbusplus::asio::setProperty(
+            *crow::connections::systemBus, "xyz.openbmc_project.Network.SNMP",
+            static_cast<std::string>(snmpPath),
+            "xyz.openbmc_project.Network.Client", "Version",
+            getProtocol(snmpProp),
+            [asyncResp, &protocol](const boost::system::error_code& ec) {
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG("Error occurred in updating the Protocol");
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            });
+    }
+}
+
+inline void
+    handleDestUriPatch(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                       const std::string& id, const std::string& destUri,
+                       const std::string& username)
+
+{
+    std::string_view snmpTrapId = id;
+    snmpTrapId.remove_prefix(4);
+
+    sdbusplus::message::object_path snmpPath =
+        sdbusplus::message::object_path(
+            "/xyz/openbmc_project/network/snmp/manager") /
+        std::string(snmpTrapId);
+    if (!destUri.empty())
+    {
+        sdbusplus::asio::setProperty(
+            *crow::connections::systemBus, "xyz.openbmc_project.Network.SNMP",
+            static_cast<std::string>(snmpPath),
+            "xyz.openbmc_project.Network.Client", "Address", destUri,
+            [asyncResp](const boost::system::error_code& ec) {
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG(
+                    "Error occurred in updating Destination address");
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            });
+    }
+    if (!username.empty())
+    {
+        sdbusplus::asio::setProperty(
+            *crow::connections::systemBus, "xyz.openbmc_project.Network.SNMP",
+            static_cast<std::string>(snmpPath),
+            "xyz.openbmc_project.Network.Client", "User", username,
+            [asyncResp](const boost::system::error_code& ec) {
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG("Error occurred in updating the User");
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            });
+    }
+}
+
 inline void afterSnmpClientCreate(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const boost::system::error_code& ec, const sdbusplus::message_t& msg,
-    const std::string& host, const std::string& dbusSNMPid)
+    const std::string& host, const std::string& dbusSNMPid,
+    const std::shared_ptr<Subscription>& subValue)
+
 {
     if (ec)
     {
@@ -150,8 +302,8 @@ inline void afterSnmpClientCreate(
             if (ec.value() != EBADR)
             {
                 // SNMP not installed
-                messages::propertyValueOutOfRange(asyncResp->res, "SNMPv2c",
-                                                  "Protocol");
+                messages::propertyValueOutOfRange(
+                    asyncResp->res, subValue->protocol, "Protocol");
                 return;
             }
         }
@@ -168,6 +320,8 @@ inline void afterSnmpClientCreate(
 
     std::string subscriptionId = "snmp" + snmpId;
 
+    EventServiceManager::getInstance().addSubscription(subValue,
+                                                       subscriptionId);
     boost::urls::url uri = boost::urls::format(
         "/redfish/v1/EventService/Subscriptions/{}", subscriptionId);
     asyncResp->res.addHeader("Location", uri.buffer());
@@ -176,33 +330,35 @@ inline void afterSnmpClientCreate(
 
 inline void
     addSnmpTrapClient(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                      const std::string& host, uint16_t snmpTrapPort)
+                      const std::string& host, uint16_t snmpTrapPort,
+                      const std::string& protocol, const std::string& username,
+                      const std::shared_ptr<Subscription>& subValue)
+
 {
     sdbusplus::asio::setProperty(
-       *crow::connections::systemBus,
-       "xyz.openbmc_project.pef.alert.manager",
-       "/xyz/openbmc_project/PefAlertManager/DestinationSelector/Entry1",
-       "xyz.openbmc_project.pef.DestinationSelectorTable", "DestinationType",
-       static_cast<uint8_t>(0),
-       [asyncResp](const boost::system::error_code& ec1) {
-       if (ec1)
-       {
-           BMCWEB_LOG_DEBUG("D-Bus response error setting Destination Type.");
-           messages::internalError(asyncResp->res);
-           return;
-       }
-    });
+        *crow::connections::systemBus, "xyz.openbmc_project.pef.alert.manager",
+        "/xyz/openbmc_project/PefAlertManager/DestinationSelector/Entry1",
+        "xyz.openbmc_project.pef.DestinationSelectorTable", "DestinationType",
+        static_cast<uint8_t>(0),
+        [asyncResp](const boost::system::error_code& ec1) {
+        if (ec1)
+        {
+            BMCWEB_LOG_DEBUG("D-Bus response error setting Destination Type.");
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        });
 
     crow::connections::systemBus->async_method_call(
-        [asyncResp, host](const boost::system::error_code& ec,
-                          const sdbusplus::message_t& msg,
-                          const std::string& dbusSNMPid) {
-        afterSnmpClientCreate(asyncResp, ec, msg, host, dbusSNMPid);
-    },
+        [asyncResp, host, subValue](const boost::system::error_code& ec,
+                                    const sdbusplus::message_t& msg,
+                                    const std::string& dbusSNMPid) {
+        afterSnmpClientCreate(asyncResp, ec, msg, host, dbusSNMPid, subValue);
+        },
         "xyz.openbmc_project.Network.SNMP",
         "/xyz/openbmc_project/network/snmp/manager",
         "xyz.openbmc_project.Network.Client.Create", "Client", host,
-        snmpTrapPort);
+        snmpTrapPort, getProtocol(protocol), username);
 }
 
 inline void
