@@ -126,6 +126,7 @@ inline bool translateUserGroup(const std::vector<std::string>& userGroups,
                                crow::Response& res)
 {
     std::vector<std::string> accountTypes;
+    std::vector<std::string> oemAccountTypes;
     for (const auto& userGroup : userGroups)
     {
         if (userGroup == "redfish")
@@ -156,6 +157,11 @@ inline bool translateUserGroup(const std::vector<std::string>& userGroups,
             // 'redfish' user group is mapped to 'Redfish'and 'WebUI'
             // AccountTypes, so do nothing here...
         }
+        else if (userGroup == "media")
+        {
+            accountTypes.emplace_back("OEM");
+            oemAccountTypes.emplace_back(userGroup);
+        }
         else
         {
             // Invalid user group name. Caller throws an exception.
@@ -164,6 +170,7 @@ inline bool translateUserGroup(const std::vector<std::string>& userGroups,
     }
 
     res.jsonValue["AccountTypes"] = std::move(accountTypes);
+    res.jsonValue["OEMAccountTypes"] = std::move(oemAccountTypes);
     return true;
 }
 
@@ -206,6 +213,10 @@ inline bool
         else if (accountType == "ManagerConsole")
         {
             userGroups.emplace_back("ssh");
+        }
+        else if (accountType == "media")
+        {
+            userGroups.emplace_back("OEM");
         }
         else
         {
@@ -1080,13 +1091,36 @@ inline void handleLDAPPatch(LdapPatchParams&& input,
     });
 }
 
+inline void
+    setOEMAccountTypes(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                       const std::vector<std::string>& grpList,
+                       const std::string& dbusObjectPath)
+{
+    crow::connections::systemBus->async_method_call(
+        [asyncResp](const boost::system::error_code& ec) {
+        if (ec)
+        {
+            BMCWEB_LOG_DEBUG("D-Bus responses error: ", ec);
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        messages::success(asyncResp->res);
+        return;
+    }, "xyz.openbmc_project.User.Manager", dbusObjectPath,
+        "org.freedesktop.DBus.Properties", "Set",
+        "xyz.openbmc_project.User.Attributes", "UserGroups",
+        dbus::utility::DbusVariantType{grpList});
+}
+
 inline void updateUserProperties(
     std::shared_ptr<bmcweb::AsyncResp> asyncResp, const std::string& username,
     const std::optional<std::string>& password,
     const std::optional<bool>& enabled,
     const std::optional<std::string>& roleId, const std::optional<bool>& locked,
     std::optional<std::vector<std::string>> accountTypes, bool userSelf,
-    const std::shared_ptr<persistent_data::UserSession>& session)
+    const std::shared_ptr<persistent_data::UserSession>& session,
+    const std::optional<bool>& passwordChangeRequired,
+    const std::optional<std::vector<std::string>>& oemAccountTypes)
 {
     sdbusplus::message::object_path tempObjPath(rootUserDbusPath);
     tempObjPath /= username;
@@ -1096,6 +1130,7 @@ inline void updateUserProperties(
         dbusObjectPath,
         [dbusObjectPath, username, password, roleId, enabled, locked,
          accountTypes(std::move(accountTypes)), userSelf, session,
+         passwordChangeRequired, oemAccountTypes,
          asyncResp{std::move(asyncResp)}](int rc) {
         if (rc <= 0)
         {
@@ -1104,8 +1139,21 @@ inline void updateUserProperties(
             return;
         }
 
+        if (passwordChangeRequired)
+        {
+            messages::propertyNotWritable(asyncResp->res,
+                                          "PasswordChangeRequired");
+        }
+
         if (password)
         {
+            int pamrc = pamAuthenticateUser(username, *password);
+            if ((pamrc == PAM_NEW_AUTHTOK_REQD))
+            {
+                BMCWEB_LOG_ERROR("Need to provide new Password");
+                messages::passwordResetFailed(asyncResp->res);
+                return;
+            }
             int retval = pamUpdatePassword(username, *password);
 
             if (retval == PAM_USER_UNKNOWN)
@@ -1122,7 +1170,7 @@ inline void updateUserProperties(
             }
             else if (retval != PAM_SUCCESS)
             {
-                messages::internalError(asyncResp->res);
+                messages::passwordResetFailed(asyncResp->res);
                 return;
             }
             else
@@ -1142,7 +1190,16 @@ inline void updateUserProperties(
                             "UserEnabled", "Enabled", *enabled);
         }
 
-        if (roleId)
+        if ((username == "root") && roleId)
+        {
+            BMCWEB_LOG_ERROR(
+                "Not able to change privilage level for root user");
+            const std::string& arg = "redfish/v1/AccountService/Accounts/" +
+                                     username;
+            messages::accessDenied(asyncResp->res, boost::urls::format(arg));
+            return;
+        }
+        else if (roleId)
         {
             std::string priv = getPrivilegeFromRoleId(*roleId);
             if (priv.empty())
@@ -1178,6 +1235,60 @@ inline void updateUserProperties(
         {
             patchAccountTypes(*accountTypes, asyncResp, dbusObjectPath,
                               userSelf);
+        }
+
+        if ((username == "root") && oemAccountTypes)
+        {
+            BMCWEB_LOG_ERROR(
+                "Not able to change oemAccountTypes for root user");
+            const std::string& arg = "redfish/v1/AccountService/Accounts/" +
+                                     username;
+            messages::accessDenied(asyncResp->res, boost::urls::format(arg));
+            return;
+        }
+        else if (oemAccountTypes)
+        {
+            sdbusplus::asio::getProperty<std::vector<std::string>>(
+                *crow::connections::systemBus,
+                "xyz.openbmc_project.User.Manager", dbusObjectPath,
+                "xyz.openbmc_project.User.Attributes", "UserGroups",
+                [asyncResp, oemAccountTypes,
+                 dbusObjectPath](const boost::system::error_code& ec,
+                                 const std::vector<std::string>& list) {
+                if (ec)
+                {
+                    return;
+                }
+                std::vector<std::string> grpList = list;
+                if (std::find(oemAccountTypes->begin(), oemAccountTypes->end(),
+                              "media") != oemAccountTypes->end()) // media found
+                {
+                    if (std::find(grpList.begin(), grpList.end(), "media") ==
+                        grpList.end()) // media not found
+                    {
+                        grpList.push_back("media");
+                    }
+                    setOEMAccountTypes(asyncResp, grpList, dbusObjectPath);
+                }
+                else if (oemAccountTypes->empty())
+                {
+                    if (std::find(grpList.begin(), grpList.end(), "media") !=
+                        grpList.end()) // media found
+                    {
+                        auto itr = std::find(grpList.begin(), grpList.end(),
+                                             "media");
+                        if (itr != grpList.end())
+                            grpList.erase(itr);
+                    }
+                    setOEMAccountTypes(asyncResp, grpList, dbusObjectPath);
+                }
+                else
+                {
+                    messages::propertyValueNotInList(asyncResp->res, "provided",
+                                                     "OEMAccountTypes");
+                    return;
+                }
+            });
         }
     });
 }
@@ -1368,12 +1479,16 @@ inline void
         const uint8_t* minPasswordLength = nullptr;
         const uint32_t* accountUnlockTimeout = nullptr;
         const uint16_t* maxLoginAttemptBeforeLockout = nullptr;
+        const uint8_t* rememberOldPasswordTimes = nullptr;
+        const std::string* passwordPolicyComplexity = nullptr;
 
-        const bool success = sdbusplus::unpackPropertiesNoThrow(
-            dbus_utils::UnpackErrorPrinter(), propertiesList,
-            "MinPasswordLength", minPasswordLength, "AccountUnlockTimeout",
-            accountUnlockTimeout, "MaxLoginAttemptBeforeLockout",
-            maxLoginAttemptBeforeLockout);
+            const bool success = sdbusplus::unpackPropertiesNoThrow(
+                dbus_utils::UnpackErrorPrinter(), propertiesList,
+                "MinPasswordLength", minPasswordLength, "AccountUnlockTimeout",
+                accountUnlockTimeout, "MaxLoginAttemptBeforeLockout",
+                maxLoginAttemptBeforeLockout, "RememberOldPasswordTimes",
+                rememberOldPasswordTimes, "PasswordPolicyComplexity",
+                passwordPolicyComplexity);
 
         if (!success)
         {
@@ -1396,6 +1511,20 @@ inline void
         {
             asyncResp->res.jsonValue["AccountLockoutThreshold"] =
                 *maxLoginAttemptBeforeLockout;
+        }
+
+        if (rememberOldPasswordTimes != nullptr)
+        {
+            asyncResp->res
+                .jsonValue["Oem"]["OpenBMC"]["RememberOldPasswordTimes"] =
+                *rememberOldPasswordTimes;
+        }
+
+        if (passwordPolicyComplexity != nullptr)
+        {
+            asyncResp->res
+                .jsonValue["Oem"]["OpenBMC"]["PasswordPolicyComplexity"] =
+                *passwordPolicyComplexity;
         }
     });
 
@@ -1428,6 +1557,8 @@ inline void handleAccountServicePatch(
     LdapPatchParams activeDirectoryObject;
     AuthMethods auth;
     std::optional<std::string> httpBasicAuth;
+    std::optional<std::string> passwordcomplexity;
+    std::optional<uint8_t> RememberOldPasswordTimes;
     // clang-format off
     if (!json_util::readJsonPatch(
             req, asyncResp->res,
@@ -1458,7 +1589,9 @@ inline void handleAccountServicePatch(
             "Oem/OpenBMC/AuthMethods/SessionToken", auth.sessionToken,
             "Oem/OpenBMC/AuthMethods/TLS", auth.tls,
             "Oem/OpenBMC/AuthMethods/XToken", auth.xToken,
-            "HTTPBasicAuth", httpBasicAuth))
+            "HTTPBasicAuth", httpBasicAuth,
+            "Oem/OpenBMC/PasswordPolicyComplexity",passwordcomplexity,
+            "Oem/OpenBMC/RememberOldPasswordTimes",RememberOldPasswordTimes))
     {
         return;
     }
@@ -1493,6 +1626,53 @@ inline void handleAccountServicePatch(
     if (maxPasswordLength)
     {
         messages::propertyNotWritable(asyncResp->res, "MaxPasswordLength");
+    }
+
+    if (passwordcomplexity)
+    {
+        crow::connections::systemBus->async_method_call(
+            [asyncResp,
+             passwordcomplexity](const boost::system::error_code ec) {
+            if (ec)
+            {
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            messages::success(asyncResp->res);
+        },
+            "xyz.openbmc_project.User.Manager", "/xyz/openbmc_project/user",
+            "org.freedesktop.DBus.Properties", "Set",
+            "xyz.openbmc_project.User.AccountPolicy",
+            "PasswordPolicyComplexity",
+            std::variant<std::string>(*passwordcomplexity));
+    }
+
+    if (RememberOldPasswordTimes)
+    {
+        uint8_t rememberRange = RememberOldPasswordTimes.value();
+        crow::connections::systemBus->async_method_call(
+            [asyncResp, rememberRange](const boost::system::error_code ec) {
+            if (ec)
+            {
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            if (rememberRange > 5)
+            {
+                std::string RemebrOldPasswdTimes =
+                    std::to_string(rememberRange);
+                std::string_view RembrOldPasswdView(RemebrOldPasswdTimes);
+                messages::propertyValueOutOfRange(asyncResp->res,
+                                                  RembrOldPasswdView,
+                                                  "RememberOldPasswordTimes");
+                return;
+            }
+            messages::success(asyncResp->res);
+        }, "xyz.openbmc_project.User.Manager", "/xyz/openbmc_project/user",
+            "org.freedesktop.DBus.Properties", "Set",
+            "xyz.openbmc_project.User.AccountPolicy",
+            "RememberOldPasswordTimes",
+            std::variant<uint8_t>(*RememberOldPasswordTimes));
     }
 
     handleLDAPPatch(std::move(activeDirectoryObject), asyncResp,
@@ -1629,7 +1809,8 @@ inline void handleAccountCollectionGet(
 inline void processAfterCreateUser(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& username, const std::string& password,
-    const boost::system::error_code& ec, sdbusplus::message_t& m)
+    const boost::system::error_code& ec, sdbusplus::message_t& m,
+    std::optional<bool> passwordChangeRequired)
 {
     if (ec)
     {
@@ -1665,6 +1846,22 @@ inline void processAfterCreateUser(
         return;
     }
 
+    if (username != "root")
+    {
+        crow::connections::systemBus->async_method_call(
+            [asyncResp,
+             passwordChangeRequired](const boost::system::error_code ec4) {
+            if (ec4)
+            {
+                //    messages::internalError(asyncResp->res);
+                return;
+            }
+        },
+            "xyz.openbmc_project.User.Manager", "/xyz/openbmc_project/user",
+            "xyz.openbmc_project.User.Manager", "SetPasswordExpired", username,
+            *passwordChangeRequired);
+    }
+
     messages::created(asyncResp->res);
     asyncResp->res.addHeader("Location",
                              "/redfish/v1/AccountService/Accounts/" + username);
@@ -1675,7 +1872,8 @@ inline void processAfterGetAllGroups(
     const std::string& username, const std::string& password,
     const std::string& roleId, bool enabled,
     std::optional<std::vector<std::string>> accountTypes,
-    const std::vector<std::string>& allGroupsList)
+    const std::vector<std::string>& allGroupsList,
+    std::optional<bool> passwordChangeRequired, std::optional<bool> media)
 {
     std::vector<std::string> userGroups;
     std::vector<std::string> accountTypeUserGroups;
@@ -1727,7 +1925,8 @@ inline void processAfterGetAllGroups(
             }
             continue;
         }
-        userGroups.emplace_back(grp);
+        if ((grp != "media") || (media == true)) // Checking media is enabled
+            userGroups.emplace_back(grp);
     }
 
     // Make sure user specified groups are valid. This is internal error because
@@ -1739,9 +1938,10 @@ inline void processAfterGetAllGroups(
         return;
     }
     crow::connections::systemBus->async_method_call(
-        [asyncResp, username, password](const boost::system::error_code& ec2,
-                                        sdbusplus::message_t& m) {
-        processAfterCreateUser(asyncResp, username, password, ec2, m);
+        [asyncResp, username, password, passwordChangeRequired](
+            const boost::system::error_code& ec2, sdbusplus::message_t& m) {
+        processAfterCreateUser(asyncResp, username, password, ec2, m,
+                               passwordChangeRequired);
     },
         "xyz.openbmc_project.User.Manager", "/xyz/openbmc_project/user",
         "xyz.openbmc_project.User.Manager", "CreateUser", username, userGroups,
@@ -1761,10 +1961,14 @@ inline void handleAccountCollectionPost(
     std::optional<std::string> roleIdJson;
     std::optional<bool> enabledJson;
     std::optional<std::vector<std::string>> accountTypes;
-    if (!json_util::readJsonPatch(req, asyncResp->res, "UserName", username,
-                                  "Password", password, "RoleId", roleIdJson,
-                                  "Enabled", enabledJson, "AccountTypes",
-                                  accountTypes))
+    std::optional<bool> passwordChangeRequired = false;
+    std::optional<bool> media;
+    std::optional<std::vector<std::string>> oemAccountTypes;
+    if (!json_util::readJsonPatch(
+            req, asyncResp->res, "UserName", username, "Password", password,
+            "RoleId", roleIdJson, "Enabled", enabledJson, "AccountTypes",
+            accountTypes, "PasswordChangeRequired", passwordChangeRequired,
+            "OEMAccountTypes", oemAccountTypes))
     {
         return;
     }
@@ -1780,14 +1984,45 @@ inline void handleAccountCollectionPost(
 
     bool enabled = enabledJson.value_or(true);
 
+    if (oemAccountTypes)
+    {
+        if (oemAccountTypes->empty()) // Media is Disable Case
+        {
+            media = false;
+        }
+        else // Media is Enabled Case
+        {
+            if (std::find(oemAccountTypes->begin(), oemAccountTypes->end(),
+                          "media") != oemAccountTypes->end())
+            {
+                media = true;
+            }
+            else
+            {
+                messages::propertyValueNotInList(asyncResp->res, "provided",
+                                                 "OEMAccountTypes");
+                return;
+            }
+        }
+    }
+    else if ((!oemAccountTypes) && (roleId == "priv-admin"))
+    {
+        media = true; // Default value for Admin
+    }
+    else
+    {
+        media = false; // Default value for Readonly, Operator.
+    }
+
     // Reading AllGroups property
     sdbusplus::asio::getProperty<std::vector<std::string>>(
         *crow::connections::systemBus, "xyz.openbmc_project.User.Manager",
         "/xyz/openbmc_project/user", "xyz.openbmc_project.User.Manager",
         "AllGroups",
         [asyncResp, username, password{std::move(password)}, roleId, enabled,
-         accountTypes](const boost::system::error_code& ec,
-                       const std::vector<std::string>& allGroupsList) {
+         accountTypes, passwordChangeRequired,
+         media](const boost::system::error_code& ec,
+                const std::vector<std::string>& allGroupsList) {
         if (ec)
         {
             BMCWEB_LOG_DEBUG("ERROR with async_method_call");
@@ -1802,7 +2037,8 @@ inline void handleAccountCollectionPost(
         }
 
         processAfterGetAllGroups(asyncResp, username, password, roleId, enabled,
-                                 accountTypes, allGroupsList);
+                                 accountTypes, allGroupsList,
+                                 passwordChangeRequired, media);
     });
 }
 
@@ -2025,6 +2261,15 @@ inline void
     tempObjPath /= username;
     const std::string userPath(tempObjPath);
 
+    if (username == "root")
+    {
+        BMCWEB_LOG_DEBUG("Not able to delete root user\n");
+        const std::string& arg = "redfish/v1/AccountService/Accounts/" +
+                                 username;
+        messages::accessDenied(asyncResp->res, boost::urls::format(arg));
+        return;
+    }
+
     crow::connections::systemBus->async_method_call(
         [asyncResp, username](const boost::system::error_code& ec) {
         if (ec)
@@ -2060,6 +2305,8 @@ inline void
     std::optional<std::string> roleId;
     std::optional<bool> locked;
     std::optional<std::vector<std::string>> accountTypes;
+    std::optional<bool> passwordChangeRequired;
+    std::optional<std::vector<std::string>> oemAccountTypes;
 
     if (req.session == nullptr)
     {
@@ -2080,7 +2327,8 @@ inline void
         if (!json_util::readJsonPatch(
                 req, asyncResp->res, "UserName", newUserName, "Password",
                 password, "RoleId", roleId, "Enabled", enabled, "Locked",
-                locked, "AccountTypes", accountTypes))
+                locked, "AccountTypes", accountTypes, "PasswordChangeRequired",
+                passwordChangeRequired, "OEMAccountTypes", oemAccountTypes))
         {
             return;
         }
@@ -2110,13 +2358,15 @@ inline void
     if (!newUserName || (newUserName.value() == username))
     {
         updateUserProperties(asyncResp, username, password, enabled, roleId,
-                             locked, accountTypes, userSelf, req.session);
+                             locked, accountTypes, userSelf, req.session,
+                             passwordChangeRequired, oemAccountTypes);
         return;
     }
     crow::connections::systemBus->async_method_call(
         [asyncResp, username, password(std::move(password)),
          roleId(std::move(roleId)), enabled, newUser{std::string(*newUserName)},
-         locked, userSelf, req, accountTypes(std::move(accountTypes))](
+         locked, userSelf, req, accountTypes(std::move(accountTypes)),
+         passwordChangeRequired, oemAccountTypes](
             const boost::system::error_code& ec, sdbusplus::message_t& m) {
         if (ec)
         {
@@ -2126,7 +2376,8 @@ inline void
         }
 
         updateUserProperties(asyncResp, newUser, password, enabled, roleId,
-                             locked, accountTypes, userSelf, req.session);
+                             locked, accountTypes, userSelf, req.session,
+                             passwordChangeRequired, oemAccountTypes);
         messages::success(asyncResp->res);
     },
         "xyz.openbmc_project.User.Manager", "/xyz/openbmc_project/user",

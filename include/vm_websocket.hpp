@@ -555,7 +555,7 @@ inline void requestRoutes(App& app)
     {
         BMCWEB_ROUTE(app, "/nbd/<str>")
             .websocket()
-            .privileges(redfish::privileges::privilegeSetConfigureManager)
+            .privileges(redfish::privileges::privilegeSetLoginConfigureManager)
             .onopen(nbd_proxy::onOpen)
             .onclose(nbd_proxy::onClose)
             .onmessageex(nbd_proxy::onMessage);

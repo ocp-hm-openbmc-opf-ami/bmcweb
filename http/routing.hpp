@@ -656,6 +656,21 @@ class Router
         validatePrivilege(
             req, asyncResp, rule,
             [req, asyncResp, &rule, params = std::move(params)]() {
+            if (!params.empty())
+            {
+                if ((req->session->isConfigureSelfOnly) &&
+                    !(req->session->username == params[0]))
+                {
+                    asyncResp->res.result(
+                        boost::beast::http::status::forbidden);
+                    redfish::messages::passwordChangeRequired(
+                        asyncResp->res,
+                        boost::urls::format(
+                            "/redfish/v1/AccountService/Accounts/{}",
+                            req->session->username));
+                    return;
+                }
+            }
             rule.handle(*req, asyncResp, params);
         });
     }

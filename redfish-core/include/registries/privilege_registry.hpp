@@ -29,6 +29,10 @@ const std::array<Privileges, 1> privilegeSetConfigureUsers = {{
 const std::array<Privileges, 1> privilegeSetConfigureManager = {{
     {"ConfigureManager"}
 }};
+const std::array<Privileges, 2> privilegeSetLoginConfigureManager = {{
+    {"ConfigureManager"},
+    {"Login"}
+}};
 const std::array<Privileges, 2> privilegeSetConfigureManagerOrConfigureComponents = {{
     {"ConfigureManager"},
     {"ConfigureComponents"}
@@ -1961,10 +1965,14 @@ const static auto& postVLanNetworkInterfaceCollection = privilegeSetConfigureMan
 // VirtualMedia
 const static auto& getVirtualMedia = privilegeSetLogin;
 const static auto& headVirtualMedia = privilegeSetLogin;
-const static auto& patchVirtualMedia = privilegeSetConfigureManager;
-const static auto& putVirtualMedia = privilegeSetConfigureManager;
-const static auto& deleteVirtualMedia = privilegeSetConfigureManager;
-const static auto& postVirtualMedia = privilegeSetConfigureManager;
+// const static auto& patchVirtualMedia = privilegeSetConfigureManager;
+// const static auto& putVirtualMedia = privilegeSetConfigureManager;
+// const static auto& deleteVirtualMedia = privilegeSetConfigureManager;
+// const static auto& postVirtualMedia = privilegeSetConfigureManager;
+const static auto& patchVirtualMedia = privilegeSetLoginConfigureManager; // Added to Vmedia for OEM Extended 
+const static auto& putVirtualMedia = privilegeSetLoginConfigureManager;
+const static auto& deleteVirtualMedia = privilegeSetLoginConfigureManager;
+const static auto& postVirtualMedia = privilegeSetLoginConfigureManager;
 
 // VirtualMediaCollection
 const static auto& getVirtualMediaCollection = privilegeSetLogin;

@@ -145,7 +145,7 @@ inline void
  */
 void findItemAndRunHandler(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                            const std::string& name, const std::string& resName,
-                           CheckItemHandler&& handler)
+                           CheckItemHandler&& handler, const crow::Request& req)
 {
     if (name != "bmc")
     {
@@ -153,6 +153,19 @@ void findItemAndRunHandler(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                                    resName);
 
         return;
+    }
+
+    if (req.session->username != "root")
+    {
+        auto result = find(req.session->userGroups.begin(),
+                           req.session->userGroups.end(), "media");
+        if (result == end(req.session->userGroups))
+        {
+            BMCWEB_LOG_ERROR("Unable to get access ");
+            messages::resourceAtUriUnauthorized(
+                aResp->res, req.url(), "Insufficient privileges to access ");
+            return;
+        }
     }
 
     crow::connections::systemBus->async_method_call(
@@ -672,9 +685,10 @@ inline void doMountVmLegacy(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     auto wrapper = doListenForCompletion(name, objectPath, action, true,
                                          asyncResp);
 
-    if(imageUrl.find("nfs://") != 0){
-    unixFd = dbus::utility::DbusVariantType(
-    std::in_place_type<sdbusplus::message::unix_fd>, fd);
+    if (imageUrl.find("nfs://") != 0)
+    {
+        unixFd = dbus::utility::DbusVariantType(
+            std::in_place_type<sdbusplus::message::unix_fd>, fd);
     }
 
     sdbusplus::message::object_path path(
@@ -731,7 +745,7 @@ inline void validateParams(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     {
         BMCWEB_LOG_ERROR("Request action parameter Image is empty.");
 
-	messages::actionParameterMissing(asyncResp->res, "<empty>", "Image");
+        messages::actionParameterMissing(asyncResp->res, "<empty>", "Image");
 
         return;
     }
@@ -834,30 +848,30 @@ inline void validateParams(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
     // validate the Username and Password for CIFS and HTTPS
 
-   if (actionParams.transferProtocolType == "CIFS" || actionParams.transferProtocolType == "HTTPS")
-   {
-      if (!actionParams.userName || actionParams.userName == "")
+    if (actionParams.transferProtocolType == "CIFS" ||
+        actionParams.transferProtocolType == "HTTPS")
+    {
+        if (!actionParams.userName || actionParams.userName == "")
 
-       {
-          BMCWEB_LOG_ERROR("Request action parameter UserName is Missing.");
+        {
+            BMCWEB_LOG_ERROR("Request action parameter UserName is Missing.");
 
-          messages::actionParameterMissing(asyncResp->res, "InsertMedia", "Username");
+            messages::actionParameterMissing(asyncResp->res, "InsertMedia",
+                                             "Username");
 
-          return;
+            return;
+        }
+        if (!actionParams.password || actionParams.password == "")
 
-       }
-      if (!actionParams.password || actionParams.password == "")
+        {
+            BMCWEB_LOG_ERROR("Request action parameter Password is Missing.");
 
-       {
-          BMCWEB_LOG_ERROR("Request action parameter Password is Missing.");
+            messages::actionParameterMissing(asyncResp->res, "InsertMedia",
+                                             "Password");
 
-          messages::actionParameterMissing(asyncResp->res, "InsertMedia", "Password");
-
-          return;
-
-       }
-
-   }
+            return;
+        }
+    }
     // validation passed, add protocol to URI if needed
     if (!uriTransferProtocolType && paramTransferProtocolType)
     {
@@ -951,6 +965,19 @@ inline void handleManagersVirtualMediaActionInsertPost(
 
         return;
     }
+    if (req.session->username != "root")
+    {
+        auto result = find(req.session->userGroups.begin(),
+                           req.session->userGroups.end(), "media");
+        if (result == end(req.session->userGroups))
+        {
+            BMCWEB_LOG_ERROR("Unable to get access ");
+            messages::resourceAtUriUnauthorized(
+                asyncResp->res, req.url(),
+                "Insufficient privileges to access ");
+            return;
+        }
+    }
     InsertMediaActionParams actionParams;
 
     // Read obligatory parameters (url of image)
@@ -1029,6 +1056,19 @@ inline void handleManagersVirtualMediaActionEject(
         messages::resourceNotFound(asyncResp->res, action, resName);
 
         return;
+    }
+    if (req.session->username != "root")
+    {
+        auto result = find(req.session->userGroups.begin(),
+                           req.session->userGroups.end(), "media");
+        if (result == end(req.session->userGroups))
+        {
+            BMCWEB_LOG_ERROR("Unable to get access ");
+            messages::resourceAtUriUnauthorized(
+                asyncResp->res, req.url(),
+                "Insufficient privileges to access ");
+            return;
+        }
     }
 
     dbus::utility::getDbusObject(
@@ -1131,7 +1171,18 @@ inline void
 
         return;
     }
-
+    if (req.session->username != "root")
+    {
+        auto result = find(req.session->userGroups.begin(),
+                           req.session->userGroups.end(), "media");
+        if (result == end(req.session->userGroups))
+        {
+            BMCWEB_LOG_ERROR("Unable to get access ");
+            messages::insufficientPrivilege(asyncResp->res);
+            return;
+        }
+    }
+    
     dbus::utility::getDbusObject(
         "/xyz/openbmc_project/VirtualMedia", {},
         [asyncResp, name,
@@ -1165,7 +1216,7 @@ void insertMediaCheckMode(
     {
         BMCWEB_LOG_DEBUG(
             "InsertMedia only allowed with POST method in legacy mode");
-        //aResp->res.result(boost::beast::http::status::method_not_allowed);
+        // aResp->res.result(boost::beast::http::status::method_not_allowed);
         messages::operationNotAllowed(aResp->res);
         return;
     }
@@ -1187,7 +1238,8 @@ inline void requestNBDVirtualMediaRoutes(App& app)
             []([[maybe_unused]] const crow::Request& req,
                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                const std::string& name, const std::string& resName) {
-        findItemAndRunHandler(asyncResp, name, resName, insertMediaCheckMode);
+        findItemAndRunHandler(asyncResp, name, resName, insertMediaCheckMode,
+                              req);
     });
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/VirtualMedia/<str>/Actions/"
                       "VirtualMedia.InsertMedia")
@@ -1196,7 +1248,8 @@ inline void requestNBDVirtualMediaRoutes(App& app)
             []([[maybe_unused]] const crow::Request& req,
                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                const std::string& name, const std::string& resName) {
-        findItemAndRunHandler(asyncResp, name, resName, insertMediaCheckMode);
+        findItemAndRunHandler(asyncResp, name, resName, insertMediaCheckMode,
+                              req);
     });
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/VirtualMedia/<str>/Actions/"
                       "VirtualMedia.InsertMedia")
@@ -1205,7 +1258,8 @@ inline void requestNBDVirtualMediaRoutes(App& app)
             []([[maybe_unused]] const crow::Request& req,
                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                const std::string& name, const std::string& resName) {
-        findItemAndRunHandler(asyncResp, name, resName, insertMediaCheckMode);
+        findItemAndRunHandler(asyncResp, name, resName, insertMediaCheckMode,
+                              req);
     });
     BMCWEB_ROUTE(
         app,

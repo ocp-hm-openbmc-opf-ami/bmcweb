@@ -1131,6 +1131,16 @@ nlohmann::json propertyValueEmpty(std::string_view arg1, std::string_view arg2);
 void propertyValueEmpty(crow::Response& res, std::string_view arg1,
                         std::string_view arg2);
 
+/**
+ * @brief Formats PasswordResetFailed message into JSON
+ * Message body: "Last password cannot be used to reset the redfish account
+ * password. Please change the password value and resubmit the request"
+ *
+ *  @returns Message PasswordResetFailed formatted to JSON */
+nlohmann::json passwordResetFailed();
+
+void passwordResetFailed(crow::Response& res);
+
 } // namespace messages
 
 } // namespace redfish

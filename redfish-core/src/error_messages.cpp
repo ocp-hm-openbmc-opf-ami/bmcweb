@@ -1950,6 +1950,24 @@ void propertyValueEmpty(crow::Response& res, std::string_view arg1,
     addMessageToErrorJson(res.jsonValue, propertyValueEmpty(arg1, arg2));
 }
 
+/**
+ * @internal
+ * @brief Formats passwordResetFailed message into JSON
+ *
+ * See header file for more information
+ * @endinternal
+ */
+nlohmann::json passwordResetFailed(void)
+{
+    return getLog(redfish::registries::base::Index::passwordResetFailed, {});
+}
+
+void passwordResetFailed(crow::Response& res)
+{
+    res.result(boost::beast::http::status::bad_request);
+    addMessageToErrorJson(res.jsonValue, passwordResetFailed());
+}
+
 } // namespace messages
 
 } // namespace redfish

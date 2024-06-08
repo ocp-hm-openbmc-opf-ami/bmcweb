@@ -1334,6 +1334,16 @@ constexpr std::array registry =
         },
         "Please Make sure that correct value for the property is provided in the request body and resubmit the request"
     }},
+    MessageEntry{
+	    "PasswordResetFailed",
+        {
+		"Indicates that we cannot use or reset the previous password for the particular user",
+		"Last password cannot be used to reset the redfish account password. Please change the password value and resubmit the request",
+		"Critical",
+		0,
+		{},
+		"Change the password value and resubmit the request",
+	}},
 };
 
 enum class Index
@@ -1450,5 +1460,6 @@ enum class Index
     unrecognizedRequestBody = 109,
     invalidip=110,
     propertyValueEmpty=111,
+    passwordResetFailed=112,
 };
 } // namespace redfish::registries::base
