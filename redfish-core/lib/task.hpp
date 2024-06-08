@@ -43,6 +43,7 @@ constexpr size_t maxTaskCount = 100; // arbitrary limit
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static std::deque<std::shared_ptr<struct TaskData>> tasks;
 
+static size_t lastTask = 1;
 constexpr bool completed = true;
 
 struct Payload
@@ -112,7 +113,8 @@ struct TaskData : std::enable_shared_from_this<TaskData>
                            const std::shared_ptr<TaskData>&)>&& handler,
         const std::string& match)
     {
-        static size_t lastTask = 0;
+        if (tasks.size() == 0)
+            lastTask = 1;
         struct MakeSharedHelper : public TaskData
         {
             MakeSharedHelper(
@@ -160,6 +162,39 @@ struct TaskData : std::enable_shared_from_this<TaskData>
         else if (!taskCompleted)
         {
             taskCompleted = true;
+        }
+    }
+
+    inline void setLastTask()
+    {
+        for (const std::shared_ptr<task::TaskData>& task : task::tasks)
+        {
+            // Setting lastTask index after deleting task
+            task::lastTask = task->index + 1;
+        }
+        return;
+    }
+
+    void deleteTasks(const std::string& strParam)
+    {
+        int pos = 0;
+        for (const std::shared_ptr<task::TaskData>& task : task::tasks)
+        {
+            if (std::to_string(task->index) == strParam)
+            {
+                auto taskToDelete = task::tasks.begin();
+                advance(taskToDelete, pos);
+                if (*taskToDelete != nullptr)
+                {
+                    BMCWEB_LOG_ERROR("Deleting Task", strParam);
+                    task->timer.cancel();
+                    task->match.reset();
+                    task::tasks.erase(taskToDelete);
+                    setLastTask();
+                    return;
+                }
+            }
+            pos++;
         }
     }
 
@@ -322,6 +357,37 @@ struct TaskData : std::enable_shared_from_this<TaskData>
 
 } // namespace task
 
+inline void
+    handleTaskDelete(App& app, const crow::Request& req,
+                     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                     const std::string& strParam)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    auto find =
+        std::find_if(task::tasks.begin(), task::tasks.end(),
+                     [&strParam](const std::shared_ptr<task::TaskData>& task) {
+        if (!task)
+        {
+            return false;
+        }
+
+        // we compare against the string version as on failure
+        // strtoul returns 0
+        return std::to_string(task->index) == strParam;
+        });
+
+    if (find == task::tasks.end())
+    {
+        messages::resourceNotFound(asyncResp->res, "Task", strParam);
+        return;
+    }
+    std::shared_ptr<task::TaskData>& ptr = *find;
+    ptr->deleteTasks(strParam);
+    asyncResp->res.result(boost::beast::http::status::no_content);
+}
 inline void requestRoutesTaskMonitor(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/TaskService/Tasks/<str>/Monitor/")
@@ -500,4 +566,16 @@ inline void requestRoutesTaskService(App& app)
     });
 }
 
+inline void requestRoutesTaskDelete(App& app)
+{
+    BMCWEB_ROUTE(app, "/redfish/v1/TaskService/Tasks/<str>/")
+        .privileges(redfish::privileges::deleteTask)
+        .methods(boost::beast::http::verb::delete_)(
+            std::bind_front(handleTaskDelete, std::ref(app)));
+
+    BMCWEB_ROUTE(app, "/redfish/v1/TaskService/Tasks/<str>/Monitor")
+        .privileges(redfish::privileges::deleteTask)
+        .methods(boost::beast::http::verb::delete_)(
+            std::bind_front(handleTaskDelete, std::ref(app)));
+}
 } // namespace redfish

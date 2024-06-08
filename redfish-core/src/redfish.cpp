@@ -241,6 +241,7 @@ RedfishService::RedfishService(App& app)
     requestRoutesCupsService(app);
     requestRoutesCupsSensors(app);
 
+    requestRoutesTaskDelete(app);
     requestRoutesTaskMonitor(app);
     requestRoutesTaskService(app);
     requestRoutesTaskCollection(app);
