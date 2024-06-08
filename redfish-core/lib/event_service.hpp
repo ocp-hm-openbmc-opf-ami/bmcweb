@@ -1684,6 +1684,7 @@ inline void requestRoutesEventDestinationCollection(App& app)
         }
         std::string destUrl;
         std::string protocol;
+        std::optional<std::string> vId;
         std::optional<std::string> context;
         std::optional<std::string> subscriptionType;
         std::optional<std::string> eventFormatType2;
@@ -1699,10 +1700,18 @@ inline void requestRoutesEventDestinationCollection(App& app)
                 req, asyncResp->res, "Destination", destUrl, "Context", context,
                 "Protocol", protocol, "SubscriptionType", subscriptionType,
                 "EventFormatType", eventFormatType2, "HttpHeaders", headers,
-                "RegistryPrefixes", regPrefixes, "MessageIds", msgIds,
-                "DeliveryRetryPolicy", retryPolicy, "MetricReportDefinitions",
-                mrdJsonArray, "ResourceTypes", resTypes, "Oem", oemObj))
+                "RegistryPrefixes", regPrefixes, "MessageIds", msgIds, "Id",
+                vId, "DeliveryRetryPolicy", retryPolicy,
+                "MetricReportDefinitions", mrdJsonArray, "ResourceTypes",
+                resTypes, "Oem", oemObj))
         {
+            return;
+        }
+
+        if (vId)
+        {
+            messages::propertyNotWritable(asyncResp->res, "Id");
+            asyncResp->res.result(boost::beast::http::status::bad_request);
             return;
         }
 

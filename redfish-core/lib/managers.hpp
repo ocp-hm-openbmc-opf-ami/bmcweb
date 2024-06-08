@@ -2293,6 +2293,7 @@ inline void requestRoutesManager(App& app)
 
         std::optional<std::string> activeSoftwareImageOdataId;
         std::optional<std::string> datetime;
+        std::optional<std::string> vId;
         std::optional<nlohmann::json::object_t> pidControllers;
         std::optional<nlohmann::json::object_t> fanControllers;
         std::optional<nlohmann::json::object_t> fanZones;
@@ -2307,12 +2308,19 @@ inline void requestRoutesManager(App& app)
               "Oem/OpenBmc/Fan/FanZones", fanZones,
               "Oem/OpenBmc/Fan/PidControllers", pidControllers,
               "Oem/OpenBmc/Fan/Profile", profile,
-              "Oem/OpenBmc/Fan/StepwiseControllers", stepwiseControllers
+              "Oem/OpenBmc/Fan/StepwiseControllers", stepwiseControllers,
+              "Id", vId
         ))
         {
             return;
         }
         // clang-format on
+        if (vId)
+        {
+            messages::propertyNotWritable(asyncResp->res, "Id");
+            asyncResp->res.result(boost::beast::http::status::bad_request);
+            return;
+        }
 
         if (pidControllers || fanControllers || fanZones ||
             stepwiseControllers || profile)

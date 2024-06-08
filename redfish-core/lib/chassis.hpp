@@ -653,6 +653,7 @@ inline void
     }
     std::optional<bool> locationIndicatorActive;
     std::optional<std::string> indicatorLed;
+    std::optional<std::string> vId;
 
     if (param.empty())
     {
@@ -661,8 +662,15 @@ inline void
 
     if (!json_util::readJsonPatch(
             req, asyncResp->res, "LocationIndicatorActive",
-            locationIndicatorActive, "IndicatorLED", indicatorLed))
+            locationIndicatorActive, "IndicatorLED", indicatorLed, "Id", vId))
     {
+        return;
+    }
+
+    if (vId)
+    {
+        messages::propertyNotWritable(asyncResp->res, "Id");
+        asyncResp->res.result(boost::beast::http::status::bad_request);
         return;
     }
 

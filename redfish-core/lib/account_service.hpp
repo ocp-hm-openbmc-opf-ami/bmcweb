@@ -1571,6 +1571,7 @@ inline void handleAccountServicePatch(
     std::optional<std::string> httpBasicAuth;
     std::optional<std::string> passwordcomplexity;
     std::optional<uint8_t> RememberOldPasswordTimes;
+    std::optional<std::string> vId;
     // clang-format off
     if (!json_util::readJsonPatch(
             req, asyncResp->res,
@@ -1603,7 +1604,7 @@ inline void handleAccountServicePatch(
             "Oem/OpenBMC/AuthMethods/XToken", auth.xToken,
             "HTTPBasicAuth", httpBasicAuth,
             "Oem/OpenBMC/PasswordPolicyComplexity",passwordcomplexity,
-            "Oem/OpenBMC/RememberOldPasswordTimes",RememberOldPasswordTimes))
+            "Oem/OpenBMC/RememberOldPasswordTimes",RememberOldPasswordTimes, "Id", vId))
     {
         return;
     }
@@ -1624,6 +1625,13 @@ inline void handleAccountServicePatch(
             messages::propertyValueNotInList(asyncResp->res, "HttpBasicAuth",
                                              *httpBasicAuth);
         }
+    }
+
+    if (vId)
+    {
+        messages::propertyNotWritable(asyncResp->res, "Id");
+        asyncResp->res.result(boost::beast::http::status::bad_request);
+        return;
     }
 
     if (minPasswordLength)
