@@ -1321,7 +1321,19 @@ constexpr std::array registry =
 		},
 		"Provide Valid IP address",
 	}},
-
+    MessageEntry{
+        "PropertyValueEmpty",
+        {
+        "Indicates that a Property Value is empty",
+        "The value %1 for the property %2 should not be empty",
+        "Critical",
+        2,
+        {
+            "string",
+            "string",
+        },
+        "Please Make sure that correct value for the property is provided in the request body and resubmit the request"
+    }},
 };
 
 enum class Index
@@ -1437,5 +1449,6 @@ enum class Index
     undeterminedFault = 108,
     unrecognizedRequestBody = 109,
     invalidip=110,
+    propertyValueEmpty=111,
 };
 } // namespace redfish::registries::base

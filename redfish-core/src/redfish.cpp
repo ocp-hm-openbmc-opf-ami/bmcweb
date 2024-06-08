@@ -246,6 +246,7 @@ RedfishService::RedfishService(App& app)
     requestRoutesFabricAdapters(app);
     requestRoutesFabricAdapterCollection(app);
     requestRoutesSubmitTestEvent(app);
+    requestRoutesSSLEvent(app);
 
     requestRoutesHypervisorSystems(app);
 

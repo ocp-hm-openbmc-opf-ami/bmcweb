@@ -1119,6 +1119,18 @@ void invalidQueryFilter(crow::Response& res);
 nlohmann::json invalidip(std::string_view arg1, std::string_view arg2);
 void invalidip(crow::Response& res, std::string_view arg1,
                std::string_view arg2);
+
+/**
+ * @internal
+ * @brief Formats PropertyValueEmpty message into JSON
+ *
+ * See header file for more information
+ * @endinternal
+ */
+nlohmann::json propertyValueEmpty(std::string_view arg1, std::string_view arg2);
+void propertyValueEmpty(crow::Response& res, std::string_view arg1,
+                        std::string_view arg2);
+
 } // namespace messages
 
 } // namespace redfish
