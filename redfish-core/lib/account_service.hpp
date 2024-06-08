@@ -386,7 +386,8 @@ inline void handleRoleMapPatch(
                     if (ec)
                     {
                         BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
-                        messages::propertyValueFormatError(asyncResp->res,"Missing","Invalid");
+                        messages::propertyValueFormatError(
+                            asyncResp->res, "Missing", "Invalid");
                         return;
                     }
                     asyncResp->res.jsonValue[serverType]["RemoteRoleMapping"]
@@ -487,16 +488,16 @@ inline void handleRoleMapPatch(
                     if (ec)
                     {
                         BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
-                        //messages::internalError(asyncResp->res);
-                        if(localRole.has_value())
+                        // messages::internalError(asyncResp->res);
+                        if (localRole.has_value())
                         {
                             messages::propertyValueIncorrect(
-                                    asyncResp->res, "LocalRole", *localRole);
+                                asyncResp->res, "LocalRole", *localRole);
                         }
-                        if(remoteGroup.has_value())
+                        if (remoteGroup.has_value())
                         {
                             messages::propertyValueIncorrect(
-                                    asyncResp->res, "RemoteGroup", *remoteGroup);
+                                asyncResp->res, "RemoteGroup", *remoteGroup);
                         }
                         return;
                     }
@@ -1504,13 +1505,13 @@ inline void handleAccountServicePatch(
     {
         // Account will be locked permanently after the N number of failed login
         // attempts if we set unlockTimeout value to be 0.
-        if (unlockTimeout.value() == 0)
+        /*if (unlockTimeout.value() == 0)
         {
             BMCWEB_LOG_INFO("Unlock timeout value must be greater than zero");
             messages::propertyValueNotInList(asyncResp->res, "unlockTimeout",
                                              "AccountLockoutDuration");
             return;
-        }
+        }*/
 
         setDbusProperty(
             asyncResp, "xyz.openbmc_project.User.Manager",
@@ -1657,8 +1658,7 @@ inline void processAfterCreateUser(
             // If password is invalid
             messages::propertyValueFormatError(asyncResp->res, nullptr,
                                                "Password");
-        },
-            "xyz.openbmc_project.User.Manager", userPath,
+        }, "xyz.openbmc_project.User.Manager", userPath,
             "xyz.openbmc_project.Object.Delete", "Delete");
 
         BMCWEB_LOG_ERROR("pamUpdatePassword Failed");
@@ -2035,8 +2035,7 @@ inline void
         }
 
         messages::accountRemoved(asyncResp->res);
-    },
-        "xyz.openbmc_project.User.Manager", userPath,
+    }, "xyz.openbmc_project.User.Manager", userPath,
         "xyz.openbmc_project.Object.Delete", "Delete");
 }
 
@@ -2128,6 +2127,7 @@ inline void
 
         updateUserProperties(asyncResp, newUser, password, enabled, roleId,
                              locked, accountTypes, userSelf, req.session);
+        messages::success(asyncResp->res);
     },
         "xyz.openbmc_project.User.Manager", "/xyz/openbmc_project/user",
         "xyz.openbmc_project.User.Manager", "RenameUser", username,
