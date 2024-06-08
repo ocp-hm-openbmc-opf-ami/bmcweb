@@ -325,7 +325,7 @@ inline void
     if (ntpServerObjects.size() > limit)
     {
         BMCWEB_LOG_DEBUG("out of Limit");
-        asyncResp->res.result(boost::beast::http::status::bad_request);
+        messages::propertyValueOutOfRange(asyncResp->res, ntpServerObjects, "NTP/NTPServers");
         return;
     }
 

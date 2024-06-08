@@ -3160,7 +3160,7 @@ inline void handleComputerSystemResetActionPost(
     }*/
     else
     {
-        messages::actionParameterUnknown(asyncResp->res, "Reset", resetType);
+        messages::actionParameterNotSupported(asyncResp->res, "Reset", resetType);
         return;
     }
     sdbusplus::message::object_path statePath("/xyz/openbmc_project/state");
