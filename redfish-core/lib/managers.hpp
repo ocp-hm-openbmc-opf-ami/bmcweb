@@ -2086,15 +2086,9 @@ inline void requestRoutesManager(App& app)
         // TODO (Gunnar): Remove these one day since moved to ComputerSystem
         // Still used by OCP profiles
         // https://github.com/opencomputeproject/OCP-Profiles/issues/23
-        // Fill in SerialConsole info
-        asyncResp->res.jsonValue["SerialConsole"]["ServiceEnabled"] = true;
-        asyncResp->res.jsonValue["SerialConsole"]["MaxConcurrentSessions"] = 15;
-        asyncResp->res.jsonValue["SerialConsole"]["ConnectTypesSupported"] = {
-            "IPMI", "SSH"};
-
         // Fill in CommandShell info
         asyncResp->res.jsonValue["CommandShell"]["ServiceEnabled"] = true;
-        asyncResp->res.jsonValue["CommandShell"]["MaxConcurrentSessions"] = 4;
+        asyncResp->res.jsonValue["CommandShell"]["MaxConcurrentSessions"] = 1;
         asyncResp->res.jsonValue["CommandShell"]["ConnectTypesSupported"] = {
             "SSH", "IPMI"};
 

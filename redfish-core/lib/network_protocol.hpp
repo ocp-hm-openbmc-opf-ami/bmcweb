@@ -475,6 +475,11 @@ inline void
         {
             if (entry.first.starts_with(netBasePath))
             {
+                if (protocolEnabled)
+                {
+                    BMCWEB_LOG_DEBUG("wait for get properties");
+                    sleep(5);
+                }
                 setDbusProperty(
                     asyncResp, entry.second.begin()->first, entry.first,
                     "xyz.openbmc_project.Control.Service.Attributes", "Running",

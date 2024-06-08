@@ -3312,7 +3312,7 @@ inline void
     asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
 
     // Fill in SerialConsole info
-    asyncResp->res.jsonValue["SerialConsole"]["MaxConcurrentSessions"] = 15;
+    asyncResp->res.jsonValue["SerialConsole"]["MaxConcurrentSessions"] = 1;
     asyncResp->res.jsonValue["SerialConsole"]["IPMI"]["ServiceEnabled"] = true;
 
     getPortStatusAndPath(std::span{protocolToDBusForSystems},

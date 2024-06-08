@@ -409,9 +409,6 @@ inline void handleDecoratorAssetProperties(
     {
         asyncResp->res.jsonValue["Thermal"]["@odata.id"] =
             boost::urls::format("/redfish/v1/Chassis/{}/Thermal", chassisId);
-        // Power object
-        asyncResp->res.jsonValue["Power"]["@odata.id"] =
-            boost::urls::format("/redfish/v1/Chassis/{}/Power", chassisId);
     }
 
     if constexpr (BMCWEB_REDFISH_NEW_POWERSUBSYSTEM_THERMALSUBSYSTEM)
@@ -584,7 +581,7 @@ inline void handleChassisGetSubTree(
         {
             if (std::ranges::find(interfaces2, interface) != interfaces2.end())
             {
-                getIndicatorLedState(asyncResp);
+                // getIndicatorLedState(asyncResp);
                 getSystemLocationIndicatorActive(asyncResp);
                 break;
             }

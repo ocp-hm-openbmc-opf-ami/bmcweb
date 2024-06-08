@@ -84,6 +84,10 @@ constexpr auto getSensorPaths(){
         "/xyz/openbmc_project/sensors/count",
         "/xyz/openbmc_project/sensors/airflow",
         "/xyz/openbmc_project/sensors/humidity",
+        "/xyz/openbmc_project/sensors/temperature",
+        "/xyz/openbmc_project/sensors/chassisstate",
+        "/xyz/openbmc_project/sensors/battery",
+        "/xyz/openbmc_project/sensors/acpidevice",
         "/xyz/openbmc_project/sensors/utilization"});
 }
 }
