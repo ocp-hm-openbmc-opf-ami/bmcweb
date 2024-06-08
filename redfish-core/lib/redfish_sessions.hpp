@@ -30,6 +30,48 @@
 namespace redfish
 {
 
+constexpr const char* SessionManagerService =
+    "xyz.openbmc_project.SessionManager";
+constexpr const char* SessionManagerObj = "/xyz/openbmc_project/SessionManager";
+std::vector<std::string> SessionInterfaces = {
+    "xyz.openbmc_project.SessionManager.Kvm",
+    "xyz.openbmc_project.SessionManager.Vmedia",
+    "xyz.openbmc_project.SessionManager.Web"};
+std::vector<std::string> SessionProperties = {
+    "KvmSessionInfo", "VmediaSessionInfo", "WebSessionInfo"};
+constexpr const char* DBUS_PROPERTY_IFACE = "org.freedesktop.DBus.Properties";
+
+using sessionInfo =
+    std::tuple<uint16_t, std::string, std::string, uint8_t, uint8_t, uint8_t>;
+
+using sessionRet = std::vector<sessionInfo>;
+using propertyValue = std::variant<std::vector<sessionInfo>>;
+
+std::string getRole(std::string role)
+{
+    if (role == "priv-admin")
+        return "Administrator";
+    else if (role == "priv-operator")
+        return "Operator";
+    else if (role == "priv-user")
+        return "Readonly";
+    else
+        return "";
+}
+
+const propertyValue getSessiondata(const std::string& interface,
+                                   const std::string& propertyName)
+{
+    propertyValue value;
+    auto b = sdbusplus::bus::new_default_system();
+    auto method = b.new_method_call(SessionManagerService, SessionManagerObj,
+                                    DBUS_PROPERTY_IFACE, "Get");
+    method.append(interface, propertyName);
+    auto reply = b.call(method);
+    reply.read(value);
+    return value;
+}
+
 inline void fillSessionObject(crow::Response& res,
                               const persistent_data::UserSession& session)
 {
@@ -45,6 +87,10 @@ inline void fillSessionObject(crow::Response& res,
     res.jsonValue["Description"] = "Manager User Session";
     res.jsonValue["ClientOriginIPAddress"] = session.clientIp;
     res.jsonValue["SessionType"] = session.sessionType;
+    res.jsonValue["Oem"]["AMI_WebSession"]["@odata.id"] = boost::urls::format(
+        "/redfish/v1/SessionService/Sessions/{}#/Oem/AMI_WebSession",
+        session.uniqueId);
+    res.jsonValue["Roles"] = getRole(session.userRole);
     res.jsonValue["Oem"]["AMI_WebSession"]["@odata.type"] =
         "#AMIWebSession.v1_0_0.WebSession";
     res.jsonValue["Oem"]["AMI_WebSession"]["KvmActive"] =
@@ -58,6 +104,88 @@ inline void fillSessionObject(crow::Response& res,
     if (session.clientId)
     {
         res.jsonValue["Context"] = *session.clientId;
+    }
+}
+
+inline std::string getSessionType(int sessionType)
+{
+    if (sessionType == 0)
+        return "KVM";
+    else if (sessionType == 1)
+        return "WEB";
+    else if (sessionType == 2)
+        return "VMEDIA";
+    else
+        return "";
+}
+
+inline std::string getprivilege(int priv)
+{
+    if (priv == 1)
+        return "Callback";
+    else if (priv == 2)
+        return "User";
+    else if (priv == 3)
+        return "Operator";
+    else if (priv == 4)
+        return "Administrator";
+    else if (priv == 5)
+        return "OEM Proprietary";
+    else
+        return "";
+}
+
+inline void getSessionInfo(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
+                           const std::string& interface,
+                           const std::string& propertyName,
+                           std::string sessionId, bool& found)
+{
+    size_t Pos = sessionId.find('_');
+    std::string num = sessionId.substr(Pos + 1);
+    int SessId = std::stoi(num);
+
+    propertyValue value;
+    auto b = sdbusplus::bus::new_default_system();
+    auto method = b.new_method_call(SessionManagerService, SessionManagerObj,
+                                    DBUS_PROPERTY_IFACE, "Get");
+    method.append(interface, propertyName);
+    auto reply = b.call(method);
+    reply.read(value);
+
+    if (std::holds_alternative<sessionRet>(value))
+    {
+        sessionRet& vec = std::get<sessionRet>(value);
+        for (const auto& tuple : vec)
+        {
+            int id;
+            std::string IpAddess;
+            std::string userName;
+            int SessionType;
+            int privilege;
+            int UserId;
+            std::tie(id, IpAddess, userName, SessionType, privilege, UserId) =
+                tuple;
+            if (SessId == id)
+            {
+                found = true;
+                asyncResp->res.jsonValue["Id"] = sessionId;
+                asyncResp->res.jsonValue["UserName"] = userName;
+                asyncResp->res.jsonValue["@odata.id"] =
+                    "/redfish/v1/SessionService/"
+                    "Sessions/" +
+                    sessionId;
+                asyncResp->res.jsonValue["@odata.type"] =
+                    "#Session.v1_3_0.Session";
+                asyncResp->res.jsonValue["Name"] = "User Session";
+                asyncResp->res.jsonValue["Description"] =
+                    "Manager User Session";
+                asyncResp->res.jsonValue["ClientOriginIPAddress"] = IpAddess;
+                asyncResp->res.jsonValue["SessionType"] =
+                    getSessionType(SessionType);
+                asyncResp->res.jsonValue["Roles"] = getprivilege(privilege);
+                asyncResp->res.jsonValue["UserId"] = UserId;
+            }
+        }
     }
 }
 
@@ -96,6 +224,20 @@ inline void
     {
         fillSessionObject(asyncResp->res, *session);
         return;
+    }
+
+    bool found = false;
+    // Session management
+    if (sessionId.find("session_") != std::string::npos)
+    {
+        for (size_t i = 0; i < SessionInterfaces.size(); ++i)
+        {
+            getSessionInfo(asyncResp, SessionInterfaces[i],
+                           SessionProperties[i], sessionId, found);
+        }
+        // Session details found
+        if (found == true)
+            return;
     }
 
     // Check the IPMI sessions and get session info
@@ -210,6 +352,66 @@ inline void
     {
         return;
     }
+
+    if (sessionId.find('_') != std::string::npos)
+    {
+        size_t Pos = sessionId.find('_');
+        std::string num = sessionId.substr(Pos + 1);
+        int SessId = std::stoi(num);
+        int sessType;
+        bool found = false;
+
+        // Fetching sessionType with sessionId
+        for (size_t i = 0; i < SessionInterfaces.size(); ++i)
+        {
+            propertyValue data =
+                getSessiondata(SessionInterfaces[i], SessionProperties[i]);
+            if (std::holds_alternative<sessionRet>(data))
+            {
+                sessionRet& vec = std::get<sessionRet>(data);
+                for (const auto& tuple : vec)
+                {
+                    int id;
+                    std::string IpAddess;
+                    std::string userName;
+                    int SessionType;
+                    int privilege;
+                    int UserId;
+                    std::tie(id, IpAddess, userName, SessionType, privilege,
+                             UserId) = tuple;
+                    if (SessId == id)
+                    {
+                        sessType = SessionType;
+                        found = true;
+                        break;
+                    }
+                }
+            }
+            if (found)
+                break;
+        }
+        // Unregister session
+        crow::connections::systemBus->async_method_call(
+            [asyncResp](const boost::system::error_code& ec, bool value) {
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG("Failed to unRegister: {}", ec);
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            if (value)
+            {
+                asyncResp->res.result(boost::beast::http::status::no_content);
+                return;
+            }
+            },
+            SessionManagerService, SessionManagerObj,
+            "xyz.openbmc_project.SessionManager", "SessionUnregister",
+            static_cast<uint8_t>(SessId), static_cast<uint8_t>(sessType), 1);
+
+        return;
+    }
+
     auto session =
         persistent_data::SessionStore::getInstance().getSessionByUid(sessionId);
 
@@ -298,6 +500,36 @@ inline nlohmann::json getSessionCollectionMembers()
     return ret;
 }
 
+inline void getSessions(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
+                        std::string interface, std::string Property,
+                        nlohmann::json& members)
+{
+    sdbusplus::asio::getProperty<std::vector<sessionInfo>>(
+        *crow::connections::systemBus, SessionManagerService, SessionManagerObj,
+        interface, Property,
+        [asyncResp, &members](const boost::system::error_code ec,
+                              const std::vector<sessionInfo>& Sessions) {
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR("DBus response error:{}", ec);
+            return;
+        }
+        std::vector<uint16_t> sessionIds;
+        for (const auto& tuple : Sessions)
+        {
+            uint16_t sessionId = std::get<0>(tuple);
+            sessionIds.push_back(sessionId);
+        }
+
+        for (uint64_t value : sessionIds)
+        {
+            members.push_back(
+                {{"@odata.id", "/redfish/v1/SessionService/Sessions/session_" +
+                                   std::to_string(value)}});
+        }
+        });
+}
+
 inline void handleSessionCollectionHead(
     crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
@@ -324,8 +556,6 @@ inline void handleSessionCollectionGet(
         "</redfish/v1/JsonSchemas/SessionCollection.json>; rel=describedby");
 
     asyncResp->res.jsonValue["Members"] = getSessionCollectionMembers();
-    asyncResp->res.jsonValue["Members@odata.count"] =
-        asyncResp->res.jsonValue["Members"].size();
     asyncResp->res.jsonValue["@odata.type"] =
         "#SessionCollection.SessionCollection";
     asyncResp->res.jsonValue["@odata.id"] =
@@ -370,6 +600,14 @@ inline void handleSessionCollectionGet(
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths", "/", 0,
         interfaces);
+
+    nlohmann::json& members = asyncResp->res.jsonValue["Members"];
+    for (size_t i = 0; i < SessionInterfaces.size(); ++i)
+    {
+        getSessions(asyncResp, SessionInterfaces[i], SessionProperties[i],
+                    members);
+    }
+    asyncResp->res.jsonValue["Members@odata.count"] = members.size();
 }
 
 inline void handleSessionCollectionMembersGet(

@@ -114,6 +114,11 @@ class KvmSession : public std::enable_shared_from_this<KvmSession>
             conn.sendBinary(payload);
             outputBuffer.consume(bytesRead);
 
+            // closing KVM when web session deleted
+            if (!conn.session->kvmConnections)
+            {
+                closeWebSocket();
+            }
             doRead();
         });
     }

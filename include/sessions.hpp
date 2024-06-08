@@ -291,6 +291,7 @@ class SessionStore
     void removeSession(const std::shared_ptr<UserSession>& session)
     {
         authTokens.erase(session->sessionToken);
+        session->kvmConnections = 0;
         needWrite = true;
     }
 
