@@ -37,6 +37,7 @@
 #include "node-manager/throttling_status.hpp"
 #include "node-manager/triggers.hpp"
 #include "pcie.hpp"
+#include "pef_service.hpp"
 #include "power_subsystem.hpp"
 #include "power_supply.hpp"
 #include "processor.hpp"
@@ -268,6 +269,7 @@ RedfishService::RedfishService(App& app)
     // License Control
     requestRoutesLicenseControl(app);
 
+    requestRoutesPefService(app);
     // Note, this must be the last route registered
     requestRoutesRedfish(app);
 }
