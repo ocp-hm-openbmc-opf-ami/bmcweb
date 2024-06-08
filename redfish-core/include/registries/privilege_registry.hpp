@@ -2002,5 +2002,10 @@ const static auto& deleteZoneCollection = privilegeSetConfigureComponents;
 const static auto& getFIPS = privilegeSetLogin;
 const static auto& patchFIPS = privilegeSetConfigureComponents;
 
+//License control - OEM AMI
+const static auto& getLicenseControl = privilegeSetLogin;
+const static auto& patchLicenseControl = privilegeSetConfigureComponents;
+const static auto& postLicenseControl = privilegeSetConfigureComponents;
+
 } // namespace redfish::privileges
 // clang-format on

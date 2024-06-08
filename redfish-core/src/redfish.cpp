@@ -18,6 +18,7 @@
 #include "fan_from_sensor.hpp"
 #include "fips_manager.hpp"
 #include "hypervisor_system.hpp"
+#include "license_control.hpp"
 #include "license_service.hpp"
 #include "log_services.hpp"
 #include "manager_diagnostic_data.hpp"
@@ -263,6 +264,9 @@ RedfishService::RedfishService(App& app)
 
     // FIPS Enablement
     requestFipsManagerRoutes(app);
+
+    // License Control
+    requestRoutesLicenseControl(app);
 
     // Note, this must be the last route registered
     requestRoutesRedfish(app);
