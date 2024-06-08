@@ -409,10 +409,10 @@ inline void handleDecoratorAssetProperties(
     {
         asyncResp->res.jsonValue["Thermal"]["@odata.id"] =
             boost::urls::format("/redfish/v1/Chassis/{}/Thermal", chassisId);
+        // Power object
+        asyncResp->res.jsonValue["Power"]["@odata.id"] =
+            boost::urls::format("/redfish/v1/Chassis/{}/Power", chassisId);
     }
-    // Power object
-    asyncResp->res.jsonValue["Power"]["@odata.id"] =
-        boost::urls::format("/redfish/v1/Chassis/{}/Power", chassisId);
 
     if constexpr (BMCWEB_REDFISH_NEW_POWERSUBSYSTEM_THERMALSUBSYSTEM)
     {

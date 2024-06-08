@@ -703,9 +703,13 @@ inline std::string dbusToRfBootMode(const std::string& dbusMode)
     {
         return "None";
     }
-    if (dbusMode == "xyz.openbmc_project.Control.Boot.Mode.Modes.Safe")
+    if (dbusMode == "xyz.openbmc_project.Control.Boot.Mode.Modes.Diag")
     {
         return "Diags";
+    }
+    if (dbusMode == "xyz.openbmc_project.Control.Boot.Mode.Modes.Safe")
+    {
+        return "Safe";
     }
     if (dbusMode == "xyz.openbmc_project.Control.Boot.Mode.Modes.Setup")
     {
@@ -823,9 +827,13 @@ inline int
     {
         bootSource = "xyz.openbmc_project.Control.Boot.Source.Sources.Disk";
     }
-    else if (rfSource == "Diags")
+    else if (rfSource == "Safe")
     {
         bootMode = "xyz.openbmc_project.Control.Boot.Mode.Modes.Safe";
+    }
+    else if (rfSource == "Diags")
+    {
+        bootMode = "xyz.openbmc_project.Control.Boot.Mode.Modes.Diag";
     }
     else if (rfSource == "Cd")
     {
@@ -1047,6 +1055,7 @@ inline void
         allowed.emplace_back("Pxe");
         allowed.emplace_back("Hdd");
         allowed.emplace_back("Cd");
+        allowed.emplace_back("Safe");
         allowed.emplace_back("Diags");
         allowed.emplace_back("BiosSetup");
         allowed.emplace_back("Usb");
@@ -3326,7 +3335,7 @@ inline void
 
     getSystemLocationIndicatorActive(asyncResp);
     // TODO (Gunnar): Remove IndicatorLED after enough time has passed
-    //getIndicatorLedState(asyncResp);
+    // getIndicatorLedState(asyncResp);
     getPhysicalLedState(asyncResp);
     getComputerSystem(asyncResp);
     getHostState(asyncResp);
@@ -3381,7 +3390,7 @@ inline void handleComputerSystemPatch(
         "</redfish/v1/JsonSchemas/ComputerSystem/ComputerSystem.json>; rel=describedby");
 
     std::optional<bool> locationIndicatorActive;
-    //std::optional<std::string> indicatorLed;
+    // std::optional<std::string> indicatorLed;
     std::optional<std::string> assetTag;
     std::optional<std::string> powerRestorePolicy;
     std::optional<std::string> powerMode;
@@ -3402,6 +3411,7 @@ inline void handleComputerSystemPatch(
     std::optional<nlohmann::json> serialConsole;
     std::optional<nlohmann::json> virtualMediaConfig;
     std::optional<nlohmann::json> kvmConfig;
+    std::optional<std::string> vId;
 
     // clang-format off
                 if (!json_util::readJsonPatch(
@@ -3427,8 +3437,15 @@ inline void handleComputerSystemPatch(
                         "IdlePowerSaver/ExitDwellTimeSeconds", ipsExitTime,                        
                         "SerialConsole", serialConsole,
                         "VirtualMediaConfig", virtualMediaConfig,
-                        "GraphicalConsole", kvmConfig))
+                        "GraphicalConsole", kvmConfig,
+                        "Id", vId))
                 {
+                    return;
+                }
+		if (vId)
+                {
+                    messages::propertyNotWritable(asyncResp->res, "Id");
+                    asyncResp->res.result(boost::beast::http::status::bad_request);
                     return;
                 }
     // clang-format on
@@ -3569,7 +3586,6 @@ inline void handleComputerSystemPatch(
                                      *vmServiceEnabled);
         }
     }
-
 }
 
 inline void handleSystemCollectionResetActionHead(
