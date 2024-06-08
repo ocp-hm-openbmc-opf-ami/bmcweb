@@ -1236,8 +1236,7 @@ inline void clearDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             return;
         }
         messages::success(asyncResp->res);
-    },
-        "xyz.openbmc_project.Dump.Manager", getDumpPath(dumpType),
+    }, "xyz.openbmc_project.Dump.Manager", getDumpPath(dumpType),
         "xyz.openbmc_project.Collection.DeleteAll", "DeleteAll");
 }
 
@@ -1477,8 +1476,7 @@ inline void requestRoutesJournalEventLogClear(App& app)
             }
 
             messages::success(asyncResp->res);
-        },
-            "org.freedesktop.systemd1", "/org/freedesktop/systemd1",
+        }, "org.freedesktop.systemd1", "/org/freedesktop/systemd1",
             "org.freedesktop.systemd1.Manager", "ReloadUnit", "rsyslog.service",
             "replace");
     });
@@ -2167,7 +2165,7 @@ inline void requestRoutesDBusEventLogEntry(App& app)
                 return;
             }
 
-            asyncResp->res.result(boost::beast::http::status::ok);
+            messages::success(asyncResp->res);
         };
 
         // Make call to Logging service to request Delete Log
@@ -3942,8 +3940,7 @@ inline void requestRoutesDBusLogServiceActionsClear(App& app)
                     boost::beast::http::status::internal_server_error);
                 return;
             }
-
-            asyncResp->res.result(boost::beast::http::status::no_content);
+            messages::success(asyncResp->res);
         };
 
         // Make call to Logging service to request Clear Log
@@ -4054,8 +4051,7 @@ inline void requestRoutesPostCodesClear(App& app)
                 return;
             }
             messages::success(asyncResp->res);
-        },
-            "xyz.openbmc_project.State.Boot.PostCode0",
+        }, "xyz.openbmc_project.State.Boot.PostCode0",
             "/xyz/openbmc_project/State/Boot/PostCode0",
             "xyz.openbmc_project.Collection.DeleteAll", "DeleteAll");
     });

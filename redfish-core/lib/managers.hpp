@@ -2044,7 +2044,9 @@ inline void requestRoutesManager(App& app)
         oemOpenbmc["@odata.id"] =
             boost::urls::format("/redfish/v1/Managers/{}#/Oem/OpenBmc",
                                 BMCWEB_REDFISH_MANAGER_URI_NAME);
-
+        oemOpenbmc["@odata.id"] =
+            boost::urls::format("/redfish/v1/Managers/{}#/Oem/OpenBmc/Jpeg",
+                                BMCWEB_REDFISH_MANAGER_URI_NAME);
         nlohmann::json::object_t certificates;
         certificates["@odata.id"] = boost::urls::format(
             "/redfish/v1/Managers/{}/Truststore/Certificates",
@@ -2296,6 +2298,9 @@ inline void requestRoutesManager(App& app)
         {
             return;
         }
+        asyncResp->res.addHeader(
+            boost::beast::http::field::link,
+            "</redfish/v1/JsonSchemas/Manager/Manager.json>; rel=describedby");
 
         if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
         {

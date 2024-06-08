@@ -6,6 +6,7 @@
 #include "aggregation_service.hpp"
 #include "app.hpp"
 #include "bios.hpp"
+#include "bsodjpeg.hpp"
 #include "cable.hpp"
 #include "certificate_service.hpp"
 #include "chassis.hpp"
@@ -106,6 +107,9 @@ RedfishService::RedfishService(App& app)
     requestRoutesManagerResetActionInfo(app);
     requestRoutesManagerResetToDefaultsAction(app);
     requestRoutesManagerDiagnosticData(app);
+    requestRoutesBsodjpeg(app);
+    requestRoutesDeleteBsodjpeg(app);
+    requestRoutesTriggerBsodjpeg(app);
     requestRoutesChassisCollection(app);
     requestRoutesChassis(app);
     requestRoutesChassisResetAction(app);
@@ -270,6 +274,7 @@ RedfishService::RedfishService(App& app)
     requestRoutesLicenseControl(app);
 
     requestRoutesPefService(app);
+    requestRoutesSendTrap(app);
     // Note, this must be the last route registered
     requestRoutesRedfish(app);
 }
