@@ -44,6 +44,10 @@
 #include <utility>
 #include <variant>
 
+using SensorCallback =
+    std::function<void(const std::vector<std::string>& stringState)>;
+
+
 namespace redfish
 {
 
@@ -88,7 +92,12 @@ constexpr auto getSensorPaths(){
         "/xyz/openbmc_project/sensors/chassisstate",
         "/xyz/openbmc_project/sensors/battery",
         "/xyz/openbmc_project/sensors/acpidevice",
-        "/xyz/openbmc_project/sensors/utilization"});
+        "/xyz/openbmc_project/sensors/utilization",
+        "/xyz/openbmc_project/sensors/powerunit",
+        "/xyz/openbmc_project/sensors/acpisystem",
+        "/xyz/openbmc_project/sensors/powersupply",
+        "/xyz/openbmc_project/sensors/os"
+        });
 }
 }
 
@@ -729,6 +738,60 @@ inline void setLedState(nlohmann::json& sensorJson,
             default:
                 break;
         }
+    }
+}
+
+inline void sensorState(uint16_t value, std::string objPath,
+                        std::string_view sensorType,
+                        const SensorCallback callback)
+{
+    uint16_t position = 0;
+    std::vector<uint16_t> positions;
+    std::map<std::string, std::string> type = {
+        {"cpu", "Cpustatus"},         {"watchdog", "watchdog"},
+        {"acpisystem", "ACPISystem"}, {"powersupply", "Powersupply"},
+        {"powerunit", "Powerunit"},   {"os", "OSCritical"}};
+    auto it = type.find(std::string(sensorType));
+    if (it != type.end())
+    {
+        while (value > 0)
+        {
+            if (value & 1)
+            {
+                positions.push_back(position);
+            }
+            value >>= 1;
+            position++;
+        }
+        std::string interFace = "xyz.openbmc_project.Configuration." +
+                                it->second;
+        auto asyncCallback =
+            [positions,
+             callback](const boost::system::error_code ec,
+                       const std::variant<std::vector<std::string>>& state) {
+            if (ec)
+            {
+                // BMCWEB_LOG_DEBUG << "DBUS response error " << ec;
+                BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
+                return;
+            }
+            if (auto* stateVector =
+                    std::get_if<std::vector<std::string>>(&state))
+            {
+                if (!stateVector->empty())
+                {
+                    std::vector<std::string> stateSensor;
+                    for (auto& itr : positions)
+                    {
+                        stateSensor.push_back(stateVector->at(itr));
+                    }
+                    callback(stateSensor);
+                }
+            }
+        };
+        crow::connections::systemBus->async_method_call(
+            asyncCallback, "xyz.openbmc_project.EntityManager", objPath,
+            "org.freedesktop.DBus.Properties", "Get", interFace, "State");
     }
 }
 
@@ -2958,23 +3021,98 @@ inline void
     const std::string& connectionName = valueIface.first;
     BMCWEB_LOG_DEBUG("Looking up {}", connectionName);
     BMCWEB_LOG_DEBUG("Path {}", sensorPath);
-
+    sdbusplus::message::object_path path(sensorPath);
+    std::string name = path.filename();
+     path = path.parent_path();
+     std::string type = path.filename();
+     std::set<std::string> discreteSensorTypes = {
+        "cpu", "watchdog", "acpisystem", "powersupply", "powerunit", "os"};
     sdbusplus::asio::getAllProperties(
         *crow::connections::systemBus, connectionName, sensorPath, "",
-        [asyncResp,
-         sensorPath](const boost::system::error_code& ec,
+        [asyncResp, sensorPath, name, type, discreteSensorTypes](const boost::system::error_code& ec,
                      const ::dbus::utility::DBusPropertiesMap& valuesDict) {
         if (ec)
         {
             messages::internalError(asyncResp->res);
             return;
         }
-        sdbusplus::message::object_path path(sensorPath);
-        std::string name = path.filename();
-        path = path.parent_path();
-        std::string type = path.filename();
-        objectPropertiesToJson(name, type, sensors::node::sensors, valuesDict,
-                               asyncResp->res.jsonValue, nullptr);
+        if (discreteSensorTypes.count(type) > 0)
+        {
+            uint16_t pass = 0;
+            for (const auto& [valueName, valueVariant] : valuesDict)
+            {
+                const uint16_t* value;
+                std::string endPoint;
+                if (valueName == "Associations")
+                {
+                    if (std::holds_alternative<std::vector<
+                            std::tuple<std::string, std::string, std::string>>>(
+                            valueVariant))
+                    {
+                        // Get the vector of tuples
+                        const auto& tupleVector = std::get<std::vector<
+                            std::tuple<std::string, std::string, std::string>>>(
+                            valueVariant);
+                        for (const auto& tuple : tupleVector)
+                        {
+                            endPoint = std::get<2>(tuple);
+                            pass++;
+                        }
+                    }
+                }
+                else if (valueName == "State")
+                {
+                    value = std::get_if<uint16_t>(&valueVariant);
+                    pass++;
+                }
+                if (pass == 2)
+                {
+                    asyncResp->res.jsonValue["@odata.type"] =
+                        "#Sensor.v1_2_0.Sensor";
+                    std::string nameSensor = name;
+                    std::replace(nameSensor.begin(), nameSensor.end(), '_',
+                                 ' ');
+                    asyncResp->res.jsonValue["Name"] = nameSensor;
+                    asyncResp->res.jsonValue["Id"] = type + '_' + name;
+                    if (*value != 0)
+                    {
+                        std::string objPath = endPoint + "/" +
+                                              std::string(name);
+                        sensorState(
+                            *value, objPath, type,
+                            [asyncResp](
+                                const std::vector<std::string>& stringState) {
+                            nlohmann::json stateArray = nlohmann::json::array();
+                            for (auto& itr : stringState)
+                            {
+                                stateArray.push_back(itr);
+                            }
+                            asyncResp->res.jsonValue["Oem"]["Ami"]["States"] =
+                                stateArray;
+                            asyncResp->res.jsonValue["Oem"]["Ami"]
+                                                    ["ReadingTye"] = "Discrete";
+                        });
+                    }
+                    else
+                    {
+                        asyncResp->res.jsonValue["Oem"]["Ami"]["States"] =
+                            nullptr;
+                    }
+                    asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] =
+                        "#AMISensor.v1_0_0.AMISensor";
+                    asyncResp->res.jsonValue["Status"]["State"] =
+                        getState(nullptr, true);
+                    asyncResp->res.jsonValue["Status"]["Health"] = getHealth(
+                        asyncResp->res.jsonValue, valuesDict, nullptr);
+                }
+            }
+        }
+        else
+        {
+            objectPropertiesToJson(name, type, sensors::node::sensors,
+                                   valuesDict, asyncResp->res.jsonValue,
+                                   nullptr);
+        }
     });
 }
 
@@ -3000,8 +3138,9 @@ inline void handleSensorGet(App& app, const crow::Request& req,
 
     BMCWEB_LOG_DEBUG("Sensor doGet enter");
 
-    constexpr std::array<std::string_view, 1> interfaces = {
-        "xyz.openbmc_project.Sensor.Value"};
+    constexpr std::array<std::string_view, 3> interfaces = {
+        "xyz.openbmc_project.Sensor.Value", "xyz.openbmc_project.Sensor.State",
+        "xyz.openbmc_project.Association.Definitions"};
     std::string sensorPath = "/xyz/openbmc_project/sensors/" + nameType.first +
                              '/' + nameType.second;
     // Get a list of all of the sensors that implement Sensor.Value
