@@ -242,6 +242,7 @@ RedfishService::RedfishService(App& app)
     requestRoutesSensorCollection(app);
     requestRoutesSensor(app);
     requestRoutesSensorPatching(app);
+    requestRoutesSensorHistory(app);
 
     requestRoutesCupsService(app);
     requestRoutesCupsSensors(app);

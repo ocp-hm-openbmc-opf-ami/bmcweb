@@ -108,6 +108,7 @@ namespace redfish
         "OemServiceRoot",
         "OemUpdateService",
         "OemVirtualMedia",
+	"OemAMISensorHistory",
         "OpenBMCAccountService",
         "OperatingConfig",
         "OperatingConfigCollection",

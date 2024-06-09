@@ -3322,6 +3322,33 @@ inline void
     });
 }
 
+inline bool valideSensorWithConfFile(const std::string& sensorId)
+{
+    std::ifstream inputFile("/etc/sensor-reader/configuredsensors");
+    if (inputFile.is_open())
+    {
+        std::string sensorNameSearch, fileLine;
+        size_t pos = sensorId.find('_');
+        if (pos != std::string::npos)
+        {
+            sensorNameSearch = sensorId.substr(pos + 1);
+            bool found = false;
+            while (std::getline(inputFile, fileLine))
+            {
+                if (fileLine.find(sensorNameSearch) != std::string::npos)
+                {
+                    found = true;
+                    break;
+                }
+            }
+            inputFile.close();
+            return found;
+        }
+        inputFile.close();
+    }
+    return false;
+}
+
 inline void handleSensorGet(App& app, const crow::Request& req,
                             const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                             const std::string& chassisId,
@@ -3341,6 +3368,14 @@ inline void handleSensorGet(App& app, const crow::Request& req,
 
     asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
         "/redfish/v1/Chassis/{}/Sensors/{}", chassisId, sensorId);
+
+    if (valideSensorWithConfFile(sensorId))
+    {
+        asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.id"] =
+            boost::urls::format(
+                "/redfish/v1/Chassis/{}/Sensors/{}/Oem/SensorHistory",
+                chassisId, sensorId);
+    }    
 
     BMCWEB_LOG_DEBUG("Sensor doGet enter");
 
@@ -3375,6 +3410,171 @@ inline void handleSensorGet(App& app, const crow::Request& req,
     });
 }
 
+inline void
+    handleSensorHistoryGet(App& app, const crow::Request& req,
+                           const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                           const std::string& chassisId,
+                           const std::string& sensorId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    if (!valideSensorWithConfFile(sensorId))
+    {
+        messages::resourceNotFound(asyncResp->res, sensorId, "Sensor");
+        return;
+    }
+    std::pair<std::string, std::string> nameType =
+        splitSensorNameAndType(sensorId);
+    if (nameType.first.empty() || nameType.second.empty())
+    {
+        messages::resourceNotFound(asyncResp->res, sensorId, "Sensor");
+        return;
+    }
+    std::string sensorName = nameType.second;
+    std::replace(sensorName.begin(), sensorName.end(), '_', ' ');
+    asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
+        "/redfish/v1/Chassis/{}/Sensors/{}/Oem/SensorHistory", chassisId,
+        sensorId);
+
+    asyncResp->res.jsonValue = {
+        {"@odata.type", "#SensorHistory.v1_0_0.SensorHistory"},
+        {"@odata.id", "/redfish/v1/Chassis/" + chassisId + "/" + "Sensors/" +
+                          sensorId + "/Oem/SensorHistory"},
+        {"Id", sensorId + " Sensor History"},
+        {"Name", sensorName},
+        {"SensorName", sensorName}};
+
+    crow::connections::systemBus->async_method_call(
+        [asyncResp](
+            const boost::system::error_code ec,
+            const std::vector<std::pair<std::string, std::variant<uint64_t>>>&
+                propertiesList) {
+        if (ec)
+        {
+            messages::internalError(asyncResp->res);
+            BMCWEB_LOG_ERROR("Sensor patchSensorHistory Interval Dbus error {}",
+                             ec);
+            return;
+        }
+
+        for (const std::pair<std::string, std::variant<uint64_t>>& property :
+             propertiesList)
+        {
+            const std::string& propertyName = property.first;
+            if ((propertyName.find("Interval") != std::string::npos) ||
+                (propertyName.find("TimeFrame") != std::string::npos))
+            {
+                const uint64_t* value = std::get_if<uint64_t>(&property.second);
+                if (value != nullptr)
+                {
+                    asyncResp->res.jsonValue[propertyName] = *value;
+                }
+            }
+        }
+    },
+        "xyz.openbmc_project.SensorReader",
+        "/xyz/openbmc_project/SensorReader/History",
+        "org.freedesktop.DBus.Properties", "GetAll",
+        "xyz.openbmc_project.SensorReader.History.Read");
+
+    crow::connections::systemBus->async_method_call(
+        [asyncResp, chassisId, sensorId](
+            const boost::system::error_code ec,
+            const std::vector<std::pair<uint64_t, double>>& historyResp) {
+        if (ec)
+        {
+            messages::internalError(asyncResp->res);
+            BMCWEB_LOG_ERROR("Sensor patchSensorHistory Interval Dbus error {}",
+                             ec);
+            return;
+        }
+
+        nlohmann::json& historyArray =
+            asyncResp->res.jsonValue["SensorReadings"];
+        uint16_t sensorCount = 0;
+        for (const std::pair<uint64_t, double>& property : historyResp)
+        {
+            const uint64_t time = property.first;
+            const double value = property.second;
+
+            nlohmann::json historyItem;
+            historyItem["@odata.id"] =
+                "/redfish/v1/Chassis/" + chassisId + "/" + "Sensors/" +
+                sensorId + "/Oem/SensorHistory" + "#/SensorReadings/" +
+                std::to_string(sensorCount++);
+            historyItem["@odata.type"] = "#OemSensorHistory.v1_0_0";
+            historyItem["Time"] = time;
+            historyItem["Value"] = value;
+            historyArray.push_back(historyItem);
+        }
+        asyncResp->res.jsonValue["SensorReadingsCount"] = sensorCount;
+    },
+        "xyz.openbmc_project.SensorReader",
+        "/xyz/openbmc_project/SensorReader/History",
+        "xyz.openbmc_project.SensorReader.History.Read", "Read",
+        (nameType.second));
+}
+inline void handleSensorHistorypatch(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& sensorId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    if (!valideSensorWithConfFile(sensorId))
+    {
+        messages::resourceNotFound(asyncResp->res, sensorId, "Sensor");
+        return;
+    }
+    BMCWEB_LOG_DEBUG("Handling sensor history for Chassis ID: {} Sensor ID:",
+                     chassisId, sensorId);
+    std::optional<uint64_t> interval;
+    std::optional<uint64_t> timeFrame;
+    if (!json_util::readJsonPatch(req, asyncResp->res, "Interval", interval,
+                                  "TimeFrame", timeFrame))
+    {
+        return;
+    }
+    if (interval)
+    {
+        crow::connections::systemBus->async_method_call(
+            [asyncResp, interval](const boost::system::error_code ec) {
+            if (ec)
+            {
+                messages::internalError(asyncResp->res);
+                BMCWEB_LOG_ERROR(
+                    "Sensor patchSensorHistory Interval Dbus error {}", ec);
+                return;
+            }
+        }, "xyz.openbmc_project.SensorReader",
+            "/xyz/openbmc_project/SensorReader/History",
+            "org.freedesktop.DBus.Properties", "Set",
+            "xyz.openbmc_project.SensorReader.History.Read", "Interval",
+            std::variant<uint64_t>(*interval));
+    }
+    if (timeFrame)
+    {
+        crow::connections::systemBus->async_method_call(
+            [asyncResp, timeFrame](const boost::system::error_code ec) {
+            if (ec)
+            {
+                messages::internalError(asyncResp->res);
+                BMCWEB_LOG_ERROR(
+                    "Sensor patchSensorHistory Interval Dbus error {}", ec);
+                return;
+            }
+        }, "xyz.openbmc_project.SensorReader",
+            "/xyz/openbmc_project/SensorReader/History",
+            "org.freedesktop.DBus.Properties", "Set",
+            "xyz.openbmc_project.SensorReader.History.Read", "TimeFrame",
+            std::variant<uint64_t>(*timeFrame));
+    }
+}
+
 } // namespace sensors
 
 inline void requestRoutesSensorCollection(App& app)
@@ -3391,6 +3591,21 @@ inline void requestRoutesSensor(App& app)
         .privileges(redfish::privileges::getSensor)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(sensors::handleSensorGet, std::ref(app)));
+}
+
+inline void requestRoutesSensorHistory(App& app)
+{
+    BMCWEB_ROUTE(app,
+                 "/redfish/v1/Chassis/<str>/Sensors/<str>/Oem/SensorHistory")
+        .privileges(redfish::privileges::getSensor)
+        .methods(boost::beast::http::verb::get)(
+            std::bind_front(sensors::handleSensorHistoryGet, std::ref(app)));
+
+    BMCWEB_ROUTE(app,
+                 "/redfish/v1/Chassis/<str>/Sensors/<str>/Oem/SensorHistory")
+        .privileges(redfish::privileges::patchSensor)
+        .methods(boost::beast::http::verb::patch)(
+            std::bind_front(sensors::handleSensorHistorypatch, std::ref(app)));
 }
 
 } // namespace redfish
