@@ -38,6 +38,9 @@
 #include <variant>
 #include <vector>
 
+#define MAX_MTU 1500
+#define MIN_MTU 68
+
 namespace redfish
 {
 
@@ -1248,49 +1251,6 @@ void getEthernetIfaceList(CallbackFunc&& callback)
     });
 }
 
-inline void
-    handleHostnamePatch(const std::string& hostname,
-                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
-{
-    // SHOULD handle host names of up to 255 characters(RFC 1123)
-    if (hostname.length() > 255)
-    {
-        messages::propertyValueFormatError(asyncResp->res, hostname,
-                                           "HostName");
-        return;
-    }
-    setDbusProperty(
-        asyncResp, "xyz.openbmc_project.Network",
-        sdbusplus::message::object_path("/xyz/openbmc_project/network/config"),
-        "xyz.openbmc_project.Network.SystemConfiguration", "HostName",
-        "HostName", hostname);
-}
-
-inline void
-    handleMTUSizePatch(const std::string& ifaceId, const size_t mtuSize,
-                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
-{
-    sdbusplus::message::object_path objPath("/xyz/openbmc_project/network");
-    objPath /= ifaceId;
-    setDbusProperty(asyncResp, "xyz.openbmc_project.Network", objPath,
-                    "xyz.openbmc_project.Network.EthernetInterface", "MTU",
-                    "MTUSize", mtuSize);
-}
-
-inline void
-    handleDomainnamePatch(const std::string& ifaceId,
-                          const std::string& domainname,
-                          const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
-{
-    std::vector<std::string> vectorDomainname = {domainname};
-    setDbusProperty(
-        asyncResp, "xyz.openbmc_project.Network",
-        sdbusplus::message::object_path("/xyz/openbmc_project/network") /
-            ifaceId,
-        "xyz.openbmc_project.Network.EthernetInterface", "DomainName", "FQDN",
-        vectorDomainname);
-}
-
 inline bool isHostnameValid(const std::string& hostname)
 {
     // A valid host name can never have the dotted-decimal form (RFC 1123)
@@ -1323,6 +1283,63 @@ inline bool isDomainnameValid(const std::string& domainname)
         "^([a-zA-Z0-9]([a-zA-Z0-9\\-]{0,61}[a-zA-Z0-9])?\\.)+([a-zA-Z]{2,6})$");
 
     return std::regex_match(domainname, pattern);
+}
+
+inline void
+    handleHostnamePatch(const std::string& hostname,
+                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    // SHOULD handle host names of up to 255 characters(RFC 1123)
+    if (hostname.length() > 255)
+    {
+        messages::propertyValueFormatError(asyncResp->res, hostname,
+                                           "HostName");
+        return;
+    }
+    if (!isHostnameValid(hostname))
+    {
+        messages::propertyValueFormatError(asyncResp->res, hostname,
+                                           "HostName");
+        return;
+    }
+
+    setDbusProperty(
+        asyncResp, "xyz.openbmc_project.Network",
+        sdbusplus::message::object_path("/xyz/openbmc_project/network/config"),
+        "xyz.openbmc_project.Network.SystemConfiguration", "HostName",
+        "HostName", hostname);
+}
+
+inline void
+    handleMTUSizePatch(const std::string& ifaceId, const size_t mtuSize,
+                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    sdbusplus::message::object_path objPath("/xyz/openbmc_project/network");
+    objPath /= ifaceId;
+    if ((mtuSize < MIN_MTU) || (mtuSize > MAX_MTU))
+    {
+        std::string mtu = std::to_string(mtuSize);
+        std::string_view mtuview(mtu);
+        messages::propertyValueOutOfRange(asyncResp->res, mtuview, "MTUSize");
+        return;
+    }
+    setDbusProperty(asyncResp, "xyz.openbmc_project.Network", objPath,
+                    "xyz.openbmc_project.Network.EthernetInterface", "MTU",
+                    "MTUSize", mtuSize);
+}
+
+inline void
+    handleDomainnamePatch(const std::string& ifaceId,
+                          const std::string& domainname,
+                          const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    std::vector<std::string> vectorDomainname = {domainname};
+    setDbusProperty(
+        asyncResp, "xyz.openbmc_project.Network",
+        sdbusplus::message::object_path("/xyz/openbmc_project/network") /
+            ifaceId,
+        "xyz.openbmc_project.Network.EthernetInterface", "DomainName", "FQDN",
+        vectorDomainname);
 }
 
 inline bool
