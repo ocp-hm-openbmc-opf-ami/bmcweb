@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
+    <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Measures.V1.xml">
+    <edmx:Include Namespace="Org.OData.Measures.V1" Alias="Measures"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
+    <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
+    <edmx:Include Namespace="Resource"/>
+    <edmx:Include Namespace="Resource.v1_0_0"/>
+  </edmx:Reference>
+
+  <edmx:Reference Uri="/redfish/v1/schema/PefService_v1.xml">
+    <edmx:Include Namespace="PefService"/>
+  </edmx:Reference>
+
+  <edmx:DataServices>
+
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="OemPefServiceRoot">
+      <Annotation Term="Redfish.OwningEntity" String="OpenBMC"/>
+    </Schema>
+
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="OemPefServiceRoot.v1_0_0">
+      <Annotation Term="Redfish.OwningEntity" String="OpenBMC"/>
+      <Annotation Term="Redfish.Release" String="1.0"/>
+
+        <NavigationProperty Name="PefService" Type="PefService.PefService" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The link to the Pef Service."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a link to a Resource of type PefService."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
+
+      <EntityContainer Name="ServiceContainer" Extends="ServiceRoot.v1_0_0.ServiceContainer">
+        <Singleton Name="PefService" Type="PefService.PefService"/>
+      </EntityContainer>
+
+      <EntityType Name="ServiceRoot" BaseType="Resource.OemObject" Abstract="true">
+        <Annotation Term="OData.Description" String="OEM Extension for ServiceRoot"/>
+        <Annotation Term="OData.LongDescription" String="OEM Extension for ServiceRoot to support PefService."/>
+        <NavigationProperty Name="PefService" Type="PefService.PefService" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The link to the Pef Service."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a link to a Resource of type PefService."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
+      </EntityType>
+    </Schema>
+
+  </edmx:DataServices>
+</edmx:Edmx>
+
