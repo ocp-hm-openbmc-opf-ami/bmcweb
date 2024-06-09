@@ -623,6 +623,10 @@ inline void extractIPV6Data(const std::string& ethifaceId,
                                 ipv6Address.prefixLength = *prefix;
                             }
                         }
+                        else if (property.first == "Idx")
+                        {
+                            // Type & Gateway is not used
+                        }
                         else if (property.first == "Type" ||
                                  property.first == "Gateway")
                         {
@@ -715,6 +719,10 @@ inline void extractIPData(const std::string& ethifaceId,
                                 // convert it to the string
                                 ipv4Address.netmask = getNetmask(*mask);
                             }
+                        }
+                        else if (property.first == "Idx")
+                        {
+                            // Type & Gateway is not used
                         }
                         else if (property.first == "Type" ||
                                  property.first == "Gateway")
@@ -1461,12 +1469,10 @@ inline void setDHCPConfig(const std::string& propertyName, const bool& value,
 
     if (type == NetworkType::dhcp4)
     {
-        path /= "dhcp4";
         redfishPropertyName = "DHCPv4";
     }
     else
     {
-        path /= "dhcp6";
         redfishPropertyName = "DHCPv6";
     }
 
@@ -2196,13 +2202,6 @@ inline void
     {
         jsonResponse["LinkStatus"] = "NoLink";
         jsonResponse["Status"]["State"] = "Disabled";
-    }
-    if (ipv6GatewayData.size() != 1)
-    {
-        messages::arraySizeTooLong(asyncResp->res, "IPv6StaticDefaultGateways",
-                                   ipv6GatewayData.size());
-        asyncResp->res.result(boost::beast::http::status::bad_request);
-        return;
     }
 
     jsonResponse["SpeedMbps"] = ethData.speed;

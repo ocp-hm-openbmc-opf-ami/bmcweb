@@ -14,7 +14,7 @@ namespace service_util
 static constexpr const char* serviceManagerService =
     "xyz.openbmc_project.Control.Service.Manager";
 static constexpr const char* serviceManagerPath =
-    "/xyz/openbmc_project/control/service";
+    "/xyz/openbmc_project/control/service/";
 static constexpr const char* serviceConfigInterface =
     "xyz.openbmc_project.Control.Service.Attributes";
 static constexpr const char* portConfigInterface =
