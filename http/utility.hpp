@@ -8,6 +8,7 @@ extern "C"
 }
 
 #include <boost/callable_traits.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/url/parse.hpp>
 #include <boost/url/url.hpp>
 #include <boost/url/url_view.hpp>
@@ -18,10 +19,13 @@ extern "C"
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <ctime>
+#include <fstream>
 #include <functional>
 #include <iomanip>
 #include <limits>
+#include <regex>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -313,6 +317,136 @@ inline bool base64Decode(std::string_view input, std::string& output)
     return true;
 }
 
+inline float tzFormatConvert(std::string timeZone)
+{
+    try
+    {
+        auto i = timeZone.find(':');
+        timeZone = timeZone.replace(i, 1, ".");
+        std::string minute = timeZone.substr(i + 1);
+        float fValue = std::stof(minute.c_str());
+        fValue /= 60;
+        minute = std::to_string(fValue);
+        auto j = minute.find('.');
+        minute = minute.substr(j + 1);
+        timeZone = timeZone.replace(i + 1, 2, minute);
+
+        float res = std::stof(timeZone.c_str());
+        return res;
+    }
+    catch (std::exception& ex)
+    {
+        BMCWEB_LOG_ERROR("Invalid parameter type {}", ex.what());
+        return 0;
+    }
+}
+
+static std::string localTimeZone = "/etc/timezone";
+
+namespace details
+{
+// constexpr uint64_t maxMilliSeconds = 253402300799999;
+// constexpr uint64_t maxSeconds = 253402300799;
+inline std::string getDateTime(boost::posix_time::milliseconds timeSinceEpoch)
+{
+    boost::posix_time::ptime epoch(boost::gregorian::date(1970, 1, 1));
+    boost::posix_time::ptime time = epoch + timeSinceEpoch;
+    // append zero offset to the end according to the Redfish spec for Date-Time
+    return boost::posix_time::to_iso_extended_string(time) + "+00:00";
+}
+} // namespace details
+
+inline std::string getTimeZone(std::string filePath)
+{
+    std::fstream in(filePath, std::ios::in);
+    if (!in.is_open())
+    {
+        return "+00:00";
+    }
+    std::string temp = "";
+    in >> temp;
+    in.close();
+    return temp;
+}
+
+inline void saveTimeZone(std::string filePath, std::string timeZone)
+{
+    std::fstream out(filePath, std::ios::out);
+    if (!out.is_open())
+        return;
+    out << timeZone;
+    out.close();
+    return;
+}
+
+inline std::string getDateTime(const std::time_t& time)
+{
+    std::array<char, 128> dateTime;
+    std::string redfishDateTime("0000-00-00T00:00:00Z00:00");
+
+    std::string timeZone = getTimeZone(crow::utility::localTimeZone);
+    auto value = tzFormatConvert(timeZone);
+    int seconds = static_cast<int>(value * 3600);
+    std::chrono::time_point<std::chrono::system_clock> now =
+        std::chrono::system_clock::from_time_t(time);
+    std::time_t now_offset = std::chrono::system_clock::to_time_t(
+        now + std::chrono::seconds(seconds));
+
+    if (std::strftime(dateTime.begin(), dateTime.size(), "%FT%T%z",
+                      std::localtime(&now_offset)))
+    {
+        // insert the colon required by the ISO 8601 standard
+        redfishDateTime = std::string(dateTime.data());
+        redfishDateTime.replace(redfishDateTime.begin() + 19,
+                                redfishDateTime.end(), timeZone);
+    }
+
+    return redfishDateTime;
+}
+
+inline std::string getDateTimeUint(uint64_t secondsSinceEpoch)
+{
+    // secondsSinceEpoch = std::min(secondsSinceEpoch, details::maxSeconds);
+    boost::posix_time::seconds boostSeconds(secondsSinceEpoch);
+    return details::getDateTime(
+        boost::posix_time::milliseconds(boostSeconds.total_milliseconds()));
+}
+
+inline std::string getDateTimeUintMs(uint64_t milliSecondsSinceEpoch)
+{
+    // milliSecondsSinceEpoch =
+    //    std::min(details::maxMilliSeconds, milliSecondsSinceEpoch);
+    return details::getDateTime(
+        boost::posix_time::milliseconds(milliSecondsSinceEpoch));
+}
+
+inline std::string getDateTimeStdtime(std::time_t secondsSinceEpoch)
+{
+    boost::posix_time::ptime time =
+        boost::posix_time::from_time_t(secondsSinceEpoch);
+    return boost::posix_time::to_iso_extended_string(time) + "+00:00";
+}
+
+inline std::pair<std::string, std::string> getDateTimeOffsetNow()
+{
+    std::time_t time = std::time(nullptr);
+    // std::string dateTime = getDateTimeStdtime(time);
+    std::string dateTime = getDateTime(time);
+
+    /* extract the local Time Offset value from the
+     * recevied dateTime string.
+     */
+    std::string timeOffset("Z00:00");
+    std::size_t lastPos = dateTime.size();
+    std::size_t len = timeOffset.size();
+    if (lastPos > len)
+    {
+        timeOffset = dateTime.substr(lastPos - len);
+    }
+
+    return std::make_pair(dateTime, timeOffset);
+}
+
 inline bool constantTimeStringCompare(std::string_view a, std::string_view b)
 {
     // Important note, this function is ONLY constant time if the two input
@@ -331,6 +465,16 @@ struct ConstantTimeCompare
         return constantTimeStringCompare(a, b);
     }
 };
+
+inline std::time_t getTimestamp(uint64_t millisTimeStamp)
+{
+    // Retrieve Created property with format:
+    // yyyy-mm-ddThh:mm:ss
+    std::chrono::milliseconds chronoTimeStamp(millisTimeStamp);
+    return std::chrono::duration_cast<std::chrono::duration<int>>(
+               chronoTimeStamp)
+        .count();
+}
 
 namespace details
 {

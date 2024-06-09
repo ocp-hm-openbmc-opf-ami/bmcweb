@@ -1925,6 +1925,22 @@ inline void
     asyncResp->res.result(boost::beast::http::status::no_content);
 }
 
+inline void setTimeZone(std::shared_ptr<bmcweb::AsyncResp> aResp,
+                        std::string timeZone)
+{
+    std::regex tz_regex("[-+][0-1][0-9]:[0-5][0-9]");
+    auto reg = std::regex_match(timeZone, tz_regex);
+    if (reg)
+    {
+        crow::utility::saveTimeZone(crow::utility::localTimeZone, timeZone);
+    }
+    else
+    {
+        messages::propertyValueFormatError(aResp->res, timeZone,
+                                           "DateTimeLocalOffset");
+    }
+}
+
 inline void setDateTime(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         const std::string& datetime)
 {
@@ -2078,7 +2094,7 @@ inline void requestRoutesManager(App& app)
                 {"ResetAll", "ResetToDefaultButKeepReservedSettings"});
 
         std::pair<std::string, std::string> redfishDateTimeOffset =
-            redfish::time_utils::getDateTimeOffsetNow();
+            crow::utility::getDateTimeOffsetNow();
 
         asyncResp->res.jsonValue["DateTime"] = redfishDateTimeOffset.first;
         asyncResp->res.jsonValue["DateTimeLocalOffset"] =
@@ -2295,6 +2311,7 @@ inline void requestRoutesManager(App& app)
         std::optional<std::string> activeSoftwareImageOdataId;
         std::optional<std::string> datetime;
         std::optional<bool> locationIndicatorActive;
+        std::optional<std::string> timeZone;
         std::optional<std::string> vId;
         std::optional<nlohmann::json::object_t> pidControllers;
         std::optional<nlohmann::json::object_t> fanControllers;
@@ -2311,7 +2328,7 @@ inline void requestRoutesManager(App& app)
               "Oem/OpenBmc/Fan/PidControllers", pidControllers,
               "Oem/OpenBmc/Fan/Profile", profile,
               "Oem/OpenBmc/Fan/StepwiseControllers", stepwiseControllers,*/
-              "Id", vId
+              "Id", vId, "DateTimeLocalOffset", timeZone
         ))
         {
             return;
@@ -2371,6 +2388,10 @@ inline void requestRoutesManager(App& app)
         if (datetime)
         {
             setDateTime(asyncResp, *datetime);
+        }
+        if (timeZone)
+        {
+            setTimeZone(asyncResp, std::move(*timeZone));
         }
 	if (locationIndicatorActive)
  	{
