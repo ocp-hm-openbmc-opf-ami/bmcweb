@@ -87,9 +87,12 @@ inline void handleCollectionMembers(
         additionalUrl = "/redfish/v1/Storage/1";
     }
 
-    nlohmann::json::object_t additionalMember;
-    additionalMember["@odata.id"] = std::move(additionalUrl);
-    members.emplace_back(std::move(additionalMember));
+    if (!additionalUrl.empty())
+    {
+        nlohmann::json::object_t additionalMember;
+        additionalMember["@odata.id"] = std::move(additionalUrl);
+        members.emplace_back(std::move(additionalMember));
+    }
     asyncResp->res.jsonValue[jsonCountKeyName] = members.size();
 }
 
