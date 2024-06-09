@@ -490,6 +490,12 @@ inline void
         asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
         asyncResp->res.jsonValue["Status"]["Health"] = "OK";
 
+        auto sensorAsyncResp = std::make_shared<SensorsAsyncResp>(
+            asyncResp, chassisId, sensors::dbus::powerPaths,
+            sensors::node::power);
+
+        getChassisData(sensorAsyncResp);
+
         dbus::utility::getDbusObject(
             powerSupplyPath, powerSupplyInterface,
             [asyncResp,

@@ -361,6 +361,16 @@ class InventoryItem
     std::string serialNumber;
     std::set<std::string> sensors;
     std::string ledObjectPath;
+    std::string firmwareVersion;
+    std::string plugType;
+    std::string nominalVoltageType;
+    std::string powerSupplyType;
+    std::string sparePartNumber;
+    std::string psuState;
+    uint16_t powerCapacityWatts;
+    uint16_t efficiencyRatings;
+    std::map<double, std::string> outputRails;
+
     LedState ledState = LedState::UNKNOWN;
 };
 
@@ -633,6 +643,59 @@ inline resource::State getState(const InventoryItem* inventoryItem,
     }
 
     return resource::State::Enabled;
+}
+
+inline void getPsuState(InventoryItem* inventoryItem)
+{
+    if (inventoryItem != nullptr)
+    {
+        size_t strPos = (inventoryItem->name).find_last_of('_');
+        sdbusplus::asio::getAllProperties(
+            *crow::connections::systemBus, "xyz.openbmc_project.PSUSensor",
+            "/xyz/openbmc_project/sensors/voltage/" +
+                inventoryItem->name.substr(strPos + 1) + "_Input_Voltage",
+            "",
+            [inventoryItem](
+                const boost::system::error_code& ec,
+                const ::dbus::utility::DBusPropertiesMap& valuesDict) {
+            if (ec)
+            {
+                return;
+            }
+            bool connected = false;
+            double value;
+            for (const auto& [valueName, valueVariant] : valuesDict)
+            {
+                if (valueName == "Functional")
+                {
+                    connected = std::get<bool>(valueVariant);
+                }
+                if (valueName == "Value")
+                {
+                    value = std::get<double>(valueVariant);
+                }
+            }
+            if (connected)
+            {
+                if (value > 0)
+                {
+                    inventoryItem->psuState = "Enabled";
+                }
+                else
+                {
+                    inventoryItem->psuState = "UnavailableOffline";
+                }
+            }
+            else
+            {
+                inventoryItem->psuState = "Disabled";
+            }
+        });
+    }
+    else
+    {
+        inventoryItem->psuState = "Disabled";
+    }
 }
 
 /**
@@ -1528,6 +1591,131 @@ inline void storeInventoryItemData(
     }
 }
 
+inline void StorePSUmonitorItemData(InventoryItem* inventoryItem)
+{
+    crow::connections::systemBus->async_method_call(
+        [inventoryItem](
+            const boost::system::error_code ec2,
+            const std::vector<std::pair<
+                std::string, std::variant<uint8_t, uint16_t, std::string,
+                                          std::vector<std::string>>>>&
+                propertiesList) {
+        if (ec2)
+        {
+            return;
+        }
+        for (const std::pair<std::string,
+                             std::variant<uint8_t, uint16_t, std::string,
+                                          std::vector<std::string>>>& property :
+             propertiesList)
+        {
+            const std::string& propertyName = property.first;
+            if (propertyName == "FirmwareVersion")
+            {
+                const std::string* value =
+                    std::get_if<std::string>(&property.second);
+                if (value != nullptr)
+                {
+                    inventoryItem->firmwareVersion = *value;
+                }
+            }
+            if (propertyName == "InputNominalVoltageType")
+            {
+                const std::string* value =
+                    std::get_if<std::string>(&property.second);
+                if (value != nullptr)
+                {
+                    inventoryItem->nominalVoltageType = *value;
+                }
+            }
+            if (propertyName == "PlugType")
+            {
+                const std::string* value =
+                    std::get_if<std::string>(&property.second);
+                if (value != nullptr)
+                {
+                    inventoryItem->plugType = *value;
+                }
+            }
+            if (propertyName == "PowerSupplyType")
+            {
+                const std::string* value =
+                    std::get_if<std::string>(&property.second);
+                if (value != nullptr)
+                {
+                    inventoryItem->powerSupplyType = *value;
+                }
+            }
+            if (propertyName == "SparePartNumber")
+            {
+                const std::string* value =
+                    std::get_if<std::string>(&property.second);
+                if (value != nullptr)
+                {
+                    inventoryItem->sparePartNumber = *value;
+                }
+            }
+            if (propertyName == "PowerCapacityWatts")
+            {
+                const uint16_t* value = std::get_if<uint16_t>(&property.second);
+                if (value != nullptr)
+                {
+                    inventoryItem->powerCapacityWatts = *value;
+                }
+            }
+            if (propertyName == "EfficiencyRatings")
+            {
+                const std::string* value =
+                    std::get_if<std::string>(&property.second);
+                if (value != nullptr)
+                {
+                    try
+                    {
+                        int value1 = std::stoi(*value);
+                        inventoryItem->efficiencyRatings =
+                            static_cast<uint16_t>(value1);
+                    }
+                    catch (const std::exception& e)
+                    {}
+                }
+            }
+            if (propertyName == "OutputRails")
+            {
+                const auto& propertyValue = property.second;
+                if (std::holds_alternative<std::vector<std::string>>(
+                        propertyValue))
+                {
+                    const std::vector<std::string>& vectorValue =
+                        std::get<std::vector<std::string>>(propertyValue);
+                    for (const std::string& element : vectorValue)
+                    {
+                        if (element == "12v")
+                        {
+                            inventoryItem->outputRails[12] = "StorageDevice";
+                        }
+                        if (element == "1.8v")
+                        {
+                            inventoryItem->outputRails[1.8] = "SystemBoard";
+                        }
+                        if (element == "3v")
+                        {
+                            inventoryItem->outputRails[3] = "SystemBoard";
+                        }
+                        if (element == "5v")
+                        {
+                            inventoryItem->outputRails[5] = "SystemBoard";
+                        }
+                    }
+                }
+            }
+        }
+    },
+        "xyz.openbmc_project.Power.PSUMonitor",
+        "/xyz/openbmc_project/inventory/system/powersupply",
+        "org.freedesktop.DBus.Properties", "GetAll",
+        "xyz.openbmc_project.PsuStatus");
+}
+
 /**
  * @brief Gets D-Bus data for inventory items associated with sensors.
  *
@@ -1612,6 +1800,8 @@ static void getInventoryItemsData(
                 {
                     // Store inventory data in InventoryItem
                     storeInventoryItemData(*inventoryItem, objDictEntry.second);
+                    StorePSUmonitorItemData(inventoryItem);
+                    getPsuState(inventoryItem);
                 }
             }
 
@@ -2345,6 +2535,7 @@ inline nlohmann::json& getPowerSupply(nlohmann::json& powerSupplyArray,
 
     // Add new PowerSupply object to JSON array
     powerSupplyArray.push_back({});
+    nlohmann::json railValues, inputRanges, efficiencyRatings;
     nlohmann::json& powerSupply = powerSupplyArray.back();
     boost::urls::url url = boost::urls::format("/redfish/v1/Chassis/{}/Power",
                                                chassisId);
@@ -2363,13 +2554,23 @@ inline nlohmann::json& getPowerSupply(nlohmann::json& powerSupplyArray,
     powerSupply["Model"] = inventoryItem.model;
     powerSupply["PartNumber"] = inventoryItem.partNumber;
     powerSupply["SerialNumber"] = inventoryItem.serialNumber;
-    setLedState(powerSupply, &inventoryItem);
-
-    if (inventoryItem.powerSupplyEfficiencyPercent >= 0)
+    powerSupply["FirmwareVersion"] = inventoryItem.firmwareVersion;
+    powerSupply["PlugType"] = inventoryItem.plugType;
+    powerSupply["PowerSupplyType"] = inventoryItem.powerSupplyType;
+    powerSupply["SparePartNumber"] = inventoryItem.sparePartNumber;
+    powerSupply["PowerCapacityWatts"] = inventoryItem.powerCapacityWatts;
+    for (const auto& rail : inventoryItem.outputRails)
     {
-        powerSupply["EfficiencyPercent"] =
-            inventoryItem.powerSupplyEfficiencyPercent;
+        railValues["NominalVoltage"] = rail.first;
+        railValues["PhysicalContext"] = rail.second;
+        powerSupply["OutputRails"].push_back(railValues);
     }
+    efficiencyRatings["EfficiencyPercent"] = inventoryItem.efficiencyRatings;
+    powerSupply["EfficiencyRatings"].push_back(efficiencyRatings);
+    inputRanges["NominalVoltageType"] = inventoryItem.nominalVoltageType;
+    powerSupply["InputRanges"].push_back(inputRanges);
+    powerSupply["Status"]["State"] = inventoryItem.psuState;
+    setLedState(powerSupply, &inventoryItem);
 
     powerSupply["Status"]["State"] = getState(&inventoryItem, true);
     const char* health = inventoryItem.isFunctional ? "OK" : "Critical";
@@ -2466,6 +2667,7 @@ inline void getSensorData(
                     sensorsAsyncResp->chassisSubNode;
 
                 nlohmann::json* sensorJson = nullptr;
+                std::string checkPowersupply;
 
                 if (sensorSchema == sensors::node::sensors &&
                     !sensorsAsyncResp->efficientExpand)
@@ -2520,6 +2722,7 @@ inline void getSensorData(
                                                 .jsonValue["Id"]))
                             {
                                 fieldName = "PowerSupplies";
+                                checkPowersupply = "PowerSupplies";
                             }
                             else
                             {
@@ -2605,11 +2808,14 @@ inline void getSensorData(
 
                 if (sensorJson != nullptr)
                 {
-                    objectInterfacesToJson(sensorName, sensorType,
+                    if ((sensorJson != nullptr) &&
+                        (checkPowersupply != "PowerSupplies"))
+                        {
+                            objectInterfacesToJson(sensorName, sensorType,
                                            sensorsAsyncResp->chassisSubNode,
                                            objDictEntry.second, *sensorJson,
                                            inventoryItem);
-
+                        }
                     std::string path = "/xyz/openbmc_project/sensors/";
                     path += sensorType;
                     path += "/";
