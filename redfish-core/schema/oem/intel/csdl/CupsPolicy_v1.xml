@@ -24,10 +24,6 @@
     <edmx:Include Namespace="Resource"/>
     <edmx:Include Namespace="Resource.v1_0_0"/>
   </edmx:Reference>
-  <edmx:Reference Uri="/redfish/v1/schema/CupsSensor_v1.xml">
-    <edmx:Include Namespace="CupsSensor"/>
-    <edmx:Include Namespace="CupsSensor.v1_0_0"/>
-  </edmx:Reference>
   <edmx:Reference Uri="/redfish/v1/schema/CupsPolicy_v1.xml">
     <edmx:Include Namespace="CupsPolicy"/>
     <edmx:Include Namespace="CupsPolicy.v1_0_0"/>

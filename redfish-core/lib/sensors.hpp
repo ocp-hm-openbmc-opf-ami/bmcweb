@@ -2637,11 +2637,11 @@ inline void
         BMCWEB_LOG_DEBUG("getChassisCb exit");
     };
     // SensorCollection doesn't contain the Redundancy property
-    if (sensorsAsyncResp->chassisSubNode != sensors::node::sensors)
-    {
-        sensorsAsyncResp->asyncResp->res.jsonValue["Redundancy"] =
-            nlohmann::json::array();
-    }
+    //   if (sensorsAsyncResp->chassisSubNode != sensors::node::sensors)
+    //   {
+    //       sensorsAsyncResp->asyncResp->res.jsonValue["Redundancy"] =
+    //           nlohmann::json::array();
+    //   }
     // Get set of sensors in chassis
     getChassis(sensorsAsyncResp->asyncResp, sensorsAsyncResp->chassisId,
                sensorsAsyncResp->chassisSubNode, sensorsAsyncResp->types,

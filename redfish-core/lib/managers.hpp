@@ -2120,11 +2120,11 @@ inline void requestRoutesManager(App& app)
             boost::urls::format("/redfish/v1/Managers/{}/ManagerDiagnosticData",
                                 BMCWEB_REDFISH_MANAGER_URI_NAME);
 
-        if constexpr (BMCWEB_REDFISH_OEM_MANAGER_FAN_DATA)
-        {
-            auto pids = std::make_shared<GetPIDValues>(asyncResp);
-            pids->run();
-        }
+        /* if constexpr (BMCWEB_REDFISH_OEM_MANAGER_FAN_DATA)
+         {
+             auto pids = std::make_shared<GetPIDValues>(asyncResp);
+             pids->run();
+         }*/
 
         getMainChassisId(asyncResp,
                          [](const std::string& chassisId,
@@ -2306,11 +2306,11 @@ inline void requestRoutesManager(App& app)
         if (!json_util::readJsonPatch(req, asyncResp->res,
               "DateTime", datetime,
               "Links/ActiveSoftwareImage/@odata.id", activeSoftwareImageOdataId,
-              "Oem/OpenBmc/Fan/FanControllers", fanControllers,
+             /* "Oem/OpenBmc/Fan/FanControllers", fanControllers,
               "Oem/OpenBmc/Fan/FanZones", fanZones,
               "Oem/OpenBmc/Fan/PidControllers", pidControllers,
               "Oem/OpenBmc/Fan/Profile", profile,
-              "Oem/OpenBmc/Fan/StepwiseControllers", stepwiseControllers,
+              "Oem/OpenBmc/Fan/StepwiseControllers", stepwiseControllers,*/
               "Id", vId
         ))
         {
@@ -2324,43 +2324,44 @@ inline void requestRoutesManager(App& app)
             return;
         }
 
-        if (pidControllers || fanControllers || fanZones ||
-            stepwiseControllers || profile)
-        {
-            if constexpr (BMCWEB_REDFISH_OEM_MANAGER_FAN_DATA)
+        /*    if (pidControllers || fanControllers || fanZones ||
+                stepwiseControllers || profile)
             {
-                std::vector<std::pair<std::string,
-                                      std::optional<nlohmann::json::object_t>>>
-                    configuration;
-                if (pidControllers)
+                if constexpr (BMCWEB_REDFISH_OEM_MANAGER_FAN_DATA)
                 {
-                    configuration.emplace_back("PidControllers",
-                                               std::move(pidControllers));
+                    std::vector<std::pair<std::string,
+                                          std::optional<nlohmann::json::object_t>>>
+                        configuration;
+                    if (pidControllers)
+                    {
+                        configuration.emplace_back("PidControllers",
+                                                   std::move(pidControllers));
+                    }
+                    if (fanControllers)
+                    {
+                        configuration.emplace_back("FanControllers",
+                                                   std::move(fanControllers));
+                    }
+                    if (fanZones)
+                    {
+                        configuration.emplace_back("FanZones",
+           std::move(fanZones));
+                    }
+                    if (stepwiseControllers)
+                    {
+                        configuration.emplace_back("StepwiseControllers",
+                                                   std::move(stepwiseControllers));
+                    }
+                    auto pid = std::make_shared<SetPIDValues>(
+                        asyncResp, std::move(configuration), profile);
+                    pid->run();
                 }
-                if (fanControllers)
+                else
                 {
-                    configuration.emplace_back("FanControllers",
-                                               std::move(fanControllers));
+                    messages::propertyUnknown(asyncResp->res, "Oem");
+                    return;
                 }
-                if (fanZones)
-                {
-                    configuration.emplace_back("FanZones", std::move(fanZones));
-                }
-                if (stepwiseControllers)
-                {
-                    configuration.emplace_back("StepwiseControllers",
-                                               std::move(stepwiseControllers));
-                }
-                auto pid = std::make_shared<SetPIDValues>(
-                    asyncResp, std::move(configuration), profile);
-                pid->run();
-            }
-            else
-            {
-                messages::propertyUnknown(asyncResp->res, "Oem");
-                return;
-            }
-        }
+            }*/
 
         if (activeSoftwareImageOdataId)
         {

@@ -2557,7 +2557,7 @@ constexpr std::array registry =
         {
             "Update or save streaming destination error.",
             "PMT kafka streaming destination error: %1",
-            "Error",
+            "Critical",
             1,
             {
                 "string",

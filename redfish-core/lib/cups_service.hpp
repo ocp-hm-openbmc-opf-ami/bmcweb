@@ -495,17 +495,16 @@ inline std::string getSensorId(std::string type, std::string name)
 
 inline void getCupsSensors(const std::shared_ptr<bmcweb::AsyncResp> asyncResp)
 {
+    nlohmann::json& members = asyncResp->res.jsonValue["Members"];
+    members = nlohmann::json::array();
     crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code ec,
-                    const dbus::utility::ManagedObjectType& objects) {
+        [asyncResp, &members](const boost::system::error_code ec,
+                              const dbus::utility::ManagedObjectType& objects) {
         if (ec)
         {
             BMCWEB_LOG_ERROR("DBus error: {}", ec.message());
             return;
         }
-
-        nlohmann::json& members = asyncResp->res.jsonValue["Members"];
-        members = nlohmann::json::array();
 
         for (const auto& [path, ifaces] : objects)
         {
@@ -543,7 +542,7 @@ inline void getCupsSensors(const std::shared_ptr<bmcweb::AsyncResp> asyncResp)
         }
 
         asyncResp->res.jsonValue["Members@odata.count"] = members.size();
-    },
+        },
         "xyz.openbmc_project.CupsService", "/xyz/openbmc_project/sensors",
         "org.freedesktop.DBus.ObjectManager", "GetManagedObjects");
 }

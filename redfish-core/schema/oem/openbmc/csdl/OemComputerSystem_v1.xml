@@ -49,6 +49,11 @@
                             <PropertyValue Property="Pattern" String="[A-Za-z0-9_.:]+" />
                             <PropertyValue Property="Type" String="OemComputerSystem.FirmwareProvisioning" />
                         </NavigationProperty>
+			<NavigationProperty Type="OemComputerSystem.PhysicalLED">
+                            <Annotation Term="OData.AutoExpand"/>
+                            <PropertyValue Property="Pattern" String="[A-Za-z0-9_.:]+" />
+                            <PropertyValue Property="Type" String="OemComputerSystem.PhysicalLED" />
+                        </NavigationProperty>
                     </Collection>
                 </Annotation>
             </ComplexType>
@@ -60,6 +65,22 @@
                     <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
                     <Annotation Term="OData.Description" String="This indicates platform firmware provisioning state."/>
                     <Annotation Term="OData.LongDescription" String="The value of this property indicating provisioning status of platform firmware."/>
+                </Property>
+            </ComplexType>
+    	    <ComplexType Name="PhysicalLED" BaseType="Resource.OemObject">
+                <Annotation Term="OData.AdditionalProperties" Bool="false" />
+                <Annotation Term="OData.Description" String="physical leds to display status of server." />
+                <Property Name="AmberLED" Type="Edm.String" Nullable="false">
+                    <Annotation Term="OData.Description" String="physical leds to display status of server." />
+                    <Annotation Term="OData.LongDescription" String="physical leds to display status of server." />
+                </Property>
+                <Property Name="GreenLED" Type="Edm.String" Nullable="false">
+                    <Annotation Term="OData.Description" String="physical leds to display status of server." />
+                    <Annotation Term="OData.LongDescription" String="physical leds to display status of server." />
+                </Property>
+                <Property Name="SusackLED" Type="Edm.String" Nullable="false">
+                    <Annotation Term="OData.Description" String="physical leds to display status of server." />
+                    <Annotation Term="OData.LongDescription" String="physical leds to display status of server." />
                 </Property>
             </ComplexType>
 

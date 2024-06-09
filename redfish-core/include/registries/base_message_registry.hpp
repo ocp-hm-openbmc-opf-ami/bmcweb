@@ -1313,10 +1313,10 @@ constexpr std::array registry =
 	    {
 		"Indicates that a given IP address is invalid",
 		"The Requested IP address  is invalid",
-		"warning",
+		"Warning",
 		2,
 		{
-			"string"
+			"string",
 			"string",
 		},
 		"Provide Valid IP address",
