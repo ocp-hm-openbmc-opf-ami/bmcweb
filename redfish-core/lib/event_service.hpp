@@ -1842,7 +1842,6 @@ inline void requestRoutesEventDestinationCollection(App& app)
         std::shared_ptr<Subscription> subValue =
             std::make_shared<Subscription>(*url, app.ioContext());
 
-        subValue->destinationUrl = std::move(*url);
         subValue->destinationUrl = *url;
         subValue->owner = req.session->username;
 
