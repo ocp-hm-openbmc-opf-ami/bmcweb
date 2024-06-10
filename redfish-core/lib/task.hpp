@@ -46,6 +46,26 @@ static std::deque<std::shared_ptr<struct TaskData>> tasks;
 static size_t lastTask = 1;
 constexpr bool completed = true;
 
+inline void setStatus(const std::string status)
+{
+    auto bus = sdbusplus::bus::new_default();
+    auto method = bus.new_method_call("xyz.openbmc_project.State.Host0",
+                                      "/xyz/openbmc_project/state/host0",
+                                      "org.freedesktop.DBus.Properties", "Set");
+
+    method.append("xyz.openbmc_project.Common.Task", "Status",
+                  dbus::utility::DbusVariantType(status));
+
+    try
+    {
+        auto reply = bus.call(method);
+    }
+    catch (const sdbusplus::exception::SdBusError& e)
+    {
+        BMCWEB_LOG_ERROR("D-Bus error:", e.what());
+    }
+}
+
 struct Payload
 {
     explicit Payload(const crow::Request& req) :
@@ -96,11 +116,10 @@ struct TaskData : std::enable_shared_from_this<TaskData>
         std::function<bool(boost::system::error_code, sdbusplus::message_t&,
                            const std::shared_ptr<TaskData>&)>&& handler,
         const std::string& matchIn, size_t idx) :
-        callback(std::move(handler)),
-        matchStr(matchIn), index(idx),
+        callback(std::move(handler)), matchStr(matchIn), index(idx),
         startTime(std::chrono::system_clock::to_time_t(
             std::chrono::system_clock::now())),
-        status("OK"), state("Running"), messages(nlohmann::json::array()),
+        status("OK"), state("New"), messages(nlohmann::json::array()),
         timer(crow::connections::systemBus->get_io_context())
 
     {}
@@ -152,7 +171,12 @@ struct TaskData : std::enable_shared_from_this<TaskData>
             res.jsonValue["@odata.type"] = "#Task.v1_4_3.Task";
             res.jsonValue["Id"] = strIdx;
             res.jsonValue["TaskState"] = state;
-            res.jsonValue["TaskStatus"] = status;
+
+            if (state == "Completed" || state == "Cancelled" ||
+                state == "Exception")
+            {
+                res.jsonValue["TaskStatus"] = status;
+            }
 
             res.addHeader(boost::beast::http::field::location,
                           uri + "/Monitor");
@@ -182,6 +206,8 @@ struct TaskData : std::enable_shared_from_this<TaskData>
         {
             if (std::to_string(task->index) == strParam)
             {
+                setStatus(
+                    "xyz.openbmc_project.Common.Task.OperationStatus.Cancelled");
                 auto taskToDelete = task::tasks.begin();
                 advance(taskToDelete, pos);
                 if (*taskToDelete != nullptr)
@@ -377,14 +403,22 @@ inline void
         // we compare against the string version as on failure
         // strtoul returns 0
         return std::to_string(task->index) == strParam;
-        });
+    });
 
     if (find == task::tasks.end())
     {
         messages::resourceNotFound(asyncResp->res, "Task", strParam);
         return;
     }
+
     std::shared_ptr<task::TaskData>& ptr = *find;
+
+    if (ptr->state != "New" && ptr->state != "Pending")
+    {
+        messages::resourceCannotBeDeleted(asyncResp->res);
+        return;
+    }
+
     ptr->deleteTasks(strParam);
     asyncResp->res.result(boost::beast::http::status::no_content);
 }
@@ -473,7 +507,13 @@ inline void requestRoutesTask(App& app)
             asyncResp->res.jsonValue["EndTime"] =
                 redfish::time_utils::getDateTimeStdtime(*(ptr->endTime));
         }
-        asyncResp->res.jsonValue["TaskStatus"] = ptr->status;
+
+        if (ptr->state == "Completed" || ptr->state == "Cancelled" ||
+            ptr->state == "Exception")
+        {
+            asyncResp->res.jsonValue["TaskStatus"] = ptr->status;
+        }
+
         asyncResp->res.jsonValue["Messages"] = ptr->messages;
         asyncResp->res.jsonValue["@odata.id"] =
             boost::urls::format("/redfish/v1/TaskService/Tasks/{}", strParam);

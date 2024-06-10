@@ -2387,21 +2387,22 @@ inline void requestRoutesManager(App& app)
 
         if (datetime)
         {
-            if(datetime && timeZone)
+            if (datetime && timeZone)
             {
                 std::regex offset_regex(R"((\+)(\d{2}:\d{2}))");
                 std::smatch match;
                 std::string offset_value;
 
-                if(std::regex_search(*datetime,match,offset_regex))
+                if (std::regex_search(*datetime, match, offset_regex))
                 {
                     offset_value = match[2];
                 }
                 std::string timeZone_offset = *timeZone;
-                timeZone_offset.erase(0,1);
-                if(offset_value != timeZone_offset)
+                timeZone_offset.erase(0, 1);
+                if (offset_value != timeZone_offset)
                 {
-                    messages::propertyValueConflict(asyncResp->res, "datetime","timeZone");
+                    messages::propertyValueConflict(asyncResp->res, "datetime",
+                                                    "timeZone");
                     return;
                 }
             }
@@ -2411,10 +2412,11 @@ inline void requestRoutesManager(App& app)
         {
             setTimeZone(asyncResp, std::move(*timeZone));
         }
-	if (locationIndicatorActive)
- 	{
-     	    setSystemLocationIndicatorActive(asyncResp, *locationIndicatorActive);
- 	}
+        if (locationIndicatorActive)
+        {
+            setSystemLocationIndicatorActive(asyncResp,
+                                             *locationIndicatorActive);
+        }
     });
 }
 
