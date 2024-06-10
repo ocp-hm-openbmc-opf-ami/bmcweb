@@ -184,7 +184,7 @@ inline std::string getDhcpEnabledEnumeration(bool isIPv4, bool isIPv6,
     {
         return "xyz.openbmc_project.Network.EthernetInterface.DHCPConf.both";
     }
-    if (isIPv4) // When IPv4 is in DHCP Mode, IPv6 is in Static Mode
+    if (isIPv4)           // When IPv4 is in DHCP Mode, IPv6 is in Static Mode
     {
         if (ipv6AcceptRA) // When AcceptRA is true
         {
@@ -1271,8 +1271,7 @@ inline bool isHostnameValid(const std::string& hostname)
     // labels cannot start or end with hyphens (RFC 952)
     // labels can start with numbers (RFC 1123)
     // hostname starts with an alphanumeric character
-    const static std::regex pattern(
-        "^[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\\-]{0,61}[a-zA-Z0-9]$");
+    const std::regex pattern("^[a-zA-Z0-9]([a-zA-Z0-9\\-]{0,62}[a-zA-Z0-9])?$");
 
     return std::regex_match(hostname, pattern);
 }
@@ -1423,8 +1422,8 @@ inline void setDHCPEnabled(const std::string& ifaceId,
                            const bool v6Value, bool ipv6AcceptRA,
                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    const std::string dhcp =
-        getDhcpEnabledEnumeration(v4Value, v6Value, ipv6AcceptRA);
+    const std::string dhcp = getDhcpEnabledEnumeration(v4Value, v6Value,
+                                                       ipv6AcceptRA);
     setDbusProperty(
         asyncResp, "xyz.openbmc_project.Network",
         sdbusplus::message::object_path("/xyz/openbmc_project/network") /
@@ -1454,7 +1453,7 @@ inline void setEthernetInterfaceBoolProperty(
             messages::internalError(asyncResp->res);
             return;
         }
-        });
+    });
 }
 
 inline void setDHCPConfig(const std::string& propertyName, const bool& value,
@@ -1734,8 +1733,8 @@ inline bool
     unsigned entryIdx = 1;
     for (const nlohmann::json& thisJson : input)
     {
-        std::string pathString =
-            "IPv4StaticAddresses/" + std::to_string(entryIdx);
+        std::string pathString = "IPv4StaticAddresses/" +
+                                 std::to_string(entryIdx);
         if (!thisJson.is_null() && !thisJson.empty())
         {
             std::optional<std::string> address;
@@ -2124,8 +2123,8 @@ inline void handleIPv6StaticAddressesPatch(
                 while (nicIpEntry != ipv6Data.cend())
                 {
                     deleteIPAddress(ifaceId, nicIpEntry->id, asyncResp);
-                    nicIpEntry =
-                        getNextStaticIpEntry(++nicIpEntry, ipv6Data.cend());
+                    nicIpEntry = getNextStaticIpEntry(++nicIpEntry,
+                                                      ipv6Data.cend());
                 }
                 createIPv6(ifaceId, *prefixLength, *address, asyncResp);
             }
@@ -2928,8 +2927,8 @@ inline void requestEthernetInterfacesRoutes(App& app)
             if (hostname && fqdn)
             {
                 // handleHostnamePatch(*hostname, asyncResp);
-                FqdnHostnameValidate =
-                    validateFqdnHostName(*hostname, *fqdn, asyncResp);
+                FqdnHostnameValidate = validateFqdnHostName(*hostname, *fqdn,
+                                                            asyncResp);
                 if (!FqdnHostnameValidate)
                 {
                     return;
@@ -3038,7 +3037,7 @@ inline void requestEthernetInterfacesRoutes(App& app)
                 handleMTUSizePatch(ifaceId, *mtuSize, asyncResp);
             }
         });
-        });
+    });
 
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/EthernetInterfaces/<str>/")
         .privileges(redfish::privileges::deleteEthernetInterface)
