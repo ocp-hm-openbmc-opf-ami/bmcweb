@@ -40,6 +40,13 @@ namespace redfish
 void getNTPProtocolEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp);
 std::string getHostName();
 
+static constexpr const char* serviceManagerService =
+    "xyz.openbmc_project.Control.Service.Manager";
+static constexpr const char* serviceManagerPath =
+    "/xyz/openbmc_project/control/service/";
+static constexpr const char* portConfigInterface =
+    "xyz.openbmc_project.Control.Service.SocketAttributes";
+
 static constexpr const char* sshServiceName = "dropbear";
 static constexpr const char* httpsServiceName = "bmcweb";
 static constexpr const char* ipmbServiceName = "ipmb";
@@ -267,10 +274,16 @@ inline void getNetworkData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         const std::string& protocolName = protocol.first;
         const std::string& serviceName = protocol.second;
 
-        service_util::getEnabled(
-            asyncResp, serviceName,
-            nlohmann::json::json_pointer(std::string("/") + protocolName +
-                                         "/ProtocolEnabled"));
+        std::cerr << "protocolName " << protocolName << "\n";
+        std::cerr << "serviceName " << serviceName << "\n";
+
+        if (ipmiServiceName != serviceName)
+        {
+            service_util::getEnabled(
+                asyncResp, serviceName,
+                nlohmann::json::json_pointer(std::string("/") + protocolName +
+                                             "/ProtocolEnabled"));
+        }
         service_util::getPortNumber(
             asyncResp, serviceName,
             nlohmann::json::json_pointer(std::string("/") + protocolName +
@@ -451,6 +464,38 @@ inline void
                                     currentNtpServers);
                 }
             }
+        }
+    });
+}
+
+void setEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                const bool enabled)
+{
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus,
+        "xyz.openbmc_project.Control.Service.Manager",
+        "/xyz/openbmc_project/control/service/phosphor_2dipmi_2dnet_40eth0",
+        "xyz.openbmc_project.Control.Service.Attributes", "Running", enabled,
+        [asyncResp](const boost::system::error_code& ec) {
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
+            messages::internalError(asyncResp->res);
+            return;
+        }
+    });
+
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus,
+        "xyz.openbmc_project.Control.Service.Manager",
+        "/xyz/openbmc_project/control/service/phosphor_2dipmi_2dnet_40eth0",
+        "xyz.openbmc_project.Control.Service.Attributes", "Enabled", enabled,
+        [asyncResp](const boost::system::error_code& ec) {
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
+            messages::internalError(asyncResp->res);
+            return;
         }
     });
 }
@@ -654,9 +699,10 @@ inline void handleManagersNetworkProtocolPatch(
         }
         if (ipmiEnabled)
         {
-            handleProtocolEnabled(
+            /*handleProtocolEnabled(
                 *ipmiEnabled, asyncResp,
-                encodeServiceObjectPath(std::string(ipmiServiceName)));
+                encodeServiceObjectPath(std::string(ipmiServiceName)));*/
+            setEnabled(asyncResp, *ipmiEnabled);
         }
         if (ipmiMasked)
         {
@@ -793,9 +839,34 @@ inline void handleManagersNetworkProtocolHead(
     }
 }
 
+void getEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                const std::string& serviceName, const std::string& ObjectName,
+                const std::string& propertyName)
+{
+    sdbusplus::asio::getProperty<bool>(
+        *crow::connections::systemBus, serviceManagerService,
+        serviceManagerPath + serviceName,
+        "xyz.openbmc_project.Control.Service.Attributes", "Enabled",
+        [asyncResp, ObjectName,
+         propertyName](const boost::system::error_code& ec, bool eventValue) {
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR("D-BUS response error on EventSeverity Get{}", ec);
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        asyncResp->res.jsonValue[ObjectName][propertyName] = eventValue;
+    });
+}
+
 inline void getIpmiMasked(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     service_util::getMasked(asyncResp, ipmiServiceName, "IPMI", "Masked");
+}
+
+inline void getIpmiEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    getEnabled(asyncResp, ipmiServiceName, "IPMI", "ProtocolEnabled");
 }
 
 inline void getSSHMasked(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
@@ -835,6 +906,7 @@ inline void handleManagersNetworkProtocolGet(
     getSSHMasked(asyncResp);
     getBMCWEBMasked(asyncResp);
     getIpmbMasked(asyncResp);
+    getIpmiEnabled(asyncResp);
 }
 
 inline void requestRoutesNetworkProtocol(App& app)
