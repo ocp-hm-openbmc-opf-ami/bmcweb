@@ -939,7 +939,8 @@ inline void
     // Save configuration immediately
     persistent_data::getConfig().writeData();
 
-    messages::success(asyncResp->res);
+    // messages::success(asyncResp->res);
+    asyncResp->res.result(boost::beast::http::status::no_content);
 }
 
 /**
@@ -1227,7 +1228,7 @@ inline void updateUserProperties(
                             dbusObjectPath,
                             "xyz.openbmc_project.User.Attributes",
                             "UserPrivilege", "RoleId", priv);
-             isDuplicateCreated = true;
+            isDuplicateCreated = true;
         }
 
         if (locked)
@@ -1502,13 +1503,13 @@ inline void
         const uint8_t* rememberOldPasswordTimes = nullptr;
         const std::string* passwordPolicyComplexity = nullptr;
 
-            const bool success = sdbusplus::unpackPropertiesNoThrow(
-                dbus_utils::UnpackErrorPrinter(), propertiesList,
-                "MinPasswordLength", minPasswordLength, "AccountUnlockTimeout",
-                accountUnlockTimeout, "MaxLoginAttemptBeforeLockout",
-                maxLoginAttemptBeforeLockout, "RememberOldPasswordTimes",
-                rememberOldPasswordTimes, "PasswordPolicyComplexity",
-                passwordPolicyComplexity);
+        const bool success = sdbusplus::unpackPropertiesNoThrow(
+            dbus_utils::UnpackErrorPrinter(), propertiesList,
+            "MinPasswordLength", minPasswordLength, "AccountUnlockTimeout",
+            accountUnlockTimeout, "MaxLoginAttemptBeforeLockout",
+            maxLoginAttemptBeforeLockout, "RememberOldPasswordTimes",
+            rememberOldPasswordTimes, "PasswordPolicyComplexity",
+            passwordPolicyComplexity);
 
         if (!success)
         {
