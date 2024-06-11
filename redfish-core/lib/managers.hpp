@@ -2062,7 +2062,7 @@ inline void requestRoutesManager(App& app)
             boost::urls::format("/redfish/v1/Managers/{}#/Oem/OpenBmc",
                                 BMCWEB_REDFISH_MANAGER_URI_NAME);
         oemOpenbmc["@odata.id"] =
-            boost::urls::format("/redfish/v1/Managers/{}#/Oem/OpenBmc/Jpeg",
+            boost::urls::format("/redfish/v1/Managers/bmc/Oem/OpenBmc/Jpeg",
                                 BMCWEB_REDFISH_MANAGER_URI_NAME);
         nlohmann::json::object_t certificates;
         certificates["@odata.id"] = boost::urls::format(

@@ -829,6 +829,8 @@ inline void
         }
         asyncResp->res.addHeader(
             boost::beast::http::field::content_transfer_encoding, "Base64");
+        asyncResp->res.addHeader(boost::beast::http::field::content_type,
+                                 "application/octet-stream");
         return;
     }
     if (!asyncResp->res.openFd(fd))
