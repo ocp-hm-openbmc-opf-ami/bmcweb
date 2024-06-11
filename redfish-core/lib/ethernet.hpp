@@ -924,7 +924,7 @@ inline void createIPv6(const std::string& ifaceId, uint8_t prefixLength,
                        const std::string& address,
                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    sdbusplus::message::object_path path("/xyz/openbmc_project/network");
+    sdbusplus::message::object_path path("/xyz/openbmc_project/network/");
     path /= ifaceId;
 
     auto createIpHandler = [asyncResp,
@@ -1456,28 +1456,43 @@ inline void setEthernetInterfaceBoolProperty(
     });
 }
 
-inline void setDHCPConfig(const std::string& propertyName, const bool& value,
-                          const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                          const std::string& ethifaceId, NetworkType type)
+inline void
+    setDHCPConfig(const std::string& propertyName, const bool& value,
+                  const std::shared_ptr<bmcweb::AsyncResp>& /*asyncResp*/,
+                  const std::string& ethifaceId, NetworkType type)
 {
     BMCWEB_LOG_DEBUG("{} = {}", propertyName, value);
     BMCWEB_LOG_DEBUG("IfaceId = {}", ethifaceId);
     std::string redfishPropertyName;
     sdbusplus::message::object_path path("/xyz/openbmc_project/network/");
-    path /= "dhcp";
+    path /= ethifaceId;
 
     if (type == NetworkType::dhcp4)
     {
+        path /= "dhcp4";
         redfishPropertyName = "DHCPv4";
     }
     else
     {
+        path /= "dhcp6";
         redfishPropertyName = "DHCPv6";
     }
 
-    setDbusProperty(asyncResp, "xyz.openbmc_project.Network", path,
+    /*setDbusProperty(asyncResp, "xyz.openbmc_project.Network", path,
                     "xyz.openbmc_project.Network.DHCPConfiguration",
-                    propertyName, redfishPropertyName, value);
+                    propertyName, redfishPropertyName, value);*/
+    crow::connections::systemBus->async_method_call(
+        [](const boost::system::error_code errorCode) {
+        if (errorCode)
+        {
+            BMCWEB_LOG_DEBUG("SetDHCPConfig failed: error_code = {}",
+                             errorCode);
+            BMCWEB_LOG_DEBUG("error msg = {}", errorCode.message());
+        }
+        },
+        "xyz.openbmc_project.Network", path, "org.freedesktop.DBus.Properties",
+        "Set", "xyz.openbmc_project.Network.DHCPConfiguration", propertyName,
+        value);
 }
 
 inline void handleSLAACAutoConfigPatch(
