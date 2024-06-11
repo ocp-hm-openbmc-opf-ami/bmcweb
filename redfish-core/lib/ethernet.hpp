@@ -924,7 +924,7 @@ inline void createIPv6(const std::string& ifaceId, uint8_t prefixLength,
                        const std::string& address,
                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    sdbusplus::message::object_path path("/xyz/openbmc_project/network/");
+    sdbusplus::message::object_path path("/xyz/openbmc_project/network");
     path /= ifaceId;
 
     auto createIpHandler = [asyncResp,
@@ -1456,10 +1456,9 @@ inline void setEthernetInterfaceBoolProperty(
     });
 }
 
-inline void
-    setDHCPConfig(const std::string& propertyName, const bool& value,
-                  const std::shared_ptr<bmcweb::AsyncResp>& /*asyncResp*/,
-                  const std::string& ethifaceId, NetworkType type)
+inline void setDHCPConfig(const std::string& propertyName, const bool& value,
+                          const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                          const std::string& ethifaceId, NetworkType type)
 {
     BMCWEB_LOG_DEBUG("{} = {}", propertyName, value);
     BMCWEB_LOG_DEBUG("IfaceId = {}", ethifaceId);
@@ -1478,21 +1477,9 @@ inline void
         redfishPropertyName = "DHCPv6";
     }
 
-    /*setDbusProperty(asyncResp, "xyz.openbmc_project.Network", path,
+    setDbusProperty(asyncResp, "xyz.openbmc_project.Network", path,
                     "xyz.openbmc_project.Network.DHCPConfiguration",
-                    propertyName, redfishPropertyName, value);*/
-    crow::connections::systemBus->async_method_call(
-        [](const boost::system::error_code errorCode) {
-        if (errorCode)
-        {
-            BMCWEB_LOG_DEBUG("SetDHCPConfig failed: error_code = {}",
-                             errorCode);
-            BMCWEB_LOG_DEBUG("error msg = {}", errorCode.message());
-        }
-        },
-        "xyz.openbmc_project.Network", path, "org.freedesktop.DBus.Properties",
-        "Set", "xyz.openbmc_project.Network.DHCPConfiguration", propertyName,
-        value);
+                    propertyName, redfishPropertyName, value);
 }
 
 inline void handleSLAACAutoConfigPatch(
@@ -1567,10 +1554,12 @@ inline void handleDHCPPatch(const std::string& ifaceId,
     bool ipv4Active = translateDhcpEnabledToBool(ethData.dhcpEnabled, true);
     bool ipv6Active = translateDhcpEnabledToBool(ethData.dhcpEnabled, false);
 
-    if (ipv4Active)
+    // Getting network crashed since passing empty value of DefaultGateway in
+    // updateIPv4DefaultGateway
+    /*if (ipv4Active)
     {
         updateIPv4DefaultGateway(ifaceId, "", asyncResp);
-    }
+    }*/
     bool nextv4DHCPState =
         v4dhcpParms.dhcpv4Enabled ? *v4dhcpParms.dhcpv4Enabled : ipv4Active;
 
