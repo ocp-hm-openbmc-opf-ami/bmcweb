@@ -2515,6 +2515,74 @@ bool isIfaceIdusb0(const std::string& ifaceId,
     return false;
 }
 
+inline void handleEthernetInterfaceInstanceGet(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& managerId, const std::string& ifaceId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
+    if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "Manager", managerId);
+        return;
+    }
+
+    getEthernetIfaceData(
+        ifaceId, [asyncResp, ifaceId](
+                     const bool& success, const EthernetInterfaceData& ethData,
+                     const std::vector<IPv4AddressData>& ipv4Data,
+                     const std::vector<IPv6AddressData>& ipv6Data,
+                     const std::vector<StaticGatewayData>& ipv6GatewayData) {
+        if (!success)
+        {
+            // TODO(Pawel)consider distinguish between non
+            // existing object, and other errors
+            messages::resourceNotFound(asyncResp->res, "EthernetInterface",
+                                       ifaceId);
+            return;
+        }
+
+        asyncResp->res.jsonValue["@odata.type"] =
+            "#EthernetInterface.v1_9_0.EthernetInterface";
+        asyncResp->res.jsonValue["Name"] = "Manager Ethernet Interface";
+        asyncResp->res.jsonValue["Description"] =
+            "Management Network Interface";
+
+        parseInterfaceData(asyncResp, ifaceId, ethData, ipv4Data, ipv6Data,
+                           ipv6GatewayData);
+    });
+}
+
+inline void handleEthernetInterfaceInstanceDelete(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& managerId, const std::string& ifaceId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
+    if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "Manager", managerId);
+        return;
+    }
+
+    crow::connections::systemBus->async_method_call(
+        [asyncResp, ifaceId](const boost::system::error_code& ec,
+                             const sdbusplus::message_t& m) {
+        afterDelete(asyncResp, ifaceId, ec, m);
+    },
+        "xyz.openbmc_project.Network",
+        std::string("/xyz/openbmc_project/network/") + ifaceId,
+        "xyz.openbmc_project.Object.Delete", "Delete");
+}
+
 inline void requestEthernetInterfacesRoutes(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/EthernetInterfaces/")
@@ -2667,46 +2735,7 @@ inline void requestEthernetInterfacesRoutes(App& app)
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/EthernetInterfaces/<str>/")
         .privileges(redfish::privileges::getEthernetInterface)
         .methods(boost::beast::http::verb::get)(
-            [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   const std::string& managerId, const std::string& ifaceId) {
-        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-        {
-            return;
-        }
-
-        if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
-        {
-            messages::resourceNotFound(asyncResp->res, "Manager", managerId);
-            return;
-        }
-
-        getEthernetIfaceData(
-            ifaceId,
-            [asyncResp,
-             ifaceId](const bool& success, const EthernetInterfaceData& ethData,
-                      const std::vector<IPv4AddressData>& ipv4Data,
-                      const std::vector<IPv6AddressData>& ipv6Data,
-                      const std::vector<StaticGatewayData>& ipv6GatewayData) {
-            if (!success)
-            {
-                // TODO(Pawel)consider distinguish between non
-                // existing object, and other errors
-                messages::resourceNotFound(asyncResp->res, "EthernetInterface",
-                                           ifaceId);
-                return;
-            }
-
-            asyncResp->res.jsonValue["@odata.type"] =
-                "#EthernetInterface.v1_9_0.EthernetInterface";
-            asyncResp->res.jsonValue["Name"] = "Manager Ethernet Interface";
-            asyncResp->res.jsonValue["Description"] =
-                "Management Network Interface";
-
-            parseInterfaceData(asyncResp, ifaceId, ethData, ipv4Data, ipv6Data,
-                               ipv6GatewayData);
-        });
-    });
+            std::bind_front(handleEthernetInterfaceInstanceGet, std::ref(app)));
 
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/EthernetInterfaces/<str>/")
         .privileges(
@@ -3045,30 +3074,8 @@ inline void requestEthernetInterfacesRoutes(App& app)
 
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/EthernetInterfaces/<str>/")
         .privileges(redfish::privileges::deleteEthernetInterface)
-        .methods(boost::beast::http::verb::delete_)(
-            [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   const std::string& managerId, const std::string& ifaceId) {
-        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-        {
-            return;
-        }
-
-        if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
-        {
-            messages::resourceNotFound(asyncResp->res, "Manager", managerId);
-            return;
-        }
-
-        crow::connections::systemBus->async_method_call(
-            [asyncResp, ifaceId](const boost::system::error_code& ec,
-                                 const sdbusplus::message_t& m) {
-            afterDelete(asyncResp, ifaceId, ec, m);
-        },
-            "xyz.openbmc_project.Network",
-            std::string("/xyz/openbmc_project/network/") + ifaceId,
-            "xyz.openbmc_project.Object.Delete", "Delete");
-    });
+        .methods(boost::beast::http::verb::delete_)(std::bind_front(
+            handleEthernetInterfaceInstanceDelete, std::ref(app)));
 }
 
 } // namespace redfish
