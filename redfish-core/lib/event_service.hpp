@@ -1560,7 +1560,7 @@ inline void requestRoutesSubmitTestEvent(App& app)
         {
             return;
         }
-        EventServiceManager::getInstance().readEventLogsFromFile();
+        //EventServiceManager::getInstance().readEventLogsFromFile();
         asyncResp->res.result(boost::beast::http::status::no_content);
     });
 }
