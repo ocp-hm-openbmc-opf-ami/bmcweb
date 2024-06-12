@@ -23,7 +23,7 @@ namespace redfish
         "AggregationService",
         "AggregationSource",
         "AggregationSourceCollection",
-        "AMIChassisFRU"
+	"AMIChassisFRU",
 	"AMIChassisFRUCollection",
 	"AMIWebSession",
 	"AMISensor",
@@ -109,7 +109,7 @@ namespace redfish
         "OemServiceRoot",
         "OemUpdateService",
         "OemVirtualMedia",
-	"OemAMISensorHistory",
+	"OemSensorHistory",
         "OpenBMCAccountService",
         "OperatingConfig",
         "OperatingConfigCollection",
