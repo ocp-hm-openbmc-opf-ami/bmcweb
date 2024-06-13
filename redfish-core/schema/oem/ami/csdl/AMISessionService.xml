@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
+    <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Measures.V1.xml">
+    <edmx:Include Namespace="Org.OData.Measures.V1" Alias="Measures"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
+    <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
+    <edmx:Include Namespace="Resource"/>
+    <edmx:Include Namespace="Resource.v1_0_0"/>
+  </edmx:Reference>
+  <edmx:DataServices>
+
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AMISessionService">
+      <Annotation Term="Redfish.OwningEntity" String="Ami"/>
+    </Schema>
+
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AMISessionService.v1_0_0">
+      <Annotation Term="Redfish.OwningEntity" String="Ami"/>
+      <Annotation Term="Redfish.Release" String="1.0"/>
+
+      <EntityType Name="Ami" BaseType="Resource.OemObject" Abstract="true">
+          <Annotation Term="OData.Description" String="AMI OEM Extension for Web Session"/>
+          <Annotation Term="OData.LongDescription" String="AMI OEM Extension for Web Session"/>
+
+            <Property Name="BMCwebPort" Type="Edm.Decimal">
+              <Annotation Term="OData.Description" String="Indicates port numbr of Bmcweb."/>
+              <Annotation Term="OData.LongDescription" String="BmcwebPort indicates the port number of Bmcweb."/>
+            </Property>
+
+            <Property Name="KVMSessionTimeout" Type="Edm.Decimal">
+              <Annotation Term="OData.Description" String="Kvm session timeout."/>
+              <Annotation Term="OData.LongDescription" String="if Kvm session timeout reached Kvm session will close."/>
+            </Property>
+
+      </EntityType>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>
+

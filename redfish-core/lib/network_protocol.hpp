@@ -355,14 +355,16 @@ inline void
 
     for (const auto& ntpServerObject : ntpServerObjects)
     {
-        std::string ntpServerAddress = ntpServerObject.get<std::string>();
-        // const std::string* ntpServerAddress =
-        //     std::get_if<std::string>(&ntpServerObject);
+        // std::string ntpServerAddress = ntpServerObject.get<std::string>();
+        //  const std::string* ntpServerAddress =
+        //      std::get_if<std::string>(&ntpServerObject);
 
-        if (!isValidNtpServer(ntpServerAddress))
+        // if (!isValidNtpServer(ntpServerAddress))
+        if (!ntpServerObject.empty() && ntpServerObject.is_string() &&
+            !isValidNtpServer(ntpServerObject.get<std::string>()))
         {
             BMCWEB_LOG_DEBUG("Invalid character found in NTP server address.");
-            messages::propertyValueFormatError(asyncResp->res, ntpServerAddress,
+            messages::propertyValueFormatError(asyncResp->res, ntpServerObject,
                                                "NTPServers");
             return;
         }

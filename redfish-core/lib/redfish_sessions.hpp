@@ -90,7 +90,6 @@ inline void fillSessionObject(crow::Response& res,
     res.jsonValue["Oem"]["AMI_WebSession"]["@odata.id"] = boost::urls::format(
         "/redfish/v1/SessionService/Sessions/{}#/Oem/AMI_WebSession",
         session.uniqueId);
-    res.jsonValue["Roles"] = getRole(session.userRole);
     res.jsonValue["Oem"]["AMI_WebSession"]["@odata.type"] =
         "#AMIWebSession.v1_0_0.WebSession";
     res.jsonValue["Oem"]["AMI_WebSession"]["KvmActive"] =
@@ -756,7 +755,7 @@ inline void
         }
 
         const uint16_t* s = std::get_if<uint16_t>(&value);
-        asyncResp->res.jsonValue["Oem"]["OpenBmc"]["BMCwebPort"] = *s;
+        asyncResp->res.jsonValue["Oem"]["Ami"]["BMCwebPort"] = *s;
     },
         "xyz.openbmc_project.Control.Service.Manager",
         "/xyz/openbmc_project/control/service/bmcweb",
@@ -772,7 +771,11 @@ inline void
         }
 
         const uint64_t* s = std::get_if<uint64_t>(&value);
-        asyncResp->res.jsonValue["Oem"]["OpenBmc"]["KVMSessionTimeout"] = *s;
+        asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.id"] =
+            "/redfish/v1/SessionService#/Oem/Ami";
+        asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] =
+            "#AMISessionService.v1_0_0.Ami";
+        asyncResp->res.jsonValue["Oem"]["Ami"]["KVMSessionTimeout"] = *s;
     },
         "xyz.openbmc_project.Control.Service.Manager",
         "/xyz/openbmc_project/control/service/start_2dipkvm",
@@ -834,19 +837,19 @@ inline void handleSessionServicePatch(
 
     if (oem)
     {
-        std::optional<nlohmann::json> openBmc;
+        std::optional<nlohmann::json> ami;
 
-        if (!json_util::readJson(*oem, asyncResp->res, "OpenBmc", openBmc))
+        if (!json_util::readJson(*oem, asyncResp->res, "Ami", ami))
         {
             return;
         }
-        if (openBmc)
+        if (ami)
         {
             std::optional<uint64_t> kvmSessionTimeout;
             std::optional<uint16_t> bmcwebPort;
-            if (!json_util::readJson(*openBmc, asyncResp->res,
-                                     "KVMSessionTimeout", kvmSessionTimeout,
-                                     "BMCwebPort", bmcwebPort))
+            if (!json_util::readJson(*ami, asyncResp->res, "KVMSessionTimeout",
+                                     kvmSessionTimeout, "BMCwebPort",
+                                     bmcwebPort))
             {
                 return;
             }

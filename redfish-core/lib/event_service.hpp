@@ -133,6 +133,11 @@ inline void getSmtpConfig(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             messages::internalError(asyncResp->res);
             return;
         }
+        asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]["@odata.type"] =
+            "#AMIEventService.SMTP";
+        asyncResp->res
+            .jsonValue["Oem"]["OpenBmc"]["SMTP"][configuration]["@odata.type"] =
+            "#AMIEventService.Configuration";
         asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"][configuration]
                                 ["Authentication"] = authentication;
 
@@ -1561,7 +1566,9 @@ inline void requestRoutesSubmitTestEvent(App& app)
             return;
         }
         //EventServiceManager::getInstance().readEventLogsFromFile();
-        asyncResp->res.result(boost::beast::http::status::no_content);
+        bool status = EventServiceManager::getInstance().sendTestEventLog();
+        if (status)
+            asyncResp->res.result(boost::beast::http::status::no_content);
     });
 }
 

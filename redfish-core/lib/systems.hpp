@@ -2956,7 +2956,7 @@ inline void getSerialConsoleSshStatus(
         asyncResp, serialConsoleSshServiceName,
         nlohmann::json::json_pointer("/SerialConsole/SSH/ServiceEnabled"));
     service_util::getSerialConsoleSshMasked(asyncResp,
-                                            +serialConsoleSshServiceName,
+                                            serialConsoleSshServiceName,
                                             "SerialConsole", "SSH", "Masked");
     service_util::getPortNumber(
         asyncResp, serialConsoleSshServiceName,

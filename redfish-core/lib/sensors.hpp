@@ -1141,7 +1141,7 @@ inline void objectPropertiesToJson(
                     std::stringstream ss;
                     ss << std::fixed << std::setprecision(4) << roundedValue;
                     std::string roundedStringValue = ss.str();
-                    sensorJson[key] = roundedStringValue;
+                    sensorJson[key] = std::stoi(roundedStringValue);
                 }
                 else
                 {
@@ -2569,7 +2569,15 @@ inline nlohmann::json& getPowerSupply(nlohmann::json& powerSupplyArray,
         railValues["PhysicalContext"] = rail.second;
         powerSupply["OutputRails"].push_back(railValues);
     }
-    efficiencyRatings["EfficiencyPercent"] = inventoryItem.efficiencyRatings;
+    if (inventoryItem.efficiencyRatings > 100)
+    {
+        efficiencyRatings["EfficiencyPercent"] = 0;
+    }
+    else
+    {
+        efficiencyRatings["EfficiencyPercent"] =
+            inventoryItem.efficiencyRatings;
+    }
     powerSupply["EfficiencyRatings"].push_back(efficiencyRatings);
     inputRanges["NominalVoltageType"] = inventoryItem.nominalVoltageType;
     powerSupply["InputRanges"].push_back(inputRanges);
