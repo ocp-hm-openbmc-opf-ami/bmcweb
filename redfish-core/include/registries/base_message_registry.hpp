@@ -1308,7 +1308,67 @@ constexpr std::array registry =
             {},
             "Correct the request body and resubmit the request if it failed.",
         }},
-
+    MessageEntry{
+	    "InvalidIP",
+	    {
+		"Indicates that a given IP address is invalid",
+		"The Requested IP address  is invalid",
+		"Warning",
+		2,
+		{
+			"string",
+			"string",
+		},
+		"Provide Valid IP address",
+	}},
+    MessageEntry{
+        "PropertyValueEmpty",
+        {
+        "Indicates that a Property Value is empty",
+        "The value %1 for the property %2 should not be empty",
+        "Critical",
+        2,
+        {
+            "string",
+            "string",
+        },
+        "Please Make sure that correct value for the property is provided in the request body and resubmit the request"
+    }},
+    MessageEntry{
+	    "PasswordResetFailed",
+        {
+		"Indicates that we cannot use or reset the previous password for the particular user",
+		"Last password cannot be used to reset the redfish account password. Please change the password value and resubmit the request",
+		"Critical",
+		0,
+		{},
+		"Change the password value and resubmit the request",
+	}},
+    MessageEntry{
+            "differentIpSeries",
+            {
+                "Indicates that the IP addresses are not in the same series",
+                "The values of %1 and %2 are in different series.",
+                "Warning",
+                2,
+                {
+                        "string",
+                        "string",
+                },
+                "Provide IP in the same series",
+        }},
+    MessageEntry{
+        "InterfaceDisabled",
+        {
+            "Indicates that the requested write of a property value could not be completed, because of the interface for given patch is disabled.",
+            "The property could not be written because its value would conflict with the value of the property %1 which is disabled.",
+            "Warning",
+            1,
+            {
+                "string",
+            },
+            "Enable interface and try patch.",
+        }},
 };
 
 enum class Index
@@ -1423,5 +1483,10 @@ enum class Index
     success = 107,
     undeterminedFault = 108,
     unrecognizedRequestBody = 109,
+    invalidip=110,
+    propertyValueEmpty=111,
+    passwordResetFailed=112,
+    differentIpSeries=113,
+    interfaceDisabled=114,
 };
 } // namespace redfish::registries::base

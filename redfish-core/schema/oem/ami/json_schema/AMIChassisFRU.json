@@ -1,0 +1,86 @@
+{
+  "$schema": "http://redfish.dmtf.org/schemas/v1/redfish-schema.v1_1_0.json",
+  "title": "#AMIChassisFRU.v1_0_0.AMIChassisFRU",
+  "$ref": "#/definitions/AMIChassisFRU",
+  "definitions": {
+    "AMIChassisPowerThermal": {
+      "type": "object",
+      "patternProperties": {
+        "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message|Privileges)\\.[a-zA-Z_][a-zA-Z0-9_.]+$": {
+          "type": [
+            "array",
+            "boolean",
+            "number",
+            "null",
+            "object",
+            "string"
+          ],
+          "description": "This property shall specify a valid odata or Redfish property."
+        }
+      },
+      "additionalProperties": false,
+      "properties": {
+                    "@odata.type": {
+        	      "$ref": "http://redfish.dmtf.org/schemas/v1/odata.4.0.0.json#/definitions/type"
+        	    },
+                    "Name":{
+                            "type": "string",
+                            "description": "This property shall specify the Name of a Chassis FRU device."
+                    },
+                    "BoardVersion":{
+                            "type": "string",
+                            "description": "This property shall specify the Board Version number string of a Chassis FRU device."
+                    },
+                    "BoardLanguageCode":{
+                            "type": "string",
+                            "description": "This property shall specify the Board Language Code of a Chassis FRU device."
+                    },
+                    "BoardMfg":{
+                            "type": "string",
+                            "description": "This property shall specify the Board Manufacturer name of a Chassis FRU device."
+                    },
+                    "BoardMfgDate":{
+                            "type": "string",
+                            "description": "This property shall specify the Board Manufacturer Date of a Chassis FRU device."
+                    },
+                    "BoardPartNumber":{
+                            "type": "string",
+                            "description": "This property shall specify the Board Part Number of a Chassis FRU device."
+                    },
+                    "BoardProduct":{
+                            "type": "string",
+                            "description": "This property shall specify the Board Product name of a Chassis FRU device."
+                    },
+                    "BoardSerialNumber":{
+                            "type": "string",
+                            "description": "This property shall specify the Board Serial Number of a Chassis FRU device."
+                    },
+                    "ProductLanguageCode":{
+                            "type": "string",
+                           "description": "This property shall specify the Product Language Code of a Chassis FRU device."
+                    },
+                    "ProductManufacturer":{
+                            "type": "string",
+                            "description": "This property shall specify the Product Manufacturer name of a Chassis FRU device."
+                    },
+                    "ProductPartNumber":{
+                            "type": "string",
+                            "description": "This property shall specify the Product Part Number of a Chassis FRU device."
+                    },
+                    "ProductName":{
+                            "type": "string",
+                            "description": "This property shall specify the Product Name of a Chassis FRU device."
+                    },
+                    "ProductSerialNumber":{
+                            "type": "string",
+                            "description": "This property shall specify the Product Serial Number of a Chassis FRU device."
+                    },
+                    "ProductVersion":{
+                            "type": "string",
+                            "description": "This property shall specify the Product Version of a Chassis FRU device."
+                    }
+      }
+    }
+  }
+}
+

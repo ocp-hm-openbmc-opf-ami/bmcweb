@@ -1,0 +1,210 @@
+{
+    "$id": "http://redfish.dmtf.org/schemas/v1/OemEventDestination.json",
+    "$schema": "http://redfish.dmtf.org/schemas/v1/redfish-schema-v1.json",
+    "copyright": "Copyright 2014-2022 DMTF. For the full DMTF copyright policy, see http://www.dmtf.org/about/policies/copyright",
+    "definitions": {
+        "Intel": {
+            "additionalProperties": false,
+            "description": "Oem Properties for Intel",
+            "longDescription": "Oem Properties for Intel",
+            "patternProperties": {
+                "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
+                    "description": "This property shall specify a valid odata or Redfish property.",
+                    "type": [
+                        "array",
+                        "boolean",
+                        "integer",
+                        "number",
+                        "null",
+                        "object",
+                        "string"
+                    ]
+                }
+            },
+            "properties": {
+                "Kafka": {
+                    "$ref": "#/definitions/Kafka",
+                    "description": "Oem Properties for Intel Kafka",
+                    "longDescription": "Oem Properties for Intel Kafka",
+                    "readonly": true
+                },
+                "MctpEvent": {
+                    "$ref": "#/definitions/MctpEvent",
+                    "description": "Oem properties for Mctp event service",
+                    "longDescription": "Oem properties for Mctp event service",
+                    "readonly": true
+                }
+            },
+            "type": "object"
+        },
+        "Kafka": {
+            "additionalProperties": false,
+            "description": "Oem Properties for Intel Kafka",
+            "longDescription": "Oem Properties for Intel Kafka",
+            "patternProperties": {
+                "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
+                    "description": "This property shall specify a valid odata or Redfish property.",
+                    "type": [
+                        "array",
+                        "boolean",
+                        "integer",
+                        "number",
+                        "null",
+                        "object",
+                        "string"
+                    ]
+                }
+            },
+            "properties": {
+                "AdditionalDestinations": {
+                    "description": "Additional Kafka Brokers Destinations",
+                    "items": {
+                        "type": "string"
+                    },
+                    "readonly": false,
+                    "type": "array"
+                },
+                "AvroSchemaId": {
+                    "description": "AvroSchemaId is used for protocol compatibility",
+                    "longDescription": "A unique AvroSchemaID is generated everytime schema-registry registers a specific schema",
+                    "readonly": false,
+                    "type": "integer"
+                },
+                "KafkaTopic": {
+                    "description": "A Kafka topic contains messages, and each message is a key-value pair",
+                    "longDescription": "Kafka Consumer reads the specific record from a subscribed Kafka topic",
+                    "readonly": false,
+                    "type": "string"
+                },
+                "StreamingRateMs": {
+                    "description": "Timestamp assigned to every data record during Kafka streaming",
+                    "readonly": false,
+                    "type": "integer"
+                },
+                "CertificateUri": {
+                    "description": "URI of CA Certificate",
+                    "longDescription": "URI of CA Certificate pointing to item from collection list in /redfish/v1/Managers/bmc/Truststore/Certificates/",
+                    "readonly": false,
+                    "type": "string",
+                    "format": "uri-reference"
+                }
+            },
+            "type": "object"
+        },
+        "MctpEvent": {
+            "additionalProperties": false,
+            "description": "Oem properties for Mctp event service",
+            "longDescription": "Oem properties for Mctp event service",
+            "patternProperties": {
+                "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
+                    "description": "This property shall specify a valid odata or Redfish property.",
+                    "type": [
+                        "array",
+                        "boolean",
+                        "integer",
+                        "number",
+                        "null",
+                        "object",
+                        "string"
+                    ]
+                }
+            },
+            "properties": {
+                "MessageType": {
+                    "description": "Defines the Message Type field values for various message types transported via Mctp.",
+                    "items": {
+                        "type": "integer"
+                    },
+                    "longDescription": "Defines the Message Type field values for various message types transported via Mctp.",
+                    "readonly": true,
+                    "type": "array"
+                },
+                "Network": {
+                    "description": "Physical layer protocol that client are subscribing to",
+                    "items": {
+                        "type": "string"
+                    },
+                    "longDescription": "Physical layer protocol that client are subscribing to",
+                    "readonly": true,
+                    "type": "array"
+                },
+                "SourceEID": {
+                    "description": "The EID of the Mctp packet's originator.",
+                    "items": {
+                        "type": "integer"
+                    },
+                    "longDescription": "The EID of the Mctp packet's originator.",
+                    "readonly": true,
+                    "type": "array"
+                }
+            },
+            "type": "object"
+        },
+        "Oem": {
+            "additionalProperties": false,
+            "description": "OemEventDestination Oem properties",
+            "patternProperties": {
+                "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
+                    "description": "This property shall specify a valid odata or Redfish property.",
+                    "type": [
+                        "array",
+                        "boolean",
+                        "integer",
+                        "number",
+                        "null",
+                        "object",
+                        "string"
+                    ]
+                }
+            },
+            "properties": {
+                "Intel": {
+                    "$ref": "#/definitions/Intel",
+                    "description": "OemEventDestination Properties for Intel",
+                    "readonly": false
+                }
+            },
+            "type": "object"
+        },
+        "OemEventDestination": {
+            "additionalProperties": false,
+            "description": "Parameters for OemEventDestination_v1_0_0.",
+            "longDescription": "Parameters for OemEventDestination_v1_0_0.",
+            "patternProperties": {
+                "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
+                    "description": "This property shall specify a valid odata or Redfish property.",
+                    "type": [
+                        "array",
+                        "boolean",
+                        "integer",
+                        "number",
+                        "null",
+                        "object",
+                        "string"
+                    ]
+                }
+            },
+            "properties": {
+                "Oem": {
+                    "$ref": "http://redfish.dmtf.org/schemas/v1/Resource.json#/definitions/Oem",
+                    "description": "The OEM extension property.",
+                    "longDescription": "This property shall contain the OEM extensions.  All values for properties that this object contains shall conform to the Redfish Specification-described requirements."
+                },
+                "OEMProtocol": {
+                    "description": "Oem protocol",
+                    "longDescription": "properties for Oem Protocol",
+                    "readonly": true,
+                    "type": "string"
+                },
+                "OEMSubscriptionType": {
+                    "description": "Properties of OEMSubscriptionType",
+                    "longDescription": "Properties of OEMSubscriptionType",
+                    "readonly": true,
+                    "type": "string"
+                }
+            },
+            "type": "object"
+        }
+    },
+    "title": "#OemEventDestination"
+}

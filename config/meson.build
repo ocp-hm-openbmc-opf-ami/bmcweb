@@ -29,6 +29,7 @@ feature_options = [
     'redfish-new-powersubsystem-thermalsubsystem',
     'redfish-oem-manager-fan-data',
     'redfish-provisioning-feature',
+    'redfish-post-to-old-updateservice',
     'redfish-updateservice-use-dbus',
     'redfish',
     'rest',
@@ -41,6 +42,7 @@ feature_options = [
 
 string_options = [
     'dns-resolver',
+    'image-upload-dir',
     'mutual-tls-common-name-parsing',
     'redfish-manager-uri-name',
     'redfish-system-uri-name',
@@ -48,6 +50,7 @@ string_options = [
 
 int_options = [
     'http-body-limit',
+    'image-payload-limit',
 ]
 
 feature_options_string = '\n//Feature options\n'
@@ -82,7 +85,8 @@ loglvlopt = loglvlopt.to_upper()
 string_options_string += 'constexpr std::string_view  BMCWEB_LOGGING_LEVEL' + ' = "' + loglvlopt + '";\n'
 
 # NBD proxy is disabled due to lack of maintenance.  See meson_options.txt
-feature_options_string += 'constexpr const bool        BMCWEB_VM_NBDPROXY = false;\n'
+opt = get_option('vm-nbdproxy')
+feature_options_string += 'constexpr const bool        BMCWEB_VM_NBDPROXY = ' + opt.allowed().to_string() + ';\n'
 
 conf_data.set(
     'BMCWEB_OPTIONS',

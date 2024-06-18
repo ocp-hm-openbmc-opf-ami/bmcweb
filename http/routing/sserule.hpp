@@ -1,20 +1,17 @@
 #pragma once
 
 #include "baserule.hpp"
-#include "http_request.hpp"
-#include "http_response.hpp"
+#include "privilegeparametertraits.hpp"
 #include "server_sent_event.hpp"
 
-#include <boost/beast/http/verb.hpp>
-
 #include <functional>
-#include <memory>
-#include <string>
 
 namespace crow
 {
 
-class SseSocketRule : public BaseRule
+class SseSocketRule :
+    public BaseRule,
+    public PrivilegeParameterTraits<SseSocketRule>
 {
     using self_t = SseSocketRule;
 
@@ -38,7 +35,7 @@ class SseSocketRule : public BaseRule
             boost::beast::http::status::internal_server_error);
     }
 
-    void handleUpgrade(const Request& /*req*/,
+    void handleUpgrade(const Request& req,
                        const std::shared_ptr<bmcweb::AsyncResp>& /*asyncResp*/,
                        boost::asio::ip::tcp::socket&& adaptor) override
     {
@@ -46,10 +43,10 @@ class SseSocketRule : public BaseRule
             crow::sse_socket::ConnectionImpl<boost::asio::ip::tcp::socket>>
             myConnection = std::make_shared<
                 crow::sse_socket::ConnectionImpl<boost::asio::ip::tcp::socket>>(
-                std::move(adaptor), openHandler, closeHandler);
+                req, std::move(adaptor), openHandler, closeHandler);
         myConnection->start();
     }
-    void handleUpgrade(const Request& /*req*/,
+    void handleUpgrade(const Request& req,
                        const std::shared_ptr<bmcweb::AsyncResp>& /*asyncResp*/,
                        boost::asio::ssl::stream<boost::asio::ip::tcp::socket>&&
                            adaptor) override
@@ -58,7 +55,7 @@ class SseSocketRule : public BaseRule
             boost::asio::ssl::stream<boost::asio::ip::tcp::socket>>>
             myConnection = std::make_shared<crow::sse_socket::ConnectionImpl<
                 boost::asio::ssl::stream<boost::asio::ip::tcp::socket>>>(
-                std::move(adaptor), openHandler, closeHandler);
+                req, std::move(adaptor), openHandler, closeHandler);
         myConnection->start();
     }
 
@@ -77,8 +74,12 @@ class SseSocketRule : public BaseRule
     }
 
   private:
-    std::function<void(crow::sse_socket::Connection&)> openHandler;
-    std::function<void(crow::sse_socket::Connection&)> closeHandler;
+    std::function<void(std::shared_ptr<crow::sse_socket::Connection>&,
+                       const crow::Request&,
+                       const std::shared_ptr<bmcweb::AsyncResp>&)>
+        openHandler;
+    std::function<void(std::shared_ptr<crow::sse_socket::Connection>&)>
+        closeHandler;
 };
 
 } // namespace crow

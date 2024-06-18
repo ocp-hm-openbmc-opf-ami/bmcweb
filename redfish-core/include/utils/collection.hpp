@@ -75,6 +75,24 @@ inline void handleCollectionMembers(
         member["@odata.id"] = std::move(url);
         members.emplace_back(std::move(member));
     }
+    std::string additionalUrl;
+
+    if (collectionPath.buffer() == "/redfish/v1/Systems/system/Storage")
+    {
+        additionalUrl = "/redfish/v1/Systems/system/Storage/1";
+    }
+
+    else if (collectionPath.buffer() == "/redfish/v1/Storage")
+    {
+        additionalUrl = "/redfish/v1/Storage/1";
+    }
+
+    if (!additionalUrl.empty())
+    {
+        nlohmann::json::object_t additionalMember;
+        additionalMember["@odata.id"] = std::move(additionalUrl);
+        members.emplace_back(std::move(additionalMember));
+    }
     asyncResp->res.jsonValue[jsonCountKeyName] = members.size();
 }
 

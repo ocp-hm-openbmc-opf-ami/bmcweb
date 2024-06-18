@@ -21,6 +21,7 @@ namespace sse_socket
 struct Connection : public std::enable_shared_from_this<Connection>
 {
   public:
+    explicit Connection(const crow::Request& reqIn) : req(reqIn) {}
     Connection() = default;
 
     Connection(const Connection&) = delete;
@@ -30,17 +31,25 @@ struct Connection : public std::enable_shared_from_this<Connection>
     virtual ~Connection() = default;
 
     virtual boost::asio::io_context& getIoContext() = 0;
+    virtual void sendSSEHeader() = 0;
+    virtual void completeRequest(crow::Response& thisRes) = 0;
     virtual void close(std::string_view msg = "quit") = 0;
     virtual void sendEvent(std::string_view id, std::string_view msg) = 0;
+
+    crow::Request req;
 };
 
 template <typename Adaptor>
 class ConnectionImpl : public Connection
 {
   public:
-    ConnectionImpl(Adaptor&& adaptorIn,
-                   std::function<void(Connection&)> openHandlerIn,
-                   std::function<void(Connection&)> closeHandlerIn) :
+    ConnectionImpl(
+        const crow::Request& reqIn, Adaptor&& adaptorIn,
+        std::function<void(std::shared_ptr<Connection>&, const crow::Request&,
+                           const std::shared_ptr<bmcweb::AsyncResp>&)>
+            openHandlerIn,
+        std::function<void(std::shared_ptr<Connection>&)> closeHandlerIn) :
+        Connection(reqIn),
         adaptor(std::move(adaptorIn)),
         timer(static_cast<boost::asio::io_context&>(
             adaptor.get_executor().context())),
@@ -69,44 +78,59 @@ class ConnectionImpl : public Connection
 
     void start()
     {
-        if (!openHandler)
+        if (openHandler)
         {
-            BMCWEB_LOG_CRITICAL("No open handler???");
-            return;
+            auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+            std::shared_ptr<Connection> self = this->shared_from_this();
+
+            asyncResp->res.setCompleteRequestHandler(
+                [self(shared_from_this())](crow::Response& thisRes) {
+                if (thisRes.resultInt() != 200)
+                {
+                    self->completeRequest(thisRes);
+                }
+            });
+
+            openHandler(self, req, asyncResp);
+            sendSSEHeader();
         }
-        openHandler(*this);
-        sendSSEHeader();
     }
 
     void close(const std::string_view msg) override
     {
-        BMCWEB_LOG_DEBUG("Closing connection with reason {}", msg);
+        BMCWEB_LOG_DEBUG("Closing SSE connection {} - {}", logPtr(this), msg);
+        boost::beast::get_lowest_layer(adaptor).close();
+
         // send notification to handler for cleanup
         if (closeHandler)
         {
-            closeHandler(*this);
+            std::shared_ptr<Connection> self = shared_from_this();
+            closeHandler(self);
         }
-        BMCWEB_LOG_DEBUG("Closing SSE connection {} - {}", logPtr(this), msg);
-        boost::beast::get_lowest_layer(adaptor).close();
     }
 
-    void sendSSEHeader()
+    void sendSSEHeader() override
     {
         BMCWEB_LOG_DEBUG("Starting SSE connection");
+        auto resPtr = std::make_shared<boost::beast::http::response<BodyType>>(
+            boost::beast::http::status::ok, 11);
+        resPtr->set(boost::beast::http::field::server, "bmcweb");
+        resPtr->set(boost::beast::http::field::content_type,
+                    "text/event-stream");
 
-        res.set(boost::beast::http::field::content_type, "text/event-stream");
         boost::beast::http::response_serializer<BodyType>& serial =
-            serializer.emplace(res);
-
+            serializer.emplace(*resPtr);
         boost::beast::http::async_write_header(
             adaptor, serial,
             std::bind_front(&ConnectionImpl::sendSSEHeaderCallback, this,
-                            shared_from_this()));
+                            shared_from_this(), resPtr));
     }
 
-    void sendSSEHeaderCallback(const std::shared_ptr<Connection>& /*self*/,
-                               const boost::system::error_code& ec,
-                               size_t /*bytesSent*/)
+    void sendSSEHeaderCallback(
+        const std::shared_ptr<Connection>& /*self*/,
+        const std::shared_ptr<
+            boost::beast::http::response<bmcweb::HttpBody>> /*res*/,
+        const boost::system::error_code& ec, size_t /*bytesSent*/)
     {
         serializer.reset();
         if (ec)
@@ -119,9 +143,10 @@ class ConnectionImpl : public Connection
 
         // SSE stream header sent, So let us setup monitor.
         // Any read data on this stream will be error in case of SSE.
-        adaptor.async_read_some(boost::asio::buffer(buffer),
-                                std::bind_front(&ConnectionImpl::afterReadError,
-                                                this, shared_from_this()));
+        boost::beast::get_lowest_layer(adaptor).async_read_some(
+            boost::asio::buffer(buffer),
+            std::bind_front(&ConnectionImpl::afterReadError, this,
+                            shared_from_this()));
     }
 
     void afterReadError(const std::shared_ptr<Connection>& /*self*/,
@@ -185,6 +210,49 @@ class ConnectionImpl : public Connection
                          bytesTransferred);
 
         doWrite();
+    }
+
+    void completeRequest(crow::Response& thisRes) override
+    {
+        auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+        asyncResp->res = std::move(thisRes);
+
+        if (!asyncResp->res.jsonValue.empty())
+        {
+            asyncResp->res.addHeader(boost::beast::http::field::content_type,
+                                     "application/json");
+            asyncResp->res.write(asyncResp->res.jsonValue.dump(
+                2, ' ', true, nlohmann::json::error_handler_t::replace));
+        }
+
+        asyncResp->res.preparePayload();
+
+        boost::beast::http::response<boost::beast::http::string_body> Message;
+        Message.body() = *asyncResp->res.body();
+        boost::beast::http::async_write(
+            adaptor, Message,
+            std::bind_front(&ConnectionImpl::completeRequestCallback, this,
+                            shared_from_this(), asyncResp));
+    }
+
+    void completeRequestCallback(
+        const std::shared_ptr<Connection>& /*self*/,
+        const std::shared_ptr<bmcweb::AsyncResp> asyncResp,
+        const boost::system::error_code& ec, std::size_t bytesTransferred)
+    {
+        BMCWEB_LOG_DEBUG("{} async_write {} bytes", logPtr(this),
+                         bytesTransferred);
+        if (ec)
+        {
+            BMCWEB_LOG_DEBUG("{} from async_write failed", logPtr(this));
+            return;
+        }
+
+        BMCWEB_LOG_DEBUG("{} Closing SSE connection - Request invalid",
+                         logPtr(this));
+        serializer.reset();
+        close("Request invalid");
+        asyncResp->res.releaseCompleteRequestHandler();
     }
 
     void sendEvent(std::string_view id, std::string_view msg) override
@@ -281,8 +349,10 @@ class ConnectionImpl : public Connection
     boost::asio::steady_timer timer;
     bool doingWrite = false;
 
-    std::function<void(Connection&)> openHandler;
-    std::function<void(Connection&)> closeHandler;
+    std::function<void(std::shared_ptr<Connection>&, const crow::Request&,
+                       const std::shared_ptr<bmcweb::AsyncResp>&)>
+        openHandler;
+    std::function<void(std::shared_ptr<Connection>&)> closeHandler;
 };
 } // namespace sse_socket
 } // namespace crow

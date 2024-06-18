@@ -25,7 +25,10 @@ enum class MessageType
 struct Connection : std::enable_shared_from_this<Connection>
 {
   public:
-    Connection() = default;
+    explicit Connection(
+        const std::shared_ptr<persistent_data::UserSession>& sessionIn) :
+        session(sessionIn)
+    {}
 
     Connection(const Connection&) = delete;
     Connection(Connection&&) = delete;
@@ -42,6 +45,7 @@ struct Connection : std::enable_shared_from_this<Connection>
     virtual boost::asio::io_context& getIoContext() = 0;
     virtual ~Connection() = default;
     virtual boost::urls::url_view url() = 0;
+    std::shared_ptr<persistent_data::UserSession> session;
 };
 
 template <typename Adaptor>
@@ -62,9 +66,8 @@ class ConnectionImpl : public Connection
             messageExHandlerIn,
         std::function<void(Connection&, const std::string&)> closeHandlerIn,
         std::function<void(Connection&)> errorHandlerIn) :
-        uri(urlViewIn),
-        ws(std::move(adaptorIn)), inBuffer(inString, 131088),
-        openHandler(std::move(openHandlerIn)),
+        Connection(sessionIn), uri(urlViewIn), ws(std::move(adaptorIn)),
+        inBuffer(inString, 131088), openHandler(std::move(openHandlerIn)),
         messageHandler(std::move(messageHandlerIn)),
         messageExHandler(std::move(messageExHandlerIn)),
         closeHandler(std::move(closeHandlerIn)),

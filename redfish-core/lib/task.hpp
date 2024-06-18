@@ -43,7 +43,28 @@ constexpr size_t maxTaskCount = 100; // arbitrary limit
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static std::deque<std::shared_ptr<struct TaskData>> tasks;
 
+static size_t lastTask = 1;
 constexpr bool completed = true;
+
+inline void setStatus(const std::string status)
+{
+    auto bus = sdbusplus::bus::new_default();
+    auto method = bus.new_method_call("xyz.openbmc_project.State.Host0",
+                                      "/xyz/openbmc_project/state/host0",
+                                      "org.freedesktop.DBus.Properties", "Set");
+
+    method.append("xyz.openbmc_project.Common.Task", "Status",
+                  dbus::utility::DbusVariantType(status));
+
+    try
+    {
+        auto reply = bus.call(method);
+    }
+    catch (const sdbusplus::exception::SdBusError& e)
+    {
+        BMCWEB_LOG_ERROR("D-Bus error:", e.what());
+    }
+}
 
 struct Payload
 {
@@ -95,11 +116,10 @@ struct TaskData : std::enable_shared_from_this<TaskData>
         std::function<bool(boost::system::error_code, sdbusplus::message_t&,
                            const std::shared_ptr<TaskData>&)>&& handler,
         const std::string& matchIn, size_t idx) :
-        callback(std::move(handler)),
-        matchStr(matchIn), index(idx),
+        callback(std::move(handler)), matchStr(matchIn), index(idx),
         startTime(std::chrono::system_clock::to_time_t(
             std::chrono::system_clock::now())),
-        status("OK"), state("Running"), messages(nlohmann::json::array()),
+        status("OK"), state("New"), messages(nlohmann::json::array()),
         timer(crow::connections::systemBus->get_io_context())
 
     {}
@@ -112,7 +132,8 @@ struct TaskData : std::enable_shared_from_this<TaskData>
                            const std::shared_ptr<TaskData>&)>&& handler,
         const std::string& match)
     {
-        static size_t lastTask = 0;
+        if (tasks.size() == 0)
+            lastTask = 1;
         struct MakeSharedHelper : public TaskData
         {
             MakeSharedHelper(
@@ -150,17 +171,56 @@ struct TaskData : std::enable_shared_from_this<TaskData>
             res.jsonValue["@odata.type"] = "#Task.v1_4_3.Task";
             res.jsonValue["Id"] = strIdx;
             res.jsonValue["TaskState"] = state;
-            res.jsonValue["TaskStatus"] = status;
+
+            if (state == "Completed" || state == "Cancelled" ||
+                state == "Exception")
+            {
+                res.jsonValue["TaskStatus"] = status;
+            }
 
             res.addHeader(boost::beast::http::field::location,
                           uri + "/Monitor");
             res.addHeader(boost::beast::http::field::retry_after,
                           std::to_string(retryAfterSeconds));
         }
-        else if (!gave204)
+        else if (!taskCompleted)
         {
-            res.result(boost::beast::http::status::no_content);
-            gave204 = true;
+            taskCompleted = true;
+        }
+    }
+
+    inline void setLastTask()
+    {
+        for (const std::shared_ptr<task::TaskData>& task : task::tasks)
+        {
+            // Setting lastTask index after deleting task
+            task::lastTask = task->index + 1;
+        }
+        return;
+    }
+
+    void deleteTasks(const std::string& strParam)
+    {
+        int pos = 0;
+        for (const std::shared_ptr<task::TaskData>& task : task::tasks)
+        {
+            if (std::to_string(task->index) == strParam)
+            {
+                setStatus(
+                    "xyz.openbmc_project.Common.Task.OperationStatus.Cancelled");
+                auto taskToDelete = task::tasks.begin();
+                advance(taskToDelete, pos);
+                if (*taskToDelete != nullptr)
+                {
+                    BMCWEB_LOG_ERROR("Deleting Task", strParam);
+                    task->timer.cancel();
+                    task->match.reset();
+                    task::tasks.erase(taskToDelete);
+                    setLastTask();
+                    return;
+                }
+            }
+            pos++;
         }
     }
 
@@ -317,12 +377,51 @@ struct TaskData : std::enable_shared_from_this<TaskData>
     std::unique_ptr<sdbusplus::bus::match_t> match;
     std::optional<time_t> endTime;
     std::optional<Payload> payload;
-    bool gave204 = false;
+    bool taskCompleted = false;
     int percentComplete = 0;
 };
 
 } // namespace task
 
+inline void
+    handleTaskDelete(App& app, const crow::Request& req,
+                     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                     const std::string& strParam)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    auto find =
+        std::find_if(task::tasks.begin(), task::tasks.end(),
+                     [&strParam](const std::shared_ptr<task::TaskData>& task) {
+        if (!task)
+        {
+            return false;
+        }
+
+        // we compare against the string version as on failure
+        // strtoul returns 0
+        return std::to_string(task->index) == strParam;
+    });
+
+    if (find == task::tasks.end())
+    {
+        messages::resourceNotFound(asyncResp->res, "Task", strParam);
+        return;
+    }
+
+    std::shared_ptr<task::TaskData>& ptr = *find;
+
+    if (ptr->state != "New" && ptr->state != "Pending")
+    {
+        messages::resourceCannotBeDeleted(asyncResp->res);
+        return;
+    }
+
+    ptr->deleteTasks(strParam);
+    asyncResp->res.result(boost::beast::http::status::no_content);
+}
 inline void requestRoutesTaskMonitor(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/TaskService/Tasks/<str>/Monitor/")
@@ -354,13 +453,13 @@ inline void requestRoutesTaskMonitor(App& app)
             return;
         }
         std::shared_ptr<task::TaskData>& ptr = *find;
-        // monitor expires after 204
-        if (ptr->gave204)
+        ptr->populateResp(asyncResp->res);
+        // monitor expires after taskCompleted
+        if (ptr->taskCompleted)
         {
             messages::resourceNotFound(asyncResp->res, "Task", strParam);
             return;
         }
-        ptr->populateResp(asyncResp->res);
     });
 }
 
@@ -408,11 +507,17 @@ inline void requestRoutesTask(App& app)
             asyncResp->res.jsonValue["EndTime"] =
                 redfish::time_utils::getDateTimeStdtime(*(ptr->endTime));
         }
-        asyncResp->res.jsonValue["TaskStatus"] = ptr->status;
+
+        if (ptr->state == "Completed" || ptr->state == "Cancelled" ||
+            ptr->state == "Exception")
+        {
+            asyncResp->res.jsonValue["TaskStatus"] = ptr->status;
+        }
+
         asyncResp->res.jsonValue["Messages"] = ptr->messages;
         asyncResp->res.jsonValue["@odata.id"] =
             boost::urls::format("/redfish/v1/TaskService/Tasks/{}", strParam);
-        if (!ptr->gave204)
+        if (!ptr->taskCompleted)
         {
             asyncResp->res.jsonValue["TaskMonitor"] =
                 "/redfish/v1/TaskService/Tasks/" + strParam + "/Monitor";
@@ -429,6 +534,10 @@ inline void requestRoutesTask(App& app)
             asyncResp->res.jsonValue["Payload"]["HttpHeaders"] = p.httpHeaders;
             asyncResp->res.jsonValue["Payload"]["JsonBody"] = p.jsonBody.dump(
                 2, ' ', true, nlohmann::json::error_handler_t::replace);
+        }
+        else
+        {
+            asyncResp->res.jsonValue["HidePayload"] = true;
         }
         asyncResp->res.jsonValue["PercentComplete"] = ptr->percentComplete;
     });
@@ -497,4 +606,16 @@ inline void requestRoutesTaskService(App& app)
     });
 }
 
+inline void requestRoutesTaskDelete(App& app)
+{
+    BMCWEB_ROUTE(app, "/redfish/v1/TaskService/Tasks/<str>/")
+        .privileges(redfish::privileges::deleteTask)
+        .methods(boost::beast::http::verb::delete_)(
+            std::bind_front(handleTaskDelete, std::ref(app)));
+
+    BMCWEB_ROUTE(app, "/redfish/v1/TaskService/Tasks/<str>/Monitor")
+        .privileges(redfish::privileges::deleteTask)
+        .methods(boost::beast::http::verb::delete_)(
+            std::bind_front(handleTaskDelete, std::ref(app)));
+}
 } // namespace redfish

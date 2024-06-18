@@ -25,18 +25,31 @@
 #include "utils/dbus_utils.hpp"
 #include "utils/json_utils.hpp"
 
+#include <boost/algorithm/string/predicate.hpp>
+#include <boost/date_time.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/url/format.hpp>
 #include <sdbusplus/asio/property.hpp>
 #include <sdbusplus/message.hpp>
 #include <sdbusplus/unpack_properties.hpp>
+#include <task.hpp>
+#include <utils/sw_utils.hpp>
 
 #include <array>
+#include <cstdlib>
+#include <iostream>
 #include <ranges>
+#include <sstream>
+#include <string>
 #include <string_view>
 
 namespace redfish
 {
+
+constexpr const char* dbusPropertyInterface = "org.freedesktop.DBus.Properties";
+
+using PropertyValue = std::variant<uint8_t, uint16_t, uint64_t, std::string,
+                                   std::vector<std::string>, bool>;
 
 /**
  * @brief Retrieves resources over dbus to link to the chassis
@@ -408,9 +421,6 @@ inline void handleDecoratorAssetProperties(
     {
         asyncResp->res.jsonValue["Thermal"]["@odata.id"] =
             boost::urls::format("/redfish/v1/Chassis/{}/Thermal", chassisId);
-        // Power object
-        asyncResp->res.jsonValue["Power"]["@odata.id"] =
-            boost::urls::format("/redfish/v1/Chassis/{}/Power", chassisId);
     }
 
     if constexpr (BMCWEB_REDFISH_NEW_POWERSUBSYSTEM_THERMALSUBSYSTEM)
@@ -425,6 +435,15 @@ inline void handleDecoratorAssetProperties(
             boost::urls::format("/redfish/v1/Chassis/{}/EnvironmentMetrics",
                                 chassisId);
     }
+
+    // FRU Device
+    asyncResp->res.jsonValue["Oem"]["AMI"]["FRU"]["@odata.id"] =
+        boost::urls::format("/redfish/v1/Chassis/{}/FRU", chassisId);
+    asyncResp->res.jsonValue["Oem"]["AMI"]["@odata.type"] =
+        "OemAMIChassis.v1_0_0.OemAMIChassis";
+    asyncResp->res.jsonValue["Oem"]["AMI"]["@odata.id"] =
+        boost::urls::format("/redfish/v1/Chassis/{}#/Oem/AMI", chassisId);
+
     // SensorCollection
     asyncResp->res.jsonValue["Sensors"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Chassis/{}/Sensors", chassisId);
@@ -583,7 +602,7 @@ inline void handleChassisGetSubTree(
         {
             if (std::ranges::find(interfaces2, interface) != interfaces2.end())
             {
-                getIndicatorLedState(asyncResp);
+                // getIndicatorLedState(asyncResp);
                 getSystemLocationIndicatorActive(asyncResp);
                 break;
             }
@@ -655,6 +674,7 @@ inline void
     }
     std::optional<bool> locationIndicatorActive;
     std::optional<std::string> indicatorLed;
+    std::optional<std::string> vId;
 
     if (param.empty())
     {
@@ -663,10 +683,19 @@ inline void
 
     if (!json_util::readJsonPatch(
             req, asyncResp->res, "LocationIndicatorActive",
-            locationIndicatorActive, "IndicatorLED", indicatorLed))
+            locationIndicatorActive, "IndicatorLED", indicatorLed, "Id", vId))
     {
         return;
     }
+
+    if (vId)
+    {
+        messages::propertyNotWritable(asyncResp->res, "Id");
+        asyncResp->res.result(boost::beast::http::status::bad_request);
+        return;
+    }
+
+    asyncResp->res.result(boost::beast::http::status::no_content);
 
     // TODO (Gunnar): Remove IndicatorLED after enough time has passed
     if (!locationIndicatorActive && !indicatorLed)
@@ -786,6 +815,84 @@ inline void requestRoutesChassis(App& app)
 }
 
 inline void
+    setPowerTransitionTimer(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                            const uint64_t chassisHostTransitionTimeOut)
+{
+    BMCWEB_LOG_ERROR("setHostTransitionTimer");
+    crow::connections::systemBus->async_method_call(
+        [asyncResp](const boost::system::error_code ec) {
+        if (ec)
+        {
+            messages::internalError(asyncResp->res);
+        }
+    }, "xyz.openbmc_project.State.Host0", "/xyz/openbmc_project/state/host0",
+        "org.freedesktop.DBus.Properties", "Set",
+        "xyz.openbmc_project.State.OperatingSystem.Status",
+        "ChassisHostTransitionTimeOut",
+        dbus::utility::DbusVariantType(chassisHostTransitionTimeOut));
+}
+
+inline void setTaskId(const std::vector<uint16_t> defaultId)
+{
+    auto bus = sdbusplus::bus::new_default();
+    auto method = bus.new_method_call("xyz.openbmc_project.State.Host0",
+                                      "/xyz/openbmc_project/state/host0",
+                                      "org.freedesktop.DBus.Properties", "Set");
+
+    method.append("xyz.openbmc_project.Common.Task", "TaskId",
+                  dbus::utility::DbusVariantType(defaultId));
+
+    try
+    {
+        auto reply = bus.call(method);
+    }
+    catch (const sdbusplus::exception::SdBusError& e)
+    {
+        BMCWEB_LOG_ERROR("D-Bus error:", e.what());
+    }
+}
+
+inline void setStatus(const std::string status)
+{
+    auto bus = sdbusplus::bus::new_default();
+    auto method = bus.new_method_call("xyz.openbmc_project.State.Host0",
+                                      "/xyz/openbmc_project/state/host0",
+                                      "org.freedesktop.DBus.Properties", "Set");
+
+    method.append("xyz.openbmc_project.Common.Task", "Status",
+                  dbus::utility::DbusVariantType(status));
+
+    try
+    {
+        auto reply = bus.call(method);
+    }
+    catch (const sdbusplus::exception::SdBusError& e)
+    {
+        BMCWEB_LOG_ERROR("D-Bus error:", e.what());
+    }
+}
+
+inline void setTaskName(const std::string taskName)
+{
+    auto bus = sdbusplus::bus::new_default();
+    auto method = bus.new_method_call("xyz.openbmc_project.State.Host0",
+                                      "/xyz/openbmc_project/state/host0",
+                                      "org.freedesktop.DBus.Properties", "Set");
+
+    method.append("xyz.openbmc_project.Common.Task", "TaskName",
+                  dbus::utility::DbusVariantType(taskName));
+
+    try
+    {
+        auto reply = bus.call(method);
+    }
+    catch (const sdbusplus::exception::SdBusError& e)
+    {
+        BMCWEB_LOG_ERROR("D-Bus error:", e.what());
+    }
+}
+
+inline void
     doChassisPowerCycle(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     constexpr std::array<std::string_view, 1> interfaces = {
@@ -820,38 +927,517 @@ inline void
             objectPath = "/xyz/openbmc_project/state/chassis0";
         }
 
-        setDbusProperty(asyncResp, processName, objectPath, interfaceName,
-                        destProperty, "ResetType", propertyValue);
+        crow::connections::systemBus->async_method_call(
+            [asyncResp](const boost::system::error_code& ec2) {
+            // Use "Set" method to set the property value.
+            if (ec2)
+            {
+                BMCWEB_LOG_ERROR("[Set] Bad D-Bus request error:", ec2);
+                messages::internalError(asyncResp->res);
+                return;
+            }
+        }, processName, objectPath, "org.freedesktop.DBus.Properties", "Set",
+            interfaceName, destProperty,
+            dbus::utility::DbusVariantType{propertyValue});
     });
+}
+
+/*
+ * Function to get the status code ad 200 Ok with message response as
+ * NoOperation
+ *
+ * @param[in] asyncResp - Shared pointer for completing asynchronous call
+ */
+inline void NoOperation(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    asyncResp->res.result(boost::beast::http::status::ok);
+    asyncResp->res.jsonValue["@odata.type"] = " #Message.v1_1_1.Message";
+    asyncResp->res.jsonValue["MessageId"] = "Base.1.13.0.NoOperation";
+    asyncResp->res.jsonValue["Message"] =
+        "The request body submitted contain no data to act upon "
+        "and no changes to the resource took place.";
+    asyncResp->res.jsonValue["MessageArgs"] = "[]";
+    asyncResp->res.jsonValue["MessageSeverity"] = "Warning";
+    asyncResp->res.jsonValue["Resolution"] =
+        "Add properties in the JSON object and resubmit the request.";
+}
+
+const PropertyValue getHostState(const std::string& processName,
+                                 const std::string& objectPath,
+                                 const std::string& interfaceName,
+                                 const std::string& propertyName)
+{
+    PropertyValue value{};
+
+    auto b = sdbusplus::bus::new_default_system();
+    auto method = b.new_method_call(processName.c_str(), objectPath.c_str(),
+                                    dbusPropertyInterface, "Get");
+
+    method.append(interfaceName, propertyName);
+    auto reply = b.call(method);
+    reply.read(value);
+    return value;
+}
+
+const PropertyValue getchassisHostTransitionTimeOut(
+    const std::string& servicePath, const std::string& objectName,
+    const std::string& interface, const std::string& property_Name)
+{
+    PropertyValue value{};
+
+    auto b = sdbusplus::bus::new_default_system();
+    auto method = b.new_method_call(servicePath.c_str(), objectName.c_str(),
+                                    dbusPropertyInterface, "Get");
+
+    method.append(interface, property_Name);
+    auto reply = b.call(method);
+    reply.read(value);
+    return value;
+}
+
+/*
+ * Function to create the reboot status task
+ *
+ * @param[in] asyncResp - Shared pointer for completing asynchronous call
+ * @param[in] payload - Double pointer to get the task Data
+ */
+void createImmediateResetTask(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    task::Payload&& payload, const std::string& resetType)
+{
+    BMCWEB_LOG_ERROR("after do Task creartion");
+
+    std::shared_ptr<task::TaskData> task = task::TaskData::createTask(
+        [resetType](boost::system::error_code ec, sdbusplus::message_t& msg,
+                    const std::shared_ptr<task::TaskData>& taskData) {
+        if (ec)
+        {
+            taskData->messages.emplace_back(messages::internalError());
+            taskData->state = "Cancelled";
+            return task::completed;
+        }
+
+        std::string iface;
+        dbus::utility::DBusPropertiesMap values;
+
+        std::string index = std::to_string(taskData->index);
+
+        int convertedIndex = std::stoi(index);
+
+        std::vector<uint16_t> defaultId;
+
+        defaultId.push_back(static_cast<uint16_t>(convertedIndex));
+
+        setTaskName(resetType);
+
+        msg.read(iface, values);
+
+        if (iface == "xyz.openbmc_project.State.OperatingSystem.Status")
+        {
+            const std::string* osState = nullptr;
+
+            for (const auto& property : values)
+            {
+                if (property.first == "OperatingSystemState")
+                {
+                    osState = std::get_if<std::string>(&property.second);
+
+                    if (osState == nullptr)
+                    {
+                        taskData->messages.emplace_back(
+                            messages::internalError());
+                        return task::completed;
+                    }
+                }
+            }
+
+            if (osState == nullptr)
+            {
+                return !task::completed;
+            }
+
+            if (*osState ==
+                "xyz.openbmc_project.State.OperatingSystem.Status.OSStatus.Inactive")
+            {
+                setTaskId(defaultId);
+                setStatus(
+                    "xyz.openbmc_project.Common.Task.OperationStatus.InProgress");
+                taskData->state = "Running";
+                taskData->messages.emplace_back(messages::taskStarted(index));
+                taskData->extendTimer(std::chrono::minutes(5));
+                return !task::completed;
+            }
+
+            if (*osState ==
+                "xyz.openbmc_project.State.OperatingSystem.Status.OSStatus.Standby")
+            {
+                setStatus(
+                    "xyz.openbmc_project.Common.Task.OperationStatus.Completed");
+                taskData->messages.emplace_back(
+                    messages::taskCompletedOK(index));
+                taskData->state = "Completed";
+                return task::completed;
+            }
+            taskData->extendTimer(std::chrono::minutes(5));
+        }
+        return !task::completed;
+    },
+        "type='signal',interface='org.freedesktop.DBus.Properties',"
+        "member='PropertiesChanged',path='/xyz/openbmc_project/state/host0'");
+    task->startTimer(std::chrono::minutes(5));
+    task->populateResp(asyncResp->res);
+    task->payload.emplace(std::move(payload));
+}
+
+/*
+ * Function to create the reboot status task
+ *
+ * @param[in] asyncResp - Shared pointer for completing asynchronous call
+ * @param[in] payload - Double pointer to get the task Data
+ */
+void createMaintenanceWindowTask(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    task::Payload&& payload, const std::string& resetType)
+{
+    BMCWEB_LOG_ERROR("after do Task creation");
+
+    std::shared_ptr<task::TaskData> task = task::TaskData::createTask(
+        [resetType](boost::system::error_code ec, sdbusplus::message_t& msg,
+                    const std::shared_ptr<task::TaskData>& taskData) {
+        if (ec)
+        {
+            taskData->messages.emplace_back(messages::internalError());
+            taskData->state = "Cancelled";
+            return task::completed;
+        }
+
+        std::string iface;
+        dbus::utility::DBusPropertiesMap values;
+
+        std::string index = std::to_string(taskData->index);
+
+        int convertedIndex = std::stoi(index);
+
+        std::vector<uint16_t> defaultId;
+
+        defaultId.push_back(static_cast<uint16_t>(convertedIndex));
+
+        setTaskName(resetType);
+
+        msg.read(iface, values);
+
+        const char* servicePath = "xyz.openbmc_project.State.Host0";
+        const char* interfacePath =
+            "xyz.openbmc_project.State.OperatingSystem.Status";
+        const char* property_Name = "ChassisHostTransitionTimeOut";
+        const char* objectName = "/xyz/openbmc_project/state/host0";
+
+        auto timeOut_value = getchassisHostTransitionTimeOut(
+            servicePath, objectName, interfacePath, property_Name);
+
+        auto reqchassisHostTransitionTimeOut =
+            std::get<uint64_t>(timeOut_value);
+
+        if (iface == "xyz.openbmc_project.State.OperatingSystem.Status")
+        {
+            const uint64_t* timeOutValue = nullptr;
+            const std::string* osState = nullptr;
+
+            for (const auto& property : values)
+            {
+                if (property.first == "ChassisHostTransitionTimeOut")
+                {
+                    timeOutValue = std::get_if<uint64_t>(&property.second);
+
+                    if (timeOutValue == nullptr)
+                    {
+                        taskData->messages.emplace_back(
+                            messages::internalError());
+                        return task::completed;
+                    }
+                }
+
+                if (property.first == "OperatingSystemState")
+                {
+                    osState = std::get_if<std::string>(&property.second);
+
+                    if (osState == nullptr)
+                    {
+                        taskData->messages.emplace_back(
+                            messages::internalError());
+                        return task::completed;
+                    }
+                }
+            }
+
+            if (timeOutValue != nullptr && *timeOutValue != 0)
+            {
+                setTaskId(defaultId);
+                setStatus(
+                    "xyz.openbmc_project.Common.Task.OperationStatus.New");
+                taskData->state = "Pending";
+                taskData->messages.emplace_back(messages::taskPaused(index));
+                taskData->extendTimer(
+                    std::chrono::seconds(reqchassisHostTransitionTimeOut) +
+                    (std::chrono::minutes(10)));
+                return !task::completed;
+            }
+            if (reqchassisHostTransitionTimeOut == 0 && osState != nullptr)
+            {
+                if (*osState ==
+                    "xyz.openbmc_project.State.OperatingSystem.Status.OSStatus.Inactive")
+                {
+                    setStatus(
+                        "xyz.openbmc_project.Common.Task.OperationStatus.InProgress");
+                    taskData->state = "Running";
+                    taskData->messages.emplace_back(
+                        messages::taskStarted(index));
+                    taskData->extendTimer(std::chrono::minutes(5));
+                    return !task::completed;
+                }
+
+                if (*osState ==
+                    "xyz.openbmc_project.State.OperatingSystem.Status.OSStatus.Standby")
+                {
+                    setStatus(
+                        "xyz.openbmc_project.Common.Task.OperationStatus.Completed");
+                    taskData->messages.emplace_back(
+                        messages::taskCompletedOK(index));
+                    taskData->state = "Completed";
+                    return task::completed;
+                }
+            }
+            taskData->extendTimer(std::chrono::minutes(5));
+        }
+        return !task::completed;
+    },
+        "type='signal',interface='org.freedesktop.DBus.Properties',"
+        "member='PropertiesChanged',path='/xyz/openbmc_project/state/host0'");
+    task->startTimer(std::chrono::minutes(5));
+    task->populateResp(asyncResp->res);
+    task->payload.emplace(std::move(payload));
+}
+
+/**
+ * Func give the timeout value in seconds
+ *
+ * @param[in] posixTime_1 - MaintenanceWindowStarTime converted to posixtime
+ * @param[in] redfishDateTimeOffset - Current BMC Timezone
+ */
+inline uint64_t handleDifferenceTime(boost::posix_time::ptime posixTime_1,
+                                     std::string& redfishDateTimeOffset)
+{
+    uint64_t durSecs;
+
+    std::stringstream stream2(redfishDateTimeOffset);
+    boost::posix_time::ptime posixTime_2;
+    // Facet gets deleted with the stringsteam
+    auto ifc2 = std::make_unique<boost::local_time::local_time_input_facet>(
+        "%Y-%m-%d %H:%M:%S%F %ZP");
+    stream2.imbue(std::locale(stream2.getloc(), ifc2.release()));
+    boost::local_time::local_date_time ldt2(boost::local_time::not_a_date_time);
+    posixTime_2 = ldt2.utc_time();
+
+    if (stream2 >> ldt2)
+    {
+        posixTime_2 = ldt2.utc_time();
+    }
+
+    boost::posix_time::time_duration dur = posixTime_1 - posixTime_2;
+    durSecs = static_cast<uint64_t>(dur.total_seconds());
+    return durSecs;
 }
 
 inline void handleChassisResetActionInfoPost(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& /*chassisId*/)
+    const std::string& chassisId)
 {
-    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-    {
-        return;
-    }
-    BMCWEB_LOG_DEBUG("Post Chassis Reset.");
+    crow::connections::systemBus->async_method_call(
+        [&app, asyncResp, chassisId,
+         req](const boost::system::error_code ec,
+              const std::vector<std::string>& objects) {
+        if (ec)
+        {
+            messages::internalError(asyncResp->res);
+            return;
+            return;
+        }
+        for (const std::string& object : objects)
+        {
+            if (!boost::ends_with(object, chassisId))
+            {
+                continue;
+            }
 
-    std::string resetType;
+            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+            {
+                return;
+            }
+            BMCWEB_LOG_DEBUG("Post Chassis Reset.");
 
-    if (!json_util::readJsonAction(req, asyncResp->res, "ResetType", resetType))
-    {
-        return;
-    }
+            std::string resetType;
+            std::optional<std::string> operationApplyTime;
+            std::optional<std::string> maintenanceWindowStartTime;
+            std::string startTime;
 
-    if (resetType != "PowerCycle")
-    {
-        BMCWEB_LOG_DEBUG("Invalid property value for ResetType: {}", resetType);
-        messages::actionParameterNotSupported(asyncResp->res, resetType,
-                                              "ResetType");
+            uint64_t timeOut = 0;
 
-        return;
-    }
-    doChassisPowerCycle(asyncResp);
+            // Current BMC Timezone
+            std::string redfishDateTimeOffset =
+                crow::utility::getDateTimeOffsetNow().first;
+
+            task::Payload payload(req);
+
+            const char* processName = "xyz.openbmc_project.State.Host";
+            const char* interfaceName = "xyz.openbmc_project.State.Host";
+            const char* propName = "CurrentHostState";
+            const char* objectPath = "/xyz/openbmc_project/state/host0";
+
+            const char* servicePath = "xyz.openbmc_project.State.Host0";
+            const char* interfacePath =
+                "xyz.openbmc_project.State.OperatingSystem.Status";
+            const char* property_Name = "ChassisHostTransitionTimeOut";
+            const char* objectName = "/xyz/openbmc_project/state/host0";
+
+            auto value = getHostState(processName, objectPath, interfaceName,
+                                      propName);
+            auto reqHostState = std::get<std::string>(value);
+
+            auto timeOut_value = getchassisHostTransitionTimeOut(
+                servicePath, objectName, interfacePath, property_Name);
+            auto reqchassisHostTransitionTimeOut =
+                std::get<uint64_t>(timeOut_value);
+
+            if (reqHostState !=
+                "xyz.openbmc_project.State.Host.HostState.Running")
+            {
+                NoOperation(asyncResp);
+                return;
+            }
+
+            if (!json_util::readJsonAction(
+                    req, asyncResp->res, "ResetType", resetType,
+                    "OperationApplyTime", operationApplyTime,
+                    "MaintenanceWindowStartTime", maintenanceWindowStartTime))
+            {
+                return;
+            }
+
+            // To provide as a stringstream object
+            startTime = *maintenanceWindowStartTime;
+
+            if (resetType != "PowerCycle")
+            {
+                BMCWEB_LOG_ERROR("Invalid property value for ResetType:",
+                                 resetType);
+                messages::actionParameterNotSupported(asyncResp->res, resetType,
+                                                      "ResetType");
+                return;
+            }
+
+            if (resetType == "PowerCycle" && !operationApplyTime &&
+                !maintenanceWindowStartTime)
+            {
+                doChassisPowerCycle(asyncResp);
+                messages::success(asyncResp->res);
+                return;
+            }
+
+            if (operationApplyTime == "Immediate")
+            {
+                BMCWEB_LOG_ERROR("Immediate");
+                if (!(maintenanceWindowStartTime))
+                {
+                    BMCWEB_LOG_ERROR("Not of maintenanceWindowStartTime");
+                    createImmediateResetTask(asyncResp, std::move(payload),
+                                             resetType);
+                    doChassisPowerCycle(asyncResp);
+                    return;
+                }
+
+                else
+                {
+                    BMCWEB_LOG_ERROR("Invalid Property for Immediate reboot");
+                    messages::actionParameterNotSupported(
+                        asyncResp->res, "MaintenanceWindowStartTime",
+                        "Immediate");
+                    return;
+                }
+            }
+
+            if (operationApplyTime == "AtMaintenanceWindowStart" &&
+                maintenanceWindowStartTime)
+            {
+                BMCWEB_LOG_ERROR("AtMaintenanceWindowStart");
+
+                if (reqchassisHostTransitionTimeOut != 0)
+                {
+                    messages::resourceInUse(asyncResp->res);
+                    return;
+                }
+
+                if (maintenanceWindowStartTime <= redfishDateTimeOffset)
+                {
+                    messages::propertyValueIncorrect(
+                        asyncResp->res, "AtMaintenanceWindowStartTime",
+                        startTime);
+                    return;
+                }
+
+                std::stringstream stream1(startTime);
+                boost::posix_time::ptime posixTime_1;
+                // Facet gets deleted with the stringsteam
+                auto ifc1 =
+                    std::make_unique<boost::local_time::local_time_input_facet>(
+                        "%Y-%m-%d %H:%M:%S%F %ZP");
+                stream1.imbue(std::locale(stream1.getloc(), ifc1.release()));
+                boost::local_time::local_date_time ldt1(
+                    boost::local_time::not_a_date_time);
+
+                if (stream1 >> ldt1)
+                {
+                    posixTime_1 = ldt1.utc_time();
+                }
+
+                else
+                {
+                    BMCWEB_LOG_ERROR("MaintenanceWindowStartTime Format Error");
+                    messages::propertyValueFormatError(
+                        asyncResp->res, startTime,
+                        "MaintenanceWindowStartTime");
+                    return;
+                }
+
+                // Difference Time of BMCTime & MaintenanceWindowStartTime
+                timeOut = handleDifferenceTime(posixTime_1,
+                                               redfishDateTimeOffset);
+
+                setPowerTransitionTimer(asyncResp, timeOut);
+                createMaintenanceWindowTask(asyncResp, std::move(payload),
+                                            resetType);
+                doChassisPowerCycle(asyncResp);
+                return;
+            }
+            else
+            {
+                BMCWEB_LOG_ERROR(
+                    "Missing Property AtMaintenanceWindowStartTime");
+                messages::actionParameterMissing(
+                    asyncResp->res, "Reset", "AtMaintenanceWindowStartTime");
+                return;
+            }
+        }
+        messages::resourceNotFound(asyncResp->res, "#Chassis", chassisId);
+    },
+        "xyz.openbmc_project.ObjectMapper",
+        "/xyz/openbmc_project/object_mapper",
+        "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
+        "/xyz/openbmc_project/inventory", 0,
+        std::array<const char*, 2>{
+            "xyz.openbmc_project.Inventory.Item.Board",
+            "xyz.openbmc_project.Inventory.Item.Chassis"});
+    return;
 }
 
 /**

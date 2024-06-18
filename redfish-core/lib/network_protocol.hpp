@@ -27,6 +27,7 @@
 #include <boost/system/error_code.hpp>
 #include <boost/url/format.hpp>
 #include <sdbusplus/asio/property.hpp>
+#include <utils/service_utils.hpp>
 
 #include <array>
 #include <optional>
@@ -39,16 +40,26 @@ namespace redfish
 void getNTPProtocolEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp);
 std::string getHostName();
 
-static constexpr std::string_view sshServiceName = "dropbear";
-static constexpr std::string_view httpsServiceName = "bmcweb";
-static constexpr std::string_view ipmiServiceName = "phosphor-ipmi-net";
+static constexpr const char* serviceManagerService =
+    "xyz.openbmc_project.Control.Service.Manager";
+static constexpr const char* serviceManagerPath =
+    "/xyz/openbmc_project/control/service/";
+static constexpr const char* portConfigInterface =
+    "xyz.openbmc_project.Control.Service.SocketAttributes";
+
+static constexpr const char* sshServiceName = "dropbear";
+static constexpr const char* httpsServiceName = "bmcweb";
+static constexpr const char* ipmbServiceName = "ipmb";
+static constexpr const char* ipmiServiceName = "phosphor_2dipmi_2dnet_40eth0";
 
 // Mapping from Redfish NetworkProtocol key name to backend service that hosts
 // that protocol.
-static constexpr std::array<std::pair<std::string_view, std::string_view>, 3>
+static constexpr std::array<std::pair<const char*, const char*>, 4>
+
     networkProtocolToDbus = {{{"SSH", sshServiceName},
                               {"HTTPS", httpsServiceName},
-                              {"IPMI", ipmiServiceName}}};
+                              {"IPMI", ipmiServiceName},
+                              {"IPMB", ipmbServiceName}}};
 
 inline void extractNTPServersAndDomainNamesData(
     const dbus::utility::ManagedObjectType& dbusData,
@@ -151,6 +162,26 @@ inline void afterNetworkPortRequest(
     }
 }
 
+inline void
+    getSNMPProtocolEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    sdbusplus::asio::getProperty<bool>(
+        *crow::connections::systemBus, "xyz.openbmc_project.Snmp",
+        "/xyz/openbmc_project/Snmp", "xyz.openbmc_project.Snmp.SnmpUtils",
+        "SnmpTrapStatus",
+        [asyncResp](const boost::system::error_code& ec, bool protocolEnabled) {
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR("D-BUS response error on SnmpTrapStatus Get{}",
+                             ec);
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        asyncResp->res.jsonValue["SNMP"]["Port"] = 162;
+        asyncResp->res.jsonValue["SNMP"]["ProtocolEnabled"] = protocolEnabled;
+    });
+}
+
 inline void getNetworkData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                            const crow::Request& req)
 {
@@ -198,6 +229,7 @@ inline void getNetworkData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     asyncResp->res.jsonValue["HostName"] = hostName;
 
     getNTPProtocolEnabled(asyncResp);
+    getSNMPProtocolEnabled(asyncResp);
 
     getEthernetIfaceData(
         [hostName, asyncResp](const bool& success,
@@ -237,8 +269,27 @@ inline void getNetworkData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 BMCWEB_REDFISH_MANAGER_URI_NAME);
     }
 
-    getPortStatusAndPath(std::span(networkProtocolToDbus),
-                         std::bind_front(afterNetworkPortRequest, asyncResp));
+    for (const auto& protocol : networkProtocolToDbus)
+    {
+        const std::string& protocolName = protocol.first;
+        const std::string& serviceName = protocol.second;
+
+        std::cerr << "protocolName " << protocolName << "\n";
+        std::cerr << "serviceName " << serviceName << "\n";
+
+        if (ipmiServiceName != serviceName)
+        {
+            service_util::getEnabled(
+                asyncResp, serviceName,
+                nlohmann::json::json_pointer(std::string("/") + protocolName +
+                                             "/ProtocolEnabled"));
+        }
+        service_util::getPortNumber(
+            asyncResp, serviceName,
+            nlohmann::json::json_pointer(std::string("/") + protocolName +
+                                         "/Port"));
+    }
+
 } // namespace redfish
 
 inline void afterSetNTP(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -271,20 +322,59 @@ inline void handleNTPProtocolEnabled(
 // string, to set a value
 // null, to delete the value
 // object_t, empty json object, to ignore the value
-using IpAddress =
-    std::variant<std::string, nlohmann::json::object_t, std::nullptr_t>;
+// using IpAddress =
+//    std::variant<std::string, nlohmann::json::object_t, std::nullptr_t>;
 
 inline void
     handleNTPServersPatch(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                          const std::vector<IpAddress>& ntpServerObjects,
+                          const std::vector<nlohmann::json>& ntpServerObjects,
                           std::vector<std::string> currentNtpServers)
 {
     std::vector<std::string>::iterator currentNtpServer =
         currentNtpServers.begin();
+
+    size_t limit = 3;
+
+    if (ntpServerObjects.size() > limit)
+    {
+        BMCWEB_LOG_DEBUG("out of Limit");
+        messages::propertyValueOutOfRange(asyncResp->res, ntpServerObjects, "NTP/NTPServers");
+        return;
+    }
+
+    auto isValidNtpServer = [](const std::string& server) -> bool {
+        for (char c : server)
+        {
+            if (!isdigit(c) && !isalpha(c) && c != '-' && c != '.')
+            {
+                return false; // Found an invalid character
+            }
+        }
+        return true; // All characters are valid
+    };
+
+    for (const auto& ntpServerObject : ntpServerObjects)
+    {
+        // std::string ntpServerAddress = ntpServerObject.get<std::string>();
+        //  const std::string* ntpServerAddress =
+        //      std::get_if<std::string>(&ntpServerObject);
+
+        // if (!isValidNtpServer(ntpServerAddress))
+        if (!ntpServerObject.empty() && ntpServerObject.is_string() &&
+            !isValidNtpServer(ntpServerObject.get<std::string>()))
+        {
+            BMCWEB_LOG_DEBUG("Invalid character found in NTP server address.");
+            messages::propertyValueFormatError(asyncResp->res, ntpServerObject,
+                                               "NTPServers");
+            return;
+        }
+    }
+
     for (size_t index = 0; index < ntpServerObjects.size(); index++)
     {
-        const IpAddress& ntpServer = ntpServerObjects[index];
-        if (std::holds_alternative<std::nullptr_t>(ntpServer))
+        const nlohmann::json& ntpServer = ntpServerObjects[index];
+        // if (std::holds_alternative<std::nullptr_t>(ntpServer))
+        if (ntpServer.is_null())
         {
             // Can't delete an item that doesn't exist
             if (currentNtpServer == currentNtpServers.end())
@@ -299,7 +389,8 @@ inline void
             continue;
         }
         const nlohmann::json::object_t* ntpServerObject =
-            std::get_if<nlohmann::json::object_t>(&ntpServer);
+            // std::get_if<nlohmann::json::object_t>(&ntpServer);
+            ntpServer.get_ptr<const nlohmann::json::object_t*>();
         if (ntpServerObject != nullptr)
         {
             if (!ntpServerObject->empty())
@@ -323,7 +414,8 @@ inline void
             continue;
         }
 
-        const std::string* ntpServerStr = std::get_if<std::string>(&ntpServer);
+        const std::string* ntpServerStr =
+            ntpServer.get_ptr<const std::string*>();
         if (ntpServerStr == nullptr)
         {
             messages::internalError(asyncResp->res);
@@ -378,6 +470,38 @@ inline void
     });
 }
 
+void setEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                const bool enabled)
+{
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus,
+        "xyz.openbmc_project.Control.Service.Manager",
+        "/xyz/openbmc_project/control/service/phosphor_2dipmi_2dnet_40eth0",
+        "xyz.openbmc_project.Control.Service.Attributes", "Running", enabled,
+        [asyncResp](const boost::system::error_code& ec) {
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
+            messages::internalError(asyncResp->res);
+            return;
+        }
+    });
+
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus,
+        "xyz.openbmc_project.Control.Service.Manager",
+        "/xyz/openbmc_project/control/service/phosphor_2dipmi_2dnet_40eth0",
+        "xyz.openbmc_project.Control.Service.Attributes", "Enabled", enabled,
+        [asyncResp](const boost::system::error_code& ec) {
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
+            messages::internalError(asyncResp->res);
+            return;
+        }
+    });
+}
+
 inline void
     handleProtocolEnabled(const bool protocolEnabled,
                           const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -400,6 +524,11 @@ inline void
         {
             if (entry.first.starts_with(netBasePath))
             {
+                if (protocolEnabled)
+                {
+                    BMCWEB_LOG_DEBUG("wait for get properties");
+                    sleep(5);
+                }
                 setDbusProperty(
                     asyncResp, entry.second.begin()->first, entry.first,
                     "xyz.openbmc_project.Control.Service.Attributes", "Running",
@@ -417,7 +546,7 @@ inline std::string getHostName()
 {
     std::string hostName;
 
-    std::array<char, HOST_NAME_MAX> hostNameCStr{};
+    std::array<char, HOST_NAME_MAX + 1> hostNameCStr{};
     if (gethostname(hostNameCStr.data(), hostNameCStr.size()) == 0)
     {
         hostName = hostNameCStr.data();
@@ -481,23 +610,35 @@ inline void handleManagersNetworkProtocolPatch(
     }
 
     std::optional<std::string> newHostName;
-
-    std::optional<std::vector<IpAddress>> ntpServerObjects;
-    std::optional<bool> ntpEnabled;
-    std::optional<bool> ipmiEnabled;
-    std::optional<bool> sshEnabled;
+    std::optional<nlohmann::json> ntp;
+    std::optional<nlohmann::json> ipmi;
+    std::optional<nlohmann::json> ipmb;
+    std::optional<nlohmann::json> bmcweb;
+    std::optional<nlohmann::json> ssh;
+    std::optional<nlohmann::json> snmp;
+    std::optional<std::string> vId;
 
     // clang-format off
         if (!json_util::readJsonPatch(
                 req, asyncResp->res,
                 "HostName", newHostName,
-                "NTP/NTPServers", ntpServerObjects,
-                "NTP/ProtocolEnabled", ntpEnabled,
-                "IPMI/ProtocolEnabled", ipmiEnabled,
-                "SSH/ProtocolEnabled", sshEnabled))
+                "NTP",ntp,
+                "IPMI",ipmi,
+                "IPMB",ipmb,
+                "HTTPS", bmcweb,
+                "SSH",ssh,
+                "Id", vId,
+                "SNMP",snmp))
         {
             return;
         }
+      if(vId)
+        {
+                messages::propertyNotWritable(asyncResp->res, "Id");
+                asyncResp->res.result(boost::beast::http::status::bad_request);
+                return;
+        }
+
     // clang-format on
 
     asyncResp->res.result(boost::beast::http::status::no_content);
@@ -507,37 +648,177 @@ inline void handleManagersNetworkProtocolPatch(
         return;
     }
 
-    if (ntpEnabled)
+    if (ntp)
     {
-        handleNTPProtocolEnabled(asyncResp, *ntpEnabled);
+        std::optional<bool> ntpEnabled;
+        std::optional<std::vector<nlohmann::json>> ntpServerObjects;
+        std::size_t ntp_size = ntp.value().size();
+        if (ntp_size == 0)
+        {
+            messages::propertyValueTypeError(asyncResp->res, ntp.value(),
+                                             "NTP");
+        }
+        if (!json_util::readJson(*ntp, asyncResp->res, "ProtocolEnabled",
+                                 ntpEnabled, "NTPServers", ntpServerObjects))
+        {
+            return;
+        }
+        if (ntpEnabled)
+        {
+            handleNTPProtocolEnabled(asyncResp, *ntpEnabled);
+        }
+        if (ntpServerObjects)
+        {
+            getEthernetIfaceData(
+                [asyncResp, ntpServerObjects](
+                    const bool success,
+                    std::vector<std::string>& currentNtpServers,
+                    const std::vector<std::string>& /*domainNames*/) {
+                if (!success)
+                {
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+                handleNTPServersPatch(asyncResp, *ntpServerObjects,
+                                      std::move(currentNtpServers));
+            });
+        }
     }
-    if (ntpServerObjects)
+    if (ipmi)
     {
-        getEthernetIfaceData(
-            [asyncResp, ntpServerObjects](
-                const bool success, std::vector<std::string>& currentNtpServers,
-                const std::vector<std::string>& /*domainNames*/) {
-            if (!success)
-            {
-                messages::internalError(asyncResp->res);
-                return;
-            }
-            handleNTPServersPatch(asyncResp, *ntpServerObjects,
-                                  std::move(currentNtpServers));
-        });
+        std::optional<bool> ipmiEnabled;
+        std::optional<bool> ipmiMasked;
+        std::size_t ipmi_size = ipmi.value().size();
+        if (ipmi_size == 0)
+        {
+            messages::propertyValueTypeError(asyncResp->res, ipmi.value(),
+                                             "IPMI");
+        }
+        if (!json_util::readJson(*ipmi, asyncResp->res, "ProtocolEnabled",
+                                 ipmiEnabled, "Masked", ipmiMasked))
+        {
+            return;
+        }
+        if (ipmiEnabled)
+        {
+            /*handleProtocolEnabled(
+                *ipmiEnabled, asyncResp,
+                encodeServiceObjectPath(std::string(ipmiServiceName)));*/
+            setEnabled(asyncResp, *ipmiEnabled);
+        }
+        if (ipmiMasked)
+        {
+            service_util::setMasked(asyncResp, ipmiServiceName, *ipmiMasked);
+        }
     }
-
-    if (ipmiEnabled)
+    if (bmcweb)
     {
-        handleProtocolEnabled(
-            *ipmiEnabled, asyncResp,
-            encodeServiceObjectPath(std::string(ipmiServiceName) + '@'));
+        std::optional<bool> bmcwebEnabled;
+        std::optional<bool> bmcwebMasked;
+        std::size_t bmcweb_size = bmcweb.value().size();
+        if (bmcweb_size == 0)
+        {
+            messages::propertyValueTypeError(asyncResp->res, bmcweb.value(),
+                                             "HTTPS");
+            return;
+        }
+        if (!json_util::readJson(*bmcweb, asyncResp->res, "ProtocolEnabled",
+                                 bmcwebEnabled, "Masked", bmcwebMasked))
+        {
+            return;
+        }
+        if (bmcwebEnabled)
+        {
+            handleProtocolEnabled(
+                *bmcwebEnabled, asyncResp,
+                encodeServiceObjectPath(std::string(httpsServiceName)));
+        }
+        if (bmcwebMasked)
+        {
+            service_util::setMasked(asyncResp, httpsServiceName, *bmcwebMasked);
+        }
     }
-
-    if (sshEnabled)
+    if (ipmb)
     {
-        handleProtocolEnabled(*sshEnabled, asyncResp,
-                              encodeServiceObjectPath(sshServiceName));
+        std::optional<bool> ipmbEnabled;
+        std::optional<bool> ipmbMasked;
+        std::size_t ipmb_size = ipmb.value().size();
+        if (ipmb_size == 0)
+        {
+            messages::propertyValueTypeError(asyncResp->res, ipmb.value(),
+                                             "IPMB");
+            return;
+        }
+        if (!json_util::readJson(*ipmb, asyncResp->res, "ProtocolEnabled",
+                                 ipmbEnabled, "Masked", ipmbMasked))
+        {
+            return;
+        }
+        if (ipmbEnabled)
+        {
+            handleProtocolEnabled(
+                *ipmbEnabled, asyncResp,
+                encodeServiceObjectPath(std::string(ipmbServiceName)));
+        }
+        if (ipmbMasked)
+        {
+            service_util::setMasked(asyncResp, ipmbServiceName, *ipmbMasked);
+        }
+    }
+    if (ssh)
+    {
+        std::optional<bool> sshEnabled;
+        std::optional<bool> sshMasked;
+        std::size_t ssh_size = ssh.value().size();
+        if (ssh_size == 0)
+        {
+            messages::propertyValueTypeError(asyncResp->res, ssh.value(),
+                                             "SSH");
+        }
+        if (!json_util::readJson(*ssh, asyncResp->res, "ProtocolEnabled",
+                                 sshEnabled, "Masked", sshMasked))
+        {
+            return;
+        }
+        if (sshEnabled)
+        {
+            handleProtocolEnabled(*sshEnabled, asyncResp,
+                                  encodeServiceObjectPath(sshServiceName));
+        }
+        if (sshMasked)
+        {
+            service_util::setMasked(asyncResp, sshServiceName, *sshMasked);
+        }
+    }
+    if (snmp)
+    {
+        std::optional<bool> snmpEnabled;
+        std::size_t snmp_size = snmp.value().size();
+        if (snmp_size == 0)
+        {
+            messages::propertyValueTypeError(asyncResp->res, snmp.value(),
+                                             "SNMP");
+        }
+        if (!json_util::readJson(*snmp, asyncResp->res, "ProtocolEnabled",
+                                 snmpEnabled))
+        {
+            return;
+        }
+        if (snmpEnabled)
+        {
+            sdbusplus::asio::setProperty(
+                *crow::connections::systemBus, "xyz.openbmc_project.Snmp",
+                "/xyz/openbmc_project/Snmp",
+                "xyz.openbmc_project.Snmp.SnmpUtils", "SnmpTrapStatus",
+                *snmpEnabled, [asyncResp](const boost::system::error_code& ec) {
+                if (ec)
+                {
+                    BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+            });
+        }
     }
 }
 
@@ -560,6 +841,50 @@ inline void handleManagersNetworkProtocolHead(
     }
 }
 
+void getEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                const std::string& serviceName, const std::string& ObjectName,
+                const std::string& propertyName)
+{
+    sdbusplus::asio::getProperty<bool>(
+        *crow::connections::systemBus, serviceManagerService,
+        serviceManagerPath + serviceName,
+        "xyz.openbmc_project.Control.Service.Attributes", "Enabled",
+        [asyncResp, ObjectName,
+         propertyName](const boost::system::error_code& ec, bool eventValue) {
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR("D-BUS response error on EventSeverity Get{}", ec);
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        asyncResp->res.jsonValue[ObjectName][propertyName] = eventValue;
+    });
+}
+
+inline void getIpmiMasked(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    service_util::getMasked(asyncResp, ipmiServiceName, "IPMI", "Masked");
+}
+
+inline void getIpmiEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    getEnabled(asyncResp, ipmiServiceName, "IPMI", "ProtocolEnabled");
+}
+
+inline void getSSHMasked(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    service_util::getMasked(asyncResp, sshServiceName, "SSH", "Masked");
+}
+
+inline void getBMCWEBMasked(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    service_util::getMasked(asyncResp, httpsServiceName, "HTTPS", "Masked");
+}
+inline void getIpmbMasked(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    service_util::getMasked(asyncResp, ipmbServiceName, "IPMB", "Masked");
+}
+
 inline void handleManagersNetworkProtocolGet(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -579,6 +904,11 @@ inline void handleManagersNetworkProtocolGet(
     }
 
     getNetworkData(asyncResp, req);
+    getIpmiMasked(asyncResp);
+    getSSHMasked(asyncResp);
+    getBMCWEBMasked(asyncResp);
+    getIpmbMasked(asyncResp);
+    getIpmiEnabled(asyncResp);
 }
 
 inline void requestRoutesNetworkProtocol(App& app)

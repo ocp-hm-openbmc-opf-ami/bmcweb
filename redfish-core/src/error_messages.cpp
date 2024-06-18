@@ -536,7 +536,7 @@ void propertyValueNotInList(crow::Response& res, const nlohmann::json& arg1,
 nlohmann::json propertyValueOutOfRange(const nlohmann::json& arg1,
                                        std::string_view arg2)
 {
-    std::string arg1Str = arg1.dump(2, ' ', true,
+    std::string arg1Str = arg1.dump(-1, ' ', true,
                                     nlohmann::json::error_handler_t::replace);
     return getLog(redfish::registries::base::Index::propertyValueOutOfRange,
                   std::to_array<std::string_view>({arg1Str, arg2}));
@@ -787,6 +787,25 @@ void chassisPowerStateOffRequired(crow::Response& res, std::string_view arg1)
 
 /**
  * @internal
+ * @brief Formats InterfaceDisabled message into JSON
+ *
+ * See header file for more information
+ * @endinternal
+ */
+nlohmann::json interfaceDisabled(std::string_view arg1)
+{
+    return getLog(redfish::registries::base::Index::interfaceDisabled,
+                  std::to_array({arg1}));
+}
+
+void interfaceDisabled(crow::Response& res, std::string_view arg1)
+{
+    res.result(boost::beast::http::status::bad_request);
+    addMessageToErrorJson(res.jsonValue, interfaceDisabled(arg1));
+}
+
+/**
+ * @internal
  * @brief Formats PropertyValueConflict message into JSON
  *
  * See header file for more information
@@ -1015,7 +1034,7 @@ void propertyValueTypeError(crow::Response& res, const nlohmann::json& arg1,
                             std::string_view arg2)
 {
     res.result(boost::beast::http::status::bad_request);
-    addMessageToJson(res.jsonValue, propertyValueTypeError(arg1, arg2), arg2);
+    addMessageToErrorJson(res.jsonValue, propertyValueTypeError(arg1, arg2));
 }
 
 /**
@@ -1075,7 +1094,7 @@ nlohmann::json propertyNotWritable(std::string_view arg1)
 
 void propertyNotWritable(crow::Response& res, std::string_view arg1)
 {
-    res.result(boost::beast::http::status::forbidden);
+    res.result(boost::beast::http::status::bad_request);
     addMessageToJson(res.jsonValue, propertyNotWritable(arg1), arg1);
 }
 
@@ -1318,7 +1337,7 @@ void success(crow::Response& res)
 {
     // don't set res.result here because success is the default and any
     // error should overwrite the default
-    addMessageToJsonRoot(res.jsonValue, success());
+    addMessageToErrorJson(res.jsonValue, success());
 }
 
 /**
@@ -1888,6 +1907,97 @@ nlohmann::json invalidUpload(std::string_view arg1, std::string_view arg2)
     ret["MessageSeverity"] = "Warning";
     ret["Resolution"] = "None.";
     return ret;
+}
+
+/**
+ * @internal
+ * @brief Formats InvalidQueryFilter into JSON
+ *
+ * See header file for more information
+ * @endinternal
+ */
+nlohmann::json invalidQueryFilter()
+{
+    return nlohmann::json{
+        {"@odata.type", "#Message.v1_0_0.Message"},
+        {"MessageId", "Base.1.5.0.InvalidQueryFilter"},
+        {"Message", "The requested url contains the invalid query filter."},
+        {"MessageArgs", nlohmann::json::array()},
+        {"Severity", "Warning"},
+        {"Resolution",
+         "Ensure the correct query filter is specified in requested url "
+         "and resubmit the request."}};
+}
+
+void invalidQueryFilter(crow::Response& res)
+{
+    res.result(boost::beast::http::status::bad_request);
+    addMessageToErrorJson(res.jsonValue, invalidQueryFilter());
+}
+
+nlohmann::json invalidip(std::string_view arg1, std::string_view arg2)
+{
+    return getLog(redfish::registries::base::Index::invalidip,
+                  std::to_array({arg1, arg2}));
+}
+
+void invalidip(crow::Response& res, std::string_view arg1,
+               std::string_view arg2)
+{
+    res.result(boost::beast::http::status::bad_request);
+    addMessageToErrorJson(res.jsonValue, invalidip(arg1, arg2));
+}
+
+/**
+ * @internal
+ * @brief Formats propertyValueEmpty message into JSON
+ *
+ * See header file for more information
+ * @endinternal
+ */
+
+nlohmann::json propertyValueEmpty(std::string_view arg1, std::string_view arg2)
+{
+    return getLog(redfish::registries::base::Index::propertyValueEmpty,
+                  std::to_array({arg1, arg2}));
+}
+
+void propertyValueEmpty(crow::Response& res, std::string_view arg1,
+                        std::string_view arg2)
+{
+    res.result(boost::beast::http::status::bad_request);
+    addMessageToErrorJson(res.jsonValue, propertyValueEmpty(arg1, arg2));
+}
+
+/**
+ * @internal
+ * @brief Formats passwordResetFailed message into JSON
+ *
+ * See header file for more information
+ * @endinternal
+ */
+nlohmann::json passwordResetFailed(void)
+{
+    return getLog(redfish::registries::base::Index::passwordResetFailed, {});
+}
+
+void passwordResetFailed(crow::Response& res)
+{
+    res.result(boost::beast::http::status::bad_request);
+    addMessageToErrorJson(res.jsonValue, passwordResetFailed());
+}
+
+nlohmann::json differentIpSeries(std::string_view arg1, std::string_view arg2)
+{
+    return getLog(redfish::registries::base::Index::differentIpSeries,
+                  std::to_array({arg1, arg2}));
+}
+
+void differentIpSeries(crow::Response& res, std::string_view arg1,
+                       std::string_view arg2)
+{
+    res.result(boost::beast::http::status::bad_request);
+    addMessageToErrorJson(res.jsonValue, differentIpSeries(arg1, arg2));
 }
 
 } // namespace messages

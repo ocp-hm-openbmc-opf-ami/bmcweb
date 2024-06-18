@@ -1,17 +1,16 @@
 #pragma once
 
 #include "baserule.hpp"
+#include "privilegeparametertraits.hpp"
 #include "websocket.hpp"
 
-#include <boost/beast/http/verb.hpp>
-
-#include <memory>
-#include <string>
 #include <vector>
 
 namespace crow
 {
-class WebSocketRule : public BaseRule
+class WebSocketRule :
+    public BaseRule,
+    public PrivilegeParameterTraits<WebSocketRule>
 {
     using self_t = WebSocketRule;
 

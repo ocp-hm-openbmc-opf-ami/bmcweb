@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!---->
+<!--################################################################################       -->
+<!--# Redfish Schema:  ProvisionDynamicFeature                                                      -->
+<!--#                                                                                      -->
+<!--################################################################################       -->
+<!---->
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
+    <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Capabilities.V1.xml">
+    <edmx:Include Namespace="Org.OData.Capabilities.V1" Alias="Capabilities"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Measures.V1.xml">
+    <edmx:Include Namespace="Org.OData.Measures.V1" Alias="Measures"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
+    <edmx:Include Namespace="Resource"/>
+    <edmx:Include Namespace="Resource.v1_0_0"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Processor_v1.xml">
+    <edmx:Include Namespace="Processor"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/License_v1.xml">
+    <edmx:Include Namespace="License"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
+    <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+    <edmx:Include Namespace="Validation.v1_0_0" Alias="Validation"/>
+  </edmx:Reference>
+
+  <edmx:DataServices>
+
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="ProvisionDynamicFeature">
+      <Annotation Term="Redfish.OwningEntity" String="DMTF"/>
+
+      <EntityType Name="ProvisionDynamicFeature" BaseType="Resource.v1_0_0.Resource" Abstract="true">
+        <Annotation Term="OData.Description" String="The ProvisionDynamicFeature schema describes the Provisoin and Dynamic Featuring of OnDemand Service."/>
+        <Annotation Term="OData.LongDescription" String="The ProvisionDynamicFeature schema describes Provision and Dynamic Feature of OnDemand Service."/>
+        <Annotation Term="Capabilities.InsertRestrictions">
+          <Record>
+            <PropertyValue Property="Insertable" Bool="false"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Capabilities.UpdateRestrictions">
+          <Record>
+            <PropertyValue Property="Updatable" Bool="true"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Capabilities.DeleteRestrictions">
+          <Record>
+            <PropertyValue Property="Deletable" Bool="false"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Redfish.Uris">
+          <Collection>
+		  <String>/redfish/v1/Systems/{ComputerSystemId}/Processors/{ProcessorId}/Oem/Intel</String>
+          </Collection>
+        </Annotation>
+      </EntityType>
+
+    </Schema>
+	
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="ProvisionDynamicFeature.v1_0_0">
+      <Annotation Term="Redfish.OwningEntity" String="DMTF"/>
+      <Annotation Term="Redfish.Release" String="1.0"/>
+
+      <EntityType Name="ProvisionDynamicFeature" BaseType="ProvisionDynamicFeature.ProvisionDynamicFeature">
+        <Property Name="FeatureStatus" Type="ProvisionDynamicFeature.v1_0_0.FeatureStatusValues" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The status of Provision/Dynamic Feature."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contains information whether Provision/Dynamic Feature is enabled or not."/>
+        </Property>
+        <NavigationProperty Name="FeatureAuthDevice" Type="Processor.Processor" ContainsTarget="true" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The link to the processor instance for the corresponding Provision/Dynamic Feature."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a link to the processor instance for the corresponding Provision/Dynamic Feature."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
+	<NavigationProperty Name="FeatureAuthLicense" Type="License.License" ContainsTarget="true" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The link to the License instance for the corresponding Provision/Dynamic Feature."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a link to the License instance for the corresponding Provision/Dynamic Feature."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
+      </EntityType>
+	  <EnumType Name="FeatureStatusValues">
+        <Member Name="Enabled">
+          <Annotation Term="OData.Description" String="Indicates that feature is enabled."/>
+        </Member>
+        <Member Name="Disabled">
+          <Annotation Term="OData.Description" String="Indicates that feature is disabled."/>
+        </Member>
+      </EnumType>
+    </Schema>
+
+  </edmx:DataServices>
+</edmx:Edmx>

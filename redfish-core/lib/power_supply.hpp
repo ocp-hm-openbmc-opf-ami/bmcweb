@@ -67,14 +67,9 @@ inline void
         "/redfish/v1/Chassis/{}/PowerSubsystem/PowerSupplies", chassisId);
     asyncResp->res.jsonValue["Description"] =
         "The collection of PowerSupply resource instances.";
-    asyncResp->res.jsonValue["Members"] = nlohmann::json::array();
-    asyncResp->res.jsonValue["Members@odata.count"] = 0;
 
-    std::string powerPath = *validChassisPath + "/powered_by";
-    dbus::utility::getAssociatedSubTreePaths(
-        powerPath,
-        sdbusplus::message::object_path("/xyz/openbmc_project/inventory"), 0,
-        powerSupplyInterface,
+    dbus::utility::getSubTreePaths(
+        "/xyz/openbmc_project/inventory", 0, powerSupplyInterface,
         [asyncResp, chassisId](
             const boost::system::error_code& ec,
             const dbus::utility::MapperGetSubTreePathsResponse& subtreePaths) {
@@ -132,6 +127,24 @@ inline void handlePowerSupplyCollectionGet(
         std::bind_front(doPowerSupplyCollection, asyncResp, chassisId));
 }
 
+inline void doPowerSupply(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                          const std::string& chassisId,
+                          const std::optional<std::string>& validChassisPath)
+{
+    if (!validChassisPath)
+    {
+        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
+        return;
+    }
+
+    auto sensorAsyncResp = std::make_shared<SensorsAsyncResp>(
+        asyncResp, chassisId, sensors::dbus::powerPaths, sensors::node::power);
+
+    getChassisData(sensorAsyncResp);
+
+    return;
+}
+
 inline void requestRoutesPowerSupplyCollection(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/PowerSubsystem/PowerSupplies/")
@@ -156,14 +169,11 @@ inline bool checkPowerSupplyId(const std::string& powerSupplyPath,
 
 inline void getValidPowerSupplyPath(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& validChassisPath, const std::string& powerSupplyId,
+    const std::string& powerSupplyId,
     std::function<void(const std::string& powerSupplyPath)>&& callback)
 {
-    std::string powerPath = validChassisPath + "/powered_by";
-    dbus::utility::getAssociatedSubTreePaths(
-        powerPath,
-        sdbusplus::message::object_path("/xyz/openbmc_project/inventory"), 0,
-        powerSupplyInterface,
+    dbus::utility::getSubTreePaths(
+        "/xyz/openbmc_project/inventory", 0, powerSupplyInterface,
         [asyncResp, powerSupplyId, callback{std::move(callback)}](
             const boost::system::error_code& ec,
             const dbus::utility::MapperGetSubTreePathsResponse& subtreePaths) {
@@ -461,7 +471,7 @@ inline void
     }
 
     // Get the correct Path and Service that match the input parameters
-    getValidPowerSupplyPath(asyncResp, *validChassisPath, powerSupplyId,
+    getValidPowerSupplyPath(asyncResp, powerSupplyId,
                             [asyncResp, chassisId, powerSupplyId](
                                 const std::string& powerSupplyPath) {
         asyncResp->res.addHeader(
@@ -469,7 +479,9 @@ inline void
             "</redfish/v1/JsonSchemas/PowerSupply/PowerSupply.json>; rel=describedby");
         asyncResp->res.jsonValue["@odata.type"] =
             "#PowerSupply.v1_5_0.PowerSupply";
-        asyncResp->res.jsonValue["Name"] = "Power Supply";
+        std::string powerSupplyName = powerSupplyId;
+        std::replace(powerSupplyName.begin(), powerSupplyName.end(), '_', ' ');
+        asyncResp->res.jsonValue["Name"] = std::move(powerSupplyName);
         asyncResp->res.jsonValue["Id"] = powerSupplyId;
         asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
             "/redfish/v1/Chassis/{}/PowerSubsystem/PowerSupplies/{}", chassisId,
@@ -477,6 +489,12 @@ inline void
 
         asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
         asyncResp->res.jsonValue["Status"]["Health"] = "OK";
+
+        auto sensorAsyncResp = std::make_shared<SensorsAsyncResp>(
+            asyncResp, chassisId, sensors::dbus::powerPaths,
+            sensors::node::power);
+
+        getChassisData(sensorAsyncResp);
 
         dbus::utility::getDbusObject(
             powerSupplyPath, powerSupplyInterface,
@@ -527,7 +545,7 @@ inline void
         }
 
         // Get the correct Path and Service that match the input parameters
-        getValidPowerSupplyPath(asyncResp, *validChassisPath, powerSupplyId,
+        getValidPowerSupplyPath(asyncResp, powerSupplyId,
                                 [asyncResp](const std::string&) {
             asyncResp->res.addHeader(
                 boost::beast::http::field::link,

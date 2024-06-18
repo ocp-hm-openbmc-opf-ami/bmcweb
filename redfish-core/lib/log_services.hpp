@@ -69,6 +69,8 @@ constexpr const char* crashdumpOnDemandInterface =
     "com.intel.crashdump.OnDemand";
 constexpr const char* crashdumpTelemetryInterface =
     "com.intel.crashdump.Telemetry";
+static const char* acpiFilePath = "/var/lib/acpi/acpi2";
+static const char* acpiFileName = "acpi2";
 
 enum class DumpCreationProgress
 {
@@ -827,6 +829,8 @@ inline void
         }
         asyncResp->res.addHeader(
             boost::beast::http::field::content_transfer_encoding, "Base64");
+        asyncResp->res.addHeader(boost::beast::http::field::content_type,
+                                 "application/octet-stream");
         return;
     }
     if (!asyncResp->res.openFd(fd))
@@ -1233,8 +1237,8 @@ inline void clearDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             messages::internalError(asyncResp->res);
             return;
         }
-    },
-        "xyz.openbmc_project.Dump.Manager", getDumpPath(dumpType),
+        messages::success(asyncResp->res);
+    }, "xyz.openbmc_project.Dump.Manager", getDumpPath(dumpType),
         "xyz.openbmc_project.Collection.DeleteAll", "DeleteAll");
 }
 
@@ -1335,6 +1339,10 @@ inline void requestRoutesSystemLogServiceCollection(App& app)
                             BMCWEB_REDFISH_SYSTEM_URI_NAME);
             logServiceArray.emplace_back(std::move(crashdump));
         }
+
+        nlohmann::json::object_t acpilogger;
+        acpilogger["@odata.id"] = "/redfish/v1/Systems/system/LogServices/acpi";
+        logServiceArray.emplace_back(std::move(acpilogger));
 
         if constexpr (BMCWEB_REDFISH_HOST_LOGGER)
         {
@@ -1470,8 +1478,7 @@ inline void requestRoutesJournalEventLogClear(App& app)
             }
 
             messages::success(asyncResp->res);
-        },
-            "org.freedesktop.systemd1", "/org/freedesktop/systemd1",
+        }, "org.freedesktop.systemd1", "/org/freedesktop/systemd1",
             "org.freedesktop.systemd1.Manager", "ReloadUnit", "rsyslog.service",
             "replace");
     });
@@ -2160,7 +2167,7 @@ inline void requestRoutesDBusEventLogEntry(App& app)
                 return;
             }
 
-            asyncResp->res.result(boost::beast::http::status::ok);
+            messages::success(asyncResp->res);
         };
 
         // Make call to Logging service to request Delete Log
@@ -3084,9 +3091,17 @@ inline void handleDBusEventLogEntryDownloadGet(
     {
         return;
     }
-    if (!http_helpers::isContentTypeAllowed(
+    /*if (!http_helpers::isContentTypeAllowed(
             req.getHeaderValue("Accept"),
             http_helpers::ContentType::OctetStream, true))
+    {
+        asyncResp->res.result(boost::beast::http::status::bad_request);
+        return;
+    }*/
+    std::string_view Accept = req.getHeaderValue("Accept");
+    if (Accept.find("text/html, */*") == std::string::npos &&
+        Accept.find("text/html, */*;q=0.8") == std::string::npos &&
+        Accept.find("*/*") == std::string::npos)
     {
         asyncResp->res.result(boost::beast::http::status::bad_request);
         return;
@@ -3796,7 +3811,6 @@ inline void requestRoutesCrashdumpCollect(App& app)
             messages::actionParameterValueFormatError(
                 asyncResp->res, diagnosticDataType, "DiagnosticDataType",
                 "CollectDiagnosticData");
-            return;
         }
 
         OEMDiagnosticType oemDiagType =
@@ -3868,7 +3882,7 @@ inline void requestRoutesCrashdumpCollect(App& app)
             },
                 taskMatchStr);
 
-            task->startTimer(std::chrono::minutes(5));
+            task->startTimer(std::chrono::minutes(30));
             task->populateResp(asyncResp->res);
             task->payload.emplace(std::move(payload));
         };
@@ -3928,8 +3942,7 @@ inline void requestRoutesDBusLogServiceActionsClear(App& app)
                     boost::beast::http::status::internal_server_error);
                 return;
             }
-
-            asyncResp->res.result(boost::beast::http::status::no_content);
+            messages::success(asyncResp->res);
         };
 
         // Make call to Logging service to request Clear Log
@@ -4040,8 +4053,7 @@ inline void requestRoutesPostCodesClear(App& app)
                 return;
             }
             messages::success(asyncResp->res);
-        },
-            "xyz.openbmc_project.State.Boot.PostCode0",
+        }, "xyz.openbmc_project.State.Boot.PostCode0",
             "/xyz/openbmc_project/State/Boot/PostCode0",
             "xyz.openbmc_project.Collection.DeleteAll", "DeleteAll");
     });
@@ -4529,6 +4541,160 @@ inline void requestRoutesPostCodesEntry(App& app)
         }
 
         getPostCodeForEntry(asyncResp, targetID);
+    });
+}
+
+static bool getAcpiFileTimestamp(std::string& timestamp)
+{
+    struct stat fileInfo;
+    if (stat(acpiFilePath, &fileInfo) != 0)
+    {
+        return false;
+    }
+    timestamp = redfish::time_utils::getDateTimeUint(
+        static_cast<uint64_t>(fileInfo.st_ctime));
+    return true;
+}
+
+static void
+    logAcpiDumpEntry(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                     nlohmann::json& logEntryJson)
+{
+    std::string AcpiLogURI =
+        "/redfish/v1/Systems/system/LogServices/acpi/Entries/0/acpi2.bin";
+    nlohmann::json::object_t logEntry;
+    logEntry["@odata.type"] = "#LogEntry.v1_7_0.LogEntry";
+    logEntry["@odata.id"] =
+        "/redfish/v1/Systems/system/LogServices/acpi/Entries/0";
+    logEntry["Name"] = "Acpi Log";
+    logEntry["Id"] = "0";
+    logEntry["EntryType"] = "Oem";
+    logEntry["AdditionalDataURI"] = std::move(AcpiLogURI);
+    logEntry["DiagnosticDataType"] = "OEM";
+    logEntry["OEMDiagnosticDataType"] = "Acpi Log";
+    std::string timestamp;
+    if (getAcpiFileTimestamp(timestamp))
+    {
+        logEntry["Created"] = std::move(timestamp);
+    }
+    // If logEntryJson references an array of LogEntry resources
+    // ('Members' list), then push this as a new entry, otherwise set it
+    // directly
+    if (logEntryJson.is_array())
+    {
+        logEntryJson.push_back(logEntry);
+        asyncResp->res.jsonValue["Members@odata.count"] = logEntryJson.size();
+    }
+    else
+    {
+        logEntryJson.update(logEntry);
+    }
+}
+
+inline void requestRoutesAcpiService(App& app)
+{
+    BMCWEB_ROUTE(app, "/redfish/v1/Systems/system/LogServices/acpi/")
+        .privileges({{"ConfigureManager"}})
+        .methods(boost::beast::http::verb::get)(
+            [&app](const crow::Request& req,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
+        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+        {
+            return;
+        }
+        asyncResp->res.jsonValue["@odata.id"] =
+            "/redfish/v1/Systems/system/LogServices/acpi";
+        asyncResp->res.jsonValue["@odata.type"] =
+            "#LogService.v1_2_0.LogService";
+        asyncResp->res.jsonValue["Name"] = "Open BMC Oem Acpi LogService";
+        asyncResp->res.jsonValue["Description"] = "Oem Acpi LogService";
+        asyncResp->res.jsonValue["Id"] = "acpi";
+        asyncResp->res.jsonValue["OverWritePolicy"] = "WrapsWhenFull";
+        asyncResp->res.jsonValue["MaxNumberOfRecords"] = 1;
+
+        std::pair<std::string, std::string> redfishDateTimeOffset =
+            redfish::time_utils::getDateTimeOffsetNow();
+        asyncResp->res.jsonValue["DateTime"] = redfishDateTimeOffset.first;
+        asyncResp->res.jsonValue["DateTimeLocalOffset"] =
+            redfishDateTimeOffset.second;
+
+        asyncResp->res.jsonValue["Entries"]["@odata.id"] =
+            "/redfish/v1/Systems/system/LogServices/acpi/Entries";
+    });
+}
+
+inline void requestRoutesAcpiEntryCollection(App& app)
+{
+    BMCWEB_ROUTE(app, "/redfish/v1/Systems/system/LogServices/acpi/Entries/")
+        .privileges({{"ConfigureComponents"}})
+        .methods(boost::beast::http::verb::get)(
+            [&app](const crow::Request& req,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
+        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+        {
+            return;
+        }
+
+        asyncResp->res.jsonValue["@odata.type"] =
+            "#LogEntryCollection.LogEntryCollection";
+        asyncResp->res.jsonValue["@odata.id"] =
+            "/redfish/v1/Systems/system/LogServices/acpi/Entries";
+        asyncResp->res.jsonValue["Name"] = "Open BMC Acpi Log Entries";
+        asyncResp->res.jsonValue["Description"] =
+            "Collection of Acpi Log Entries";
+        asyncResp->res.jsonValue["Members"] = nlohmann::json::array();
+        asyncResp->res.jsonValue["Members@odata.count"] = 0;
+        if (!std::filesystem::exists(acpiFilePath))
+        {
+            return;
+        }
+        logAcpiDumpEntry(asyncResp, asyncResp->res.jsonValue["Members"]);
+    });
+}
+
+inline void requestRoutesAcpiEntry(App& app)
+{
+    BMCWEB_ROUTE(app, "/redfish/v1/Systems/system/LogServices/acpi/Entries/0/")
+        .privileges({{"ConfigureComponents"}})
+        .methods(boost::beast::http::verb::get)(
+            [&app](const crow::Request& req,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
+        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+        {
+            return;
+        }
+        if (!std::filesystem::exists(acpiFilePath))
+        {
+            messages::resourceNotFound(asyncResp->res, "AcpiLog", "0");
+            return;
+        }
+        logAcpiDumpEntry(asyncResp, asyncResp->res.jsonValue);
+    });
+}
+
+inline void requestRoutesAcpiFile(App& app)
+{
+    BMCWEB_ROUTE(app,
+                 "/redfish/v1/Systems/system/LogServices/acpi/Entries/0/<str>/")
+        .privileges(redfish::privileges::getLogEntry)
+        .methods(boost::beast::http::verb::get)(
+            [&app](const crow::Request& req,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const std::string& fileName) {
+        if (fileName != acpiFileName)
+        {
+            messages::resourceMissingAtURI(asyncResp->res, req.url());
+            return;
+        }
+        if (!asyncResp->res.openFile(acpiFilePath))
+        {
+            messages::resourceMissingAtURI(asyncResp->res, req.url());
+            return;
+        }
+
+        // Configure this to be a file download when accessed
+        // from a browser
+        asyncResp->res.addHeader("Content-Disposition", "attachment");
     });
 }
 

@@ -18,9 +18,12 @@
 #include "event_service_manager.hpp"
 #include "http/utility.hpp"
 #include "logging.hpp"
+#include "multipart_parser.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "snmp_trap_event_clients.hpp"
+
+#include <stdlib.h>
 
 #include <boost/beast/http/fields.hpp>
 #include <boost/system/error_code.hpp>
@@ -46,6 +49,805 @@ static constexpr const std::array<const char*, 3> supportedRetryPolicies = {
 
 static constexpr const std::array<const char*, 1> supportedResourceTypes = {
     "Task"};
+
+// SMTP TSL Support
+
+/* Primary SSL Support Keys */
+std::string primaryCacertFileName = "primary_cacert.pem";
+std::string primaryServerCRTFileName = "primary_server.crt";
+std::string primaryServerKeyFileName = "primary_server.key";
+namespace fs = std::filesystem;
+fs::path certsPath = "/etc/ssl/certs/";
+fs::path privatePath = "/etc/ssl/private/";
+
+fs::path primaryCACERTFilePath = certsPath / primaryCacertFileName;
+fs::path primaryServerCRTFilePath = certsPath / primaryServerCRTFileName;
+fs::path primaryserverKeyFilePath = privatePath / primaryServerKeyFileName;
+
+std::string sslPrimaryCACERTFile(primaryCACERTFilePath);
+std::string sslPrimaryServerCRTFile(primaryServerCRTFilePath);
+std::string sslPrimaryServerKeyFile(primaryserverKeyFilePath);
+
+/* Secondary SSL Support Keys */
+
+std::string secondaryCacertFileName = "secondary_cacert.pem";
+std::string secondaryServerCRTFileName = "secondary_server.crt";
+std::string secondaryServerKeyFileName = "secondary_server.key";
+
+fs::path secodaryCACERTFilePath = certsPath / secondaryCacertFileName;
+fs::path secodaryServerCRTFilePath = certsPath / secondaryServerCRTFileName;
+fs::path secodaryServerKeyFilePath = privatePath / secondaryServerKeyFileName;
+
+std::string sslSecondaryCACERTFile(secodaryCACERTFilePath);
+std::string sslSecondaryServerCRTFile(secodaryServerCRTFilePath);
+std::string sslSecondaryServerKeyFile(secodaryServerKeyFilePath);
+
+std::string SSLFileName("");
+const char* commandLine("systemctl restart mail-alert-manager.service");
+
+/**
+ * @brief Retrieves SMTP configuration params
+ *
+ * @param[in] aResp  Shared pointer for generating response message.
+ *
+ * @return None.
+ */
+inline void getSmtpConfig(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                          std::string interfaces, std::string configuration)
+{
+    sdbusplus::asio::getAllProperties(
+        *crow::connections::systemBus, "xyz.openbmc_project.mail",
+        "/xyz/openbmc_project/mail/alert", interfaces,
+        [asyncResp, configuration](
+            const boost::system::error_code& ec,
+            const dbus::utility::DBusPropertiesMap& propertiesList) {
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR("GetSMTPconfig: Can't get "
+                             "alertMailIface ");
+            messages::internalError(asyncResp->res);
+            return;
+        }
+
+        BMCWEB_LOG_DEBUG("Got {}properties for SmtpConfig",
+                         propertiesList.size());
+
+        bool authentication = true;
+        bool enable = true;
+        const std::string* host = nullptr;
+        const std::string* password = nullptr;
+        const uint16_t* port = nullptr;
+        const std::vector<std::string>* recipient = nullptr;
+        const std::string* sender = nullptr;
+        bool TLSEnable = true;
+        const std::string* username = nullptr;
+
+        const bool success = sdbusplus::unpackPropertiesNoThrow(
+            dbus_utils::UnpackErrorPrinter(), propertiesList, "Authentication",
+            authentication, "Enable", enable, "Host", host, "Password",
+            password, "Port", port, "Recipient", recipient, "Sender", sender,
+            "TLSEnable", TLSEnable, "UserName", username);
+
+        if (!success)
+        {
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]["@odata.type"] =
+            "#AMIEventService.SMTP";
+        asyncResp->res
+            .jsonValue["Oem"]["OpenBmc"]["SMTP"][configuration]["@odata.type"] =
+            "#AMIEventService.Configuration";
+        asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"][configuration]
+                                ["Authentication"] = authentication;
+
+        asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"][configuration]
+                                ["Enable"] = enable;
+
+        if (host != nullptr)
+        {
+            asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"][configuration]
+                                    ["Host"] = *host;
+        }
+        if (username != nullptr)
+        {
+            asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"][configuration]
+                                    ["UserName"] = *username;
+        }
+        if (password != nullptr)
+        {
+            asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"][configuration]
+                                    ["Password"] = *password;
+        }
+
+        if (port != nullptr)
+        {
+            asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"][configuration]
+                                    ["Port"] = *port;
+        }
+        if (recipient != nullptr)
+        {
+            asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"][configuration]
+                                    ["Recipient"] = *recipient;
+        }
+        if (sender != nullptr)
+        {
+            asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"][configuration]
+                                    ["Sender"] = *sender;
+        }
+
+        asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"][configuration]
+                                ["TLSEnable"] = TLSEnable;
+    });
+}
+
+inline std::string modifiedDateTime(const std::string& filepath)
+{
+    /* Modified date and time */
+
+    std::filesystem::file_time_type ftime =
+        std::filesystem::last_write_time(filepath);
+    std::cout << std::format("File write time is {}\n", ftime);
+
+    std::time_t cftime = std::chrono::system_clock::to_time_t(
+        std::chrono::file_clock::to_sys(ftime));
+    std::string str = std::asctime(std::localtime(&cftime));
+    str.pop_back(); // rm the trailing '\n' put by `asctime`
+    std::cerr << "Checking file modified date " << str << "\n";
+    return str;
+}
+inline bool ensureOpensslKeyPresentAndValid(const std::string& filepath)
+{
+    bool certValid = false;
+
+    std::cerr << "Checking certs in file path " << filepath.c_str() << "\n";
+
+    FILE* file = fopen(filepath.c_str(), "r");
+    std::cerr << "Checking error logic" << "\n";
+    if (file != nullptr)
+    {
+        certValid = true;
+    }
+    std::cerr << "Checking exits logic" << certValid << "\n";
+    return certValid;
+}
+
+inline void
+    getSmtpSSLCertificates(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    bool isPrimaryCACERT = true;
+    bool isPrimaryServerKey = true;
+    bool isPrimaryServerCRT = true;
+    bool isSecondrayCACERT = true;
+    bool isSecondrayServerKey = true;
+    bool isSecondrayServerCRT = true;
+
+    /* Primary SSL */
+
+    std::cerr << "SSL Primary CACERT Context file= "
+              << sslPrimaryCACERTFile.c_str() << "\n";
+    std::cerr << "SSL Primary CRT Context file= "
+              << sslPrimaryServerCRTFile.c_str() << "\n";
+    std::cerr << "SSL Primary Key Context file= "
+              << sslPrimaryServerKeyFile.c_str() << "\n";
+
+    isPrimaryCACERT = ensureOpensslKeyPresentAndValid(sslPrimaryCACERTFile);
+    asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]["PrimaryConfiguration"]
+                            ["isCACERTExist"] = isPrimaryCACERT;
+    isPrimaryServerCRT =
+        ensureOpensslKeyPresentAndValid(sslPrimaryServerCRTFile);
+
+    asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]["PrimaryConfiguration"]
+                            ["isServerCRTExist"] = isPrimaryServerCRT;
+    isPrimaryServerKey =
+        ensureOpensslKeyPresentAndValid(sslPrimaryServerKeyFile);
+
+    asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]["PrimaryConfiguration"]
+                            ["isServerKeyExist"] = isPrimaryServerKey;
+
+    if (isPrimaryCACERT)
+    {
+        std::string primaryCACERTModifiedDate =
+            modifiedDateTime(sslPrimaryCACERTFile);
+
+        std::cerr << "Modified date and time for Primary CACERT "
+                  << primaryCACERTModifiedDate << "\n";
+
+        asyncResp->res
+            .jsonValue["Oem"]["OpenBmc"]["SMTP"]["PrimaryConfiguration"]
+                      ["primaryCACERTModifiedDate"] = primaryCACERTModifiedDate;
+    }
+    if (isPrimaryServerCRT)
+    {
+        std::string primaryCACERTModifiedDate =
+            modifiedDateTime(sslPrimaryServerCRTFile);
+
+        std::cerr << "Modified date and time for Primary CACERT "
+                  << primaryCACERTModifiedDate << "\n";
+
+        asyncResp->res
+            .jsonValue["Oem"]["OpenBmc"]["SMTP"]["PrimaryConfiguration"]
+                      ["primaryserverCRTModifiedDate"] =
+            primaryCACERTModifiedDate;
+    }
+    if (isPrimaryServerKey)
+    {
+        std::string primaryCACERTModifiedDate =
+            modifiedDateTime(sslPrimaryServerKeyFile);
+
+        std::cerr << "Modified date and time for Primary CACERT "
+                  << primaryCACERTModifiedDate << "\n";
+
+        asyncResp->res
+            .jsonValue["Oem"]["OpenBmc"]["SMTP"]["PrimaryConfiguration"]
+                      ["primaryServerKeyModifiedDate"] =
+            primaryCACERTModifiedDate;
+    }
+
+    /* Secondary SSL */
+
+    std::cerr << "SSL Secondary CACERT Context file= "
+              << sslSecondaryCACERTFile.c_str() << "\n";
+    std::cerr << "SSL Secondary CRT Context file= "
+              << sslSecondaryServerCRTFile.c_str() << "\n";
+    std::cerr << "SSL Secondary Key Context file= "
+              << sslSecondaryServerKeyFile.c_str() << "\n";
+
+    isSecondrayCACERT = ensureOpensslKeyPresentAndValid(sslSecondaryCACERTFile);
+    asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]["SecondaryConfiguration"]
+                            ["isCACERTExist"] = isSecondrayCACERT;
+    isSecondrayServerKey =
+        ensureOpensslKeyPresentAndValid(sslSecondaryServerKeyFile);
+
+    asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]["SecondaryConfiguration"]
+                            ["isServerKeyExist"] = isSecondrayServerKey;
+    isSecondrayServerCRT =
+        ensureOpensslKeyPresentAndValid(sslSecondaryServerCRTFile);
+
+    asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]["SecondaryConfiguration"]
+                            ["isServerCRTExist"] = isSecondrayServerCRT;
+
+    if (isSecondrayCACERT)
+    {
+        std::string modifiedDate = modifiedDateTime(sslSecondaryCACERTFile);
+
+        std::cerr << "Modified date and time for Primary CACERT "
+                  << modifiedDate << "\n";
+
+        asyncResp->res
+            .jsonValue["Oem"]["OpenBmc"]["SMTP"]["SecondaryConfiguration"]
+                      ["secondaryCACERTModifiedDate"] = modifiedDate;
+    }
+    if (isSecondrayServerCRT)
+    {
+        std::string modifiedDate = modifiedDateTime(sslSecondaryServerCRTFile);
+
+        std::cerr << "Modified date and time for Primary CACERT "
+                  << modifiedDate << "\n";
+
+        asyncResp->res
+            .jsonValue["Oem"]["OpenBmc"]["SMTP"]["SecondaryConfiguration"]
+                      ["secondaryserverCRTModifiedDate"] = modifiedDate;
+    }
+    if (isSecondrayServerKey)
+    {
+        std::string modifiedDate = modifiedDateTime(sslSecondaryServerKeyFile);
+
+        std::cerr << "Modified date and time for Primary CACERT "
+                  << modifiedDate << "\n";
+
+        asyncResp->res
+            .jsonValue["Oem"]["OpenBmc"]["SMTP"]["SecondaryConfiguration"]
+                      ["secondaryServerKeyModifiedDate"] = modifiedDate;
+    }
+}
+
+inline void uploadSSLFile(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                          std::string_view body, const std::string& fileName)
+{
+    if (fileName == primaryCacertFileName)
+    {
+        std::filesystem::path path = primaryCACERTFilePath;
+        std::ofstream out(path, std::ofstream::out | std::ofstream::binary |
+                                    std::ofstream::trunc);
+        out << body;
+        out.close();
+        std::cout << out.rdbuf();
+        std::cerr << "Read SSl files " << out.rdbuf() << "\n";
+        if (out.bad())
+        {
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        else
+        {
+            int systemRet = system(commandLine);
+            if (systemRet == -1)
+            {
+                std::cerr << "Failed to restart the service " << systemRet
+                          << "\n";
+            }
+            else
+                messages::success(asyncResp->res);
+        }
+    }
+    else if (fileName == primaryServerCRTFileName)
+    {
+        std::filesystem::path path = primaryServerCRTFilePath;
+        std::ofstream out(path, std::ofstream::out | std::ofstream::binary |
+                                    std::ofstream::trunc);
+        out << body;
+        out.close();
+        std::cout << out.rdbuf();
+        std::cerr << "Read SSl files " << out.rdbuf() << "\n";
+        if (out.bad())
+        {
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        else
+        {
+            int systemRet = system(commandLine);
+            if (systemRet == -1)
+            {
+                std::cerr << "Failed to restart the service " << systemRet
+                          << "\n";
+            }
+            else
+                messages::success(asyncResp->res);
+        }
+    }
+    else if (fileName == primaryServerKeyFileName)
+    {
+        std::filesystem::path path = primaryserverKeyFilePath;
+        std::ofstream out(path, std::ofstream::out | std::ofstream::binary |
+                                    std::ofstream::trunc);
+        out << body;
+        out.close();
+        std::cout << out.rdbuf();
+        std::cerr << "Read SSl files " << out.rdbuf() << "\n";
+        if (out.bad())
+        {
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        else
+        {
+            int systemRet = system(commandLine);
+            if (systemRet == -1)
+            {
+                std::cerr << "Failed to restart the service " << systemRet
+                          << "\n";
+            }
+            else
+                messages::success(asyncResp->res);
+        }
+    }
+    else if (fileName == secondaryCacertFileName)
+    {
+        std::filesystem::path path = secodaryCACERTFilePath;
+        std::ofstream out(path, std::ofstream::out | std::ofstream::binary |
+                                    std::ofstream::trunc);
+        out << body;
+        out.close();
+        std::cout << out.rdbuf();
+        std::cerr << "Read SSl files " << out.rdbuf() << "\n";
+        if (out.bad())
+        {
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        else
+        {
+            int systemRet = system(commandLine);
+            if (systemRet == -1)
+            {
+                std::cerr << "Failed to restart the service " << systemRet
+                          << "\n";
+            }
+            else
+                messages::success(asyncResp->res);
+        }
+    }
+    else if (fileName == secondaryServerCRTFileName)
+    {
+        std::filesystem::path path = secodaryServerCRTFilePath;
+        std::ofstream out(path, std::ofstream::out | std::ofstream::binary |
+                                    std::ofstream::trunc);
+        out << body;
+        out.close();
+        std::cout << out.rdbuf();
+        std::cerr << "Read SSl files " << out.rdbuf() << "\n";
+        if (out.bad())
+        {
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        else
+        {
+            int systemRet = system(commandLine);
+            if (systemRet == -1)
+            {
+                std::cerr << "Failed to restart the service " << systemRet
+                          << "\n";
+            }
+            else
+                messages::success(asyncResp->res);
+        }
+    }
+    else if (fileName == secondaryServerKeyFileName)
+    {
+        std::filesystem::path path = secodaryServerKeyFilePath;
+        std::ofstream out(path, std::ofstream::out | std::ofstream::binary |
+                                    std::ofstream::trunc);
+        out << body;
+        out.close();
+        std::cout << out.rdbuf();
+        std::cerr << "Read SSl files " << out.rdbuf() << "\n";
+        if (out.bad())
+        {
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        else
+        {
+            int systemRet = system(commandLine);
+            if (systemRet == -1)
+            {
+                std::cerr << "Failed to restart the service " << systemRet
+                          << "\n";
+            }
+            else
+                messages::success(asyncResp->res);
+        }
+    }
+    else
+    {
+        messages::propertyValueEmpty(asyncResp->res,
+                                     "SSL Key Certificate is not empty",
+                                     "/etc/ssl/certs/");
+    }
+}
+
+inline void readSSLContext(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                           const MultipartParser& parser,
+                           const std::string& configurationType)
+{
+    const std::string* uploadData = nullptr;
+    for (const FormPart& formpart : parser.mime_fields)
+    {
+        boost::beast::http::fields::const_iterator it =
+            formpart.fields.find("Content-Disposition");
+        if (it == formpart.fields.end())
+        {
+            BMCWEB_LOG_ERROR("Couldn't find Content-Disposition");
+            return;
+        }
+        BMCWEB_LOG_INFO("Parsing value", it->value());
+
+        // The construction parameters of param_list must start with `;`
+        size_t index = it->value().find(';');
+        BMCWEB_LOG_INFO("Parsing value", index);
+        if (index == std::string::npos)
+        {
+            continue;
+        }
+
+        for (const auto& param :
+             boost::beast::http::param_list{it->value().substr(index)})
+        {
+            if (param.second.empty())
+            {
+                continue;
+            }
+            else
+            {
+                SSLFileName = param.second;
+                std::cerr << "Read SSl Original files Name " << SSLFileName
+                          << "\n";
+                if (SSLFileName.substr(SSLFileName.find_last_of(".") + 1) ==
+                    "crt")
+                {
+                    uploadData = &(formpart.content);
+                    SSLFileName = configurationType + "_server.crt";
+                }
+                else if (SSLFileName.substr(SSLFileName.find_last_of(".") +
+                                            1) == "pem")
+                {
+                    uploadData = &(formpart.content);
+                    SSLFileName = configurationType + "_cacert.pem";
+                }
+                else if (SSLFileName.substr(SSLFileName.find_last_of(".") +
+                                            1) == "key")
+                {
+                    uploadData = &(formpart.content);
+                    SSLFileName = configurationType + "_server.key";
+                }
+                else
+                    messages::propertyValueTypeError(
+                        asyncResp->res, SSLFileName, "InValid Format");
+
+                std::cerr << "Read SSl Rename files Name " << SSLFileName
+                          << "\n";
+            }
+        }
+    }
+
+    if (uploadData == nullptr)
+    {
+        messages::propertyMissing(asyncResp->res, "SSL Certificates Missing");
+        return;
+    }
+    uploadSSLFile(asyncResp, *uploadData, SSLFileName);
+}
+
+inline void handleSSLCertificatePrimaryUploadAction(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    std::string_view contentType = req.getHeaderValue("Content-Type");
+    BMCWEB_LOG_DEBUG("doPost: contentType= ", contentType);
+    if (contentType.starts_with("multipart/form-data"))
+    {
+        MultipartParser parser;
+        ParserError ec = parser.parse(req);
+        if (ec != ParserError::PARSER_SUCCESS)
+        {
+            // handle error
+            BMCWEB_LOG_ERROR("SSL Certificate parse failed, ec :",
+                             static_cast<int>(ec));
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        readSSLContext(asyncResp, parser, "primary");
+    }
+}
+
+inline void handleSSLCertificateSecondaryUploadAction(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    std::string_view contentType = req.getHeaderValue("Content-Type");
+    BMCWEB_LOG_DEBUG("doPost: contentType= ", contentType);
+    if (contentType.starts_with("multipart/form-data"))
+    {
+        MultipartParser parser;
+        ParserError ec = parser.parse(req);
+        if (ec != ParserError::PARSER_SUCCESS)
+        {
+            // handle error
+            BMCWEB_LOG_ERROR("SSL Certificate parse failed, ec :",
+                             static_cast<int>(ec));
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        readSSLContext(asyncResp, parser, "secondary");
+    }
+}
+
+inline void setAuthentication(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+                              std::string interfaces, bool& property_value)
+{
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus, "xyz.openbmc_project.mail",
+        "/xyz/openbmc_project/mail/alert", interfaces, "Authentication",
+        property_value, [aResp](const boost::system::error_code& ec) {
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
+            messages::internalError(aResp->res);
+            return;
+        }
+        BMCWEB_LOG_DEBUG("Patch Authentication Success");
+    });
+}
+
+inline void setServiceEnable(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+                             std::string interfaces, bool& property_value)
+{
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus, "xyz.openbmc_project.mail",
+        "/xyz/openbmc_project/mail/alert", interfaces, "Enable", property_value,
+        [aResp](const boost::system::error_code& ec) {
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
+            messages::internalError(aResp->res);
+            return;
+        }
+        BMCWEB_LOG_DEBUG("Patch ServiceEnable Success");
+    });
+}
+
+inline void setTlsEnable(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+                         std::string interfaces, bool& property_value)
+{
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus, "xyz.openbmc_project.mail",
+        "/xyz/openbmc_project/mail/alert", interfaces, "TLSEnable",
+        property_value, [aResp](const boost::system::error_code& ec) {
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
+            messages::internalError(aResp->res);
+            return;
+        }
+        BMCWEB_LOG_DEBUG("Patch TLSEnable Success");
+    });
+}
+
+inline void setUsername(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+                        std::string interfaces, std::string Property_value)
+{
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus, "xyz.openbmc_project.mail",
+        "/xyz/openbmc_project/mail/alert", interfaces, "UserName",
+        Property_value, [aResp](const boost::system::error_code& ec) {
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
+            messages::internalError(aResp->res);
+            return;
+        }
+        BMCWEB_LOG_DEBUG("Patch UserName Success");
+    });
+}
+
+inline void setPassword(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+                        std::string interfaces, std::string Property_value)
+{
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus, "xyz.openbmc_project.mail",
+        "/xyz/openbmc_project/mail/alert", interfaces, "Password",
+        Property_value, [aResp](const boost::system::error_code& ec) {
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
+            messages::internalError(aResp->res);
+            return;
+        }
+        BMCWEB_LOG_DEBUG("Patch Password Success");
+    });
+}
+
+inline void setSender(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+                      std::string interfaces, std::string Property_value)
+{
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus, "xyz.openbmc_project.mail",
+        "/xyz/openbmc_project/mail/alert", interfaces, "Sender", Property_value,
+        [aResp](const boost::system::error_code& ec) {
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
+            messages::internalError(aResp->res);
+            return;
+        }
+        BMCWEB_LOG_DEBUG("Patch Sender Success");
+    });
+}
+
+inline void setHost(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+                    std::string interfaces, std::string Property_value)
+{
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus, "xyz.openbmc_project.mail",
+        "/xyz/openbmc_project/mail/alert", interfaces, "Host", Property_value,
+        [aResp](const boost::system::error_code& ec) {
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
+            messages::internalError(aResp->res);
+            return;
+        }
+        BMCWEB_LOG_DEBUG("Patch Host Success");
+    });
+}
+
+inline void setport(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+                    std::string interfaces, std::uint16_t& Property_value)
+{
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus, "xyz.openbmc_project.mail",
+        "/xyz/openbmc_project/mail/alert", interfaces, "Port", Property_value,
+        [aResp](const boost::system::error_code& ec) {
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
+            messages::internalError(aResp->res);
+            return;
+        }
+        BMCWEB_LOG_DEBUG("Patch port Success");
+    });
+}
+
+inline void setRecipient(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+                         std::string interfaces,
+                         const std::vector<std::string>& recipient)
+{
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus, "xyz.openbmc_project.mail",
+        "/xyz/openbmc_project/mail/alert", interfaces, "Recipient", recipient,
+        [aResp, recipient](const boost::system::error_code& ec) {
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
+            messages::internalError(aResp->res);
+            return;
+        }
+        BMCWEB_LOG_DEBUG("Patch Recipient Success");
+    });
+}
+
+inline void
+    handleauthenticationpatch(const std::shared_ptr<bmcweb::AsyncResp> aResp,
+                              std::string interfaces, std::string property,
+                              bool& authentication)
+{
+    sdbusplus::asio::getProperty<std::string>(
+        *crow::connections::systemBus, "xyz.openbmc_project.mail",
+        "/xyz/openbmc_project/mail/alert", interfaces, "UserName",
+        [aResp, interfaces, property, authentication](
+            const boost::system::error_code ec1, const std::string& username) {
+        if (ec1)
+        {
+            messages::internalError(aResp->res);
+            return;
+        }
+        sdbusplus::asio::getProperty<std::string>(
+            *crow::connections::systemBus, "xyz.openbmc_project.mail",
+            "/xyz/openbmc_project/mail/alert", interfaces, "Password",
+            [aResp, interfaces, property, authentication,
+             username](const boost::system::error_code ec2,
+                       const std::string& password) {
+            if (ec2)
+            {
+                messages::internalError(aResp->res);
+                return;
+            }
+            if (username.empty() && password.empty())
+            {
+                messages::propertyValueEmpty(aResp->res, username,
+                                             "UserName and Password");
+                return;
+            }
+            else if (username.empty())
+            {
+                messages::propertyValueEmpty(aResp->res, username, "UserName");
+                return;
+            }
+            else if (password.empty())
+            {
+                messages::propertyValueEmpty(aResp->res, password, "Password");
+                return;
+            }
+            else
+            {
+                sdbusplus::asio::setProperty(
+                    *crow::connections::systemBus, "xyz.openbmc_project.mail",
+                    "/xyz/openbmc_project/mail/alert", interfaces, property,
+                    authentication,
+                    [aResp](const boost::system::error_code& ec) {
+                    if (ec)
+                    {
+                        BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
+                        messages::internalError(aResp->res);
+                        return;
+                    }
+                    BMCWEB_LOG_DEBUG("Patch Authentication2 SUCESS");
+                });
+            }
+        });
+    });
+}
 
 inline void requestRoutesEventService(App& app)
 {
@@ -98,6 +900,11 @@ inline void requestRoutesEventService(App& app)
 
         asyncResp->res.jsonValue["SSEFilterPropertiesSupported"] =
             std::move(supportedSSEFilters);
+        getSmtpConfig(asyncResp, "xyz.openbmc_project.mail.alert.primary",
+                      "PrimaryConfiguration");
+        getSmtpConfig(asyncResp, "xyz.openbmc_project.mail.alert.secondary",
+                      "SecondaryConfiguration");
+        getSmtpSSLCertificates(asyncResp);
     });
 
     BMCWEB_ROUTE(app, "/redfish/v1/EventService/")
@@ -112,11 +919,12 @@ inline void requestRoutesEventService(App& app)
         std::optional<bool> serviceEnabled;
         std::optional<uint32_t> retryAttemps;
         std::optional<uint32_t> retryInterval;
+        std::optional<nlohmann::json> oem;
 
         if (!json_util::readJsonPatch(
                 req, asyncResp->res, "ServiceEnabled", serviceEnabled,
                 "DeliveryRetryAttempts", retryAttemps,
-                "DeliveryRetryIntervalSeconds", retryInterval))
+                "DeliveryRetryIntervalSeconds", retryInterval, "Oem", oem))
         {
             return;
         }
@@ -159,6 +967,586 @@ inline void requestRoutesEventService(App& app)
                 eventServiceConfig.retryTimeoutInterval = *retryInterval;
             }
         }
+        if (oem)
+        {
+            std::optional<nlohmann::json> openbmc;
+            if (!json_util::readJson(*oem, asyncResp->res, "OpenBmc", openbmc))
+            {
+                return;
+            }
+            if (openbmc)
+            {
+                std::optional<nlohmann::json> smtp;
+                if (!json_util::readJson(*openbmc, asyncResp->res, "SMTP",
+                                         smtp))
+                {
+                    return;
+                }
+                if (smtp)
+                {
+                    std::optional<nlohmann::json> PrimaryConfiguration;
+                    std::optional<nlohmann::json> SecondaryConfiguration;
+                    if (!json_util::readJson(
+                            *smtp, asyncResp->res, "PrimaryConfiguration",
+                            PrimaryConfiguration, "SecondaryConfiguration",
+                            SecondaryConfiguration))
+                    {
+                        return;
+                    }
+
+                    if (PrimaryConfiguration)
+                    {
+                        std::optional<bool> primary_authentication;
+                        std::optional<bool> primary_enable;
+                        std::optional<std::string> primary_host;
+                        std::optional<std::string> primary_password;
+                        std::optional<uint16_t> primary_port;
+                        std::optional<std::vector<std::string>>
+                            primary_recipient;
+                        std::optional<std::string> primary_sender;
+                        std::optional<bool> primary_tlsenable;
+                        std::optional<std::string> primary_username;
+
+                        if (!json_util::readJson(
+                                *PrimaryConfiguration, asyncResp->res,
+                                "Authentication", primary_authentication,
+                                "Enable", primary_enable, "Host", primary_host,
+                                "Password", primary_password, "Port",
+                                primary_port, "Recipient", primary_recipient,
+                                "Sender", primary_sender, "TLSEnable",
+                                primary_tlsenable, "UserName",
+                                primary_username))
+                        {
+                            return;
+                        }
+                        if (primary_recipient)
+                        {
+                            std::size_t size = primary_recipient.value().size();
+
+                            if (size > 4)
+                            {
+                                messages::arraySizeTooLong(asyncResp->res,
+                                                           "Recipient", 4);
+                                return;
+                            }
+                            else
+                            {
+                                setRecipient(
+                                    asyncResp,
+                                    "xyz.openbmc_project.mail.alert.primary",
+                                    *primary_recipient);
+                            }
+                        }
+                        if (primary_authentication)
+                        {
+                            if (*primary_authentication)
+                            {
+                                if (primary_username && primary_password)
+                                {
+                                    if (primary_username == "" &&
+                                        primary_password == "")
+                                    {
+                                        messages::propertyValueEmpty(
+                                            asyncResp->res, *primary_username,
+                                            "UserName and Password");
+                                        return;
+                                    }
+                                    else if (primary_username == "")
+                                    {
+                                        messages::propertyValueEmpty(
+                                            asyncResp->res, *primary_username,
+                                            "UserName");
+                                        return;
+                                    }
+                                    else if (primary_password == "")
+                                    {
+                                        messages::propertyValueEmpty(
+                                            asyncResp->res, *primary_password,
+                                            "password");
+                                        return;
+                                    }
+                                    else
+                                    {
+                                        setAuthentication(
+                                            asyncResp,
+                                            "xyz.openbmc_project.mail.alert.primary",
+                                            *primary_authentication);
+                                    }
+                                }
+                                else
+                                {
+                                    handleauthenticationpatch(
+                                        asyncResp,
+                                        "xyz.openbmc_project.mail.alert.primary",
+                                        "Authentication",
+                                        *primary_authentication);
+                                }
+                            }
+                            else
+                            {
+                                setAuthentication(
+                                    asyncResp,
+                                    "xyz.openbmc_project.mail.alert.primary",
+                                    *primary_authentication);
+                            }
+                        }
+
+                        if (primary_username)
+                        {
+                            setUsername(
+                                asyncResp,
+                                "xyz.openbmc_project.mail.alert.primary",
+                                *primary_username);
+                        }
+                        if (primary_password)
+                        {
+                            setPassword(
+                                asyncResp,
+                                "xyz.openbmc_project.mail.alert.primary",
+                                *primary_password);
+                        }
+
+                        if (primary_tlsenable)
+                        {
+                            std::cerr << "Checking tlsenable value ==>  "
+                                      << *primary_tlsenable << "\n";
+                            if (*primary_tlsenable)
+                            {
+                                bool isPrimaryCACERT = true;
+                                bool isPrimaryServerKey = true;
+                                bool isPrimaryServerCRT = true;
+
+                                /* Primary SSL */
+
+                                std::cerr << "SSL Primary CACERT Context file= "
+                                          << sslPrimaryCACERTFile.c_str()
+                                          << "\n";
+                                std::cerr << "SSL Primary CRT Context file= "
+                                          << sslPrimaryServerCRTFile.c_str()
+                                          << "\n";
+                                std::cerr << "SSL Primary Key Context file= "
+                                          << sslPrimaryServerKeyFile.c_str()
+                                          << "\n";
+
+                                isPrimaryCACERT =
+                                    ensureOpensslKeyPresentAndValid(
+                                        sslPrimaryCACERTFile);
+
+                                isPrimaryServerKey =
+                                    ensureOpensslKeyPresentAndValid(
+                                        sslPrimaryServerKeyFile);
+
+                                isPrimaryServerCRT =
+                                    ensureOpensslKeyPresentAndValid(
+                                        sslPrimaryServerCRTFile);
+
+                                if (!isPrimaryCACERT)
+                                {
+                                    std::cerr
+                                        << "Checking certs in inside checkfile exits "
+                                        << isPrimaryCACERT << "\n";
+                                    asyncResp->res
+                                        .jsonValue["Actions"]
+                                                  ["#SMTP.certificate"]
+                                                  ["target"] =
+                                        "/redfish/v1/EventService/Actions/Oem/Ami/SMTP.PrimarySSLCertificateUpload";
+                                    messages::propertyValueEmpty(
+                                        asyncResp->res,
+                                        primaryCacertFileName +
+                                            "Certificate is missing",
+                                        sslPrimaryCACERTFile);
+                                    return;
+                                }
+                                else if (!isPrimaryServerKey)
+                                {
+                                    std::cerr
+                                        << "Checking certs in inside checkfile exits "
+                                        << isPrimaryServerKey << "\n";
+                                    asyncResp->res
+                                        .jsonValue["Actions"]
+                                                  ["#SMTP.certificate"]
+                                                  ["target"] =
+                                        "/redfish/v1/EventService/Actions/Oem/Ami/SMTP.PrimarySSLCertificateUpload";
+                                    messages::propertyValueEmpty(
+                                        asyncResp->res,
+                                        primaryServerKeyFileName +
+                                            "Certificate is missing",
+                                        sslPrimaryServerKeyFile);
+                                }
+                                else if (!isPrimaryServerCRT)
+                                {
+                                    std::cerr
+                                        << "Checking certs in inside checkfile exits "
+                                        << isPrimaryServerCRT << "\n";
+                                    asyncResp->res
+                                        .jsonValue["Actions"]
+                                                  ["#SMTP.certificate"]
+                                                  ["target"] =
+                                        "/redfish/v1/EventService/Actions/Oem/Ami/SMTP.PrimarySSLCertificateUpload";
+                                    messages::propertyValueEmpty(
+                                        asyncResp->res,
+                                        primaryServerCRTFileName +
+                                            "Certificate is missing",
+                                        sslPrimaryServerCRTFile);
+                                }
+                                else
+                                {
+                                    setTlsEnable(
+                                        asyncResp,
+                                        "xyz.openbmc_project.mail.alert.primary",
+                                        *primary_tlsenable);
+                                }
+                            }
+                            else
+                            {
+                                setTlsEnable(
+                                    asyncResp,
+                                    "xyz.openbmc_project.mail.alert.primary",
+                                    *primary_tlsenable);
+                            }
+                        }
+                        if (primary_enable)
+                        {
+                            if (*primary_enable)
+                            {
+                                setServiceEnable(
+                                    asyncResp,
+                                    "xyz.openbmc_project.mail.alert.primary",
+                                    *primary_enable);
+                            }
+                            else
+                            {
+                                if (SecondaryConfiguration)
+                                {
+                                    std::optional<bool> authentication;
+                                    std::optional<bool> enable2;
+                                    std::optional<std::string> host;
+                                    std::optional<std::string> password;
+                                    std::optional<uint16_t> port;
+                                    std::optional<std::vector<std::string>>
+                                        recipient;
+                                    std::optional<std::string> sender;
+                                    std::optional<bool> tlsenable;
+                                    std::optional<std::string> username;
+                                    if (!json_util::readJson(
+                                            *SecondaryConfiguration,
+                                            asyncResp->res, "Authentication",
+                                            authentication, "Enable", enable2,
+                                            "Host", host, "Password", password,
+                                            "Port", port, "Recipient",
+                                            recipient, "Sender", sender,
+                                            "TLSEnable", tlsenable, "UserName",
+                                            username))
+                                    {
+                                        return;
+                                    }
+                                    if (primary_enable)
+                                    {
+                                        if (*primary_enable)
+                                        {
+                                            messages::propertyValueConflict(
+                                                asyncResp->res,
+                                                "PrimaryConfiguration.Enable",
+                                                "SecondaryConfiguration.Enable");
+                                            return;
+                                        }
+                                        else
+                                        {
+                                            setServiceEnable(
+                                                asyncResp,
+                                                "xyz.openbmc_project.mail.alert.primary",
+                                                *primary_enable);
+                                        }
+                                    }
+                                }
+                                else
+                                {
+                                    sdbusplus::asio::getProperty<bool>(
+                                        *crow::connections::systemBus,
+                                        "xyz.openbmc_project.mail",
+                                        "/xyz/openbmc_project/mail/alert",
+                                        "xyz.openbmc_project.mail.alert.secondary",
+                                        "Enable",
+                                        [asyncResp, &primary_enable](
+                                            const boost::system::error_code& ec,
+                                            bool ServiceEnabled) {
+                                        if (ec)
+                                        {
+                                            BMCWEB_LOG_ERROR(
+                                                "D-BUS response error on SnmpTrapStatus Get{}",
+                                                ec);
+                                            messages::internalError(
+                                                asyncResp->res);
+                                            return;
+                                        }
+                                        if (ServiceEnabled)
+                                        {
+                                            messages::propertyValueConflict(
+                                                asyncResp->res,
+                                                "PrimaryConfiguration.Enable",
+                                                "SecondaryConfiguration.Enable");
+                                            return;
+                                        }
+                                        else
+                                        {
+                                            setServiceEnable(
+                                                asyncResp,
+                                                "xyz.openbmc_project.mail.alert.primary",
+                                                *primary_enable);
+                                        }
+                                    });
+                                }
+                            }
+                        }
+                        if (primary_host)
+                        {
+                            setHost(asyncResp,
+                                    "xyz.openbmc_project.mail.alert.primary",
+                                    *primary_host);
+                        }
+                        if (primary_sender)
+                        {
+                            setSender(asyncResp,
+                                      "xyz.openbmc_project.mail.alert.primary",
+                                      *primary_sender);
+                        }
+                        if (primary_port)
+                        {
+                            setport(asyncResp,
+                                    "xyz.openbmc_project.mail.alert.primary",
+                                    *primary_port);
+                        }
+                    }
+                    if (SecondaryConfiguration)
+                    {
+                        std::optional<bool> authentication;
+                        std::optional<bool> enable;
+                        std::optional<std::string> host;
+                        std::optional<std::string> password;
+                        std::optional<uint16_t> port;
+                        std::optional<std::vector<std::string>> recipient;
+                        std::optional<std::string> sender;
+                        std::optional<bool> tlsenable;
+                        std::optional<std::string> username;
+
+                        if (!json_util::readJson(
+                                *SecondaryConfiguration, asyncResp->res,
+                                "Authentication", authentication, "Enable",
+                                enable, "Host", host, "Password", password,
+                                "Port", port, "Recipient", recipient, "Sender",
+                                sender, "TLSEnable", tlsenable, "UserName",
+                                username))
+                        {
+                            return;
+                        }
+                        if (recipient)
+                        {
+                            std::size_t size = recipient.value().size();
+
+                            if (size > 4)
+                            {
+                                messages::arraySizeTooLong(asyncResp->res,
+                                                           "Recipient", 4);
+                                return;
+                            }
+                            else
+                            {
+                                setRecipient(
+                                    asyncResp,
+                                    "xyz.openbmc_project.mail.alert.secondary",
+                                    *recipient);
+                            }
+                        }
+                        if (authentication)
+                        {
+                            if (*authentication)
+                            {
+                                if (username && password)
+                                {
+                                    if (username == "" && password == "")
+                                    {
+                                        messages::propertyValueEmpty(
+                                            asyncResp->res, *username,
+                                            "UserName and Password");
+                                        return;
+                                    }
+                                    else if (username == "")
+                                    {
+                                        messages::propertyValueEmpty(
+                                            asyncResp->res, *username,
+                                            "UserName");
+                                        return;
+                                    }
+                                    else if (password == "")
+                                    {
+                                        messages::propertyValueEmpty(
+                                            asyncResp->res, *password,
+                                            "password");
+                                        return;
+                                    }
+                                    else
+                                    {
+                                        setAuthentication(
+                                            asyncResp,
+                                            "xyz.openbmc_project.mail.alert.secondary",
+                                            *authentication);
+                                    }
+                                }
+                                else
+                                {
+                                    handleauthenticationpatch(
+                                        asyncResp,
+                                        "xyz.openbmc_project.mail.alert.secondary",
+                                        "Authentication", *authentication);
+                                }
+                            }
+                            else
+                            {
+                                setAuthentication(
+                                    asyncResp,
+                                    "xyz.openbmc_project.mail.alert.secondary",
+                                    *authentication);
+                            }
+                        }
+                        if (username)
+                        {
+                            setUsername(
+                                asyncResp,
+                                "xyz.openbmc_project.mail.alert.secondary",
+                                *username);
+                        }
+                        if (password)
+                        {
+                            setPassword(
+                                asyncResp,
+                                "xyz.openbmc_project.mail.alert.secondary",
+                                *password);
+                        }
+                        if (tlsenable)
+                        {
+                            std::cerr << "Checking tlsenable value ==>  "
+                                      << *tlsenable << "\n";
+                            if (*tlsenable)
+                            {
+                                bool isSecondrayCACERT = true;
+                                bool isSecondrayServerKey = true;
+                                bool isSecondrayServerCRT = true;
+
+                                /* Secondary SSL */
+
+                                std::cerr
+                                    << "SSL Secondary CACERT Context file= "
+                                    << sslSecondaryCACERTFile.c_str() << "\n";
+                                std::cerr << "SSL Secondary CRT Context file= "
+                                          << sslSecondaryServerCRTFile.c_str()
+                                          << "\n";
+                                std::cerr << "SSL Secondary Key Context file= "
+                                          << sslSecondaryServerKeyFile.c_str()
+                                          << "\n";
+
+                                isSecondrayCACERT =
+                                    ensureOpensslKeyPresentAndValid(
+                                        sslSecondaryCACERTFile);
+                                isSecondrayServerKey =
+                                    ensureOpensslKeyPresentAndValid(
+                                        sslSecondaryServerKeyFile);
+
+                                isSecondrayServerCRT =
+                                    ensureOpensslKeyPresentAndValid(
+                                        sslSecondaryServerCRTFile);
+
+                                if (!isSecondrayCACERT)
+                                {
+                                    std::cerr
+                                        << "Checking certs in inside checkfile exits "
+                                        << isSecondrayCACERT << "\n";
+                                    asyncResp->res
+                                        .jsonValue["Actions"]
+                                                  ["#SMTP.certificate"]
+                                                  ["target"] =
+                                        "/redfish/v1/EventService/Actions/Oem/Ami/SMTP.SecondarySSLCertificateUpload";
+                                    messages::propertyValueEmpty(
+                                        asyncResp->res,
+                                        "SSL cacert.pem Certificate is not exits",
+                                        sslSecondaryCACERTFile);
+                                    return;
+                                }
+                                else if (!isSecondrayServerKey)
+                                {
+                                    std::cerr
+                                        << "Checking certs in inside checkfile exits "
+                                        << isSecondrayServerKey << "\n";
+                                    asyncResp->res
+                                        .jsonValue["Actions"]
+                                                  ["#SMTP.certificate"]
+                                                  ["target"] =
+                                        "/redfish/v1/EventService/Actions/Oem/Ami/SMTP.SecondarySSLCertificateUpload";
+                                    messages::propertyValueEmpty(
+                                        asyncResp->res,
+                                        "SSL Server.crt Certificate is not exits",
+                                        sslPrimaryServerKeyFile);
+                                }
+                                else if (!isSecondrayServerCRT)
+                                {
+                                    std::cerr
+                                        << "Checking certs in inside checkfile exits "
+                                        << isSecondrayServerCRT << "\n";
+                                    asyncResp->res
+                                        .jsonValue["Actions"]
+                                                  ["#SMTP.certificate"]
+                                                  ["target"] =
+                                        "/redfish/v1/EventService/Actions/Oem/Ami/SMTP.SecondarySSLCertificateUpload";
+                                    messages::propertyValueEmpty(
+                                        asyncResp->res,
+                                        "SSL Server.Key Certificate is not exits",
+                                        sslSecondaryServerCRTFile);
+                                }
+                                else
+                                {
+                                    setTlsEnable(
+                                        asyncResp,
+                                        "xyz.openbmc_project.mail.alert.secondary",
+                                        *tlsenable);
+                                }
+                            }
+                            else
+                            {
+                                setTlsEnable(
+                                    asyncResp,
+                                    "xyz.openbmc_project.mail.alert.secondary",
+                                    *tlsenable);
+                            }
+                        }
+                        if (enable)
+                        {
+                            setServiceEnable(
+                                asyncResp,
+                                "xyz.openbmc_project.mail.alert.secondary",
+                                *enable);
+                        }
+                        if (host)
+                        {
+                            setHost(asyncResp,
+                                    "xyz.openbmc_project.mail.alert.secondary",
+                                    *host);
+                        }
+                        if (sender)
+                        {
+                            setSender(
+                                asyncResp,
+                                "xyz.openbmc_project.mail.alert.secondary",
+                                *sender);
+                        }
+                        if (port)
+                        {
+                            setport(asyncResp,
+                                    "xyz.openbmc_project.mail.alert.secondary",
+                                    *port);
+                        }
+                    }
+                }
+            }
+        }
 
         EventServiceManager::getInstance().setEventServiceConfig(
             eventServiceConfig);
@@ -177,14 +1565,27 @@ inline void requestRoutesSubmitTestEvent(App& app)
         {
             return;
         }
-        if (!EventServiceManager::getInstance().sendTestEventLog())
-        {
-            messages::serviceDisabled(asyncResp->res,
-                                      "/redfish/v1/EventService/");
-            return;
-        }
-        asyncResp->res.result(boost::beast::http::status::no_content);
+        //EventServiceManager::getInstance().readEventLogsFromFile();
+        bool status = EventServiceManager::getInstance().sendTestEventLog();
+        if (status)
+            asyncResp->res.result(boost::beast::http::status::no_content);
     });
+}
+
+inline void requestRoutesSSLEvent(App& app)
+{
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/EventService/Actions/Oem/Ami/SMTP.PrimarySSLCertificateUpload")
+        .privileges(redfish::privileges::postEventService)
+        .methods(boost::beast::http::verb::post)(std::bind_front(
+            handleSSLCertificatePrimaryUploadAction, std::ref(app)));
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/EventService/Actions/Oem/Ami/SMTP.SecondarySSLCertificateUpload")
+        .privileges(redfish::privileges::postEventService)
+        .methods(boost::beast::http::verb::post)(std::bind_front(
+            handleSSLCertificateSecondaryUploadAction, std::ref(app)));
 }
 
 inline void doSubscriptionCollection(
@@ -194,14 +1595,8 @@ inline void doSubscriptionCollection(
 {
     if (ec)
     {
-        if (ec.value() == EBADR || ec.value() == EHOSTUNREACH)
-        {
-            // This is an optional process so just return if it isn't there
-            return;
-        }
-
-        BMCWEB_LOG_ERROR("D-Bus response error on GetManagedObjects {}", ec);
-        messages::internalError(asyncResp->res);
+        // This is an optional process so just return if it isn't there
+        BMCWEB_LOG_DEBUG("EventService: The SNMP service is not enabled");
         return;
     }
     nlohmann::json& memberArray = asyncResp->res.jsonValue["Members"];
@@ -246,11 +1641,28 @@ inline void requestRoutesEventDestinationCollection(App& app)
 
         for (const std::string& id : subscripIds)
         {
+            if (id.starts_with("snmp"))
+            {
+                continue;
+            }
             nlohmann::json::object_t member;
             member["@odata.id"] = boost::urls::format(
                 "/redfish/v1/EventService/Subscriptions/{}" + id);
             memberArray.emplace_back(std::move(member));
         }
+
+        // Fill in Kafka subscriptions
+        std::vector<std::string> kafkaIds =
+            KafkaManager::getInstance().getAllIDs();
+        asyncResp->res.jsonValue["Members@odata.count"] = subscripIds.size() +
+                                                          kafkaIds.size();
+        for (const std::string& id : kafkaIds)
+        {
+            memberArray.push_back(
+                {{"@odata.id",
+                  "/redfish/v1/EventService/Subscriptions/" + id}});
+        }
+
         crow::connections::systemBus->async_method_call(
             [asyncResp](const boost::system::error_code& ec,
                         const dbus::utility::ManagedObjectType& resp) {
@@ -278,6 +1690,7 @@ inline void requestRoutesEventDestinationCollection(App& app)
         }
         std::string destUrl;
         std::string protocol;
+        std::optional<std::string> vId;
         std::optional<std::string> context;
         std::optional<std::string> subscriptionType;
         std::optional<std::string> eventFormatType2;
@@ -287,15 +1700,32 @@ inline void requestRoutesEventDestinationCollection(App& app)
         std::optional<std::vector<std::string>> resTypes;
         std::optional<std::vector<nlohmann::json::object_t>> headers;
         std::optional<std::vector<nlohmann::json::object_t>> mrdJsonArray;
+        std::optional<nlohmann::json> oemObj;
 
         if (!json_util::readJsonPatch(
                 req, asyncResp->res, "Destination", destUrl, "Context", context,
                 "Protocol", protocol, "SubscriptionType", subscriptionType,
                 "EventFormatType", eventFormatType2, "HttpHeaders", headers,
-                "RegistryPrefixes", regPrefixes, "MessageIds", msgIds,
-                "DeliveryRetryPolicy", retryPolicy, "MetricReportDefinitions",
-                mrdJsonArray, "ResourceTypes", resTypes))
+                "RegistryPrefixes", regPrefixes, "MessageIds", msgIds, "Id",
+                vId, "DeliveryRetryPolicy", retryPolicy,
+                "MetricReportDefinitions", mrdJsonArray, "ResourceTypes",
+                resTypes, "Oem", oemObj))
         {
+            return;
+        }
+
+        if (vId)
+        {
+            messages::propertyNotWritable(asyncResp->res, "Id");
+            asyncResp->res.result(boost::beast::http::status::bad_request);
+            return;
+        }
+
+        if (protocol == "Oem")
+        {
+            // Handle to support Kafka streaming support
+            KafkaManager::getInstance().createSubscription(*oemObj, destUrl,
+                                                           context, asyncResp);
             return;
         }
 
@@ -336,83 +1766,99 @@ inline void requestRoutesEventDestinationCollection(App& app)
             url->set_path("/");
         }
 
-        if (url->has_userinfo())
+        if (protocol != "SNMPv3" && url->has_userinfo())
         {
             messages::propertyValueFormatError(asyncResp->res, destUrl,
                                                "Destination");
             return;
         }
 
-        if (protocol == "SNMPv2c")
-        {
+        /* if (protocol == "SNMPv2c")
+         {
             if (context)
-            {
-                messages::propertyValueConflict(asyncResp->res, "Context",
-                                                "Protocol");
-                return;
-            }
-            if (eventFormatType2)
-            {
-                messages::propertyValueConflict(asyncResp->res,
-                                                "EventFormatType", "Protocol");
-                return;
-            }
-            if (retryPolicy)
-            {
-                messages::propertyValueConflict(asyncResp->res, "RetryPolicy",
-                                                "Protocol");
-                return;
-            }
-            if (msgIds)
-            {
-                messages::propertyValueConflict(asyncResp->res, "MessageIds",
-                                                "Protocol");
-                return;
-            }
-            if (regPrefixes)
-            {
-                messages::propertyValueConflict(asyncResp->res,
-                                                "RegistryPrefixes", "Protocol");
-                return;
-            }
-            if (resTypes)
-            {
-                messages::propertyValueConflict(asyncResp->res, "ResourceTypes",
-                                                "Protocol");
-                return;
-            }
-            if (headers)
-            {
-                messages::propertyValueConflict(asyncResp->res, "HttpHeaders",
-                                                "Protocol");
-                return;
-            }
-            if (mrdJsonArray)
-            {
-                messages::propertyValueConflict(
-                    asyncResp->res, "MetricReportDefinitions", "Protocol");
-                return;
-            }
-            if (url->scheme() != "snmp")
-            {
-                messages::propertyValueConflict(asyncResp->res, "Destination",
-                                                "Protocol");
-                return;
-            }
+             {
+                 messages::propertyValueConflict(asyncResp->res, "Context",
+                                                 "Protocol");
+                 return;
+             }
+             if (eventFormatType2)
+             {
+                 messages::propertyValueConflict(asyncResp->res,
+                                                 "EventFormatType", "Protocol");
+                 return;
+             }
+             if (retryPolicy)
+             {
+                 messages::propertyValueConflict(asyncResp->res, "RetryPolicy",
+                                                 "Protocol");
+                 return;
+             }
+             if (msgIds)
+             {
+                 messages::propertyValueConflict(asyncResp->res, "MessageIds",
+                                                 "Protocol");
+                 return;
+             }
+             if (regPrefixes)
+             {
+                 messages::propertyValueConflict(asyncResp->res,
+                                                 "RegistryPrefixes",
+         "Protocol"); return;
+             }
+             if (resTypes)
+             {
+                 messages::propertyValueConflict(asyncResp->res,
+         "ResourceTypes", "Protocol"); return;
+             }
+             if (headers)
+             {
+                 messages::propertyValueConflict(asyncResp->res, "HttpHeaders",
+                                                 "Protocol");
+                 return;
+             }
+             if (mrdJsonArray)
+             {
+                 messages::propertyValueConflict(
+                     asyncResp->res, "MetricReportDefinitions", "Protocol");
+                 return;
+             }
+             if (url->scheme() != "snmp")
+             {
+                 messages::propertyValueConflict(asyncResp->res, "Destination",
+                                                 "Protocol");
+                 return;
+             }
+             if (*subscriptionType == "RedfishEvent")
+             {
+                 messages::propertyValueConflict(asyncResp->res,
+                                                 "SubscriptionType",
+         "Protocol"); return;
+             }
+             addSnmpTrapClient(asyncResp, url->host_address(),
+                               url->port_number());
+             return;
+         }*/
 
-            addSnmpTrapClient(asyncResp, url->host_address(),
-                              url->port_number());
+        if (req.session == nullptr || req.session->username.empty())
+        {
+            BMCWEB_LOG_ERROR("Request Session Undefined");
+            messages::noValidSession(asyncResp->res);
             return;
         }
 
         std::shared_ptr<Subscription> subValue =
             std::make_shared<Subscription>(*url, app.ioContext());
 
-        subValue->destinationUrl = std::move(*url);
+        subValue->destinationUrl = *url;
+        subValue->owner = req.session->username;
 
         if (subscriptionType)
         {
-            if (*subscriptionType != "RedfishEvent")
+            if ((protocol == "Redfish" &&
+                 *subscriptionType != "RedfishEvent") ||
+                (protocol == "SNMPv2c" && *subscriptionType != "SNMPTrap") ||
+                (protocol == "SNMPv3" && *subscriptionType != "SNMPTrap") ||
+                (protocol == "SNMPv1" && *subscriptionType != "SNMPTrap"))
             {
                 messages::propertyValueNotInList(
                     asyncResp->res, *subscriptionType, "SubscriptionType");
@@ -422,10 +1868,19 @@ inline void requestRoutesEventDestinationCollection(App& app)
         }
         else
         {
-            subValue->subscriptionType = "RedfishEvent"; // Default
+            if (protocol == "SNMPv1" || protocol == "SNMPv2c" ||
+                protocol == "SNMPv3")
+            {
+                subValue->subscriptionType = "SNMPTrap";
+            }
+            else
+            {
+                subValue->subscriptionType = "RedfishEvent"; // Default
+            }
         }
 
-        if (protocol != "Redfish")
+        if ((protocol != "Redfish") && (protocol != "SNMPv2c") &&
+            (protocol != "SNMPv3") && (protocol != "SNMPv1"))
         {
             messages::propertyValueNotInList(asyncResp->res, protocol,
                                              "Protocol");
@@ -435,14 +1890,29 @@ inline void requestRoutesEventDestinationCollection(App& app)
 
         if (eventFormatType2)
         {
-            if (std::ranges::find(supportedEvtFormatTypes, *eventFormatType2) ==
-                supportedEvtFormatTypes.end())
+            if (protocol == "SNMPv2c" || protocol == "SNMPv3" ||
+                protocol == "SNMPv1")
             {
-                messages::propertyValueNotInList(
-                    asyncResp->res, *eventFormatType2, "EventFormatType");
-                return;
+                if (*eventFormatType2 != "Event")
+                {
+                    messages::propertyValueNotInList(
+                        asyncResp->res, *eventFormatType2, "EventFormatType");
+                    return;
+                }
+                subValue->eventFormatType = *eventFormatType2;
             }
-            subValue->eventFormatType = *eventFormatType2;
+            else
+            {
+                if (std::ranges::find(supportedEvtFormatTypes,
+                                      *eventFormatType2) ==
+                    supportedEvtFormatTypes.end())
+                {
+                    messages::propertyValueNotInList(
+                        asyncResp->res, *eventFormatType2, "EventFormatType");
+                    return;
+                }
+                subValue->eventFormatType = *eventFormatType2;
+            }
         }
         else
         {
@@ -611,18 +2081,82 @@ inline void requestRoutesEventDestinationCollection(App& app)
             }
         }
 
-        std::string id =
-            EventServiceManager::getInstance().addSubscription(subValue);
-        if (id.empty())
+        // Default is Enabled, when subscription is suspended, this will
+        // be set to "Disabled" state.
+        subValue->state = "Enabled";
+
+        if (protocol == "SNMPv2c" || protocol == "SNMPv3" ||
+            protocol == "SNMPv1")
         {
-            messages::internalError(asyncResp->res);
+            // Default Enabled SNMPTrap before creating snmp client
+            setprotocolEnable(asyncResp);
+
+            if (protocol == "SNMPv3" && url->has_userinfo() == false)
+            {
+                BMCWEB_LOG_DEBUG("Missing UserName in Destination");
+                messages::propertyValueFormatError(asyncResp->res, destUrl,
+                                                   "Destination");
+                return;
+            }
+            addSnmpTrapClient(asyncResp, url->host_address(),
+                              url->port_number(), protocol, url->user(),
+                              subValue);
             return;
         }
+
+        std::string id;
+        EventServiceManager::getInstance().addSubscription(subValue, id);
 
         messages::created(asyncResp->res);
         asyncResp->res.addHeader(
             "Location", "/redfish/v1/EventService/Subscriptions/" + id);
     });
+}
+
+bool isConfigureManagerOrSelf(const crow::Request& req,
+                              const std::shared_ptr<Subscription>& subValue)
+{
+    Privileges effectiveUserPrivileges =
+        redfish::getUserPrivileges(*req.session);
+    bool isConfigureManager =
+        effectiveUserPrivileges.isSupersetOf({"ConfigureManager"});
+
+    if (!isConfigureManager)
+    {
+        // If the user does not have Configure manager privilege
+        // then the user must be an Operator (i.e. Configure
+        // Components and Self)
+        // We need to ensure that the User is the actual owner of
+        // the Subscription being patched
+        // This also supports backward compatibility as subscription
+        // owner would be empty which would not be equal to current
+        // user, enabling only Admin to be able to patch the
+        // Subscription
+
+        if (req.session == nullptr || req.session->username.empty())
+        {
+            BMCWEB_LOG_ERROR(
+                "Insufficient Privilege. Request Session Undefined");
+            return false;
+        }
+
+        if (subValue->owner != req.session->username)
+        {
+            BMCWEB_LOG_ERROR(
+                "Insufficient Privilege. User is not the owner of this Subscription");
+            return false;
+        }
+    }
+    return true;
+}
+
+inline bool validAuthProtocol(std::optional<std::string> authProtocol)
+{
+    if (authProtocol == "SHA256" || authProtocol == "SHA384" ||
+        authProtocol == "SHA512")
+        return true;
+    else
+        return false;
 }
 
 inline void requestRoutesEventDestination(App& app)
@@ -648,7 +2182,8 @@ inline void requestRoutesEventDestination(App& app)
             EventServiceManager::getInstance().getSubscription(param);
         if (subValue == nullptr)
         {
-            asyncResp->res.result(boost::beast::http::status::not_found);
+            // Lookup in Kafka subscriptions
+            KafkaManager::getInstance().getSubscription(param, asyncResp);
             return;
         }
         const std::string& id = param;
@@ -672,6 +2207,8 @@ inline void requestRoutesEventDestination(App& app)
 
         asyncResp->res.jsonValue["MessageIds"] = subValue->registryMsgIds;
         asyncResp->res.jsonValue["DeliveryRetryPolicy"] = subValue->retryPolicy;
+        asyncResp->res.jsonValue["Status"]["Health"] = "OK";
+        asyncResp->res.jsonValue["Status"]["State"] = subValue->state;
 
         nlohmann::json::array_t mrdJsonArray;
         for (const auto& mdrUri : subValue->metricReportDefinitions)
@@ -683,11 +2220,7 @@ inline void requestRoutesEventDestination(App& app)
         asyncResp->res.jsonValue["MetricReportDefinitions"] = mrdJsonArray;
     });
     BMCWEB_ROUTE(app, "/redfish/v1/EventService/Subscriptions/<str>/")
-        // The below privilege is wrong, it should be ConfigureManager OR
-        // ConfigureSelf
-        // https://github.com/openbmc/bmcweb/issues/220
-        //.privileges(redfish::privileges::patchEventDestination)
-        .privileges({{"ConfigureManager"}})
+        .privileges(redfish::privileges::patchEventDestination)
         .methods(boost::beast::http::verb::patch)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -698,19 +2231,33 @@ inline void requestRoutesEventDestination(App& app)
         }
         std::shared_ptr<Subscription> subValue =
             EventServiceManager::getInstance().getSubscription(param);
-        if (subValue == nullptr)
+        if (subValue == nullptr && !param.starts_with("snmp"))
         {
-            asyncResp->res.result(boost::beast::http::status::not_found);
+            // Lookup in Kafka subscriptions
+            KafkaManager::getInstance().updateSubscription(req, param,
+                                                           asyncResp);
+            return;
+        }
+
+        if (!isConfigureManagerOrSelf(req, subValue))
+        {
+            messages::insufficientPrivilege(asyncResp->res);
             return;
         }
 
         std::optional<std::string> context;
         std::optional<std::string> retryPolicy;
         std::optional<std::vector<nlohmann::json::object_t>> headers;
+        std::optional<std::string> authenticationProtocol;
+        std::optional<std::string> protocol;
+        std::optional<std::string> destUrl;
 
-        if (!json_util::readJsonPatch(req, asyncResp->res, "Context", context,
-                                      "DeliveryRetryPolicy", retryPolicy,
-                                      "HttpHeaders", headers))
+        if (!json_util::readJsonPatch(
+                req, asyncResp->res, "Context", context, "DeliveryRetryPolicy",
+                retryPolicy, "HttpHeaders", headers,
+                "SNMP/AuthenticationProtocol", authenticationProtocol,
+                "Protocol", protocol, "Destination", destUrl))
+
         {
             return;
         }
@@ -754,14 +2301,90 @@ inline void requestRoutesEventDestination(App& app)
             subValue->retryPolicy = *retryPolicy;
         }
 
-        EventServiceManager::getInstance().updateSubscriptionData();
+        if (protocol)
+        {
+            if ((protocol != "Redfish") && (protocol != "SNMPv2c") &&
+                (protocol != "SNMPv3") && (protocol != "SNMPv1"))
+            {
+                messages::propertyValueNotInList(asyncResp->res, *protocol,
+                                                 "Protocol");
+                return;
+            }
+
+            if (protocol == "Redfish")
+            {
+                subValue->protocol = *protocol;
+            }
+            else if (protocol == "SNMPv1" || protocol == "SNMPv2c" ||
+                     protocol == "snmpv3")
+            {
+                if (protocol == "SNMPv3" && !destUrl)
+                {
+                    BMCWEB_LOG_DEBUG("Missing UserName in Destination");
+                    messages::propertyMissing(asyncResp->res, "Destination");
+                    return;
+                }
+                handleSetProptocol(asyncResp, param, protocol);
+                subValue->protocol = *protocol;
+            }
+        }
+        if (destUrl)
+        {
+            boost::system::result<boost::urls::url> url =
+                boost::urls::parse_absolute_uri(*destUrl);
+            if (!url)
+            {
+                BMCWEB_LOG_WARNING(
+                    "Failed to validate and split destination url");
+                messages::propertyValueFormatError(asyncResp->res, *destUrl,
+                                                   "Destination");
+                return;
+            }
+
+            url->normalize();
+            crow::utility::setProtocolDefaults(*url, subValue->protocol);
+            crow::utility::setPortDefaults(*url);
+            if ((protocol == "SNMPv3" || subValue->protocol == "SNMPv3") &&
+                url->has_userinfo() == false)
+            {
+                BMCWEB_LOG_DEBUG("Missing UserName in Destination");
+                messages::propertyValueFormatError(asyncResp->res, *destUrl,
+                                                   "Destination");
+                return;
+            }
+
+            if (protocol == "Redfish")
+            {
+                subValue->destinationUrl = *url;
+            }
+            else
+            {
+                handleDestUriPatch(asyncResp, param, url->host_address(),
+                                   url->user());
+                subValue->destinationUrl = *url;
+            }
+        }
+
+        if (authenticationProtocol)
+        {
+            if (validAuthProtocol(authenticationProtocol))
+            {
+                setSnmpTrapClient(asyncResp, param, authenticationProtocol);
+                return;
+            }
+            else
+            {
+                messages::propertyValueIncorrect(asyncResp->res,
+                                                 "AuthenticationProtocol",
+                                                 *authenticationProtocol);
+                return;
+            }
+        }
+        EventServiceManager::getInstance().updateSubscription(param);
+        asyncResp->res.result(boost::beast::http::status::no_content);
     });
     BMCWEB_ROUTE(app, "/redfish/v1/EventService/Subscriptions/<str>/")
-        // The below privilege is wrong, it should be ConfigureManager OR
-        // ConfigureSelf
-        // https://github.com/openbmc/bmcweb/issues/220
-        //.privileges(redfish::privileges::deleteEventDestination)
-        .privileges({{"ConfigureManager"}})
+        .privileges(redfish::privileges::deleteEventDestination)
         .methods(boost::beast::http::verb::delete_)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -778,12 +2401,23 @@ inline void requestRoutesEventDestination(App& app)
             return;
         }
 
-        if (!EventServiceManager::getInstance().isSubscriptionExist(param))
+        std::shared_ptr<Subscription> subValue =
+            EventServiceManager::getInstance().getSubscription(param);
+        if (subValue == nullptr)
         {
-            asyncResp->res.result(boost::beast::http::status::not_found);
+            // Lookup in Kafka subscription.
+            KafkaManager::getInstance().deleteSubscription(param, asyncResp);
             return;
         }
+
+        if (!isConfigureManagerOrSelf(req, subValue))
+        {
+            messages::insufficientPrivilege(asyncResp->res);
+            return;
+        }
+
         EventServiceManager::getInstance().deleteSubscription(param);
+        asyncResp->res.result(boost::beast::http::status::no_content);
     });
 }
 

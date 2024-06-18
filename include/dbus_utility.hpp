@@ -50,6 +50,9 @@ namespace utility
 
 // clang-format off
 using DbusVariantType = std::variant<
+    std::tuple<bool,std::string>,
+    std::vector<std::tuple<std::string, bool, bool, std::string>>,
+    std::tuple<bool, uint8_t, std::string>,	
     std::vector<std::tuple<std::string, std::string, std::string>>,
     std::vector<std::string>,
     std::vector<double>,

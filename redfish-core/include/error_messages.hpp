@@ -436,6 +436,18 @@ nlohmann::json chassisPowerStateOffRequired(std::string_view arg1);
 void chassisPowerStateOffRequired(crow::Response& res, std::string_view arg1);
 
 /**
+ * @brief Formats InterfaceDisabled message into JSON
+ * Message body: "The property could not be written because its value would
+ * conflict with the value of the property '<arg1>' which is disabled."
+ *
+ * @param[in] arg1 Parameter of message that will replace %1 in its body.
+ *
+ * @returns Message interfaceDisabled formatted to JSON */
+nlohmann::json interfaceDisabled(std::string_view arg1);
+
+void interfaceDisabled(crow::Response& res, std::string_view arg1);
+
+/**
  * @brief Formats PropertyValueConflict message into JSON
  * Message body: "The property '<arg1>' could not be written because its value
  * would conflict with the value of the '<arg2>' property."
@@ -1106,6 +1118,50 @@ nlohmann::json arraySizeTooLong(std::string_view property, uint64_t length);
 
 void arraySizeTooLong(crow::Response& res, std::string_view property,
                       uint64_t length);
+
+/**
+ * @brief Formats InvalidQueryFilter message into JSON
+ * Message body: "The requested URL contains the invalid query filters"
+ *
+ * @returns Message InvalidQueryFilter formatted to JSON */
+nlohmann::json invalidQueryFilter();
+
+void invalidQueryFilter(crow::Response& res);
+
+nlohmann::json invalidip(std::string_view arg1, std::string_view arg2);
+void invalidip(crow::Response& res, std::string_view arg1,
+               std::string_view arg2);
+
+/**
+ * @internal
+ * @brief Formats PropertyValueEmpty message into JSON
+ *
+ * See header file for more information
+ * @endinternal
+ */
+nlohmann::json propertyValueEmpty(std::string_view arg1, std::string_view arg2);
+void propertyValueEmpty(crow::Response& res, std::string_view arg1,
+                        std::string_view arg2);
+
+/**
+ * @brief Formats PasswordResetFailed message into JSON
+ * Message body: "Last password cannot be used to reset the redfish account
+ * password. Please change the password value and resubmit the request"
+ *
+ *  @returns Message PasswordResetFailed formatted to JSON */
+nlohmann::json passwordResetFailed();
+
+void passwordResetFailed(crow::Response& res);
+
+/**
+ * @brief Formats differentIpSeries message into JSON
+ * Message body: "The values of <arg1> and <arg2> are in different series."
+ *
+ * @returns Message differentIpSeries formatted to JSON*/
+
+nlohmann::json differentIpSeries(std::string_view arg1, std::string_view arg2);
+void differentIpSeries(crow::Response& res, std::string_view arg1,
+                       std::string_view arg2);
 
 } // namespace messages
 

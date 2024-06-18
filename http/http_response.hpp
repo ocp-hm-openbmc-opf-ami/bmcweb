@@ -21,10 +21,18 @@ class Connection;
 
 namespace http = boost::beast::http;
 
+namespace sse_socket
+{
+template <typename Adaptor>
+class ConnectionImpl;
+} // namespace sse_socket
+
 struct Response
 {
     template <typename Adaptor, typename Handler>
     friend class crow::Connection;
+    template <typename Adaptor>
+    friend class crow::sse_socket::ConnectionImpl;
 
     http::response<bmcweb::HttpBody> response;
 
@@ -275,6 +283,7 @@ struct Response
         }
         size_t hashval = std::hash<nlohmann::json>{}(jsonValue);
         std::string hexVal = "\"" + intToHexString(hashval, 8) + "\"";
+        clearHeader(http::field::etag);
         addHeader(http::field::etag, hexVal);
         if (expectedHash && hexVal == *expectedHash)
         {

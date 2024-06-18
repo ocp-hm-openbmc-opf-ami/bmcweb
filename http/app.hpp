@@ -62,9 +62,10 @@ class App
     }
 
     void handle(const std::shared_ptr<Request>& req,
-                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                bool requestRedirect = false)
     {
-        router.handle(req, asyncResp);
+        router.handle(req, asyncResp, requestRedirect);
     }
 
     DynamicRule& routeDynamic(const std::string& rule)

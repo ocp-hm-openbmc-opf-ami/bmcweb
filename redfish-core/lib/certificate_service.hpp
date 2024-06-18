@@ -43,6 +43,7 @@ constexpr const char* httpsObjectPath =
 constexpr const char* ldapObjectPath = "/xyz/openbmc_project/certs/client/ldap";
 constexpr const char* authorityObjectPath =
     "/xyz/openbmc_project/certs/authority/truststore";
+constexpr std::string_view CertificateExistsError = "xyz.openbmc_project.Certs.Error.CertificateExists";
 } // namespace certs
 
 /**
@@ -395,6 +396,33 @@ static void
         service, objectPath, certs::objDeleteIntf, "Delete");
 }
 
+/**
+ * @brief Handle the certificate error message from D-Bus.
+ *
+ * @param[in] req Request body
+ * @param[in] asyncResp Shared pointer to the response message
+ * @param[in] sd_bus_error sdbus error pointer
+ * @param[in] value value of certificate property
+ * @return None
+ */
+inline void
+    errorMessageHandler(const crow::Request& req, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                        const sd_bus_error* e, const std::string& value)
+{
+    if (e == nullptr)
+    {
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    BMCWEB_LOG_ERROR("Certificate error name: {}, message: {}", e->name, e->message);
+
+    if(e->name == certs::CertificateExistsError){
+        messages::resourceCreationConflict(asyncResp->res, req.url());
+    }else {
+        messages::propertyValueIncorrect(asyncResp->res, "CertificateString", value);
+    }
+}
+
 inline void handleCertificateServiceGet(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
@@ -546,8 +574,8 @@ inline void handleReplaceCertificateAction(
     std::shared_ptr<CertificateFile> certFile =
         std::make_shared<CertificateFile>(certificate);
     crow::connections::systemBus->async_method_call(
-        [asyncResp, certFile, objectPath, service, url{*parsedUrl}, id,
-         name](const boost::system::error_code& ec) {
+        [asyncResp, certFile, objectPath, service, url{*parsedUrl}, id, name,
+         certURI, certificate](const boost::system::error_code& ec) {
         if (ec)
         {
             BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
@@ -557,12 +585,14 @@ inline void handleReplaceCertificateAction(
                 messages::resourceNotFound(asyncResp->res, "Certificate", id);
                 return;
             }
-            messages::internalError(asyncResp->res);
+	    messages::propertyValueIncorrect(asyncResp->res, certificate, "Certificate");
+            //messages::internalError(asyncResp->res);
             return;
         }
-        getCertificateProperties(asyncResp, objectPath, service, id, url, name);
         BMCWEB_LOG_DEBUG("HTTPS certificate install file={}",
                          certFile->getCertFilePath());
+        asyncResp->res.addHeader(boost::beast::http::field::location, certURI);
+        asyncResp->res.result(boost::beast::http::status::no_content);
     },
         service, objectPath, certs::certReplaceIntf, "Replace",
         certFile->getCertFilePath());
@@ -690,6 +720,13 @@ inline void
         messages::actionParameterNotSupported(
             asyncResp->res, "CertificateCollection", "GenerateCSR");
         return;
+    }
+
+    //Supporting only secp384r1 keyCurveId
+    if(*optKeyCurveId != "secp384r1")
+    {
+            messages::propertyValueIncorrect(asyncResp->res,"KeyCurveId",*optKeyCurveId);
+            return;
     }
 
     // supporting only EC and RSA algorithm
@@ -935,12 +972,11 @@ inline void handleHTTPSCertificateCollectionPost(
         std::make_shared<CertificateFile>(certHttpBody);
 
     crow::connections::systemBus->async_method_call(
-        [asyncResp, certFile](const boost::system::error_code& ec,
-                              const std::string& objectPath) {
+        [req, asyncResp, certFile, certHttpBody](const boost::system::error_code& ec,
+        const sdbusplus::message_t& msg, const std::string& objectPath) {
         if (ec)
         {
-            BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
-            messages::internalError(asyncResp->res);
+            errorMessageHandler(req, asyncResp, msg.get_error(), certHttpBody);
             return;
         }
 
@@ -953,6 +989,8 @@ inline void handleHTTPSCertificateCollectionPost(
                                  certId, certURL, "HTTPS Certificate");
         BMCWEB_LOG_DEBUG("HTTPS certificate install file={}",
                          certFile->getCertFilePath());
+
+        asyncResp->res.result(boost::beast::http::status::created);
     },
         certs::httpsServiceName, certs::httpsObjectPath, certs::certInstallIntf,
         "Install", certFile->getCertFilePath());
@@ -1049,12 +1087,11 @@ inline void handleLDAPCertificateCollectionPost(
         std::make_shared<CertificateFile>(certHttpBody);
 
     crow::connections::systemBus->async_method_call(
-        [asyncResp, certFile](const boost::system::error_code& ec,
-                              const std::string& objectPath) {
+        [req, asyncResp, certFile, certHttpBody](const boost::system::error_code& ec,
+        const sdbusplus::message_t& msg, const std::string& objectPath) {
         if (ec)
         {
-            BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
-            messages::internalError(asyncResp->res);
+            errorMessageHandler(req, asyncResp, msg.get_error(), certHttpBody);
             return;
         }
 
@@ -1066,6 +1103,8 @@ inline void handleLDAPCertificateCollectionPost(
                                  certId, certURL, "LDAP Certificate");
         BMCWEB_LOG_DEBUG("LDAP certificate install file={}",
                          certFile->getCertFilePath());
+
+        asyncResp->res.result(boost::beast::http::status::created);
     },
         certs::ldapServiceName, certs::ldapObjectPath, certs::certInstallIntf,
         "Install", certFile->getCertFilePath());
@@ -1186,12 +1225,11 @@ inline void handleTrustStoreCertificateCollectionPost(
     std::shared_ptr<CertificateFile> certFile =
         std::make_shared<CertificateFile>(certHttpBody);
     crow::connections::systemBus->async_method_call(
-        [asyncResp, certFile](const boost::system::error_code& ec,
-                              const std::string& objectPath) {
+        [req, asyncResp, certFile, certHttpBody](const boost::system::error_code& ec,
+        const sdbusplus::message_t& msg, const std::string& objectPath) {
         if (ec)
         {
-            BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
-            messages::internalError(asyncResp->res);
+            errorMessageHandler(req, asyncResp, msg.get_error(), certHttpBody);
             return;
         }
 
@@ -1205,6 +1243,8 @@ inline void handleTrustStoreCertificateCollectionPost(
                                  "TrustStore Certificate");
         BMCWEB_LOG_DEBUG("TrustStore certificate install file={}",
                          certFile->getCertFilePath());
+
+        asyncResp->res.result(boost::beast::http::status::created);
     },
         certs::authorityServiceName, certs::authorityObjectPath,
         certs::certInstallIntf, "Install", certFile->getCertFilePath());

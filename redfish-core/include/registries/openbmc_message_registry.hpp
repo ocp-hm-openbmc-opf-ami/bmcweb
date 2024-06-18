@@ -18,7 +18,7 @@
 namespace redfish::registries::openbmc
 {
 const Header header = {
-    "Copyright 2022 OpenBMC. All rights reserved.",
+    "Copyright 2023 OpenBMC. All rights reserved.",
     "#MessageRegistry.v1_4_0.MessageRegistry",
     "OpenBMC.0.4.0",
     "OpenBMC Message Registry",
@@ -374,6 +374,36 @@ constexpr std::array registry =
             "None.",
         }},
     MessageEntry{
+        "BMCTimeUpdatedViaHost",
+        {
+            "Indicates that BMC time has been set via Host.",
+            "BMC time has been set via Host. Date Time is set to %1 from %2.",
+            "OK",
+           2,
+            {"string", "string"},
+            "None.",
+        }},
+    MessageEntry{
+        "BMCTimeUpdatedManually",
+       {
+            "Indicates that BMC time has been set Manually.",
+            "BMC time has been set Manually. Date Time is set to %1 from %2.",
+            "OK",
+            2,
+            {"string", "string"},
+            "None.",
+        }},
+    MessageEntry{
+        "BMCTimeUpdatedViaNTP",
+        {
+            "Indicates that BMC time has been set via NTP.",
+            "BMC time has been set via NTP. Date Time is set to %1 from %2.",
+            "OK",
+            2,
+            {"string", "string"},
+            "None.",
+        }},
+    MessageEntry{
         "ChassisIntrusionDetected",
         {
             "Indicates that a physical security event of the chassis intrusion has occurred.",
@@ -445,6 +475,42 @@ constexpr std::array registry =
             "OK",
             0,
             {},
+            "None.",
+        }},
+    MessageEntry{
+        "EventSubscriptionAdded",
+        {
+            "Indicates that an Event subscription with specific id was added.",
+            "Event subscription with id %1 was added.",
+            "OK",
+            1,
+            {
+                "string",
+            },
+            "None.",
+        }},
+    MessageEntry{
+        "EventSubscriptionRemoved",
+        {
+            "Indicates that an Event subscription with specific id was removed.",
+            "Event subscription with id %1 was removed.",
+            "OK",
+            1,
+            {
+                "string",
+            },
+            "None.",
+        }},
+    MessageEntry{
+        "EventSubscriptionUpdated",
+        {
+            "Indicates that an Event subscription with specific id was updated.",
+            "Event subscription with id %1 was updated.",
+            "OK",
+            1,
+            {
+                "string",
+            },
             "None.",
         }},
     MessageEntry{
@@ -1945,6 +2011,66 @@ constexpr std::array registry =
             "None.",
         }},
     MessageEntry{
+        "SensorProcessorPresence",
+        {
+            "Indicates that Processor Presence is detected",
+            "%1 asserted %2 Event",
+            "OK",
+            2,
+            {"string", "string"},
+            "None.",
+        }},
+    MessageEntry{
+        "SensorWatchdog2",
+        {
+            "Indicates that Watchdog2 Event Detected",
+            "%1 asserted %2 Event",
+            "OK",
+            2,
+            {"string", "string"},
+            "None.",
+        }},
+    MessageEntry{
+        "OSCriticalStop",
+        {
+            "Indicates that Critical Event in Operating System is Detected",
+            "%1 Event is detected in Operating System",
+            "OK",
+            1,
+            {"string"},
+            "None.",
+        }},
+    MessageEntry{
+        "SensorSystemACPIPowerState",
+        {
+            "Indicates System ACPI Power State Event Detected",
+            "%1 asserted %2 Event",
+            "OK",
+            2,
+            {"string", "string"},
+            "None.",
+        }},
+    MessageEntry{
+        "SensorDeviceACPIPowerStateAssert",
+        {
+            "Indicates Device ACPI Power State Event Detected",
+            "%1 asserted %2 Event",
+            "OK",
+            2,
+            {"string", "string"},
+            "None.",
+        }},
+    MessageEntry{
+        "SensorDeviceACPIPowerStateDeassert",
+        {
+            "Indicates Device ACPI Power State Event Detected",
+            "%1 deasserted %2 Event",
+            "OK",
+            2,
+            {"string", "string"},
+            "None.",
+        }},
+    MessageEntry{
         "ResetButtonPressed",
         {
             "Indicates that the reset button was pressed.",
@@ -2255,6 +2381,36 @@ constexpr std::array registry =
             "None.",
         }},
     MessageEntry{
+        "StateSensorNormal",
+        {
+            "Indicates that a state sensor has changed state to normal.",
+            "%1 of %2 state sensor changed from %3 to %4.",
+            "OK",
+            4,
+            {"string", "string", "string", "string"},
+            "None.",
+        }},
+    MessageEntry{
+        "StateSensorWarning",
+        {
+            "Indicates that a state sensor has changed state to warning.",
+            "%1 of %2 state sensor changed from %3 to %4.",
+            "Warning",
+            4,
+            {"string", "string", "string", "string"},
+            "Check sensor subsystem for errors.",
+        }},
+    MessageEntry{
+        "StateSensorCritical",
+        {
+            "Indicates that a state sensor has changed state to critical.",
+            "%1 of %2 state sensor changed from %3 to %4.",
+            "Critical",
+            4,
+            {"string", "string", "string", "string"},
+            "Check sensor subsystem for errors.",
+        }},
+    MessageEntry{
         "SystemInterfaceDisabledProvisioned",
         {
             "Indicates that the system interface is in the disabled provisioned state. All commands are blocked to execute through the system interface.",
@@ -2327,6 +2483,64 @@ constexpr std::array registry =
             "None.",
         }},
     MessageEntry{
+        "TriggerNumericWarning",
+        {
+            "Indicates that numeric trigger threshold is crossed.",
+            "Numeric threshold '%1' of trigger '%2' is crossed on sensor %3, "
+            "recorded value: %4, crossing direction: %5, timestamp: %6",
+            "Warning",
+            6,
+            {"string", "string", "string", "number", "string", "string"},
+            "None.",
+        }},
+    MessageEntry{
+        "TriggerNumericCritical",
+        {
+            "Indicates that numeric trigger threshold is crossed and may "
+            "require attention.",
+            "Numeric threshold '%1' of trigger '%2' is crossed on sensor %3, "
+            "recorded value: %4, crossing direction: %5, timestamp: %6",
+            "Critical",
+            6,
+            {"string", "string", "string", "number", "string", "string"},
+            "None.",
+        }},
+    MessageEntry{
+        "TriggerDiscreteOK",
+        {
+            "Indicates that discrete trigger condition is met.",
+            "Discrete condition '%1' of trigger '%2' is met on sensor %3, "
+            "recorded value: %4, timestamp: %5",
+            "OK",
+            5,
+            {"string", "string", "string", "string", "string"},
+            "None.",
+        }},
+    MessageEntry{
+        "TriggerDiscreteWarning",
+        {
+            "Indicates that discrete trigger condition is met and may require "
+            "attention.",
+            "Discrete condition '%1' of trigger '%2' is met on sensor %3, "
+            "recorded value: %4, timestamp: %5",
+            "Warning",
+            5,
+            {"string", "string", "string", "string", "string"},
+            "None.",
+        }},
+    MessageEntry{
+        "TriggerDiscreteCritical",
+        {
+            "Indicates that discrete trigger condition is met and requires "
+            "immediate attention.",
+            "Discrete condition '%1' of trigger '%2' is met on sensor %3, "
+            "recorded value: %4, timestamp: %5",
+            "Critical",
+            5,
+            {"string", "string", "string", "string", "string"},
+            "None.",
+        }},
+    MessageEntry{
         "VoltageRegulatorOverheated",
         {
             "Indicates that the specified voltage regulator overheated.",
@@ -2338,7 +2552,18 @@ constexpr std::array registry =
             },
             "None.",
         }},
-
+    MessageEntry{
+        "PmtKafkaStreamingDestinationError",
+        {
+            "Update or save streaming destination error.",
+            "PMT kafka streaming destination error: %1",
+            "Critical",
+            1,
+            {
+                "string",
+            },
+            "None.",
+        }},
 };
 
 enum class Index
@@ -2534,5 +2759,6 @@ enum class Index
     systemPowerOffFailed = 188,
     systemPowerOnFailed = 189,
     voltageRegulatorOverheated = 190,
+    pmtKafkaStreamingDestinationError = 191,
 };
 } // namespace redfish::registries::openbmc

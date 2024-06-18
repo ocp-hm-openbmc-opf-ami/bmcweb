@@ -585,14 +585,14 @@ class Router
         // TODO(ed) This should be able to use std::bind_front, but it doesn't
         // appear to work with the std::move on adaptor.
         validatePrivilege(req, asyncResp, rule,
-                          [req, &rule, asyncResp,
-                           adaptor = std::forward<Adaptor>(adaptor)]() mutable {
-            rule.handleUpgrade(*req, asyncResp, std::move(adaptor));
+                          [req, &rule, asyncResp, &adaptor]() mutable {
+            rule.handleUpgrade(*req, asyncResp, std::forward<Adaptor>(adaptor));
         });
     }
 
     void handle(const std::shared_ptr<Request>& req,
-                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                bool requestRedirect = false)
     {
         std::optional<HttpVerb> verb = httpVerbFromBoost(req->method());
         if (!verb || static_cast<size_t>(*verb) >= perMethods.size())
@@ -649,7 +649,7 @@ class Router
         BMCWEB_LOG_DEBUG("Matched rule '{}' {} / {}", rule.rule,
                          static_cast<uint32_t>(*verb), rule.getMethods());
 
-        if (req->session == nullptr)
+        if (req->session == nullptr || requestRedirect)
         {
             rule.handle(*req, asyncResp, params);
             return;
@@ -657,6 +657,21 @@ class Router
         validatePrivilege(
             req, asyncResp, rule,
             [req, asyncResp, &rule, params = std::move(params)]() {
+            if (!params.empty())
+            {
+                if ((req->session->isConfigureSelfOnly) &&
+                    !(req->session->username == params[0]))
+                {
+                    asyncResp->res.result(
+                        boost::beast::http::status::forbidden);
+                    redfish::messages::passwordChangeRequired(
+                        asyncResp->res,
+                        boost::urls::format(
+                            "/redfish/v1/AccountService/Accounts/{}",
+                            req->session->username));
+                    return;
+                }
+            }
             rule.handle(*req, asyncResp, params);
         });
     }

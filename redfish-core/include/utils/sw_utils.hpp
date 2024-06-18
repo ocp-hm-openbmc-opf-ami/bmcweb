@@ -174,15 +174,15 @@ inline void populateSoftwareInformation(
                         return;
                     }
 
-                    if (version == nullptr || version->empty())
-                    {
-                        messages::internalError(asyncResp->res);
-                        return;
-                    }
                     if (swInvPurpose == nullptr ||
                         *swInvPurpose != swVersionPurpose)
                     {
                         // Not purpose we're looking for
+                        return;
+                    }
+                    if (version == nullptr || version->empty())
+                    {
+                        messages::internalError(asyncResp->res);
                         return;
                     }
 

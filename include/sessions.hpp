@@ -34,12 +34,17 @@ struct UserSession
     std::string csrfToken;
     std::optional<std::string> clientId;
     std::string clientIp;
+    std::string sessionType;
     std::chrono::time_point<std::chrono::steady_clock> lastUpdated;
     PersistenceType persistence{PersistenceType::TIMEOUT};
     bool cookieAuth = false;
     bool isConfigureSelfOnly = false;
     std::string userRole;
     std::vector<std::string> userGroups;
+    // Use counter since one user can have multiple kvm connections
+    int kvmConnections = 0;
+    // currently there is only 2 nbd slots
+    std::array<bool, 2> vmNbdActive = {false, false};
 
     // There are two sources of truth for isConfigureSelfOnly:
     //  1. When pamAuthenticateUser() returns PAM_NEW_AUTHTOK_REQD.
@@ -229,6 +234,7 @@ class SessionStore
             }
         }
 
+        std::string sessionType = "WebUI";
         auto session = std::make_shared<UserSession>(
             UserSession{uniqueId,
                         sessionToken,
@@ -236,6 +242,7 @@ class SessionStore
                         csrfToken,
                         clientId,
                         redfish::ip_util::toString(clientIp),
+                        sessionType,
                         std::chrono::steady_clock::now(),
                         persistence,
                         false,
@@ -284,6 +291,7 @@ class SessionStore
     void removeSession(const std::shared_ptr<UserSession>& session)
     {
         authTokens.erase(session->sessionToken);
+        session->kvmConnections = 0;
         needWrite = true;
     }
 
@@ -355,11 +363,21 @@ class SessionStore
     {
         return std::chrono::seconds(timeoutInSeconds).count();
     }
+    std::chrono::time_point<std::chrono::steady_clock>
+        getTimeSinceLastTimeoutInSeconds() const
+    {
+        return lastTimeoutUpdate;
+    }
 
     void updateSessionTimeout(std::chrono::seconds newTimeoutInSeconds)
     {
         timeoutInSeconds = newTimeoutInSeconds;
         needWrite = true;
+    }
+    void updatelastSessionTime()
+    {
+        auto timeNow = std::chrono::steady_clock::now();
+        lastTimeoutUpdate = timeNow;
     }
 
     static SessionStore& getInstance()

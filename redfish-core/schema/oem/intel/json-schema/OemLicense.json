@@ -1,0 +1,67 @@
+{
+    "$id": "http://redfish.dmtf.org/schemas/v1/OemLicense.v1_0_0.json",
+    "$ref": "#/definitions/OemLicense",
+    "$schema": "http://redfish.dmtf.org/schemas/v1/redfish-schema-v1.json",
+    "copyright": "Copyright 2014-2019 DMTF. For the full DMTF copyright policy, see http://www.dmtf.org/about/policies/copyright",
+    "definitions": {
+        "License": {
+            "additionalProperties": false,
+            "description": "OEM Extension for License",
+            "longDescription": "OEM Extension for License to support oem services.",
+            "patternProperties": {
+                "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
+                    "description": "This property shall specify a valid odata or Redfish property.",
+                    "type": [
+                        "array",
+                        "boolean",
+                        "integer",
+                        "number",
+                        "null",
+                        "object",
+                        "string"
+                    ]
+                }
+            },
+            "properties": {
+                "Links": {
+                    "$ref": "#/definitions/Links",
+                    "description": "The link to the Authorized Feature.",
+                    "longDescription": "The link to the Authorized Feature.",
+                    "readonly": true
+                }
+            },
+            "type": "object"
+        },
+        "Links": {
+            "additionalProperties": false,
+            "description": "The link to the Authorized Feature.",
+            "longDescription": "The link to the Authorized Feature.",
+            "patternProperties": {
+                "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
+                    "description": "This property shall specify a valid odata or Redfish property.",
+                    "type": [
+                        "array",
+                        "boolean",
+                        "integer",
+                        "number",
+                        "null",
+                        "object",
+                        "string"
+                    ]
+                }
+            },
+            "properties": {
+                "AuthorizedFeature": {
+                    "$ref": "http://redfish.dmtf.org/schemas/v1/ProvisionDynamicFeature.json#/definitions/ProvisionDynamicFeature",
+                    "description": "This property shall contain a link to the License instance for the corresponding Authorized Feature.",
+                    "longDescription": "This property shall contain a link to the License instance for the corresponding Authorized Feature.",
+                    "readonly": true
+                }
+            },
+            "type": "object"
+        }
+    },
+    "owningEntity": "Intel",
+    "release": "1.0",
+    "title": "#OemLicense.v1_0_0.OemLicense"
+}

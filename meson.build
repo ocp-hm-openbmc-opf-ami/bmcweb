@@ -183,7 +183,8 @@ bmcweb_dependencies = []
 
 pam = cxx.find_library('pam', required: true)
 atomic = cxx.find_library('atomic', required: true)
-bmcweb_dependencies += [pam, atomic]
+snmp = cxx.find_library('snmp', required: true)
+bmcweb_dependencies += [pam, atomic, snmp]
 
 openssl = dependency('openssl', required: false, version: '>=3.0.0')
 if not openssl.found() or get_option('b_sanitize') != 'none'

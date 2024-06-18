@@ -89,12 +89,8 @@ int run()
 
     if constexpr (BMCWEB_REDFISH_DBUS_LOG)
     {
-        int rc = redfish::EventServiceManager::startEventLogMonitor(*io);
-        if (rc != 0)
-        {
-            BMCWEB_LOG_ERROR("Redfish event handler setup failed...");
-            return rc;
-        }
+        auto eventServiceManager = std::make_unique<redfish::EventServiceManager>(*io);
+        eventServiceManager->startEventLogMonitor();
     }
 
     if constexpr (!BMCWEB_INSECURE_DISABLE_SSL)

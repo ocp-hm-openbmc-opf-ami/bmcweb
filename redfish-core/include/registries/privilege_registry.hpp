@@ -29,6 +29,10 @@ const std::array<Privileges, 1> privilegeSetConfigureUsers = {{
 const std::array<Privileges, 1> privilegeSetConfigureManager = {{
     {"ConfigureManager"}
 }};
+const std::array<Privileges, 2> privilegeSetLoginConfigureManager = {{
+    {"ConfigureManager"},
+    {"Login"}
+}};
 const std::array<Privileges, 2> privilegeSetConfigureManagerOrConfigureComponents = {{
     {"ConfigureManager"},
     {"ConfigureComponents"}
@@ -590,6 +594,14 @@ const static auto& postEthernetInterfaceCollection = privilegeSetConfigureCompon
 const static auto& putEthernetInterfaceCollection = privilegeSetConfigureComponents;
 const static auto& deleteEthernetInterfaceCollection = privilegeSetConfigureComponents;
 
+// SubOverManagerEthernetInterfaceCollection
+const static auto& getSubOverManagerEthernetInterfaceCollection = privilegeSetLogin;
+const static auto& headSubOverManagerEthernetInterfaceCollection = privilegeSetLogin;
+const static auto& patchSubOverManagerEthernetInterfaceCollection = privilegeSetConfigureManager;
+const static auto& postSubOverManagerEthernetInterfaceCollection = privilegeSetConfigureManager;
+const static auto& putSubOverManagerEthernetInterfaceCollection = privilegeSetConfigureManager;
+const static auto& deleteSubOverManagerEthernetInterfaceCollection = privilegeSetConfigureManager;
+
 // EventDestination
 const static auto& getEventDestination = privilegeSetLogin;
 const static auto& headEventDestination = privilegeSetLogin;
@@ -709,6 +721,22 @@ const static auto& patchFilterCollection = privilegeSetConfigureComponents;
 const static auto& putFilterCollection = privilegeSetConfigureComponents;
 const static auto& deleteFilterCollection = privilegeSetConfigureComponents;
 const static auto& postFilterCollection = privilegeSetConfigureComponents;
+
+//FruCollection
+const static auto& getFruCollection = privilegeSetLogin;
+const static auto& headFruCollection = privilegeSetLogin;
+const static auto& patchFruCollection = privilegeSetConfigureComponents;
+const static auto& putFruCollection = privilegeSetConfigureManager;
+const static auto& deleteFruCollection = privilegeSetConfigureManager;
+const static auto& postFruCollection = privilegeSetConfigureManager;
+
+//Fru
+const static auto& getFru = privilegeSetLogin;
+const static auto& headFru = privilegeSetLogin;
+const static auto& patchFru = privilegeSetConfigureManager;
+const static auto& putFru  = privilegeSetConfigureManager;
+const static auto& deleteFru = privilegeSetConfigureManager;
+const static auto& postFru = privilegeSetConfigureManager;
 
 // GraphicsController
 const static auto& getGraphicsController = privilegeSetLogin;
@@ -1953,10 +1981,14 @@ const static auto& postVLanNetworkInterfaceCollection = privilegeSetConfigureMan
 // VirtualMedia
 const static auto& getVirtualMedia = privilegeSetLogin;
 const static auto& headVirtualMedia = privilegeSetLogin;
-const static auto& patchVirtualMedia = privilegeSetConfigureManager;
-const static auto& putVirtualMedia = privilegeSetConfigureManager;
-const static auto& deleteVirtualMedia = privilegeSetConfigureManager;
-const static auto& postVirtualMedia = privilegeSetConfigureManager;
+// const static auto& patchVirtualMedia = privilegeSetConfigureManager;
+// const static auto& putVirtualMedia = privilegeSetConfigureManager;
+// const static auto& deleteVirtualMedia = privilegeSetConfigureManager;
+// const static auto& postVirtualMedia = privilegeSetConfigureManager;
+const static auto& patchVirtualMedia = privilegeSetLoginConfigureManager; // Added to Vmedia for OEM Extended 
+const static auto& putVirtualMedia = privilegeSetLoginConfigureManager;
+const static auto& deleteVirtualMedia = privilegeSetLoginConfigureManager;
+const static auto& postVirtualMedia = privilegeSetLoginConfigureManager;
 
 // VirtualMediaCollection
 const static auto& getVirtualMediaCollection = privilegeSetLogin;
@@ -1997,6 +2029,15 @@ const static auto& patchZoneCollection = privilegeSetConfigureComponents;
 const static auto& postZoneCollection = privilegeSetConfigureComponents;
 const static auto& putZoneCollection = privilegeSetConfigureComponents;
 const static auto& deleteZoneCollection = privilegeSetConfigureComponents;
+
+// FIPS Enablement
+const static auto& getFIPS = privilegeSetLogin;
+const static auto& patchFIPS = privilegeSetConfigureComponents;
+
+//License control - OEM AMI
+const static auto& getLicenseControl = privilegeSetLogin;
+const static auto& patchLicenseControl = privilegeSetConfigureComponents;
+const static auto& postLicenseControl = privilegeSetConfigureComponents;
 
 } // namespace redfish::privileges
 // clang-format on

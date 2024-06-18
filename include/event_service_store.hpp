@@ -24,6 +24,8 @@ struct UserSubscription
     std::vector<std::string> resourceTypes;
     boost::beast::http::fields httpHeaders;
     std::vector<std::string> metricReportDefinitions;
+    std::string state;
+    std::string owner;
 
     static std::shared_ptr<UserSubscription>
         fromJson(const nlohmann::json& j, const bool loadFromOldConfig = false)
@@ -179,6 +181,26 @@ struct UserSubscription
                     }
                     subvalue->metricReportDefinitions.emplace_back(*value);
                 }
+            }
+            else if (element.key() == "State")
+            {
+                const std::string* value =
+                    element.value().get_ptr<const std::string*>();
+                if (value == nullptr)
+                {
+                    continue;
+                }
+                subvalue->state = *value;
+            }
+            else if (element.key() == "Owner")
+            {
+                const std::string* value =
+                    element.value().get_ptr<const std::string*>();
+                if (value == nullptr)
+                {
+                    continue;
+                }
+                subvalue->owner = *value;
             }
             else
             {

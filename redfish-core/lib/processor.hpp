@@ -893,6 +893,7 @@ inline void
             }
         }
     }
+    fillOnDemandOemObject(asyncResp, processorId);
 }
 
 /**

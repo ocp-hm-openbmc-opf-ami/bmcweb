@@ -35,12 +35,12 @@ option(
 # this interface, so for the moment this appears to be dead code;  In leiu of
 # removing it, it has been disabled to try to give those that use it the
 # opportunity to upstream their backend implementation
-#option(
-#    'vm-nbdproxy',
-#    type: 'feature',
-#    value: 'disabled',
-#    description: 'Enable the Virtual Media WebSocket.'
-#)
+option(
+    'vm-nbdproxy',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable the Virtual Media WebSocket.'
+)
 
 option(
     'rest',
@@ -233,7 +233,23 @@ option(
     min: 0,
     max: 512,
     value: 30,
-    description: 'Specifies the http request body length limit'
+    description: 'Specifies the http request body length limit in KB'
+)
+
+option(
+    'image-payload-limit',
+    type: 'integer',
+    min: 0,
+    max: 512,
+    value: 128,
+    description: 'Specifies the maximum image size limit in MB'
+)
+
+option(
+    'image-upload-dir',
+    type: 'string',
+    value: '/tmp/images/',
+    description: 'Directory where downloaded software images are placed.'
 )
 
 option(
@@ -252,6 +268,16 @@ option(
     description: '''Enable/disable the old Power / Thermal. The default
                     condition is allowing the old Power / Thermal. This
                     will be disabled by default June 2024. '''
+)
+
+option(
+    'redfish-post-to-old-updateservice',
+    type: 'feature',
+    value: 'disabled',
+    description: '''Allows POST to /redfish/v1/UpdateService, counter to
+                    the redfish specification.  Option provided to allow
+                    potential users to move away from using this endpoint.
+                    Option will be removed Q2 2023.'''
 )
 
 option(

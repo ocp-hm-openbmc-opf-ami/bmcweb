@@ -6,33 +6,47 @@
 #include "aggregation_service.hpp"
 #include "app.hpp"
 #include "bios.hpp"
+#include "bsodjpeg.hpp"
 #include "cable.hpp"
 #include "certificate_service.hpp"
 #include "chassis.hpp"
+#include "cups_service.hpp"
 #include "environment_metrics.hpp"
 #include "ethernet.hpp"
 #include "event_service.hpp"
 #include "eventservice_sse.hpp"
 #include "fabric_adapters.hpp"
-#include "fan.hpp"
+#include "fan_from_sensor.hpp"
+#include "fips_manager.hpp"
+#include "fru.hpp"
 #include "hypervisor_system.hpp"
+#include "license_control.hpp"
+#include "license_service.hpp"
 #include "log_services.hpp"
 #include "manager_diagnostic_data.hpp"
 #include "managers.hpp"
 #include "memory.hpp"
 #include "message_registries.hpp"
 #include "metadata.hpp"
+#include "meterstatedata.hpp"
 #include "metric_report.hpp"
 #include "metric_report_definition.hpp"
 #include "network_protocol.hpp"
+#include "node-manager/domains_collection.hpp"
+#include "node-manager/node_manager.hpp"
+#include "node-manager/policies_collection.hpp"
+#include "node-manager/power.hpp"
+#include "node-manager/throttling_status.hpp"
+#include "node-manager/triggers.hpp"
 #include "pcie.hpp"
-#include "power.hpp"
+#include "pef_service.hpp"
 #include "power_subsystem.hpp"
 #include "power_supply.hpp"
 #include "processor.hpp"
 #include "redfish_sessions.hpp"
 #include "redfish_v1.hpp"
 #include "roles.hpp"
+#include "sensor_patching.hpp"
 #include "sensors.hpp"
 #include "service_root.hpp"
 #include "storage.hpp"
@@ -53,6 +67,12 @@ RedfishService::RedfishService(App& app)
 {
     requestRoutesMetadata(app);
 
+    requestRoutesNodeManagerService(app);
+    requestRoutesNodeManagerDomains(app);
+    requestRoutesNodeManagerPolicies(app);
+    requestRoutesNodeManagerThrottlingStatus(app);
+    requestRoutesNodeManagerTriggers(app);
+
     requestAccountServiceRoutes(app);
     if constexpr (BMCWEB_REDFISH_AGGREGATION)
     {
@@ -69,8 +89,8 @@ RedfishService::RedfishService(App& app)
     if constexpr (BMCWEB_REDFISH_ALLOW_DEPRECATED_POWER_THERMAL)
     {
         requestRoutesThermal(app);
-        requestRoutesPower(app);
     }
+    requestRoutesPower(app);
     if constexpr (BMCWEB_REDFISH_NEW_POWERSUBSYSTEM_THERMALSUBSYSTEM)
     {
         requestRoutesEnvironmentMetrics(app);
@@ -88,6 +108,9 @@ RedfishService::RedfishService(App& app)
     requestRoutesManagerResetActionInfo(app);
     requestRoutesManagerResetToDefaultsAction(app);
     requestRoutesManagerDiagnosticData(app);
+    requestRoutesBsodjpeg(app);
+    requestRoutesDeleteBsodjpeg(app);
+    requestRoutesTriggerBsodjpeg(app);
     requestRoutesChassisCollection(app);
     requestRoutesChassis(app);
     requestRoutesChassisResetAction(app);
@@ -102,6 +125,9 @@ RedfishService::RedfishService(App& app)
     requestRoutesDrive(app);
     requestRoutesCable(app);
     requestRoutesCableCollection(app);
+
+    requestRoutesFru(app);
+    requestRoutesFruCollection(app);
 
     requestRoutesSystemLogServiceCollection(app);
     requestRoutesEventLogService(app);
@@ -158,6 +184,11 @@ RedfishService::RedfishService(App& app)
         requestRoutesCrashdumpCollect(app);
     }
 
+    requestRoutesAcpiService(app);
+    requestRoutesAcpiEntryCollection(app);
+    requestRoutesAcpiEntry(app);
+    requestRoutesAcpiFile(app);
+
     requestRoutesProcessorCollection(app);
     requestRoutesProcessor(app);
     requestRoutesOperatingConfigCollection(app);
@@ -169,6 +200,10 @@ RedfishService::RedfishService(App& app)
 
     requestRoutesBiosService(app);
     requestRoutesBiosReset(app);
+    requestRoutesBiosSettings(app);
+    //requestRoutesBiosAttributeRegistry(app);
+    requestRoutesBiosAttrRegistryService(app);
+    requestRoutesBiosChangePassword(app);
 
     if constexpr (BMCWEB_VM_NBDPROXY)
     {
@@ -206,7 +241,13 @@ RedfishService::RedfishService(App& app)
 
     requestRoutesSensorCollection(app);
     requestRoutesSensor(app);
+    requestRoutesSensorPatching(app);
+    requestRoutesSensorHistory(app);
 
+    requestRoutesCupsService(app);
+    requestRoutesCupsSensors(app);
+
+    requestRoutesTaskDelete(app);
     requestRoutesTaskMonitor(app);
     requestRoutesTaskService(app);
     requestRoutesTaskCollection(app);
@@ -218,6 +259,7 @@ RedfishService::RedfishService(App& app)
     requestRoutesFabricAdapters(app);
     requestRoutesFabricAdapterCollection(app);
     requestRoutesSubmitTestEvent(app);
+    requestRoutesSSLEvent(app);
 
     requestRoutesHypervisorSystems(app);
 
@@ -229,6 +271,17 @@ RedfishService::RedfishService(App& app)
     requestRoutesTriggerCollection(app);
     requestRoutesTrigger(app);
 
+    requestLicenseServiceRoutes(app);
+    requestRoutesMeterStateData(app);
+
+    // FIPS Enablement
+    requestFipsManagerRoutes(app);
+
+    // License Control
+    requestRoutesLicenseControl(app);
+
+    requestRoutesPefService(app);
+    requestRoutesSendTrap(app);
     // Note, this must be the last route registered
     requestRoutesRedfish(app);
 }

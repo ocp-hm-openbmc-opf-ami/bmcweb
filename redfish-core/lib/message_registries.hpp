@@ -19,6 +19,8 @@
 #include "query.hpp"
 #include "registries.hpp"
 #include "registries/base_message_registry.hpp"
+#include "registries/bios_registry.hpp"
+#include "registries/nm_message_registry.hpp"
 #include "registries/openbmc_message_registry.hpp"
 #include "registries/privilege_registry.hpp"
 #include "registries/resource_event_message_registry.hpp"
@@ -48,11 +50,12 @@ inline void handleMessageRegistryFileCollectionGet(
     asyncResp->res.jsonValue["Name"] = "MessageRegistryFile Collection";
     asyncResp->res.jsonValue["Description"] =
         "Collection of MessageRegistryFiles";
-    asyncResp->res.jsonValue["Members@odata.count"] = 4;
+    asyncResp->res.jsonValue["Members@odata.count"] = 6;
 
     nlohmann::json& members = asyncResp->res.jsonValue["Members"];
     for (const char* memberName :
-         std::to_array({"Base", "TaskEvent", "ResourceEvent", "OpenBMC"}))
+         std::to_array({"Base", "TaskEvent", "NodeManager", "ResourceEvent",
+                        "BiosAttributeRegistry", "OpenBMC"}))
     {
         nlohmann::json::object_t member;
         member["@odata.id"] = boost::urls::format("/redfish/v1/Registries/{}",
@@ -100,10 +103,20 @@ inline void handleMessageRoutesMessageRegistryFileGet(
         header = &registries::openbmc::header;
         dmtf.clear();
     }
+    else if (registry == "NodeManager")
+    {
+        header = &registries::nm::header;
+        dmtf.clear();
+    }
     else if (registry == "ResourceEvent")
     {
         header = &registries::resource_event::header;
         url = registries::resource_event::url;
+    }
+    else if (registry == "BiosAttributeRegistry")
+    {
+        header = &registries::bios::header;
+        url = registries::bios::url;
     }
     else
     {
@@ -151,7 +164,6 @@ inline void handleMessageRegistryGet(
     crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& registry, const std::string& registryMatch)
-
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -185,11 +197,27 @@ inline void handleMessageRegistryGet(
             registryEntries.emplace_back(&entry);
         }
     }
+    else if (registry == "NodeManager")
+    {
+        header = &registries::nm::header;
+        for (const registries::MessageEntry& entry : registries::nm::registry)
+        {
+            registryEntries.emplace_back(&entry);
+        }
+    }
     else if (registry == "ResourceEvent")
     {
         header = &registries::resource_event::header;
         for (const registries::MessageEntry& entry :
              registries::resource_event::registry)
+        {
+            registryEntries.emplace_back(&entry);
+        }
+    }
+    else if (registry == "BiosAttributeRegistry")
+    {
+        header = &registries::bios::header;
+        for (const registries::MessageEntry& entry : registries::bios::registry)
         {
             registryEntries.emplace_back(&entry);
         }

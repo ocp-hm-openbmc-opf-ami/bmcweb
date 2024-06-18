@@ -44,6 +44,9 @@
 #include <utility>
 #include <variant>
 
+using SensorCallback =
+    std::function<void(const std::vector<std::string>& stringState)>;
+
 namespace redfish
 {
 
@@ -60,7 +63,6 @@ static constexpr std::string_view thermal = "Thermal";
 namespace dbus
 {
 constexpr auto powerPaths = std::to_array<std::string_view>({
-    "/xyz/openbmc_project/sensors/voltage",
     "/xyz/openbmc_project/sensors/power"
 });
 
@@ -77,13 +79,25 @@ constexpr auto getSensorPaths(){
         "/xyz/openbmc_project/sensors/fan_pwm",
         "/xyz/openbmc_project/sensors/altitude",
         "/xyz/openbmc_project/sensors/energy",
-        "/xyz/openbmc_project/sensors/utilization"});
+        "/xyz/openbmc_project/sensors/utilization",
+	"/xyz/openbmc_project/sensors/cpu",
+        "/xyz/openbmc_project/sensors/watchdog"});
     } else {
       return  std::to_array<std::string_view>({"/xyz/openbmc_project/sensors/power",
         "/xyz/openbmc_project/sensors/current",
+        "/xyz/openbmc_project/sensors/count",
         "/xyz/openbmc_project/sensors/airflow",
         "/xyz/openbmc_project/sensors/humidity",
-        "/xyz/openbmc_project/sensors/utilization"});
+        "/xyz/openbmc_project/sensors/temperature",
+        "/xyz/openbmc_project/sensors/chassisstate",
+        "/xyz/openbmc_project/sensors/battery",
+        "/xyz/openbmc_project/sensors/acpidevice",
+        "/xyz/openbmc_project/sensors/utilization",
+        "/xyz/openbmc_project/sensors/powerunit",
+        "/xyz/openbmc_project/sensors/acpisystem",
+        "/xyz/openbmc_project/sensors/powersupply",
+        "/xyz/openbmc_project/sensors/os"
+        });
 }
 }
 
@@ -215,9 +229,8 @@ class SensorsAsyncResp
                      const std::string& chassisIdIn,
                      std::span<const std::string_view> typesIn,
                      std::string_view subNode) :
-        asyncResp(asyncRespIn),
-        chassisId(chassisIdIn), types(typesIn), chassisSubNode(subNode),
-        efficientExpand(false)
+        asyncResp(asyncRespIn), chassisId(chassisIdIn), types(typesIn),
+        chassisSubNode(subNode), efficientExpand(false)
     {}
 
     // Store extra data about sensor mapping and return it in callback
@@ -226,9 +239,9 @@ class SensorsAsyncResp
                      std::span<const std::string_view> typesIn,
                      std::string_view subNode,
                      DataCompleteCb&& creationComplete) :
-        asyncResp(asyncRespIn),
-        chassisId(chassisIdIn), types(typesIn), chassisSubNode(subNode),
-        efficientExpand(false), metadata{std::vector<SensorData>()},
+        asyncResp(asyncRespIn), chassisId(chassisIdIn), types(typesIn),
+        chassisSubNode(subNode), efficientExpand(false),
+        metadata{std::vector<SensorData>()},
         dataComplete{std::move(creationComplete)}
     {}
 
@@ -237,9 +250,8 @@ class SensorsAsyncResp
                      const std::string& chassisIdIn,
                      std::span<const std::string_view> typesIn,
                      const std::string_view& subNode, bool efficientExpandIn) :
-        asyncResp(asyncRespIn),
-        chassisId(chassisIdIn), types(typesIn), chassisSubNode(subNode),
-        efficientExpand(efficientExpandIn)
+        asyncResp(asyncRespIn), chassisId(chassisIdIn), types(typesIn),
+        chassisSubNode(subNode), efficientExpand(efficientExpandIn)
     {}
 
     ~SensorsAsyncResp()
@@ -347,6 +359,16 @@ class InventoryItem
     std::string serialNumber;
     std::set<std::string> sensors;
     std::string ledObjectPath;
+    std::string firmwareVersion;
+    std::string plugType;
+    std::string nominalVoltageType;
+    std::string powerSupplyType;
+    std::string sparePartNumber;
+    std::string psuState;
+    uint16_t powerCapacityWatts;
+    uint16_t efficiencyRatings;
+    std::map<double, std::string> outputRails;
+
     LedState ledState = LedState::UNKNOWN;
 };
 
@@ -490,15 +512,12 @@ inline void reduceSensorList(
 inline void populateChassisNode(nlohmann::json& jsonValue,
                                 std::string_view chassisSubNode)
 {
-    if (chassisSubNode == sensors::node::power)
-    {
-        jsonValue["@odata.type"] = "#Power.v1_5_2.Power";
-    }
-    else if (chassisSubNode == sensors::node::thermal)
+    if (chassisSubNode == sensors::node::thermal)
     {
         jsonValue["@odata.type"] = "#Thermal.v1_4_0.Thermal";
         jsonValue["Fans"] = nlohmann::json::array();
         jsonValue["Temperatures"] = nlohmann::json::array();
+        jsonValue["Id"] = chassisSubNode;
     }
     else if (chassisSubNode == sensors::node::sensors)
     {
@@ -508,11 +527,10 @@ inline void populateChassisNode(nlohmann::json& jsonValue,
         jsonValue["Members@odata.count"] = 0;
     }
 
-    if (chassisSubNode != sensors::node::sensors)
+    if (chassisSubNode != sensors::node::power)
     {
-        jsonValue["Id"] = chassisSubNode;
+        jsonValue["Name"] = chassisSubNode;
     }
-    jsonValue["Name"] = chassisSubNode;
 }
 
 /**
@@ -569,8 +587,11 @@ void getChassis(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         }
         populateChassisNode(asyncResp->res.jsonValue, chassisSubNode);
 
-        asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
-            "/redfish/v1/Chassis/{}/{}", chassisIdStr, chassisSubNode);
+        if (chassisSubNode != sensors::node::power)
+        {
+            asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
+                "/redfish/v1/Chassis/{}/{}", chassisIdStr, chassisSubNode);
+        }
 
         // Get the list of all sensors for this Chassis element
         std::string sensorPath = *chassisPath + "/all_sensors";
@@ -620,6 +641,59 @@ inline resource::State getState(const InventoryItem* inventoryItem,
     }
 
     return resource::State::Enabled;
+}
+
+inline void getPsuState(InventoryItem* inventoryItem)
+{
+    if (inventoryItem != nullptr)
+    {
+        size_t strPos = (inventoryItem->name).find_last_of('_');
+        sdbusplus::asio::getAllProperties(
+            *crow::connections::systemBus, "xyz.openbmc_project.PSUSensor",
+            "/xyz/openbmc_project/sensors/voltage/" +
+                inventoryItem->name.substr(strPos + 1) + "_Input_Voltage",
+            "",
+            [inventoryItem](
+                const boost::system::error_code& ec,
+                const ::dbus::utility::DBusPropertiesMap& valuesDict) {
+            if (ec)
+            {
+                return;
+            }
+            bool connected = false;
+            double value;
+            for (const auto& [valueName, valueVariant] : valuesDict)
+            {
+                if (valueName == "Functional")
+                {
+                    connected = std::get<bool>(valueVariant);
+                }
+                if (valueName == "Value")
+                {
+                    value = std::get<double>(valueVariant);
+                }
+            }
+            if (connected)
+            {
+                if (value > 0)
+                {
+                    inventoryItem->psuState = "Enabled";
+                }
+                else
+                {
+                    inventoryItem->psuState = "UnavailableOffline";
+                }
+            }
+            else
+            {
+                inventoryItem->psuState = "Disabled";
+            }
+        });
+    }
+    else
+    {
+        inventoryItem->psuState = "Disabled";
+    }
 }
 
 /**
@@ -728,6 +802,60 @@ inline void setLedState(nlohmann::json& sensorJson,
     }
 }
 
+inline void sensorState(uint16_t value, std::string objPath,
+                        std::string_view sensorType,
+                        const SensorCallback callback)
+{
+    uint16_t position = 0;
+    std::vector<uint16_t> positions;
+    std::map<std::string, std::string> type = {
+        {"cpu", "Cpustatus"},         {"watchdog", "watchdog"},
+        {"acpisystem", "ACPISystem"}, {"powersupply", "Powersupply"},
+        {"powerunit", "Powerunit"},   {"os", "OSCritical"}};
+    auto it = type.find(std::string(sensorType));
+    if (it != type.end())
+    {
+        while (value > 0)
+        {
+            if (value & 1)
+            {
+                positions.push_back(position);
+            }
+            value >>= 1;
+            position++;
+        }
+        std::string interFace = "xyz.openbmc_project.Configuration." +
+                                it->second;
+        auto asyncCallback =
+            [positions,
+             callback](const boost::system::error_code ec,
+                       const std::variant<std::vector<std::string>>& state) {
+            if (ec)
+            {
+                // BMCWEB_LOG_DEBUG << "DBUS response error " << ec;
+                BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
+                return;
+            }
+            if (auto* stateVector =
+                    std::get_if<std::vector<std::string>>(&state))
+            {
+                if (!stateVector->empty())
+                {
+                    std::vector<std::string> stateSensor;
+                    for (auto& itr : positions)
+                    {
+                        stateSensor.push_back(stateVector->at(itr));
+                    }
+                    callback(stateSensor);
+                }
+            }
+        };
+        crow::connections::systemBus->async_method_call(
+            asyncCallback, "xyz.openbmc_project.EntityManager", objPath,
+            "org.freedesktop.DBus.Properties", "Get", interFace, "State");
+    }
+}
+
 /**
  * @brief Builds a json sensor representation of a sensor.
  * @param sensorName  The name of the sensor to be built
@@ -809,6 +937,25 @@ inline void objectPropertiesToJson(
         else
         {
             sensorJson["ReadingType"] = readingType;
+            if (readingType == sensor::ReadingType::Temperature)
+            {
+                if (sensorName.find("CPU") != std::string::npos)
+                {
+                    sensorJson["PhysicalContext"] = "CPU";
+                }
+                else if (sensorName.find("Inlet") != std::string::npos)
+                {
+                    sensorJson["PhysicalContext"] = "Intake";
+                }
+                else if (sensorName.find("HSBP") != std::string::npos)
+                {
+                    sensorJson["PhysicalContext"] = "Backplane";
+                }
+                else
+                {
+                    sensorJson["PhysicalContext"] = "SystemBoard";
+                }
+            }
         }
 
         std::string_view readingUnits = sensors::toReadingUnits(sensorType);
@@ -866,11 +1013,11 @@ inline void objectPropertiesToJson(
         }
         else if (lower.find("input") != std::string::npos)
         {
-            unit = "/PowerInputWatts"_json_pointer;
+            unit = "/PowerCapacityWatts"_json_pointer;
         }
-        else
+        else if (!(boost::ifind_first(sensorName, "output").empty()))
         {
-            unit = "/PowerOutputWatts"_json_pointer;
+            return;
         }
     }
     else
@@ -956,6 +1103,8 @@ inline void objectPropertiesToJson(
             // The property we want to set may be nested json, so use
             // a json_pointer for easy indexing into the json structure.
             const nlohmann::json::json_pointer& key = std::get<2>(p);
+            const nlohmann::json::json_pointer& keyMax =
+                nlohmann::json::json_pointer("/ReadingRangeMax");
 
             const double* doubleValue = std::get_if<double>(&valueVariant);
             if (doubleValue == nullptr)
@@ -970,6 +1119,7 @@ inline void objectPropertiesToJson(
                     // Readings are allowed to be NAN for unavailable;  coerce
                     // them to null in the json response.
                     sensorJson[key] = nullptr;
+                    sensorJson[keyMax] = nullptr;
                     continue;
                 }
                 BMCWEB_LOG_WARNING("Sensor value for {} was unexpectedly {}",
@@ -979,10 +1129,30 @@ inline void objectPropertiesToJson(
             if (forceToInt)
             {
                 sensorJson[key] = static_cast<int64_t>(*doubleValue);
+                sensorJson[keyMax] = static_cast<int64_t>(*doubleValue);
             }
             else
             {
-                sensorJson[key] = *doubleValue;
+                if (key == nlohmann::json::json_pointer("/Reading"))
+                {
+                    double roundedValue = std::round(*doubleValue * 10000.0) /
+                                          10000.0;
+
+                    std::stringstream ss;
+                    ss << std::fixed << std::setprecision(4) << roundedValue;
+                    std::string roundedStringValue = ss.str();
+                    sensorJson[key] = std::stoi(roundedStringValue);
+                }
+                else
+                {
+                    sensorJson[key] = *doubleValue;
+                }
+                if (keyMax == nlohmann::json::json_pointer("/ReadingRangeMax"))
+                {
+                    double roundedValueMax =
+                        std::round(*doubleValue * 10000.0) / 10000.0;
+                    sensorJson[keyMax] = roundedValueMax;
+                }
             }
         }
     }
@@ -1425,6 +1595,131 @@ inline void storeInventoryItemData(
     }
 }
 
+inline void StorePSUmonitorItemData(InventoryItem* inventoryItem)
+{
+    crow::connections::systemBus->async_method_call(
+        [inventoryItem](
+            const boost::system::error_code ec2,
+            const std::vector<std::pair<
+                std::string, std::variant<uint8_t, uint16_t, std::string,
+                                          std::vector<std::string>>>>&
+                propertiesList) {
+        if (ec2)
+        {
+            return;
+        }
+        for (const std::pair<std::string,
+                             std::variant<uint8_t, uint16_t, std::string,
+                                          std::vector<std::string>>>& property :
+             propertiesList)
+        {
+            const std::string& propertyName = property.first;
+            if (propertyName == "FirmwareVersion")
+            {
+                const std::string* value =
+                    std::get_if<std::string>(&property.second);
+                if (value != nullptr)
+                {
+                    inventoryItem->firmwareVersion = *value;
+                }
+            }
+            if (propertyName == "InputNominalVoltageType")
+            {
+                const std::string* value =
+                    std::get_if<std::string>(&property.second);
+                if (value != nullptr)
+                {
+                    inventoryItem->nominalVoltageType = *value;
+                }
+            }
+            if (propertyName == "PlugType")
+            {
+                const std::string* value =
+                    std::get_if<std::string>(&property.second);
+                if (value != nullptr)
+                {
+                    inventoryItem->plugType = *value;
+                }
+            }
+            if (propertyName == "PowerSupplyType")
+            {
+                const std::string* value =
+                    std::get_if<std::string>(&property.second);
+                if (value != nullptr)
+                {
+                    inventoryItem->powerSupplyType = *value;
+                }
+            }
+            if (propertyName == "SparePartNumber")
+            {
+                const std::string* value =
+                    std::get_if<std::string>(&property.second);
+                if (value != nullptr)
+                {
+                    inventoryItem->sparePartNumber = *value;
+                }
+            }
+            if (propertyName == "PowerCapacityWatts")
+            {
+                const uint16_t* value = std::get_if<uint16_t>(&property.second);
+                if (value != nullptr)
+                {
+                    inventoryItem->powerCapacityWatts = *value;
+                }
+            }
+            if (propertyName == "EfficiencyRatings")
+            {
+                const std::string* value =
+                    std::get_if<std::string>(&property.second);
+                if (value != nullptr)
+                {
+                    try
+                    {
+                        int value1 = std::stoi(*value);
+                        inventoryItem->efficiencyRatings =
+                            static_cast<uint16_t>(value1);
+                    }
+                    catch (const std::exception& e)
+                    {}
+                }
+            }
+            if (propertyName == "OutputRails")
+            {
+                const auto& propertyValue = property.second;
+                if (std::holds_alternative<std::vector<std::string>>(
+                        propertyValue))
+                {
+                    const std::vector<std::string>& vectorValue =
+                        std::get<std::vector<std::string>>(propertyValue);
+                    for (const std::string& element : vectorValue)
+                    {
+                        if (element == "12v")
+                        {
+                            inventoryItem->outputRails[12] = "StorageDevice";
+                        }
+                        if (element == "1.8v")
+                        {
+                            inventoryItem->outputRails[1.8] = "SystemBoard";
+                        }
+                        if (element == "3v")
+                        {
+                            inventoryItem->outputRails[3] = "SystemBoard";
+                        }
+                        if (element == "5v")
+                        {
+                            inventoryItem->outputRails[5] = "SystemBoard";
+                        }
+                    }
+                }
+            }
+        }
+    },
+        "xyz.openbmc_project.Power.PSUMonitor",
+        "/xyz/openbmc_project/inventory/system/powersupply",
+        "org.freedesktop.DBus.Properties", "GetAll",
+        "xyz.openbmc_project.PsuStatus");
+}
+
 /**
  * @brief Gets D-Bus data for inventory items associated with sensors.
  *
@@ -1509,6 +1804,8 @@ static void getInventoryItemsData(
                 {
                     // Store inventory data in InventoryItem
                     storeInventoryItemData(*inventoryItem, objDictEntry.second);
+                    StorePSUmonitorItemData(inventoryItem);
+                    getPsuState(inventoryItem);
                 }
             }
 
@@ -2234,7 +2531,7 @@ inline nlohmann::json& getPowerSupply(nlohmann::json& powerSupplyArray,
         {
             continue;
         }
-        if (nameS == *name)
+        if (powerSupply["Id"] == inventoryItem.name)
         {
             return powerSupply;
         }
@@ -2242,11 +2539,17 @@ inline nlohmann::json& getPowerSupply(nlohmann::json& powerSupplyArray,
 
     // Add new PowerSupply object to JSON array
     powerSupplyArray.push_back({});
+    nlohmann::json railValues, inputRanges, efficiencyRatings;
     nlohmann::json& powerSupply = powerSupplyArray.back();
     boost::urls::url url = boost::urls::format("/redfish/v1/Chassis/{}/Power",
                                                chassisId);
     url.set_fragment(("/PowerSupplies"_json_pointer).to_string());
-    powerSupply["@odata.id"] = std::move(url);
+    powerSupply["@odata.id"] = "/redfish/v1/Chassis/" + chassisId +
+                               "/PowerSubsystem/PowerSupplies/" +
+                               inventoryItem.name;
+    powerSupply["@odata.type"] = "#PowerSupply.v1_5_0.PowerSupply";
+    powerSupply["Id"] = inventoryItem.name;
+
     std::string escaped;
     escaped.resize(inventoryItem.name.size());
     std::ranges::replace_copy(inventoryItem.name, escaped.begin(), '_', ' ');
@@ -2255,18 +2558,35 @@ inline nlohmann::json& getPowerSupply(nlohmann::json& powerSupplyArray,
     powerSupply["Model"] = inventoryItem.model;
     powerSupply["PartNumber"] = inventoryItem.partNumber;
     powerSupply["SerialNumber"] = inventoryItem.serialNumber;
-    setLedState(powerSupply, &inventoryItem);
-
-    if (inventoryItem.powerSupplyEfficiencyPercent >= 0)
+    powerSupply["FirmwareVersion"] = inventoryItem.firmwareVersion;
+    powerSupply["PlugType"] = inventoryItem.plugType;
+    powerSupply["PowerSupplyType"] = inventoryItem.powerSupplyType;
+    powerSupply["SparePartNumber"] = inventoryItem.sparePartNumber;
+    powerSupply["PowerCapacityWatts"] = inventoryItem.powerCapacityWatts;
+    for (const auto& rail : inventoryItem.outputRails)
     {
-        powerSupply["EfficiencyPercent"] =
-            inventoryItem.powerSupplyEfficiencyPercent;
+        railValues["NominalVoltage"] = rail.first;
+        railValues["PhysicalContext"] = rail.second;
+        powerSupply["OutputRails"].push_back(railValues);
     }
+    if (inventoryItem.efficiencyRatings > 100)
+    {
+        efficiencyRatings["EfficiencyPercent"] = 0;
+    }
+    else
+    {
+        efficiencyRatings["EfficiencyPercent"] =
+            inventoryItem.efficiencyRatings;
+    }
+    powerSupply["EfficiencyRatings"].push_back(efficiencyRatings);
+    inputRanges["NominalVoltageType"] = inventoryItem.nominalVoltageType;
+    powerSupply["InputRanges"].push_back(inputRanges);
+    powerSupply["Status"]["State"] = inventoryItem.psuState;
+    setLedState(powerSupply, &inventoryItem);
 
     powerSupply["Status"]["State"] = getState(&inventoryItem, true);
     const char* health = inventoryItem.isFunctional ? "OK" : "Critical";
     powerSupply["Status"]["Health"] = health;
-
     return powerSupply;
 }
 
@@ -2359,6 +2679,7 @@ inline void getSensorData(
                     sensorsAsyncResp->chassisSubNode;
 
                 nlohmann::json* sensorJson = nullptr;
+                std::string checkPowersupply;
 
                 if (sensorSchema == sensors::node::sensors &&
                     !sensorsAsyncResp->efficientExpand)
@@ -2408,7 +2729,17 @@ inline void getSensorData(
                         else if ((inventoryItem != nullptr) &&
                                  (inventoryItem->isPowerSupply))
                         {
-                            fieldName = "PowerSupplies";
+                            if (inventoryItem->name ==
+                                std::string(sensorsAsyncResp->asyncResp->res
+                                                .jsonValue["Id"]))
+                            {
+                                fieldName = "PowerSupplies";
+                                checkPowersupply = "PowerSupplies";
+                            }
+                            else
+                            {
+                                continue;
+                            }
                         }
                         else
                         {
@@ -2489,11 +2820,14 @@ inline void getSensorData(
 
                 if (sensorJson != nullptr)
                 {
-                    objectInterfacesToJson(sensorName, sensorType,
-                                           sensorsAsyncResp->chassisSubNode,
-                                           objDictEntry.second, *sensorJson,
-                                           inventoryItem);
-
+                    if ((sensorJson != nullptr) &&
+                        (checkPowersupply != "PowerSupplies"))
+                    {
+                        objectInterfacesToJson(sensorName, sensorType,
+                                               sensorsAsyncResp->chassisSubNode,
+                                               objDictEntry.second, *sensorJson,
+                                               inventoryItem);
+                    }
                     std::string path = "/xyz/openbmc_project/sensors/";
                     path += sensorType;
                     path += "/";
@@ -2501,8 +2835,21 @@ inline void getSensorData(
                     sensorsAsyncResp->addMetadata(*sensorJson, path);
                 }
             }
+
             if (sensorsAsyncResp.use_count() == 1)
             {
+                if (sensorsAsyncResp->chassisSubNode == sensors::node::power)
+                {
+                    // nlohmann::json& tempArray =
+                    // sensorsAsyncResp->asyncResp->res.jsonValue
+                    if (sensorsAsyncResp->asyncResp->res
+                            .jsonValue["PowerSupplies"] != nullptr)
+                    {
+                        sensorsAsyncResp->asyncResp->res.jsonValue =
+                            sensorsAsyncResp->asyncResp->res
+                                .jsonValue["PowerSupplies"][0];
+                    }
+                }
                 sortJSONResponse(sensorsAsyncResp);
                 if (sensorsAsyncResp->chassisSubNode ==
                         sensors::node::sensors &&
@@ -2571,11 +2918,11 @@ inline void
         BMCWEB_LOG_DEBUG("getChassisCb exit");
     };
     // SensorCollection doesn't contain the Redundancy property
-    if (sensorsAsyncResp->chassisSubNode != sensors::node::sensors)
-    {
-        sensorsAsyncResp->asyncResp->res.jsonValue["Redundancy"] =
-            nlohmann::json::array();
-    }
+    //   if (sensorsAsyncResp->chassisSubNode != sensors::node::sensors)
+    //   {
+    //       sensorsAsyncResp->asyncResp->res.jsonValue["Redundancy"] =
+    //           nlohmann::json::array();
+    //   }
     // Get set of sensors in chassis
     getChassis(sensorsAsyncResp->asyncResp, sensorsAsyncResp->chassisId,
                sensorsAsyncResp->chassisSubNode, sensorsAsyncResp->types,
@@ -2892,24 +3239,127 @@ inline void
     const std::string& connectionName = valueIface.first;
     BMCWEB_LOG_DEBUG("Looking up {}", connectionName);
     BMCWEB_LOG_DEBUG("Path {}", sensorPath);
-
+    sdbusplus::message::object_path path(sensorPath);
+    std::string name = path.filename();
+    path = path.parent_path();
+    std::string type = path.filename();
+    std::set<std::string> discreteSensorTypes = {
+        "cpu", "watchdog", "acpisystem", "powersupply", "powerunit", "os"};
     sdbusplus::asio::getAllProperties(
         *crow::connections::systemBus, connectionName, sensorPath, "",
-        [asyncResp,
-         sensorPath](const boost::system::error_code& ec,
-                     const ::dbus::utility::DBusPropertiesMap& valuesDict) {
+        [asyncResp, sensorPath, name, type, discreteSensorTypes](
+            const boost::system::error_code& ec,
+            const ::dbus::utility::DBusPropertiesMap& valuesDict) {
         if (ec)
         {
             messages::internalError(asyncResp->res);
             return;
         }
-        sdbusplus::message::object_path path(sensorPath);
-        std::string name = path.filename();
-        path = path.parent_path();
-        std::string type = path.filename();
-        objectPropertiesToJson(name, type, sensors::node::sensors, valuesDict,
-                               asyncResp->res.jsonValue, nullptr);
+        if (discreteSensorTypes.count(type) > 0)
+        {
+            uint16_t pass = 0;
+            for (const auto& [valueName, valueVariant] : valuesDict)
+            {
+                const uint16_t* value;
+                std::string endPoint;
+                if (valueName == "Associations")
+                {
+                    if (std::holds_alternative<std::vector<
+                            std::tuple<std::string, std::string, std::string>>>(
+                            valueVariant))
+                    {
+                        // Get the vector of tuples
+                        const auto& tupleVector = std::get<std::vector<
+                            std::tuple<std::string, std::string, std::string>>>(
+                            valueVariant);
+                        for (const auto& tuple : tupleVector)
+                        {
+                            endPoint = std::get<2>(tuple);
+                            pass++;
+                        }
+                    }
+                }
+                else if (valueName == "State")
+                {
+                    value = std::get_if<uint16_t>(&valueVariant);
+                    pass++;
+                }
+                if (pass == 2)
+                {
+                    asyncResp->res.jsonValue["@odata.type"] =
+                        "#Sensor.v1_2_0.Sensor";
+                    std::string nameSensor = name;
+                    std::replace(nameSensor.begin(), nameSensor.end(), '_',
+                                 ' ');
+                    asyncResp->res.jsonValue["Name"] = nameSensor;
+                    asyncResp->res.jsonValue["Id"] = type + '_' + name;
+                    if (*value != 0)
+                    {
+                        std::string objPath = endPoint + "/" +
+                                              std::string(name);
+                        sensorState(
+                            *value, objPath, type,
+                            [asyncResp](
+                                const std::vector<std::string>& stringState) {
+                            nlohmann::json stateArray = nlohmann::json::array();
+                            for (auto& itr : stringState)
+                            {
+                                stateArray.push_back(itr);
+                            }
+                            asyncResp->res.jsonValue["Oem"]["Ami"]["States"] =
+                                stateArray;
+                            asyncResp->res.jsonValue["Oem"]["Ami"]
+                                                    ["ReadingTye"] = "Discrete";
+                        });
+                    }
+                    else
+                    {
+                        asyncResp->res.jsonValue["Oem"]["Ami"]["States"] =
+                            nullptr;
+                    }
+                    asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] =
+                        "#AMISensor.v1_0_0.AMISensor";
+                    asyncResp->res.jsonValue["Status"]["State"] =
+                        getState(nullptr, true);
+                    asyncResp->res.jsonValue["Status"]["Health"] = getHealth(
+                        asyncResp->res.jsonValue, valuesDict, nullptr);
+                }
+            }
+        }
+        else
+        {
+            objectPropertiesToJson(name, type, sensors::node::sensors,
+                                   valuesDict, asyncResp->res.jsonValue,
+                                   nullptr);
+        }
     });
+}
+
+inline bool valideSensorWithConfFile(const std::string& sensorId)
+{
+    std::ifstream inputFile("/etc/sensor-reader/configuredsensors");
+    if (inputFile.is_open())
+    {
+        std::string sensorNameSearch, fileLine;
+        size_t pos = sensorId.find('_');
+        if (pos != std::string::npos)
+        {
+            sensorNameSearch = sensorId.substr(pos + 1);
+            bool found = false;
+            while (std::getline(inputFile, fileLine))
+            {
+                if (fileLine.find(sensorNameSearch) != std::string::npos)
+                {
+                    found = true;
+                    break;
+                }
+            }
+            inputFile.close();
+            return found;
+        }
+        inputFile.close();
+    }
+    return false;
 }
 
 inline void handleSensorGet(App& app, const crow::Request& req,
@@ -2932,10 +3382,19 @@ inline void handleSensorGet(App& app, const crow::Request& req,
     asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
         "/redfish/v1/Chassis/{}/Sensors/{}", chassisId, sensorId);
 
+    if (valideSensorWithConfFile(sensorId))
+    {
+        asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.id"] =
+            boost::urls::format(
+                "/redfish/v1/Chassis/{}/Sensors/{}/Oem/SensorHistory",
+                chassisId, sensorId);
+    }
+
     BMCWEB_LOG_DEBUG("Sensor doGet enter");
 
-    constexpr std::array<std::string_view, 1> interfaces = {
-        "xyz.openbmc_project.Sensor.Value"};
+    constexpr std::array<std::string_view, 3> interfaces = {
+        "xyz.openbmc_project.Sensor.Value", "xyz.openbmc_project.Sensor.State",
+        "xyz.openbmc_project.Association.Definitions"};
     std::string sensorPath = "/xyz/openbmc_project/sensors/" + nameType.first +
                              '/' + nameType.second;
     // Get a list of all of the sensors that implement Sensor.Value
@@ -2964,6 +3423,171 @@ inline void handleSensorGet(App& app, const crow::Request& req,
     });
 }
 
+inline void
+    handleSensorHistoryGet(App& app, const crow::Request& req,
+                           const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                           const std::string& chassisId,
+                           const std::string& sensorId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    if (!valideSensorWithConfFile(sensorId))
+    {
+        messages::resourceNotFound(asyncResp->res, sensorId, "Sensor");
+        return;
+    }
+    std::pair<std::string, std::string> nameType =
+        splitSensorNameAndType(sensorId);
+    if (nameType.first.empty() || nameType.second.empty())
+    {
+        messages::resourceNotFound(asyncResp->res, sensorId, "Sensor");
+        return;
+    }
+    std::string sensorName = nameType.second;
+    std::replace(sensorName.begin(), sensorName.end(), '_', ' ');
+    asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
+        "/redfish/v1/Chassis/{}/Sensors/{}/Oem/SensorHistory", chassisId,
+        sensorId);
+
+    asyncResp->res.jsonValue = {
+        {"@odata.type", "#SensorHistory.v1_0_0.SensorHistory"},
+        {"@odata.id", "/redfish/v1/Chassis/" + chassisId + "/" + "Sensors/" +
+                          sensorId + "/Oem/SensorHistory"},
+        {"Id", sensorId + " Sensor History"},
+        {"Name", sensorName},
+        {"SensorName", sensorName}};
+
+    crow::connections::systemBus->async_method_call(
+        [asyncResp](
+            const boost::system::error_code ec,
+            const std::vector<std::pair<std::string, std::variant<uint64_t>>>&
+                propertiesList) {
+        if (ec)
+        {
+            messages::internalError(asyncResp->res);
+            BMCWEB_LOG_ERROR("Sensor patchSensorHistory Interval Dbus error {}",
+                             ec);
+            return;
+        }
+
+        for (const std::pair<std::string, std::variant<uint64_t>>& property :
+             propertiesList)
+        {
+            const std::string& propertyName = property.first;
+            if ((propertyName.find("Interval") != std::string::npos) ||
+                (propertyName.find("TimeFrame") != std::string::npos))
+            {
+                const uint64_t* value = std::get_if<uint64_t>(&property.second);
+                if (value != nullptr)
+                {
+                    asyncResp->res.jsonValue[propertyName] = *value;
+                }
+            }
+        }
+    },
+        "xyz.openbmc_project.SensorReader",
+        "/xyz/openbmc_project/SensorReader/History",
+        "org.freedesktop.DBus.Properties", "GetAll",
+        "xyz.openbmc_project.SensorReader.History.Read");
+
+    crow::connections::systemBus->async_method_call(
+        [asyncResp, chassisId, sensorId](
+            const boost::system::error_code ec,
+            const std::vector<std::pair<uint64_t, double>>& historyResp) {
+        if (ec)
+        {
+            messages::internalError(asyncResp->res);
+            BMCWEB_LOG_ERROR("Sensor patchSensorHistory Interval Dbus error {}",
+                             ec);
+            return;
+        }
+
+        nlohmann::json& historyArray =
+            asyncResp->res.jsonValue["SensorReadings"];
+        uint16_t sensorCount = 0;
+        for (const std::pair<uint64_t, double>& property : historyResp)
+        {
+            const uint64_t time = property.first;
+            const double value = property.second;
+
+            nlohmann::json historyItem;
+            historyItem["@odata.id"] =
+                "/redfish/v1/Chassis/" + chassisId + "/" + "Sensors/" +
+                sensorId + "/Oem/SensorHistory" + "#/SensorReadings/" +
+                std::to_string(sensorCount++);
+            historyItem["@odata.type"] = "#OemSensorHistory.v1_0_0";
+            historyItem["Time"] = time;
+            historyItem["Value"] = value;
+            historyArray.push_back(historyItem);
+        }
+        asyncResp->res.jsonValue["SensorReadingsCount"] = sensorCount;
+    },
+        "xyz.openbmc_project.SensorReader",
+        "/xyz/openbmc_project/SensorReader/History",
+        "xyz.openbmc_project.SensorReader.History.Read", "Read",
+        (nameType.second));
+}
+inline void handleSensorHistorypatch(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& sensorId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    if (!valideSensorWithConfFile(sensorId))
+    {
+        messages::resourceNotFound(asyncResp->res, sensorId, "Sensor");
+        return;
+    }
+    BMCWEB_LOG_DEBUG("Handling sensor history for Chassis ID: {} Sensor ID:",
+                     chassisId, sensorId);
+    std::optional<uint64_t> interval;
+    std::optional<uint64_t> timeFrame;
+    if (!json_util::readJsonPatch(req, asyncResp->res, "Interval", interval,
+                                  "TimeFrame", timeFrame))
+    {
+        return;
+    }
+    if (interval)
+    {
+        crow::connections::systemBus->async_method_call(
+            [asyncResp, interval](const boost::system::error_code ec) {
+            if (ec)
+            {
+                messages::internalError(asyncResp->res);
+                BMCWEB_LOG_ERROR(
+                    "Sensor patchSensorHistory Interval Dbus error {}", ec);
+                return;
+            }
+        }, "xyz.openbmc_project.SensorReader",
+            "/xyz/openbmc_project/SensorReader/History",
+            "org.freedesktop.DBus.Properties", "Set",
+            "xyz.openbmc_project.SensorReader.History.Read", "Interval",
+            std::variant<uint64_t>(*interval));
+    }
+    if (timeFrame)
+    {
+        crow::connections::systemBus->async_method_call(
+            [asyncResp, timeFrame](const boost::system::error_code ec) {
+            if (ec)
+            {
+                messages::internalError(asyncResp->res);
+                BMCWEB_LOG_ERROR(
+                    "Sensor patchSensorHistory Interval Dbus error {}", ec);
+                return;
+            }
+        }, "xyz.openbmc_project.SensorReader",
+            "/xyz/openbmc_project/SensorReader/History",
+            "org.freedesktop.DBus.Properties", "Set",
+            "xyz.openbmc_project.SensorReader.History.Read", "TimeFrame",
+            std::variant<uint64_t>(*timeFrame));
+    }
+}
+
 } // namespace sensors
 
 inline void requestRoutesSensorCollection(App& app)
@@ -2980,6 +3604,21 @@ inline void requestRoutesSensor(App& app)
         .privileges(redfish::privileges::getSensor)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(sensors::handleSensorGet, std::ref(app)));
+}
+
+inline void requestRoutesSensorHistory(App& app)
+{
+    BMCWEB_ROUTE(app,
+                 "/redfish/v1/Chassis/<str>/Sensors/<str>/Oem/SensorHistory")
+        .privileges(redfish::privileges::getSensor)
+        .methods(boost::beast::http::verb::get)(
+            std::bind_front(sensors::handleSensorHistoryGet, std::ref(app)));
+
+    BMCWEB_ROUTE(app,
+                 "/redfish/v1/Chassis/<str>/Sensors/<str>/Oem/SensorHistory")
+        .privileges(redfish::privileges::patchSensor)
+        .methods(boost::beast::http::verb::patch)(
+            std::bind_front(sensors::handleSensorHistorypatch, std::ref(app)));
 }
 
 } // namespace redfish

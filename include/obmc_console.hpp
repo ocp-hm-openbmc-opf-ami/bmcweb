@@ -8,6 +8,7 @@
 #include <boost/asio/local/stream_protocol.hpp>
 #include <boost/container/flat_map.hpp>
 #include <boost/system/error_code.hpp>
+#include <registries/privilege_registry.hpp>
 
 #include <array>
 #include <memory>
@@ -324,8 +325,8 @@ inline void onMessage(crow::websocket::Connection& conn,
 inline void requestRoutes(App& app)
 {
     BMCWEB_ROUTE(app, "/console0")
-        .privileges({{"OpenBMCHostConsole"}})
         .websocket()
+        .privileges(redfish::privileges::privilegeSetConfigureManager)
         .onopen(onOpen)
         .onclose(onClose)
         .onmessage(onMessage);

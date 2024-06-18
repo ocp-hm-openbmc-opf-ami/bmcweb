@@ -18,6 +18,9 @@
   <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Chassis_v1.xml">
     <edmx:Include Namespace="Chassis"/>
   </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NodeManager_v1.xml">
+    <edmx:Include Namespace="NodeManager"/>
+  </edmx:Reference>
 
   <edmx:DataServices>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="OemManager">
@@ -26,7 +29,20 @@
         <Annotation Term="OData.Description" String="OemManager Oem properties." />
         <Annotation Term="OData.AutoExpand"/>
         <Property Name="OpenBmc" Type="OemManager.OpenBmc"/>
-      </ComplexType>
+        <Property Name="Intel" Type="OemManager.Intel"/>
+    </ComplexType>
+
+    <ComplexType Name="Intel" BaseType="Resource.OemObject">
+      <Annotation Term="OData.AdditionalProperties" Bool="true"/>
+      <Annotation Term="OData.Description" String="Oem properties for Intel."/>
+      <Annotation Term="OData.AutoExpand"/>
+      <NavigationProperty Name="NodeManager" Type="NodeManager.NodeManager" Nullable="false">
+        <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+        <Annotation Term="OData.Description" String="The NodeManager schema contains properties related to monitoring and control of the given power capping node."/>
+        <Annotation Term="OData.LongDescription" String="The NodeManager schema contains properties related to monitoring and control of the given power capping node."/>
+        <Annotation Term="OData.AutoExpandReferences"/>
+      </NavigationProperty>
+    </ComplexType>
 
       <ComplexType Name="OpenBmc" BaseType="Resource.OemObject">
         <Annotation Term="OData.AdditionalProperties" Bool="true" />

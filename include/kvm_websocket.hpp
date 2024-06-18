@@ -6,19 +6,23 @@
 #include <sys/socket.h>
 
 #include <boost/container/flat_map.hpp>
+#include <registries/privilege_registry.hpp>
 
 namespace crow
 {
 namespace obmc_kvm
 {
 
-static constexpr const uint maxSessions = 4;
+static constexpr const uint maxSessions = 1;
+int kvmActiveStatus = 0;
 
 class KvmSession : public std::enable_shared_from_this<KvmSession>
 {
   public:
     explicit KvmSession(crow::websocket::Connection& connIn) :
-        conn(connIn), hostSocket(conn.getIoContext())
+        conn(connIn), hostSocket(conn.getIoContext()),
+        timeoutInSeconds(
+            persistent_data::SessionStore::getInstance().getTimeoutInSeconds())
     {
         boost::asio::ip::tcp::endpoint endpoint(
             boost::asio::ip::make_address("127.0.0.1"), 5900);
@@ -38,6 +42,8 @@ class KvmSession : public std::enable_shared_from_this<KvmSession>
 
             doRead();
         });
+        startTimeoutTimer(); // Invoke the timer function when the KVM WebSocket
+                             // is opened.
     }
 
     void onMessage(const std::string& data)
@@ -61,6 +67,13 @@ class KvmSession : public std::enable_shared_from_this<KvmSession>
         BMCWEB_LOG_DEBUG("conn:{}, inputbuffer size {}", logPtr(&conn),
                          inputBuffer.size());
         doWrite();
+        lastActivityTime = persistent_data::SessionStore::getInstance()
+                               .getTimeSinceLastTimeoutInSeconds();
+    }
+
+    ~KvmSession()
+    {
+        stopTimeoutTimer();
     }
 
   protected:
@@ -101,6 +114,11 @@ class KvmSession : public std::enable_shared_from_this<KvmSession>
             conn.sendBinary(payload);
             outputBuffer.consume(bytesRead);
 
+            // closing KVM when web session deleted
+            if (!conn.session->kvmConnections)
+            {
+                closeWebSocket();
+            }
             doRead();
         });
     }
@@ -151,8 +169,78 @@ class KvmSession : public std::enable_shared_from_this<KvmSession>
                 return;
             }
 
+            persistent_data::SessionStore::getInstance()
+                .updatelastSessionTime();
             doWrite();
         });
+    }
+
+    void startTimeoutTimer()
+    {
+        if (!timerRunning) // Check if the timer is not already running
+        {
+            timerRunning = true;
+            lastActivityTime =
+                persistent_data::SessionStore::getInstance()
+                    .getTimeSinceLastTimeoutInSeconds(); // Get the current time
+                                                         // and store it in
+                                                         // lastActivityTime
+
+            // Start a new thread (timeoutTimer) to handle the timeout logic
+            timeoutTimer = std::thread([this]() {
+                while (timerRunning)
+                {
+                    std::this_thread::sleep_for(std::chrono::seconds(1));
+                    // Get the timeout value from the persistent data store
+                    int64_t timeoutValue =
+                        persistent_data::SessionStore::getInstance()
+                            .getTimeoutInSeconds();
+                    timeoutInSeconds = std::chrono::seconds(
+                        timeoutValue);      // Convert the timeout value to
+                                            // std::chrono::seconds and update
+                                            // timeoutInSeconds
+                    applySessionTimeouts(); // Call the function to apply
+                                            // session timeouts
+                }
+            });
+        }
+    }
+
+    void stopTimeoutTimer()
+    {
+        if (timerRunning)         // Check if the timer is currently running
+        {
+            timerRunning = false; // Set the flag to indicate that the timer is
+                                  // no longer running
+            if (timeoutTimer.joinable()) // Check if the thread associated with
+                                         // the timeoutTimer is joinable
+            {
+                timeoutTimer.join(); // If it's joinable, join (wait for) the
+                                     // thread to finish its execution
+            }
+        }
+    }
+
+    void applySessionTimeouts()
+    {
+        auto timeNow = std::chrono::steady_clock::now();
+        int64_t timeoutValue =
+            persistent_data::SessionStore::getInstance().getTimeoutInSeconds();
+        timeoutInSeconds = std::chrono::seconds(timeoutValue);
+        if (timeNow - lastActivityTime >=
+            timeoutInSeconds) // This condition checks if the time elapsed since
+                              // the last activity in the KVM session is greater
+                              // than or equal to the configured timeout. If
+                              // true, it means that the session has been
+                              // inactive for the specified timeout duration.
+        {
+            closeWebSocket();
+        }
+    }
+
+    void closeWebSocket()
+    {
+        conn.close("Session timeout");
     }
 
     crow::websocket::Connection& conn;
@@ -160,6 +248,10 @@ class KvmSession : public std::enable_shared_from_this<KvmSession>
     boost::beast::flat_static_buffer<1024UL * 50UL> outputBuffer;
     boost::beast::flat_static_buffer<1024UL> inputBuffer;
     bool doingWrite{false};
+    std::atomic<bool> timerRunning{false};
+    std::thread timeoutTimer;
+    std::chrono::time_point<std::chrono::steady_clock> lastActivityTime;
+    std::chrono::seconds timeoutInSeconds;
 };
 
 using SessionMap = boost::container::flat_map<crow::websocket::Connection*,
@@ -172,8 +264,8 @@ inline void requestRoutes(App& app)
     sessions.reserve(maxSessions);
 
     BMCWEB_ROUTE(app, "/kvm/0")
-        .privileges({{"ConfigureComponents", "ConfigureManager"}})
         .websocket()
+        .privileges(redfish::privileges::privilegeSetConfigureManager)
         .onopen([](crow::websocket::Connection& conn) {
         BMCWEB_LOG_DEBUG("Connection {} opened", logPtr(&conn));
 
@@ -184,9 +276,13 @@ inline void requestRoutes(App& app)
         }
 
         sessions[&conn] = std::make_shared<KvmSession>(conn);
+        conn.session->kvmConnections++;
+        kvmActiveStatus = 1;
     })
         .onclose([](crow::websocket::Connection& conn, const std::string&) {
         sessions.erase(&conn);
+        conn.session->kvmConnections--;
+        kvmActiveStatus = 0;
     })
         .onmessage([](crow::websocket::Connection& conn,
                       const std::string& data, bool) {
@@ -194,6 +290,18 @@ inline void requestRoutes(App& app)
         {
             sessions[&conn]->onMessage(data);
         }
+    });
+    BMCWEB_ROUTE(app, "/kvm/kvmActiveStatus")
+        .privileges({{"ConfigureComponents", "ConfigureManager"}})
+        .methods(boost::beast::http::verb::get)(
+            [](const crow::Request& req,
+               const std::shared_ptr<bmcweb::AsyncResp>& ares) {
+        if (req.session == nullptr)
+        {
+            BMCWEB_LOG_DEBUG("Internal Server Error");
+            return;
+        }
+        ares->res.jsonValue["kvmActiveStatus"] = kvmActiveStatus;
     });
 }
 

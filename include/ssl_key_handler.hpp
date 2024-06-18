@@ -493,34 +493,42 @@ inline std::shared_ptr<boost::asio::ssl::context>
         SSL_CTX_set_alpn_select_cb(mSslContext->native_handle(),
                                    alpnSelectProtoCallback, nullptr);
     }
-    // Set up EC curves to auto (boost asio doesn't have a method for this)
-    // There is a pull request to add this.  Once this is included in an asio
-    // drop, use the right way
-    // http://stackoverflow.com/questions/18929049/boost-asio-with-ecdsa-certificate-issue
-    if (SSL_CTX_set_ecdh_auto(mSslContext->native_handle(), 1) != 1)
-    {}
 
-    // Mozilla intermediate cipher suites v5.7
-    // Sourced from: https://ssl-config.mozilla.org/guidelines/5.7.json
-    const char* mozillaIntermediate = "ECDHE-ECDSA-AES128-GCM-SHA256:"
-                                      "ECDHE-RSA-AES128-GCM-SHA256:"
-                                      "ECDHE-ECDSA-AES256-GCM-SHA384:"
-                                      "ECDHE-RSA-AES256-GCM-SHA384:"
-                                      "ECDHE-ECDSA-CHACHA20-POLY1305:"
-                                      "ECDHE-RSA-CHACHA20-POLY1305:"
-                                      "DHE-RSA-AES128-GCM-SHA256:"
-                                      "DHE-RSA-AES256-GCM-SHA384:"
-                                      "DHE-RSA-CHACHA20-POLY1305";
+    std::string handshakeCurves = "P-384:P-521:X448";
+    if (SSL_CTX_set1_groups_list(mSslContext->native_handle(),
+                                 handshakeCurves.c_str()) != 1)
+    {
+        BMCWEB_LOG_ERROR("Error setting ECDHE group list");
+    }
+
+    std::string tls12Ciphers = "ECDHE-ECDSA-AES256-GCM-SHA384:"
+                               "ECDHE-RSA-AES256-GCM-SHA384";
+    std::string tls13Ciphers = "TLS_AES_256_GCM_SHA384";
 
     if (SSL_CTX_set_cipher_list(mSslContext->native_handle(),
-                                mozillaIntermediate) != 1)
+                                tls12Ciphers.c_str()) != 1)
     {
-        BMCWEB_LOG_ERROR("Error setting cipher list");
+        BMCWEB_LOG_ERROR("Error setting TLS 1.2 cipher list");
     }
+
+    if (SSL_CTX_set_ciphersuites(mSslContext->native_handle(),
+                                 tls13Ciphers.c_str()) != 1)
+    {
+        BMCWEB_LOG_ERROR("Error setting TLS 1.3 cipher list");
+    }
+
+    if ((SSL_CTX_set_options(mSslContext->native_handle(),
+                             SSL_OP_CIPHER_SERVER_PREFERENCE) &
+         SSL_OP_CIPHER_SERVER_PREFERENCE) == 0)
+    {
+        BMCWEB_LOG_ERROR("Error setting TLS server preference option");
+    }
+
     return mSslContext;
 }
 
-inline std::optional<boost::asio::ssl::context> getSSLClientContext()
+inline std::optional<boost::asio::ssl::context>
+    getSSLClientContext(const bool verifyCertificate)
 {
     boost::asio::ssl::context sslCtx(boost::asio::ssl::context::tls_client);
 
@@ -549,8 +557,13 @@ inline std::optional<boost::asio::ssl::context> getSSLClientContext()
         return std::nullopt;
     }
 
-    // Verify the remote server's certificate
-    sslCtx.set_verify_mode(boost::asio::ssl::verify_peer, ec);
+    int mode = boost::asio::ssl::verify_peer;
+    if (!verifyCertificate)
+    {
+        mode = boost::asio::ssl::verify_none;
+    }
+    // Set Verify the remote server's certificate mode
+    sslCtx.set_verify_mode(mode, ec);
     if (ec)
     {
         BMCWEB_LOG_ERROR("SSL context set_verify_mode failed");

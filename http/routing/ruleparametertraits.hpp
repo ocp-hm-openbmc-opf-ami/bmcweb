@@ -1,5 +1,6 @@
 #pragma once
 
+#include "privilegeparametertraits.hpp"
 #include "sserule.hpp"
 #include "websocketrule.hpp"
 
@@ -11,7 +12,7 @@
 namespace crow
 {
 template <typename T>
-struct RuleParameterTraits
+struct RuleParameterTraits : public PrivilegeParameterTraits<T>
 {
     using self_t = T;
     WebSocketRule& websocket()

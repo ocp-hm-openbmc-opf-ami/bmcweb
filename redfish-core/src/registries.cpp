@@ -1,6 +1,7 @@
 #include "registries.hpp"
 
 #include "registries/base_message_registry.hpp"
+#include "registries/nm_message_registry.hpp"
 #include "registries/openbmc_message_registry.hpp"
 #include "str_utility.hpp"
 
@@ -51,6 +52,11 @@ const Message* getMessage(std::string_view messageID)
     {
         return getMessageFromRegistry(
             messageKey, std::span<const MessageEntry>(openbmc::registry));
+    }
+    if (std::string(nm::header.registryPrefix) == registryName)
+    {
+        return getMessageFromRegistry(
+            messageKey, std::span<const MessageEntry>(nm::registry));
     }
     return nullptr;
 }

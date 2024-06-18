@@ -692,7 +692,7 @@ inline void afterCreateTrigger(
     }
     if (ec)
     {
-        messages::internalError(asyncResp->res);
+        messages::propertyValueFormatError(asyncResp->res, id, "Id");
         BMCWEB_LOG_ERROR("respHandler DBus error {}", ec);
         return;
     }

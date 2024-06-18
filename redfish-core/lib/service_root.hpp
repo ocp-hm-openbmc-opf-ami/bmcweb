@@ -87,6 +87,24 @@ inline void handleServiceRootGetImpl(
     asyncResp->res.jsonValue["TelemetryService"]["@odata.id"] =
         "/redfish/v1/TelemetryService";
     asyncResp->res.jsonValue["Cables"]["@odata.id"] = "/redfish/v1/Cables";
+    asyncResp->res.jsonValue["LicenseService"]["@odata.id"] =
+        "/redfish/v1/LicenseService";
+
+    asyncResp->res.jsonValue["Oem"]["OpenBmc"]["Pef"]["@odata.id"] =
+        "/redfish/v1/#Oem/OpenBmc";
+    asyncResp->res.jsonValue["Oem"]["OpenBmc"]["Pef"]["@odata.type"] =
+        "#OemPefServiceRoot.v1_0_0.OpenBmc";
+    asyncResp->res.jsonValue["Oem"]["OpenBmc"]["Pef"]["PefService"] = {
+        {"@odata.id", "/redfish/v1/PefService"}};
+    asyncResp->res.jsonValue["Oem"]["Intel"]["@odata.type"] =
+        "#OemServiceRoot.v1_0_0.Intel";
+    asyncResp->res.jsonValue["Oem"]["Intel"]["@odata.id"] =
+        "/redfish/v1/#Oem/Intel";
+    asyncResp->res.jsonValue["Oem"]["Intel"]["CupsService"] = {
+        {"@odata.id", "/redfish/v1/Oem/Intel/CupsService"}};
+
+    asyncResp->res.jsonValue["Oem"]["Ami"]["LicenseControl"] = {
+        {"@odata.id", "/redfish/v1/Oem/Ami/LicenseControl"}};
 
     asyncResp->res.jsonValue["Links"]["ManagerProvidingService"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Managers/{}",

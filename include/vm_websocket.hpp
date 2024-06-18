@@ -4,6 +4,7 @@
 #include "dbus_utility.hpp"
 #include "privileges.hpp"
 #include "websocket.hpp"
+#include "virtual_media.hpp"
 
 #include <boost/asio/local/stream_protocol.hpp>
 #include <boost/asio/readable_pipe.hpp>
@@ -14,6 +15,7 @@
 #include <boost/container/flat_map.hpp>
 #include <boost/process/v2/process.hpp>
 #include <boost/process/v2/stdio.hpp>
+#include <registries/privilege_registry.hpp>
 #include <sdbusplus/asio/property.hpp>
 
 #include <csignal>
@@ -188,13 +190,15 @@ struct NbdProxyServer : std::enable_shared_from_this<NbdProxyServer>
     NbdProxyServer(crow::websocket::Connection& connIn,
                    const std::string& socketIdIn,
                    const std::string& endpointIdIn, const std::string& pathIn) :
-        socketId(socketIdIn),
-        endpointId(endpointIdIn), path(pathIn),
+        socketId(socketIdIn), endpointId(endpointIdIn), path(pathIn),
 
         peerSocket(connIn.getIoContext()),
         acceptor(connIn.getIoContext(), stream_protocol::endpoint(socketId)),
         connection(connIn)
-    {}
+    {
+        std::filesystem::path endpointPath(endpointIdIn);
+        endpointIndex = std::stoul(endpointPath.filename().string());
+    }
 
     NbdProxyServer(const NbdProxyServer&) = delete;
     NbdProxyServer(NbdProxyServer&&) = delete;
@@ -217,6 +221,7 @@ struct NbdProxyServer : std::enable_shared_from_this<NbdProxyServer>
             BMCWEB_LOG_DEBUG("Failed to remove file, ignoring");
         }
 
+        redfish::powerSaveMode(POWER_SAVE_MODE_ENABLE);
         crow::connections::systemBus->async_method_call(
             dbus::utility::logError, "xyz.openbmc_project.VirtualMedia", path,
             "xyz.openbmc_project.VirtualMedia.Proxy", "Unmount");
@@ -270,11 +275,17 @@ struct NbdProxyServer : std::enable_shared_from_this<NbdProxyServer>
         self->doRead();
     }
 
+    unsigned getEndpointIndex() const
+    {
+        return endpointIndex;
+    }
+
     void run()
     {
         acceptor.async_accept(
             std::bind_front(&NbdProxyServer::afterAccept, weak_from_this()));
 
+        redfish::powerSaveMode(POWER_SAVE_MODE_DISABLE);
         crow::connections::systemBus->async_method_call(
             [weak{weak_from_this()}](const boost::system::error_code& ec,
                                      bool isBinary) {
@@ -390,6 +401,7 @@ struct NbdProxyServer : std::enable_shared_from_this<NbdProxyServer>
     const std::string socketId;
     const std::string endpointId;
     const std::string path;
+    unsigned endpointIndex; // endpoint id represented in unsigned int
 
     bool uxWriteInProgress = false;
 
@@ -455,9 +467,20 @@ inline void
     std::filesystem::remove(socket.c_str(), ec2);
     // Ignore failures.  File might not exist.
 
+    std::filesystem::path socketPath(socket);
+    std::error_code fsErr;
+    if (!std::filesystem::exists(socketPath.parent_path(), fsErr))
+    {
+        BMCWEB_LOG_ERROR("VirtualMedia socket directory not present. {}",
+                         socketPath.parent_path().string());
+        conn.close("Unable to create unix socket");
+        return;
+    }
+
     sessions[&conn] = std::make_shared<NbdProxyServer>(conn, socket, endpointId,
                                                        path);
     sessions[&conn]->run();
+    conn.session->vmNbdActive[sessions[&conn]->getEndpointIndex()] = true;
 }
 
 inline void onOpen(crow::websocket::Connection& conn)
@@ -499,6 +522,7 @@ inline void onClose(crow::websocket::Connection& conn,
         BMCWEB_LOG_DEBUG("No session to close");
         return;
     }
+    conn.session->vmNbdActive[sessions[&conn]->getEndpointIndex()] = false;
     // Remove reference to session in global map
     sessions.erase(session);
 }
@@ -533,15 +557,15 @@ inline void requestRoutes(App& app)
     if constexpr (BMCWEB_VM_NBDPROXY)
     {
         BMCWEB_ROUTE(app, "/nbd/<str>")
-            .privileges({{"ConfigureComponents", "ConfigureManager"}})
             .websocket()
+            .privileges(redfish::privileges::privilegeSetLoginConfigureManager)
             .onopen(nbd_proxy::onOpen)
             .onclose(nbd_proxy::onClose)
             .onmessageex(nbd_proxy::onMessage);
 
         BMCWEB_ROUTE(app, "/vm/0/0")
-            .privileges({{"ConfigureComponents", "ConfigureManager"}})
             .websocket()
+            .privileges(redfish::privileges::privilegeSetConfigureManager)
             .onopen(nbd_proxy::onOpen)
             .onclose(nbd_proxy::onClose)
             .onmessageex(nbd_proxy::onMessage);
@@ -549,8 +573,8 @@ inline void requestRoutes(App& app)
     if constexpr (BMCWEB_VM_WEBSOCKET)
     {
         BMCWEB_ROUTE(app, "/vm/0/0")
-            .privileges({{"ConfigureComponents", "ConfigureManager"}})
             .websocket()
+            .privileges(redfish::privileges::privilegeSetConfigureManager)
             .onopen([](crow::websocket::Connection& conn) {
             BMCWEB_LOG_DEBUG("Connection {} opened", logPtr(&conn));
 
