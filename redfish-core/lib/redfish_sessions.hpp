@@ -42,7 +42,7 @@ std::vector<std::string> SessionProperties = {
 constexpr const char* DBUS_PROPERTY_IFACE = "org.freedesktop.DBus.Properties";
 
 using sessionInfo =
-    std::tuple<uint16_t, std::string, std::string, uint8_t, uint8_t, uint8_t>;
+    std::tuple<uint8_t, std::string, std::string, uint8_t, uint8_t, uint8_t, std::string>;
 
 using sessionRet = std::vector<sessionInfo>;
 using propertyValue = std::variant<std::vector<sessionInfo>>;
@@ -130,6 +130,7 @@ inline void fillSessionObject(crow::Response& res,
         static_cast<bool>(session.kvmConnections);
     res.jsonValue["Oem"]["AMI_WebSession"]["VmActive"] =
         nlohmann::json::array();
+    res.jsonValue["Oem"]["Ami"]["MountType"] ="";
     for (const bool status : session.vmNbdActive)
     {
         res.jsonValue["Oem"]["AMI_WebSession"]["VmActive"].push_back(status);
@@ -196,7 +197,8 @@ inline void getSessionInfo(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
             int SessionType;
             int privilege;
             int UserId;
-            std::tie(id, IpAddess, userName, SessionType, privilege, UserId) =
+	    std::string additionalConfigValue;
+            std::tie(id, IpAddess, userName, SessionType, privilege, UserId, additionalConfigValue) =
                 tuple;
             if (SessId == id)
             {
@@ -213,9 +215,12 @@ inline void getSessionInfo(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
                 asyncResp->res.jsonValue["Description"] =
                     "Manager User Session";
                 asyncResp->res.jsonValue["ClientOriginIPAddress"] = IpAddess;
-                asyncResp->res.jsonValue["SessionType"] =
+		asyncResp->res.jsonValue["Oem"]["Ami"]["MountType"] = additionalConfigValue;
+		asyncResp->res.jsonValue["SessionType"] =
                     getSessionType(SessionType);
-                asyncResp->res.jsonValue["Roles"] = getprivilege(privilege);
+	        nlohmann::json::array_t roles;
+                roles.emplace_back(getprivilege(privilege));
+                asyncResp->res.jsonValue["Roles"] = std::move(roles);
                 asyncResp->res.jsonValue["UserId"] = UserId;
             }
         }
@@ -404,14 +409,8 @@ inline void
                 sessionRet& vec = std::get<sessionRet>(data);
                 for (const auto& tuple : vec)
                 {
-                    int id;
-                    std::string IpAddess;
-                    std::string userName;
-                    int SessionType;
-                    int privilege;
-                    int UserId;
-                    std::tie(id, IpAddess, userName, SessionType, privilege,
-                             UserId) = tuple;
+		     uint8_t id = std::get<0>(tuple);
+                    uint8_t SessionType = std::get<3>(tuple);	
                     if (SessId == id)
                     {
                         sessType = SessionType;
@@ -547,10 +546,10 @@ inline void getSessions(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
             BMCWEB_LOG_ERROR("DBus response error:{}", ec);
             return;
         }
-        std::vector<uint16_t> sessionIds;
+        std::vector<uint8_t> sessionIds;
         for (const auto& tuple : Sessions)
         {
-            uint16_t sessionId = std::get<0>(tuple);
+            uint8_t sessionId = std::get<0>(tuple);
             sessionIds.push_back(sessionId);
         }
 
