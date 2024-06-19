@@ -8,7 +8,7 @@ After=network.target
 Restart=always
 ExecReload=kill -s HUP $MAINPID
 ExecStart=@MESON_INSTALL_PREFIX@/bin/bmcweb
-ExecStop=/bin/bash /usr/bin/delete-hi-user.sh
+ExecStop=/bin/bash -c '/usr/bin/test -x /usr/bin/delete-hi-user.sh && /bin/bash /usr/bin/delete-hi-user.sh || true'
 Type=simple
 WorkingDirectory=/home/root
 
