@@ -133,50 +133,50 @@ inline void getSmtpConfig(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             messages::internalError(asyncResp->res);
             return;
         }
-        asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]["@odata.type"] =
+        asyncResp->res.jsonValue["Oem"]["SMTP"]["@odata.type"] =
             "#AMIEventService.SMTP";
         asyncResp->res
-            .jsonValue["Oem"]["OpenBmc"]["SMTP"][configuration]["@odata.type"] =
+            .jsonValue["Oem"]["SMTP"][configuration]["@odata.type"] =
             "#AMIEventService.Configuration";
-        asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"][configuration]
+        asyncResp->res.jsonValue["Oem"]["SMTP"][configuration]
                                 ["Authentication"] = authentication;
 
-        asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"][configuration]
+        asyncResp->res.jsonValue["Oem"]["SMTP"][configuration]
                                 ["Enable"] = enable;
 
         if (host != nullptr)
         {
-            asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"][configuration]
+            asyncResp->res.jsonValue["Oem"]["SMTP"][configuration]
                                     ["Host"] = *host;
         }
         if (username != nullptr)
         {
-            asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"][configuration]
+            asyncResp->res.jsonValue["Oem"]["SMTP"][configuration]
                                     ["UserName"] = *username;
         }
         if (password != nullptr)
         {
-            asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"][configuration]
+            asyncResp->res.jsonValue["Oem"]["SMTP"][configuration]
                                     ["Password"] = *password;
         }
 
         if (port != nullptr)
         {
-            asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"][configuration]
+            asyncResp->res.jsonValue["Oem"]["SMTP"][configuration]
                                     ["Port"] = *port;
         }
         if (recipient != nullptr)
         {
-            asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"][configuration]
+            asyncResp->res.jsonValue["Oem"]["SMTP"][configuration]
                                     ["Recipient"] = *recipient;
         }
         if (sender != nullptr)
         {
-            asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"][configuration]
+            asyncResp->res.jsonValue["Oem"]["SMTP"][configuration]
                                     ["Sender"] = *sender;
         }
 
-        asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"][configuration]
+        asyncResp->res.jsonValue["Oem"]["SMTP"][configuration]
                                 ["TLSEnable"] = TLSEnable;
     });
 }
@@ -232,17 +232,17 @@ inline void
               << sslPrimaryServerKeyFile.c_str() << "\n";
 
     isPrimaryCACERT = ensureOpensslKeyPresentAndValid(sslPrimaryCACERTFile);
-    asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]["PrimaryConfiguration"]
+    asyncResp->res.jsonValue["Oem"]["SMTP"]["PrimaryConfiguration"]
                             ["isCACERTExist"] = isPrimaryCACERT;
     isPrimaryServerCRT =
         ensureOpensslKeyPresentAndValid(sslPrimaryServerCRTFile);
 
-    asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]["PrimaryConfiguration"]
+    asyncResp->res.jsonValue["Oem"]["SMTP"]["PrimaryConfiguration"]
                             ["isServerCRTExist"] = isPrimaryServerCRT;
     isPrimaryServerKey =
         ensureOpensslKeyPresentAndValid(sslPrimaryServerKeyFile);
 
-    asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]["PrimaryConfiguration"]
+    asyncResp->res.jsonValue["Oem"]["SMTP"]["PrimaryConfiguration"]
                             ["isServerKeyExist"] = isPrimaryServerKey;
 
     if (isPrimaryCACERT)
@@ -254,7 +254,7 @@ inline void
                   << primaryCACERTModifiedDate << "\n";
 
         asyncResp->res
-            .jsonValue["Oem"]["OpenBmc"]["SMTP"]["PrimaryConfiguration"]
+            .jsonValue["Oem"]["SMTP"]["PrimaryConfiguration"]
                       ["primaryCACERTModifiedDate"] = primaryCACERTModifiedDate;
     }
     if (isPrimaryServerCRT)
@@ -266,7 +266,7 @@ inline void
                   << primaryCACERTModifiedDate << "\n";
 
         asyncResp->res
-            .jsonValue["Oem"]["OpenBmc"]["SMTP"]["PrimaryConfiguration"]
+            .jsonValue["Oem"]["SMTP"]["PrimaryConfiguration"]
                       ["primaryserverCRTModifiedDate"] =
             primaryCACERTModifiedDate;
     }
@@ -279,7 +279,7 @@ inline void
                   << primaryCACERTModifiedDate << "\n";
 
         asyncResp->res
-            .jsonValue["Oem"]["OpenBmc"]["SMTP"]["PrimaryConfiguration"]
+            .jsonValue["Oem"]["SMTP"]["PrimaryConfiguration"]
                       ["primaryServerKeyModifiedDate"] =
             primaryCACERTModifiedDate;
     }
@@ -294,17 +294,17 @@ inline void
               << sslSecondaryServerKeyFile.c_str() << "\n";
 
     isSecondrayCACERT = ensureOpensslKeyPresentAndValid(sslSecondaryCACERTFile);
-    asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]["SecondaryConfiguration"]
+    asyncResp->res.jsonValue["Oem"]["SMTP"]["SecondaryConfiguration"]
                             ["isCACERTExist"] = isSecondrayCACERT;
     isSecondrayServerKey =
         ensureOpensslKeyPresentAndValid(sslSecondaryServerKeyFile);
 
-    asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]["SecondaryConfiguration"]
+    asyncResp->res.jsonValue["Oem"]["SMTP"]["SecondaryConfiguration"]
                             ["isServerKeyExist"] = isSecondrayServerKey;
     isSecondrayServerCRT =
         ensureOpensslKeyPresentAndValid(sslSecondaryServerCRTFile);
 
-    asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]["SecondaryConfiguration"]
+    asyncResp->res.jsonValue["Oem"]["SMTP"]["SecondaryConfiguration"]
                             ["isServerCRTExist"] = isSecondrayServerCRT;
 
     if (isSecondrayCACERT)
@@ -315,7 +315,7 @@ inline void
                   << modifiedDate << "\n";
 
         asyncResp->res
-            .jsonValue["Oem"]["OpenBmc"]["SMTP"]["SecondaryConfiguration"]
+            .jsonValue["Oem"]["SMTP"]["SecondaryConfiguration"]
                       ["secondaryCACERTModifiedDate"] = modifiedDate;
     }
     if (isSecondrayServerCRT)
@@ -326,7 +326,7 @@ inline void
                   << modifiedDate << "\n";
 
         asyncResp->res
-            .jsonValue["Oem"]["OpenBmc"]["SMTP"]["SecondaryConfiguration"]
+            .jsonValue["Oem"]["SMTP"]["SecondaryConfiguration"]
                       ["secondaryserverCRTModifiedDate"] = modifiedDate;
     }
     if (isSecondrayServerKey)
@@ -337,7 +337,7 @@ inline void
                   << modifiedDate << "\n";
 
         asyncResp->res
-            .jsonValue["Oem"]["OpenBmc"]["SMTP"]["SecondaryConfiguration"]
+            .jsonValue["Oem"]["SMTP"]["SecondaryConfiguration"]
                       ["secondaryServerKeyModifiedDate"] = modifiedDate;
     }
 }
