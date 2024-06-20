@@ -8,12 +8,22 @@
 #include <stdplus/numeric/str.hpp>
 #include <stdplus/str/conv.hpp>
 
+#include "syslog.h"
 #include <string>
 
 namespace redfish
 {
 namespace ip_util
 {
+
+enum class Type
+{
+    GATEWAY4_ADDRESS,
+    GATEWAY6_ADDRESS,
+    IP4_ADDRESS,
+    IP6_ADDRESS,
+    SUBNETMASK
+};
 
 /**
  * @brief Converts boost::asio::ip::address to string
@@ -116,14 +126,6 @@ inline bool ipv4VerifyIpAndGetBitcount(const std::string& ip,
     return true;
 }
 
-enum class Type
-{
-    GATEWAY4_ADDRESS,
-    GATEWAY6_ADDRESS,
-    IP4_ADDRESS,
-    IP6_ADDRESS
-};
-
 inline bool in6AddrIetfProtocolAssignment(in6_addr* addr)
 {
     return (ntohl(addr->__in6_u.__u6_addr32[0]) >= 0x20010000 &&
@@ -192,23 +194,63 @@ static void isValidIPv6Addr(in6_addr* addr, Type type)
     }
 }
 
-inline bool validateIPv6address(const std::string& ipAddress)
+inline bool validateIPv6address(std::string addr, Type type)
 {
     try
     {
-        in6_addr addr;
-        if (inet_pton(AF_INET6, ipAddress.c_str(), &addr) != 1)
-        {
-            throw std::invalid_argument("Invalid IPv6 address format");
-        }
-        isValidIPv6Addr(&addr, Type::IP6_ADDRESS);
+        std::optional<stdplus::InAnyAddr> Addrs;
+        Addrs.emplace(stdplus::fromStr<stdplus::In6Addr>(addr));
+        isValidIPv6Addr(reinterpret_cast<in6_addr*>(&Addrs.value()), type);
+        return true;
     }
-    catch (const std::invalid_argument& e)
+    catch (const std::exception& e)
     {
-        // Invalid IPv6 address.
+        syslog(LOG_WARNING, "validateIPv6address IP : %s is Invalid & Error Returned is : %s !!! \n", addr.c_str(), e.what());
         return false;
     }
+}
+
+inline bool isValidIPv4Address(in_addr* addr, Type type)
+{
+    uint8_t ip[4];
+    in_addr_t tmp = stdplus::ntoh(addr->s_addr);
+    for (int i = 0; i < 4; i++)
+    {
+        ip[i] = ( tmp >> (8 * (3 - i)) ) & 0xFF;
+    }
+    if (type == Type::GATEWAY4_ADDRESS)
+    {
+        if (ip[0] == 0)
+        {
+            // Gateway starts with 0
+            return false;
+        }
+    }
+    else if (type == Type::IP4_ADDRESS || type == Type::SUBNETMASK)
+    {
+        if (ip[0] == 0 && ip[1] == 0 && ip[2] == 0 && ip[3] == 0)
+        {
+            // IPv4 address is 0.0.0.0
+            return false;
+        }
+    }
     return true;
+}
+
+inline bool isValidIPv4Addr(std::string addr, Type type)
+{
+    try
+    {
+        std::optional<stdplus::InAnyAddr> Addrs;
+        Addrs.emplace(stdplus::fromStr<stdplus::In4Addr>(addr));
+        bool ValidIPv4Addrflag = isValidIPv4Address(reinterpret_cast<in_addr*> ((&Addrs.value())), type);
+        return ValidIPv4Addrflag;
+    }
+    catch (const std::exception& e)
+    {
+        syslog(LOG_WARNING, "isValidIPv4Addr IP : %s is Invalid & Error Returned is : %s !!! \n", addr.c_str(), e.what());
+        return false;
+    }
 }
 
 } // namespace ip_util

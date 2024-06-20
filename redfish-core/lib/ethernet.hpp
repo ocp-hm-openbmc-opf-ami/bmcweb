@@ -1681,43 +1681,6 @@ inline bool isSameSeries(std::string ipStr, std::string gwStr,
     return true;
 }
 
-inline bool isValidIPv4Addr(const std::string& addr, Type type)
-{
-    uint8_t ip[4];
-    uint32_t tmp =
-        ntohl(inet_addr(addr.c_str())); // Convert std::string to const char*
-    for (int i = 0; i < 4; i++)         // Extracting Octets
-    {
-        ip[i] = (tmp >> (8 * (3 - i))) & 0xFF; // spliting into 4 octects.
-    }
-
-    if (type == Type::GATEWAY4_ADDRESS)
-    {
-        if (ip[0] == 0) // checks first octet is zero
-        {
-            return false;
-        }
-    }
-    else if (type == Type::IP4_ADDRESS)
-    {
-        if (ip[0] == 0 && ip[1] == 0 && ip[2] == 0 &&
-            ip[3] == 0) // checks if all four octets are zero
-        {
-            return false;
-        }
-    }
-    else if (type == Type::SUBNETMASK)
-    {
-        if (ip[0] == 0 && ip[1] == 0 && ip[2] == 0 &&
-            ip[3] == 0) // checks if all four octets are zero
-        {
-            return false;
-        }
-    }
-
-    return true;
-}
-
 inline bool
     validateIPv4Json(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                      const nlohmann::json::array_t& input)
@@ -1760,22 +1723,22 @@ inline bool
                 const std::string& ipSubnetMask = *subnetMask;
                 uint8_t prefixLength = 0;
 
-                if (!isValidIPv4Addr(
+                if (!ip_util::isValidIPv4Addr(
                         ipAddress,
-                        Type::IP4_ADDRESS)) // checking the IPv4 Address
+                        ip_util::Type::IP4_ADDRESS)) // checking the IPv4 Address
                 {
                     messages::invalidip(asyncResp->res, "Address", ipAddress);
                     return false;
                 }
-                if (!isValidIPv4Addr(
-                        ipGateway, Type::GATEWAY4_ADDRESS)) // checking the IPv4
+                if (!ip_util::isValidIPv4Addr(
+                        ipGateway, ip_util::Type::GATEWAY4_ADDRESS)) // checking the IPv4
                                                             // gateway Address
                 {
                     messages::invalidip(asyncResp->res, "Gateway", ipGateway);
                     return false;
                 }
-                if (!isValidIPv4Addr(ipSubnetMask,
-                                     Type::SUBNETMASK)) // checking the IPv4
+                if (!ip_util::isValidIPv4Addr(ipSubnetMask,
+                                     ip_util::Type::SUBNETMASK)) // checking the IPv4
                                                         // subnetmask Address
                 {
                     messages::invalidip(asyncResp->res, "Subnetmask",
@@ -2430,7 +2393,7 @@ inline bool
         if (address)
         {
             const std::string& ipAddress = *address;
-            if (!(ip_util::validateIPv6address(ipAddress)))
+            if (!(ip_util::validateIPv6address(ipAddress, ip_util::Type::IP6_ADDRESS)))
             {
                 messages::invalidip(asyncResp->res, "Address", ipAddress);
                 return false;
