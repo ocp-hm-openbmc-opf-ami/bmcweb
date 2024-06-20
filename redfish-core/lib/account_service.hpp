@@ -388,6 +388,20 @@ inline void handleRoleMapPatch(
     const std::string& serverType,
     std::vector<std::variant<nlohmann::json::object_t, std::nullptr_t>>& input)
 {
+    for (size_t i = 0; i < input.size(); ++i)
+    {
+        for (size_t j = i + 1; j < input.size(); ++j)
+        {
+           if (input[i].index() == 0 && input[j].index() == 0)
+            {
+               if( std::get<nlohmann::json::object_t>(input[i]) == std::get<nlohmann::json::object_t>(input[j]))
+               {
+                  asyncResp->res.result(boost::beast::http::status::bad_request);
+                   return ; // Indicating a bad request
+                }
+            }
+        }
+    }
     for (size_t index = 0; index < input.size(); index++)
     {
         std::variant<nlohmann::json::object_t, std::nullptr_t>& thisJson =
