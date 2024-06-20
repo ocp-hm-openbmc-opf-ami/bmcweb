@@ -197,7 +197,7 @@ struct NbdProxyServer : std::enable_shared_from_this<NbdProxyServer>
         connection(connIn)
     {
         std::filesystem::path endpointPath(endpointIdIn);
-        endpointIndex = std::stoul(endpointPath.filename().string());
+	endpointIndex = static_cast<unsigned int>(std::stoul(endpointPath.filename().string()));
     }
 
     NbdProxyServer(const NbdProxyServer&) = delete;
