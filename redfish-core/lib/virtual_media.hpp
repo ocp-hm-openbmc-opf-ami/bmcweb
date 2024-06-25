@@ -928,7 +928,6 @@ inline void doEjectAction(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string ifaceName = "xyz.openbmc_project.VirtualMedia." + vmMode;
     std::string action = "VirtualMedia.Eject";
 
-    powerSaveMode(POWER_SAVE_MODE_ENABLE);
     auto wrapper = doListenForCompletion(name, objectPath, action, legacy,
                                          asyncResp);
 
@@ -965,6 +964,7 @@ inline void doEjectAction(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         }
     },
         service, objectPath, ifaceName, "Unmount");
+    powerSaveMode(POWER_SAVE_MODE_ENABLE);
 }
 
 inline void handleManagersVirtualMediaActionInsertPost(
