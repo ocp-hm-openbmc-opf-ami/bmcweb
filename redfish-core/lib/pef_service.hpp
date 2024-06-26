@@ -249,6 +249,7 @@ void getEventEntries(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                   "/redfish/v1/PefService/" + objpath.substr(lastPos + 1)}});
             std::cerr << "PEF getEventEntries entry details : " << objpath;
         }
+	 aResp->res.jsonValue["Members@odata.count"] = entriesArray.size();
     },
 
         "xyz.openbmc_project.ObjectMapper",
@@ -326,7 +327,8 @@ inline void requestRoutesPefService(App& app)
             {"@odata.type", "#PefService.v1_0_0.PefService"},
             {"@odata.id", "/redfish/v1/PefService"},
             {"Id", "Pef Service"},
-            {"Name", "Pef Service"}};
+            {"Name", "Pef Service"},
+	    {"Description", "Pef Service Collections"}};
         aResp->res.jsonValue["Actions"]["#PefService.SendAlertMail"]["target"] =
             "/redfish/v1/PefService/Actions/"
             "PefService.SendAlertMail/";
