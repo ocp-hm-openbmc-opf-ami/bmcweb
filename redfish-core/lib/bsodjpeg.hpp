@@ -110,53 +110,25 @@ inline void requestRoutesTriggerBsodjpeg(App& app)
         {
             return;
         }
-        if (fs::exists(inputImagePath))
-        {
-            crow::connections::systemBus->async_method_call(
-                [asyncResp](const boost::system::error_code ec) {
-                if (ec)
-                {
-                    BMCWEB_LOG_ERROR("DBUS response error {}", ec);
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-            }, "xyz.openbmc_project.OSSStatusSensor",
-                "/xyz/openbmc_project/sensors/os/OS_Stop_Status",
-                "org.freedesktop.DBus.Properties", "Set",
-                "xyz.openbmc_project.Sensor.State", "State",
-                dbus::utility::DbusVariantType(State));
-        }
-        uint8_t netfn = 0x0a;
-        uint8_t lun = 0x00;
-        uint8_t cmdno = 0x44;
-        std::vector<uint8_t> commandData = {0x00, 0x00, 0x02, 0x00, 0x00, 0x00,
-                                            0x00, 0x41, 0x0,  0x04, 0x20, 0x0,
-                                            0x6f, 0x01, 0xff, 0xf};
-
-        auto bus = sdbusplus::bus::new_default_system();
-
-        const char* serviceName = "xyz.openbmc_project.Ipmi.Host";
-        const char* objectPath = "/xyz/openbmc_project/Ipmi";
-        const char* interfaceName = "xyz.openbmc_project.Ipmi.Server";
-        const char* methodName = "execute";
-
-        std::vector<std::pair<std::string, std::variant<std::string, uint64_t>>>
-            options;
-
-        auto methodCall = bus.new_method_call(serviceName, objectPath,
-                                              interfaceName, methodName);
-        methodCall.append(netfn, lun, cmdno, commandData, options);
-        auto response = bus.call(methodCall);
-        if (response.is_method_error())
-        {
-            BMCWEB_LOG_ERROR("DBUS Method Call Failed");
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        else
-        {
+        int32_t dbuspropertyvalue = 1;
+        crow::connections::systemBus->async_method_call(
+            [asyncResp](const boost::system::error_code& ec,
+                        const std::string& response) {
+            if (ec)
+            {
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            if (response != "Success")
+            {
+                messages::internalError(asyncResp->res);
+                return;
+            }
             messages::success(asyncResp->res);
-        }
+        },
+            "xyz.openbmc_project.Kvm", "/xyz/openbmc_project/Kvm",
+            "xyz.openbmc_project.Kvm.Screenshot", "TriggerScreenshot",
+            dbuspropertyvalue);
     });
 }
 
