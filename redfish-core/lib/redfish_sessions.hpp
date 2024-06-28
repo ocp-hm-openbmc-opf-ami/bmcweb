@@ -47,6 +47,28 @@ using sessionInfo =
 using sessionRet = std::vector<sessionInfo>;
 using propertyValue = std::variant<std::vector<sessionInfo>>;
 
+
+using privPropertyValue = std::variant<uint8_t, uint16_t, uint64_t, std::string,
+                                   std::vector<std::string>, bool>;
+
+const privPropertyValue getRolePrivilege(const std::string& processName,
+                                 const std::string& objectPath,
+                                 const std::string& interfaceName,
+                                 const std::string& propertyName)
+{
+    privPropertyValue value{};
+
+    auto b = sdbusplus::bus::new_default_system();
+    auto method = b.new_method_call(processName.c_str(), objectPath.c_str(),
+                                    dbusPropertyInterface, "Get");
+
+    method.append(interfaceName, propertyName);
+    auto reply = b.call(method);
+    reply.read(value);
+    return value;
+}
+
+
 std::string getRole(std::string role)
 {
     if (role == "priv-admin")
@@ -78,7 +100,19 @@ inline void fillSessionObject(crow::Response& res,
     res.jsonValue["Id"] = session.uniqueId;
     res.jsonValue["UserName"] = session.username;
     nlohmann::json::array_t roles;
-    roles.emplace_back(redfish::getRoleIdFromPrivilege(session.userRole));
+
+    const char* processName = "xyz.openbmc_project.User.Manager";
+    const char* interfaceName = "xyz.openbmc_project.User.Attributes";
+    const char* propName = "UserPrivilege";
+    std::string objectPathStr = std::string("/xyz/openbmc_project/user/") + std::string(session.username);
+    const char* objectPath = objectPathStr.c_str();
+    
+    auto value = getRolePrivilege(processName, objectPath, interfaceName,
+                                      propName);
+    auto prive = std::get<std::string>(value);
+    
+    roles.emplace_back(redfish::getRoleIdFromPrivilege(prive));
+    
     res.jsonValue["Roles"] = std::move(roles);
     res.jsonValue["@odata.id"] = boost::urls::format(
         "/redfish/v1/SessionService/Sessions/{}", session.uniqueId);
