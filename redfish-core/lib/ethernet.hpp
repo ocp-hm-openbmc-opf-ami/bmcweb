@@ -2850,33 +2850,36 @@ inline void requestEthernetInterfacesRoutes(App& app)
                 ipv6AcceptRA = ethData.ipv6AcceptRa;
             }
 
-            if (v4dhcpParms.dhcpv4Enabled)
+            if (v4dhcpParms.dhcpv4Enabled || v4dhcpParms.useDnsServers || v4dhcpParms.useDomainName || v4dhcpParms.useNtpServers)
             {
                 if (isIfaceIdusb0(ifaceId, asyncResp))
                 {
                     return;
                 }
 
-                const bool v4Value = *v4dhcpParms.dhcpv4Enabled;
-                if (!v4Value) // DHCPv4.DHCPEnabled attribute is false
+                if (v4dhcpParms.dhcpv4Enabled)
                 {
-                    if (!ipv4StaticAddresses) // and IPv4StaticAddresses
-                                              // attribute is not present
+                    const bool v4Value = *v4dhcpParms.dhcpv4Enabled;
+                    if (!v4Value) // DHCPv4.DHCPEnabled attribute is false
                     {
-                        messages::propertyMissing(asyncResp->res,
-                                                  "IPv4StaticAddresses");
+                        if (!ipv4StaticAddresses) // and IPv4StaticAddresses
+                                                // attribute is not present
+                        {
+                            messages::propertyMissing(asyncResp->res,
+                                                    "IPv4StaticAddresses");
+                            return;
+                        }
+                    }
+                    else if (v4Value &&
+                            ipv4StaticAddresses) // DHCPv4.DHCPEnabled attribute is
+                                                // true and IPv4StaticAddresses
+                                                // attribute is present
+                    {
+                        messages::propertyValueConflict(asyncResp->res,
+                                                        "DHCPv4.DHCPEnabled",
+                                                        "IPv4StaticAddresses");
                         return;
                     }
-                }
-                else if (v4Value &&
-                         ipv4StaticAddresses) // DHCPv4.DHCPEnabled attribute is
-                                              // true and IPv4StaticAddresses
-                                              // attribute is present
-                {
-                    messages::propertyValueConflict(asyncResp->res,
-                                                    "DHCPv4.DHCPEnabled",
-                                                    "IPv4StaticAddresses");
-                    return;
                 }
 
                 if (ipv4AddressValid)
@@ -2886,32 +2889,36 @@ inline void requestEthernetInterfacesRoutes(App& app)
                 }
             }
 
-            if (v6dhcpParms
-                    .dhcpv6OperatingMode) // DHCPv6 -> OperatingMode is present
+            if(v6dhcpParms.dhcpv6OperatingMode || v6dhcpParms.useDnsServers || v6dhcpParms.useDomainName || v4dhcpParms.useNtpServers)
             {
                 if (isIfaceIdusb0(ifaceId, asyncResp))
                 {
                     return;
                 }
 
-                if ((*v6dhcpParms.dhcpv6OperatingMode == "Enabled") &&
-                    ipv6StaticAddresses)
+                if (v6dhcpParms
+                    .dhcpv6OperatingMode) // DHCPv6 -> OperatingMode is present
                 {
-                    messages::propertyValueConflict(asyncResp->res,
-                                                    "DHCPv6.OperatingMode",
-                                                    "IPv6StaticAddresses");
-                    return;
-                }
-                else if (*v6dhcpParms.dhcpv6OperatingMode == "Disabled")
-                {
-                    if (!ipv6StaticAddresses) // and IPv6StaticAddresses
-                                              // attribute is not present
+                    if ((*v6dhcpParms.dhcpv6OperatingMode == "Enabled") &&
+                        ipv6StaticAddresses)
                     {
-                        messages::propertyMissing(asyncResp->res,
-                                                  "IPv6StaticAddresses");
+                        messages::propertyValueConflict(asyncResp->res,
+                                                        "DHCPv6.OperatingMode",
+                                                        "IPv6StaticAddresses");
                         return;
                     }
+                    else if (*v6dhcpParms.dhcpv6OperatingMode == "Disabled")
+                    {
+                        if (!ipv6StaticAddresses) // and IPv6StaticAddresses
+                                                // attribute is not present
+                        {
+                            messages::propertyMissing(asyncResp->res,
+                                                    "IPv6StaticAddresses");
+                            return;
+                        }
+                    }
                 }
+
                 if (ipv6AddressValid)
                 {
                     handleDHCPPatch(ifaceId, ethData, v4dhcpParms, v6dhcpParms,
