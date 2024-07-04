@@ -413,7 +413,7 @@ inline void
 
     std::shared_ptr<task::TaskData>& ptr = *find;
 
-    if (ptr->state != "New" && ptr->state != "Pending")
+    if (ptr->state != "New" && ptr->state != "Pending" && ptr->state != "Completed")
     {
         messages::resourceCannotBeDeleted(asyncResp->res);
         return;
