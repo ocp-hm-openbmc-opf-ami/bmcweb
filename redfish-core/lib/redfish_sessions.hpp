@@ -676,12 +676,16 @@ inline void handleSessionCollectionPost(
     {
         if (username.empty())
         {
-            messages::propertyMissing(asyncResp->res, "UserName");
+            messages::resourceAtUriUnauthorized(asyncResp->res, req.url(),
+                                            "Invalid username ");
+
         }
 
         if (password.empty())
         {
-            messages::propertyMissing(asyncResp->res, "Password");
+            messages::resourceAtUriUnauthorized(asyncResp->res, req.url(),
+                                            "Invalid Password ");
+
         }
 
         return;
