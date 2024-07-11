@@ -984,6 +984,11 @@ inline void handleManagersVirtualMediaActionInsertPost(
 
         return;
     }
+    if((resName == "Slot_0" ) || (resName == "Slot_1"))
+    {
+        messages::resourceNotFound(asyncResp->res, "Virtual Media", resName);
+        return;
+    }
     if (req.session->username != "root")
     {
         auto result = find(req.session->userGroups.begin(),
@@ -1221,6 +1226,34 @@ inline void
     });
 }
 
+inline void
+    handleVirtualMediaValueGet(crow::App& app, const crow::Request& req,
+                          const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                          const std::string& name, const std::string& resName)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    if (name != "bmc")
+    {
+        messages::resourceNotFound(asyncResp->res, "VirtualMedia", name);
+        return;
+    }
+
+    if (resName == "Slot_2" || resName == "Slot_3")
+    {
+        asyncResp->res.result(boost::beast::http::status::method_not_allowed);
+        messages::operationNotAllowed(asyncResp->res);
+        return;
+    }
+    else
+    {
+        messages::resourceNotFound(asyncResp->res, "Virtual Media", resName);
+        return;
+    }
+}
+
 inline void insertMediaCheckMode(
     [[maybe_unused]] const std::string& service,
     [[maybe_unused]] const std::string& resName,
@@ -1251,12 +1284,23 @@ inline void insertMediaCheckMode(
 inline void requestNBDVirtualMediaRoutes(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/VirtualMedia/<str>/Actions/"
+                      "VirtualMedia.InsertMedia" )
+        .privileges(redfish::privileges::getVirtualMedia)
+        .methods(boost::beast::http::verb::get)(
+            std::bind_front(handleVirtualMediaValueGet, std::ref(app)));
+
+    BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/VirtualMedia/<str>/Actions/"
                       "VirtualMedia.InsertMedia")
         .privileges(redfish::privileges::patchVirtualMedia)
         .methods(boost::beast::http::verb::patch)(
             []([[maybe_unused]] const crow::Request& req,
                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                const std::string& name, const std::string& resName) {
+	if((resName == "Slot_0") || (resName=="Slot_1"))
+        {
+                messages::resourceNotFound(asyncResp->res, "Virtual Media", resName);
+                return ;
+        }
         findItemAndRunHandler(asyncResp, name, resName, insertMediaCheckMode,
                               req);
     });
@@ -1267,6 +1311,11 @@ inline void requestNBDVirtualMediaRoutes(App& app)
             []([[maybe_unused]] const crow::Request& req,
                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                const std::string& name, const std::string& resName) {
+	if((resName == "Slot_0") || (resName=="Slot_1"))
+        {
+                messages::resourceNotFound(asyncResp->res, "Virtual Media", resName);
+                return ;
+        }
         findItemAndRunHandler(asyncResp, name, resName, insertMediaCheckMode,
                               req);
     });
@@ -1277,6 +1326,11 @@ inline void requestNBDVirtualMediaRoutes(App& app)
             []([[maybe_unused]] const crow::Request& req,
                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                const std::string& name, const std::string& resName) {
+	if((resName == "Slot_0") || (resName=="Slot_1"))
+        {
+                messages::resourceNotFound(asyncResp->res, "Virtual Media", resName);
+                return ;
+        }
         findItemAndRunHandler(asyncResp, name, resName, insertMediaCheckMode,
                               req);
     });
