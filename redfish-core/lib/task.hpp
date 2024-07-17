@@ -233,6 +233,7 @@ struct TaskData : std::enable_shared_from_this<TaskData>
     void extendTimer(const std::chrono::seconds& timeout)
     {
         timer.expires_after(timeout);
+	sendTaskEvent(state, index);
         timer.async_wait(
             [self = shared_from_this()](boost::system::error_code ec) {
             if (ec == boost::asio::error::operation_aborted)
@@ -322,6 +323,12 @@ struct TaskData : std::enable_shared_from_this<TaskData>
                 redfish::messages::taskCancelled(std::to_string(index)), origin,
                 resType);
         }
+	else if (state == "New")
+        {
+            redfish::EventServiceManager::getInstance().sendEvent(
+                redfish::messages::taskCreated(std::to_string(index)), origin,
+                resType);
+        }
         else
         {
             BMCWEB_LOG_INFO("sendTaskEvent: No events to send");
@@ -359,9 +366,9 @@ struct TaskData : std::enable_shared_from_this<TaskData>
         });
 
         extendTimer(timeout);
-        messages.emplace_back(messages::taskStarted(std::to_string(index)));
+        //messages.emplace_back(messages::taskStarted(std::to_string(index)));
         // Send event : TaskStarted
-        sendTaskEvent(state, index);
+        //sendTaskEvent(state, index);
     }
 
     std::function<bool(boost::system::error_code, sdbusplus::message_t&,

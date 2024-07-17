@@ -142,7 +142,18 @@ constexpr std::array registry =
             },
             "None.",
         }},
-
+    MessageEntry{
+	 "TaskCreated",
+	{
+           "A task has created.",
+           "The task with Id '%1' has Created.",
+           "OK",
+           1,
+           {
+	       "string",
+           },
+           "None.",
+       }},	   
 };
 
 enum class Index
@@ -156,5 +167,6 @@ enum class Index
     taskRemoved = 6,
     taskResumed = 7,
     taskStarted = 8,
+    taskCreated = 9,
 };
 } // namespace redfish::registries::task_event
