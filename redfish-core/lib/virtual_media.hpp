@@ -617,6 +617,12 @@ static inline std::shared_ptr<MatchWrapper>
                     BMCWEB_LOG_ERROR("Signal received: EAGAIN");
                     messages::resourceInUse(asyncResp->res);
                     break;
+                case 22:
+                case 111:
+                    messages::actionParameterValueError(asyncResp->res,
+                                                        "UserName/Password",
+                                                        "InsertMedia");
+                    break;
                 default:
                     BMCWEB_LOG_ERROR("Signal received: Other: {}", errorCode);
                     messages::operationFailed(asyncResp->res);
@@ -817,6 +823,12 @@ inline void validateParams(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         messages::resourceAtUriInUnknownFormat(asyncResp->res, *url);
 
         return;
+    }
+
+    if(!paramTransferProtocolType)
+    {
+       messages::actionParameterMissing(asyncResp->res, "InsertMedia", "TransferProtocolType");
+       return;
     }
 
     // transferProtocolType should contain value from list
