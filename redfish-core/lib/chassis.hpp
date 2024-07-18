@@ -206,6 +206,7 @@ inline void handleChassisCollectionGet(
         "#ChassisCollection.ChassisCollection";
     asyncResp->res.jsonValue["@odata.id"] = "/redfish/v1/Chassis";
     asyncResp->res.jsonValue["Name"] = "Chassis Collection";
+    asyncResp->res.jsonValue["Description"] = "The Collection for Chassis";
 
     constexpr std::array<std::string_view, 2> interfaces{
         "xyz.openbmc_project.Inventory.Item.Board",

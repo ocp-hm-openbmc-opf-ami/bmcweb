@@ -480,6 +480,7 @@ inline void handleLicenseCollectionGet(
     asyncResp->res.jsonValue["@odata.type"] =
         "#LicenseCollection.LicenseCollection";
     asyncResp->res.jsonValue["Name"] = "License Collection";
+    asyncResp->res.jsonValue["Description"] = "The Collection of License ";
     asyncResp->res.jsonValue["@odata.id"] =
         "/redfish/v1/LicenseService/Licenses/";
 

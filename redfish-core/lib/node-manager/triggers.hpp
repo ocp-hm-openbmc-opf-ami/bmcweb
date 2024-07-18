@@ -125,6 +125,7 @@ inline void requestRoutesNodeManagerTriggers(App& app)
             {"@odata.id",
              "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Triggers"},
             {"Name", "NM Triggers Collection"},
+	    {"Description", "The Collection of NodeManager Triggers"},
         };
 
         constexpr std::array<std::string_view, 1> interface {

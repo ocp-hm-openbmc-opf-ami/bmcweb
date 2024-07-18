@@ -350,6 +350,7 @@ inline nlohmann::json vmItemTemplate(const std::string& name,
 
     item["@odata.type"] = "#VirtualMedia.v1_3_0.VirtualMedia";
     item["Name"] = "Virtual Removable Media";
+    item["Description"] = "Virtual Removable Media";
     item["Id"] = resName;
     item["WriteProtected"] = true;
     item["ConnectedVia"] = virtual_media::ConnectedVia::NotConnected;
@@ -1171,6 +1172,7 @@ inline void handleManagersVirtualMediaCollectionGet(
     asyncResp->res.jsonValue["@odata.type"] =
         "#VirtualMediaCollection.VirtualMediaCollection";
     asyncResp->res.jsonValue["Name"] = "Virtual Media Services";
+    asyncResp->res.jsonValue["Description"] = "The Collection for Virtual Media Services";
     asyncResp->res.jsonValue["@odata.id"] =
         boost::urls::format("/redfish/v1/Managers/{}/VirtualMedia", name);
 

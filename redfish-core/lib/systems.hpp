@@ -3030,6 +3030,7 @@ inline void handleComputerSystemCollectionGet(
         "#ComputerSystemCollection.ComputerSystemCollection";
     asyncResp->res.jsonValue["@odata.id"] = "/redfish/v1/Systems";
     asyncResp->res.jsonValue["Name"] = "Computer System Collection";
+    asyncResp->res.jsonValue["Description"] = "Collection of Computer Systems";
 
     nlohmann::json& ifaceArray = asyncResp->res.jsonValue["Members"];
     ifaceArray = nlohmann::json::array();

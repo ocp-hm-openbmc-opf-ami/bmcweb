@@ -796,6 +796,7 @@ inline void requestRoutesMemoryCollection(App& app)
         asyncResp->res.jsonValue["@odata.type"] =
             "#MemoryCollection.MemoryCollection";
         asyncResp->res.jsonValue["Name"] = "Memory Module Collection";
+	asyncResp->res.jsonValue["Description"] = "Collection of Memories for this system";
         asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
             "/redfish/v1/Systems/{}/Memory", BMCWEB_REDFISH_SYSTEM_URI_NAME);
 

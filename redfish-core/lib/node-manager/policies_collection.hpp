@@ -475,6 +475,7 @@ inline void requestRoutesNodeManagerPolicies(App& app)
             {"@odata.id",
              "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Policies"},
             {"Name", "NM Policies Collection"},
+	    {"Description", "The Collection of NodeManager Policies"},
         };
 
         auto addPolicies =

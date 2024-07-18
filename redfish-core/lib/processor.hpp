@@ -1288,6 +1288,7 @@ inline void requestRoutesProcessorCollection(App& app)
         asyncResp->res.jsonValue["@odata.type"] =
             "#ProcessorCollection.ProcessorCollection";
         asyncResp->res.jsonValue["Name"] = "Processor Collection";
+	asyncResp->res.jsonValue["Description"] = "The Collection of processors";
 
         asyncResp->res.jsonValue["@odata.id"] =
             std::format("/redfish/v1/Systems/{}/Processors",

@@ -866,6 +866,7 @@ inline void requestRoutesEventService(App& app)
             "#EventService.v1_5_0.EventService";
         asyncResp->res.jsonValue["Id"] = "EventService";
         asyncResp->res.jsonValue["Name"] = "Event Service";
+	asyncResp->res.jsonValue["Description"] = "Event Service";
         asyncResp->res.jsonValue["ServerSentEventUri"] =
             "/redfish/v1/EventService/SSE";
 
@@ -1631,6 +1632,7 @@ inline void requestRoutesEventDestinationCollection(App& app)
         asyncResp->res.jsonValue["@odata.id"] =
             "/redfish/v1/EventService/Subscriptions";
         asyncResp->res.jsonValue["Name"] = "Event Destination Collections";
+	asyncResp->res.jsonValue["Description"] = "Event Destination Collections";
 
         nlohmann::json& memberArray = asyncResp->res.jsonValue["Members"];
 

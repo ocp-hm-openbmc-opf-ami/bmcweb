@@ -560,6 +560,7 @@ inline void requestRoutesCupsSensors(App& app)
             {"@odata.type", "#CupsSensorCollection.CupsSensorCollection"},
             {"@odata.id", "/redfish/v1/Oem/Intel/CupsService/Sensors"},
             {"Name", "Cups Sensor Collection"},
+	    {"Description", "Cups Sensor Collection"},
         };
 
         CupsSensors::getCupsSensors(asyncResp);

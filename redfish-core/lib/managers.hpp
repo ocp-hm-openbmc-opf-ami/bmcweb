@@ -2697,6 +2697,7 @@ inline void requestRoutesManagerCollection(App& app)
         asyncResp->res.jsonValue["@odata.type"] =
             "#ManagerCollection.ManagerCollection";
         asyncResp->res.jsonValue["Name"] = "Manager Collection";
+	asyncResp->res.jsonValue["Description"] = "The collection for Managers";
         asyncResp->res.jsonValue["Members@odata.count"] = 1;
         nlohmann::json::array_t members;
         nlohmann::json& bmc = members.emplace_back();

@@ -451,6 +451,7 @@ inline void requestRoutesNodeManagerDomains(App& app)
             {"@odata.id",
              "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Domains"},
             {"Name", "NM Domains Collection"},
+	    {"Description", "The Collection of NodeManager Domains"},
         };
 
         constexpr std::array<std::string_view, 1> interface {
