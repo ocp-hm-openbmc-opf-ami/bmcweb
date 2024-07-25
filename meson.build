@@ -166,6 +166,8 @@ add_project_arguments(
             '-DBOOST_ASIO_NO_DEPRECATED',
             '-DBOOST_ASIO_SEPARATE_COMPILATION',
             '-DBOOST_BEAST_SEPARATE_COMPILATION',
+            '-DBOOST_DLL_USE_STD_FS',
+            '-DBOOST_URL_DYN_LINK',
             '-DBOOST_EXCEPTION_DISABLE',
             '-DBOOST_NO_EXCEPTIONS',
             '-DBOOST_URL_NO_SOURCE_LOCATION',
@@ -353,13 +355,14 @@ bmcweblib = static_library(
 # Generate the bmcweb executable
 executable(
     'bmcweb',
-    'src/webserver_main.cpp',
+    srcfiles_bmcweb + ['src/webserver_main.cpp'],
     include_directories: incdir,
     dependencies: bmcweb_dependencies,
     link_with: bmcweblib,
     link_args: '-Wl,--gc-sections',
     install: true,
     install_dir: bindir,
+    export_dynamic: true,
 )
 
 srcfiles_unittest = files(
@@ -415,7 +418,7 @@ if (get_option('tests').allowed())
     foreach test_src : srcfiles_unittest
         test_bin = executable(
             fs.stem(test_src),
-            test_src,
+            srcfiles_bmcweb + test_src,
             link_with: bmcweblib,
             include_directories: incdir,
             install_dir: bindir,

@@ -42,8 +42,13 @@ namespace redfish
 namespace messages
 {
 
-static void addMessageToErrorJson(nlohmann::json& target,
+#if (BMCWEB_AMI_REP_MACRO) || (BMCWEB_AMI_NIC_MACRO)
+void addMessageToErrorJson(nlohmann::json& target,
                                   const nlohmann::json& message)
+#else
+static void addMessageToErrorJson(nlohmann::json& target, const nlohmann::json& message)
+#endif
+
 {
     auto& error = target["error"];
 

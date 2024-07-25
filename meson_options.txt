@@ -43,6 +43,41 @@ option(
 )
 
 option(
+    'ami-rep',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable the AMI redfish extension pack.'
+)
+
+option(
+    'ami-nvme',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable the AMI NVME.'
+)
+
+option(
+    'ami-raidmscc',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable the AMI RAID MSCC.'
+)
+
+option(
+    'ami-raidbrcm',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable the AMI RAID BRCM.'
+)
+
+option(
+    'ami-nic',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable the AMI NIC.'
+)
+
+option(
     'rest',
     type: 'feature',
     value: 'disabled',

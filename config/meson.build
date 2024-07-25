@@ -38,6 +38,11 @@ feature_options = [
     'tests',
     'vm-websocket',
     'xtoken-auth',
+    'ami-rep',
+    'ami-nvme',
+    'ami-nic',
+    'ami-raidmscc',
+    'ami-raidbrcm',
 ]
 
 string_options = [
@@ -59,6 +64,7 @@ int_options_string = '\n// Integer options\n'
 
 foreach option_key : feature_options + string_options + int_options
     option_key_config = 'BMCWEB_' + option_key.to_upper()
+    option_macro_config = option_key_config.replace('-', '_') + '_MACRO'
     option_key_config = option_key_config.replace('-', '_')
 
     message(option_key_config)
@@ -70,6 +76,9 @@ foreach option_key : feature_options + string_options + int_options
         int_options_string += 'constexpr const int         ' + option_key_config + ' = ' + opt.to_string() + ';\n'
     else
         feature_options_string += 'constexpr const bool        ' + option_key_config + ' = ' + opt.allowed().to_string() + ';\n'
+        if option_key.contains('ami-nvme') or option_key.contains('ami-raidbrcm') or option_key.contains('ami-raidmscc') or option_key.contains('ami-rep') or option_key.contains('ami-nic')
+            feature_options_string += '#define ' + option_macro_config + '  ' + opt.allowed().to_string() + '\n'
+        endif
         opt = opt.allowed().to_string()
     endif
     summary(option_key, opt, section: 'Features')

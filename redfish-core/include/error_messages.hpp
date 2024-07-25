@@ -37,6 +37,13 @@ namespace messages
 constexpr const char* messageVersionPrefix = "Base.1.11.0.";
 constexpr const char* messageAnnotation = "@Message.ExtendedInfo";
 
+#if (BMCWEB_AMI_REP_MACRO) || (BMCWEB_AMI_NIC_MACRO)
+/**
+ * @brief Add all error messages from the |source| JSON to |target|
+ */
+void addMessageToErrorJson(nlohmann::json& target,const nlohmann::json& message);
+#endif
+
 /**
  * @brief Moves all error messages from the |source| JSON to |target|
  */

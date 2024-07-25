@@ -9,7 +9,11 @@ namespace connections
 // Initialize before using!
 // Please see webserver_main for the example how this variable is initialized,
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+#if (BMCWEB_AMI_REP_MACRO) || (BMCWEB_AMI_NIC_MACRO)
+BOOST_SYMBOL_EXPORT extern sdbusplus::asio::connection* systemBus;
+#else
 extern sdbusplus::asio::connection* systemBus;
+#endif
 
 } // namespace connections
 } // namespace crow
