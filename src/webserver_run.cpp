@@ -55,8 +55,8 @@ int run()
     if constexpr (BMCWEB_REDFISH)
     {
         redfish::RedfishService redfish(app);
-#if (BMCWEB_AMI_REP_MACRO) || (BMCWEB_AMI_NIC_MACRO)        
-if constexpr (BMCWEB_AMI_NIC) {
+        
+#if (BMCWEB_AMI_NIC_MACRO) 
         try
         {
               // Create AMI Redfish extension service and initialize Config
@@ -69,9 +69,9 @@ if constexpr (BMCWEB_AMI_NIC) {
         {
             std::cerr << e.what() << std::endl;
         }
-}
-if constexpr (BMCWEB_AMI_REP)
-{        try
+#endif
+#if (BMCWEB_AMI_REP_MACRO)
+      try
         {
 	      BMCWEB_LOG_ERROR("Inside BMCWEB_ENABLE_AMI_REP");
               // Create AMI Redfish extension service and initialize Config
@@ -84,7 +84,9 @@ if constexpr (BMCWEB_AMI_REP)
         {
             std::cerr << e.what() << std::endl;
         }
-}
+#endif
+
+#if (BMCWEB_AMI_REP_MACRO) || (BMCWEB_AMI_NIC_MACRO)
 
         // Note, this must be the last route registered
         redfish::requestRoutesRedfish(app); 
