@@ -90,7 +90,28 @@ static void addMessageToErrorJson(nlohmann::json& target, const nlohmann::json& 
         extendedInfo = nlohmann::json::array();
     }
 
-    extendedInfo.push_back(message);
+    auto successmessageIdIterator = message.find("MessageId");
+    if (successmessageIdIterator != message.end() &&
+        *successmessageIdIterator == "Base.1.16.0.Success")
+    {
+        bool successPresent = false;
+        for (const auto& item : extendedInfo)
+        {
+            if (item == message)
+            {
+                successPresent = true;
+                break;
+            }
+        }
+        if (!successPresent)
+        {
+            extendedInfo.push_back(message);
+        }
+    }
+    else
+    {
+        extendedInfo.push_back(message);
+    }
 }
 
 void moveErrorsToErrorJson(nlohmann::json& target, nlohmann::json& source)

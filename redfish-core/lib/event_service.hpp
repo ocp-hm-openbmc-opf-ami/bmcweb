@@ -133,50 +133,50 @@ inline void getSmtpConfig(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             messages::internalError(asyncResp->res);
             return;
         }
-        asyncResp->res.jsonValue["Oem"]["SMTP"]["@odata.type"] =
+        asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]["@odata.type"] =
             "#AMIEventService.SMTP";
         asyncResp->res
-            .jsonValue["Oem"]["SMTP"][configuration]["@odata.type"] =
+            .jsonValue["Oem"]["OpenBmc"]["SMTP"][configuration]["@odata.type"] =
             "#AMIEventService.Configuration";
-        asyncResp->res.jsonValue["Oem"]["SMTP"][configuration]
+        asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"][configuration]
                                 ["Authentication"] = authentication;
 
-        asyncResp->res.jsonValue["Oem"]["SMTP"][configuration]
+        asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"][configuration]
                                 ["Enable"] = enable;
 
         if (host != nullptr)
         {
-            asyncResp->res.jsonValue["Oem"]["SMTP"][configuration]
+            asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"][configuration]
                                     ["Host"] = *host;
         }
         if (username != nullptr)
         {
-            asyncResp->res.jsonValue["Oem"]["SMTP"][configuration]
+            asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"][configuration]
                                     ["UserName"] = *username;
         }
         if (password != nullptr)
         {
-            asyncResp->res.jsonValue["Oem"]["SMTP"][configuration]
+            asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"][configuration]
                                     ["Password"] = *password;
         }
 
         if (port != nullptr)
         {
-            asyncResp->res.jsonValue["Oem"]["SMTP"][configuration]
+            asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"][configuration]
                                     ["Port"] = *port;
         }
         if (recipient != nullptr)
         {
-            asyncResp->res.jsonValue["Oem"]["SMTP"][configuration]
+            asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"][configuration]
                                     ["Recipient"] = *recipient;
         }
         if (sender != nullptr)
         {
-            asyncResp->res.jsonValue["Oem"]["SMTP"][configuration]
+            asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"][configuration]
                                     ["Sender"] = *sender;
         }
 
-        asyncResp->res.jsonValue["Oem"]["SMTP"][configuration]
+        asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"][configuration]
                                 ["TLSEnable"] = TLSEnable;
     });
 }
@@ -232,17 +232,17 @@ inline void
               << sslPrimaryServerKeyFile.c_str() << "\n";
 
     isPrimaryCACERT = ensureOpensslKeyPresentAndValid(sslPrimaryCACERTFile);
-    asyncResp->res.jsonValue["Oem"]["SMTP"]["PrimaryConfiguration"]
+    asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]["PrimaryConfiguration"]
                             ["isCACERTExist"] = isPrimaryCACERT;
     isPrimaryServerCRT =
         ensureOpensslKeyPresentAndValid(sslPrimaryServerCRTFile);
 
-    asyncResp->res.jsonValue["Oem"]["SMTP"]["PrimaryConfiguration"]
+    asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]["PrimaryConfiguration"]
                             ["isServerCRTExist"] = isPrimaryServerCRT;
     isPrimaryServerKey =
         ensureOpensslKeyPresentAndValid(sslPrimaryServerKeyFile);
 
-    asyncResp->res.jsonValue["Oem"]["SMTP"]["PrimaryConfiguration"]
+    asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]["PrimaryConfiguration"]
                             ["isServerKeyExist"] = isPrimaryServerKey;
 
     if (isPrimaryCACERT)
@@ -254,7 +254,7 @@ inline void
                   << primaryCACERTModifiedDate << "\n";
 
         asyncResp->res
-            .jsonValue["Oem"]["SMTP"]["PrimaryConfiguration"]
+            .jsonValue["Oem"]["OpenBmc"]["SMTP"]["PrimaryConfiguration"]
                       ["primaryCACERTModifiedDate"] = primaryCACERTModifiedDate;
     }
     if (isPrimaryServerCRT)
@@ -266,7 +266,7 @@ inline void
                   << primaryCACERTModifiedDate << "\n";
 
         asyncResp->res
-            .jsonValue["Oem"]["SMTP"]["PrimaryConfiguration"]
+            .jsonValue["Oem"]["OpenBmc"]["SMTP"]["PrimaryConfiguration"]
                       ["primaryserverCRTModifiedDate"] =
             primaryCACERTModifiedDate;
     }
@@ -279,7 +279,7 @@ inline void
                   << primaryCACERTModifiedDate << "\n";
 
         asyncResp->res
-            .jsonValue["Oem"]["SMTP"]["PrimaryConfiguration"]
+            .jsonValue["Oem"]["OpenBmc"]["SMTP"]["PrimaryConfiguration"]
                       ["primaryServerKeyModifiedDate"] =
             primaryCACERTModifiedDate;
     }
@@ -294,17 +294,17 @@ inline void
               << sslSecondaryServerKeyFile.c_str() << "\n";
 
     isSecondrayCACERT = ensureOpensslKeyPresentAndValid(sslSecondaryCACERTFile);
-    asyncResp->res.jsonValue["Oem"]["SMTP"]["SecondaryConfiguration"]
+    asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]["SecondaryConfiguration"]
                             ["isCACERTExist"] = isSecondrayCACERT;
     isSecondrayServerKey =
         ensureOpensslKeyPresentAndValid(sslSecondaryServerKeyFile);
 
-    asyncResp->res.jsonValue["Oem"]["SMTP"]["SecondaryConfiguration"]
+    asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]["SecondaryConfiguration"]
                             ["isServerKeyExist"] = isSecondrayServerKey;
     isSecondrayServerCRT =
         ensureOpensslKeyPresentAndValid(sslSecondaryServerCRTFile);
 
-    asyncResp->res.jsonValue["Oem"]["SMTP"]["SecondaryConfiguration"]
+    asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]["SecondaryConfiguration"]
                             ["isServerCRTExist"] = isSecondrayServerCRT;
 
     if (isSecondrayCACERT)
@@ -315,7 +315,7 @@ inline void
                   << modifiedDate << "\n";
 
         asyncResp->res
-            .jsonValue["Oem"]["SMTP"]["SecondaryConfiguration"]
+            .jsonValue["Oem"]["OpenBmc"]["SMTP"]["SecondaryConfiguration"]
                       ["secondaryCACERTModifiedDate"] = modifiedDate;
     }
     if (isSecondrayServerCRT)
@@ -326,7 +326,7 @@ inline void
                   << modifiedDate << "\n";
 
         asyncResp->res
-            .jsonValue["Oem"]["SMTP"]["SecondaryConfiguration"]
+            .jsonValue["Oem"]["OpenBmc"]["SMTP"]["SecondaryConfiguration"]
                       ["secondaryserverCRTModifiedDate"] = modifiedDate;
     }
     if (isSecondrayServerKey)
@@ -337,7 +337,7 @@ inline void
                   << modifiedDate << "\n";
 
         asyncResp->res
-            .jsonValue["Oem"]["SMTP"]["SecondaryConfiguration"]
+            .jsonValue["Oem"]["OpenBmc"]["SMTP"]["SecondaryConfiguration"]
                       ["secondaryServerKeyModifiedDate"] = modifiedDate;
     }
 }
@@ -646,6 +646,7 @@ inline void setAuthentication(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
             messages::internalError(aResp->res);
             return;
         }
+        messages::success(aResp->res);
         BMCWEB_LOG_DEBUG("Patch Authentication Success");
     });
 }
@@ -663,6 +664,8 @@ inline void setServiceEnable(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
             messages::internalError(aResp->res);
             return;
         }
+        messages::success(aResp->res);
+
         BMCWEB_LOG_DEBUG("Patch ServiceEnable Success");
     });
 }
@@ -680,6 +683,7 @@ inline void setTlsEnable(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
             messages::internalError(aResp->res);
             return;
         }
+        messages::success(aResp->res);
         BMCWEB_LOG_DEBUG("Patch TLSEnable Success");
     });
 }
@@ -697,6 +701,7 @@ inline void setUsername(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
             messages::internalError(aResp->res);
             return;
         }
+        messages::success(aResp->res);
         BMCWEB_LOG_DEBUG("Patch UserName Success");
     });
 }
@@ -714,6 +719,7 @@ inline void setPassword(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
             messages::internalError(aResp->res);
             return;
         }
+        messages::success(aResp->res);
         BMCWEB_LOG_DEBUG("Patch Password Success");
     });
 }
@@ -731,6 +737,7 @@ inline void setSender(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
             messages::internalError(aResp->res);
             return;
         }
+        messages::success(aResp->res);
         BMCWEB_LOG_DEBUG("Patch Sender Success");
     });
 }
@@ -748,6 +755,7 @@ inline void setHost(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
             messages::internalError(aResp->res);
             return;
         }
+        messages::success(aResp->res);
         BMCWEB_LOG_DEBUG("Patch Host Success");
     });
 }
@@ -765,6 +773,7 @@ inline void setport(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
             messages::internalError(aResp->res);
             return;
         }
+        messages::success(aResp->res);
         BMCWEB_LOG_DEBUG("Patch port Success");
     });
 }
@@ -783,6 +792,7 @@ inline void setRecipient(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
             messages::internalError(aResp->res);
             return;
         }
+        messages::success(aResp->res);
         BMCWEB_LOG_DEBUG("Patch Recipient Success");
     });
 }
@@ -842,6 +852,7 @@ inline void
                         messages::internalError(aResp->res);
                         return;
                     }
+                    messages::success(aResp->res);
                     BMCWEB_LOG_DEBUG("Patch Authentication2 SUCESS");
                 });
             }
@@ -1566,7 +1577,7 @@ inline void requestRoutesSubmitTestEvent(App& app)
         {
             return;
         }
-        //EventServiceManager::getInstance().readEventLogsFromFile();
+        // EventServiceManager::getInstance().readEventLogsFromFile();
         bool status = EventServiceManager::getInstance().sendTestEventLog();
         if (status)
             asyncResp->res.result(boost::beast::http::status::no_content);
