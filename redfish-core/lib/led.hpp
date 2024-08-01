@@ -277,7 +277,7 @@ inline void getPhysicalLedState(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
         if (ec)
         {
             BMCWEB_LOG_ERROR("Get Physical State Amber Led: DBus Error", ec);
-            messages::internalError(aResp->res);
+            // messages::internalError(aResp->res);
             return;
         }
         setPhysicalLedState(aResp, "AmberLED", amberLedState);
@@ -293,7 +293,7 @@ inline void getPhysicalLedState(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
         if (ec)
         {
             BMCWEB_LOG_ERROR("Get Physical State Green Led: DBus Error", ec);
-            messages::internalError(aResp->res);
+            // messages::internalError(aResp->res);
             return;
         }
         setPhysicalLedState(aResp, "GreenLED", greenLedState);
@@ -309,7 +309,7 @@ inline void getPhysicalLedState(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
         if (ec)
         {
             BMCWEB_LOG_ERROR("Get Physical State Susack Led: DBus Error", ec);
-            messages::internalError(aResp->res);
+            // messages::internalError(aResp->res);
             return;
         }
         setPhysicalLedState(aResp, "SusackLED", susackLedState);
