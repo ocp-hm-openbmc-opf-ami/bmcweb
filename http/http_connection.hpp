@@ -174,12 +174,12 @@ class Connection :
     {
         BMCWEB_LOG_DEBUG("{} Connection started, total {}", logPtr(this),
                          connectionCount);
-        if (connectionCount >= 400)
+        /*if (connectionCount >= 400)
         {
             BMCWEB_LOG_CRITICAL("{} Max connection count exceeded.",
                                 logPtr(this));
             return;
-        }
+        }*/
 
         startDeadline();
 
