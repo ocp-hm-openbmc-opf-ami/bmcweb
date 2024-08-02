@@ -1797,6 +1797,7 @@ inline void handleIPv4StaticPatch(
     std::vector<IPv4AddressData>::const_iterator nicIpEntry =
         getNextStaticIpEntry(ipv4Data.cbegin(), ipv4Data.cend());
 
+    bool dhcp4EnableFlag;
     bool gatewayValueAssigned{};
     bool preserveGateway{};
     std::string activePath{};
@@ -1809,6 +1810,10 @@ inline void handleIPv4StaticPatch(
         activeGateway = ethData.defaultGateway;
         activePath = "IPv4StaticAddresses/1";
         gatewayValueAssigned = true;
+    }
+    if (!v4dhcpParms.dhcpv4Enabled)
+    {
+        dhcp4EnableFlag = false;
     }
 
     for (std::variant<nlohmann::json::object_t, std::nullptr_t>& thisJson :
@@ -1980,6 +1985,11 @@ inline void handleIPv4StaticPatch(
             }
             else
             {
+                if (!dhcp4EnableFlag)
+                {
+                    triggerDHCPDisable(ifaceId, ethData, v4dhcpParms, v6dhcpParms,
+                                       ipv6AcceptRA, asyncResp, true);
+                }
                 createIPv4(ifaceId, prefixLength, *gateway, *address,
                            asyncResp);
                 preserveGateway = true;
