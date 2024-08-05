@@ -997,10 +997,20 @@ inline void createIPv6DefaultGateway(
             messages::internalError(asyncResp->res);
         }
     };
-    crow::connections::systemBus->async_method_call(
+    std::cout << "PrefixLength = " << prefixLength << std::endl;
+    setDbusProperty(
+        asyncResp, "xyz.openbmc_project.Network", path,
+        "xyz.openbmc_project.Network.EthernetInterface", "DefaultGateway6",
+        "DefaultGateway6", gateway);
+
+    // For setting StaticGateway, back-end MR - https://gerrit.openbmc.org/c/openbmc/phosphor-networkd/+/63033
+    // not merged yet for the time being commented method call and set DefaultGateway6 instead of StaticGateway
+
+/*    crow::connections::systemBus->async_method_call(
         std::move(createIpHandler), "xyz.openbmc_project.Network", path,
         "xyz.openbmc_project.Network.StaticGateway.Create", "StaticGateway",
         gateway, prefixLength, "xyz.openbmc_project.Network.IP.Protocol.IPv6");
+*/
 }
 
 /**
@@ -2188,9 +2198,12 @@ inline void
     jsonResponse["DHCPv4"]["UseNTPServers"] = ethData.ntpv4Enabled;
     jsonResponse["DHCPv4"]["UseDNSServers"] = ethData.dnsv4Enabled;
     jsonResponse["DHCPv4"]["UseDomainName"] = ethData.domainv4Enabled;
-    jsonResponse["DHCPv6"]["OperatingMode"] =
-        translateDhcpEnabledToBool(ethData.dhcpEnabled, false) ? "Enabled"
-                                                               : "Disabled";
+    //jsonResponse["DHCPv6"]["OperatingMode"] =
+    //    translateDhcpEnabledToBool(ethData.dhcpEnabled, false) ? "Enabled"
+    //                                                           : "Disabled";
+    std::string dhcpv6OperatingMode = translateDhcpEnabledToBool(ethData.dhcpEnabled, false) ? "Enabled"
+                                                                : "Disabled";
+    jsonResponse["DHCPv6"]["OperatingMode"] = dhcpv6OperatingMode;
     jsonResponse["DHCPv6"]["UseNTPServers"] = ethData.ntpv6Enabled;
     jsonResponse["DHCPv6"]["UseDNSServers"] = ethData.dnsv6Enabled;
     jsonResponse["DHCPv6"]["UseDomainName"] = ethData.domainv6Enabled;
@@ -2277,8 +2290,16 @@ inline void
         ipv6Gateway["PrefixLength"] = ipv6GatewayConfig.prefixLength;
         ipv6StaticGatewayArray.emplace_back(std::move(ipv6Gateway));
     }
-    jsonResponse["IPv6StaticDefaultGateways"] =
-        std::move(ipv6StaticGatewayArray);
+    //jsonResponse["IPv6StaticDefaultGateways"] =
+    //    std::move(ipv6StaticGatewayArray);
+    if(dhcpv6OperatingMode == "Disabled")
+    {
+        ipv6StaticGatewayArray.emplace_back(std::move(ipv6GatewayStr));
+        jsonResponse["IPv6StaticDefaultGateways"] = std::move(ipv6StaticGatewayArray);
+    }
+    else{
+       jsonResponse["IPv6StaticDefaultGateways"] = std::move(ipv6StaticGatewayArray);
+    }
 
     nlohmann::json& ipv6Array = jsonResponse["IPv6Addresses"];
     nlohmann::json& ipv6StaticArray = jsonResponse["IPv6StaticAddresses"];
