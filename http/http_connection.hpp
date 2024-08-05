@@ -40,7 +40,7 @@ namespace crow
 static int connectionCount = 0;
 
 // request body limit size set by the BMCWEB_HTTP_BODY_LIMIT option
-constexpr uint64_t httpReqBodyLimit = 1024UL * BMCWEB_HTTP_BODY_LIMIT;
+constexpr uint64_t httpReqBodyLimit = 1024UL * 1024UL * BMCWEB_HTTP_BODY_LIMIT;
 constexpr uint64_t maxPayloadLimit = 1024UL * 1024UL *
                                      BMCWEB_IMAGE_PAYLOAD_LIMIT;
 constexpr uint64_t smallPayloadLimit = 1024UL * 1024UL;
