@@ -639,6 +639,56 @@ inline bool getUserMetric(crow::Response& res, nlohmann::json::object_t& metric,
     return true;
 }
 
+inline bool getValidationDuration (crow::Response& res, nlohmann::json::object_t& metric,
+                          std::optional<std::string> scheduleDurationStr)
+{
+     std::optional<std::vector<std::string>> uris;
+     std::optional<std::string> collectionDurationStr;
+     std::optional<std::string> collectionFunction;
+     std::optional<std::string> collectionTimeScopeStr;
+
+
+     if (!json_util::readJsonObject(
+            metric, res, "MetricProperties", uris, "CollectionFunction",
+            collectionFunction, "CollectionTimeScope", collectionTimeScopeStr,
+            "CollectionDuration", collectionDurationStr))
+    {
+        return false;
+    }
+
+
+    std::optional<std::chrono::milliseconds> collectionDuration =
+             time_utils::fromDurationString(*collectionDurationStr);
+
+
+    std::optional<std::chrono::milliseconds> scheduleDuration =
+            time_utils::fromDurationString(*scheduleDurationStr);
+    
+    if (scheduleDuration->count() < collectionDuration->count())
+    {
+        messages::propertyValueConflict(res, "CollectionDuration",
+                                                   "RecurrenceInterval");
+        return false;
+    }
+    return true;
+}
+
+
+inline void validateDuration(crow::Response& res,
+                std::span<nlohmann::json::object_t> metric,
+                std::optional<std::string> scheduleDurationStr)
+{
+     for (nlohmann::json::object_t& m : metric)
+     {
+
+         if (!getValidationDuration(res, m, scheduleDurationStr))
+         {
+             return;
+         }
+     }
+
+}
+
 inline bool getUserMetrics(crow::Response& res,
                            std::span<nlohmann::json::object_t> metrics,
                            std::vector<AddReportArgs::MetricArgs>& result)
@@ -758,6 +808,14 @@ class ReportUserArgs
 
         if (metrics)
         {
+            if (metrics && scheduleDurationStr)
+            {
+                std::optional<std::vector<nlohmann::json::object_t>> updatedMetrics;
+                updatedMetrics = metrics;
+
+                validateDuration(res, *updatedMetrics, scheduleDurationStr);
+            }
+
             if (!getUserMetrics(res, *metrics, args.metrics))
             {
                 return false;
