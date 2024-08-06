@@ -65,6 +65,15 @@ enum class IpVersion
     IpV6
 };
 
+enum class IPType
+{
+    IPv4,
+    IPv6,
+    Both,
+    Invalid,
+    None
+};
+
 /**
  * Structure for keeping IPv4 data required by Redfish
  */
@@ -2509,6 +2518,47 @@ bool isIfaceIdusb0(const std::string& ifaceId,
     return false;
 }
 
+IPType checkIPTypes(const std::vector<std::string>& ipAddresses)
+{
+    bool hasIPv4 = false;
+    bool hasIPv6 = false;
+
+    for (const auto& ip : ipAddresses)
+    {
+        boost::system::error_code ec;
+        boost::asio::ip::address addr = boost::asio::ip::make_address(ip, ec);
+
+        if (ec)
+        {
+            return IPType::Invalid;
+        }
+
+        if (addr.is_v4())
+        {
+            hasIPv4 = true;
+        }
+        else if (addr.is_v6())
+        {
+            hasIPv6 = true;
+        }
+        if (hasIPv4 && hasIPv6)
+        {
+            return IPType::Both;
+        }
+    }
+
+    if (hasIPv4)
+    {
+        return IPType::IPv4;
+    }
+
+    if (hasIPv6)
+    {
+        return IPType::IPv6;
+    }
+    return IPType::None;
+}
+
 inline void handleEthernetInterfaceInstanceGet(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -2881,11 +2931,19 @@ inline void requestEthernetInterfacesRoutes(App& app)
                 ipv6AcceptRA = ethData.ipv6AcceptRa;
             }
 
+            bool isDhcpv4Enabled = ethData.dnsv4Enabled;
+            bool isDhcpv6Enabled = ethData.dnsv6Enabled;
+
             if (v4dhcpParms.dhcpv4Enabled || v4dhcpParms.useDnsServers || v4dhcpParms.useDomainName || v4dhcpParms.useNtpServers)
             {
                 if (isIfaceIdusb0(ifaceId, asyncResp))
                 {
                     return;
+                }
+
+                if(v4dhcpParms.useDnsServers)
+                {
+                    isDhcpv4Enabled = *v4dhcpParms.useDnsServers;
                 }
 
                 if (v4dhcpParms.dhcpv4Enabled)
@@ -2925,6 +2983,11 @@ inline void requestEthernetInterfacesRoutes(App& app)
                 if (isIfaceIdusb0(ifaceId, asyncResp))
                 {
                     return;
+                }
+
+                if(v6dhcpParms.useDnsServers)
+                {
+                    isDhcpv6Enabled = *v6dhcpParms.useDnsServers;
                 }
 
                 if (v6dhcpParms
@@ -3040,6 +3103,25 @@ inline void requestEthernetInterfacesRoutes(App& app)
 
             if (staticNameServers)
             {
+                IPType result = checkIPTypes(staticNameServers.value());
+
+                if(isDhcpv4Enabled && result == IPType::IPv4)
+                {
+                    messages::propertyValueConflict(asyncResp->res, "StaticNameServers", "DHCPv4.UseDNSServers");
+                    return;
+                }
+                else if (isDhcpv6Enabled && result == IPType::IPv6)
+                {
+                    messages::propertyValueConflict(asyncResp->res, "StaticNameServers", "DHCPv6.UseDNSServers");
+                    return;
+                }
+                else if(isDhcpv4Enabled && isDhcpv6Enabled && result == IPType::Both)
+                {
+                    messages::propertyValueConflict(asyncResp->res, "StaticNameServers",
+                                    "DHCPv4.UseDNSServers/DHCPv6.UseDNSServers");
+                    return;
+                }
+
                 handleStaticNameServersPatch(ifaceId, *staticNameServers,
                                              asyncResp);
             }
