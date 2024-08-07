@@ -854,7 +854,6 @@ void getEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         if (ec)
         {
             BMCWEB_LOG_ERROR("D-BUS response error on EventSeverity Get{}", ec);
-            messages::internalError(asyncResp->res);
             return;
         }
         asyncResp->res.jsonValue[ObjectName][propertyName] = eventValue;
