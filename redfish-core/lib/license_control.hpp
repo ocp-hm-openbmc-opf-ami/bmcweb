@@ -147,9 +147,24 @@ inline void
         "/xyz/openbmc_project/License",
         "xyz.openbmc_project.License.LicenseControl", "UserAlertCount",
         userAlertCount,
-        [asyncResp](const boost::system::error_code& ec) {
+        [asyncResp, userAlertCount](const boost::system::error_code& ec, sdbusplus::message_t& msg) {
         if (ec)
         {
+            const sd_bus_error* dbusError = msg.get_error();
+            if ((dbusError != nullptr) &&
+                (dbusError->name ==
+                 std::string_view(
+                     "xyz.openbmc_project.Common.Error.InvalidArgument")))
+            {
+                std::string_view userAlertCountview = std::to_string(userAlertCount);
+                BMCWEB_LOG_WARNING(
+                    "Error Occurred in updating the property UserAlertCount");
+                messages::propertyValueOutOfRange(asyncResp->res, 
+                                                 userAlertCountview,
+                                                 "UserAlertCount");
+                return;
+	    }
+
             BMCWEB_LOG_ERROR("Set UserAlertCount DBUS response error {}", ec);
             messages::internalError(asyncResp->res);
             return;
@@ -181,7 +196,7 @@ inline void handleLicenseControlPatch(
     }
 }
 
-inline void uploadLicenseKeyFile(crow::Response& res, std::string_view body)
+inline void uploadLicenseKeyFile(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, std::string_view body)
 {
     if (fs::exists("/tmp/license-control"))
     {
@@ -195,21 +210,40 @@ inline void uploadLicenseKeyFile(crow::Response& res, std::string_view body)
     out << body;
     if (out.bad())
     {
-        messages::internalError(res);
+        messages::internalError(asyncResp->res);
         return;
     }
 
     crow::connections::systemBus->async_method_call(
-        [&res](const boost::system::error_code& ec) {
+        [asyncResp](const boost::system::error_code& ec, bool& result) {
         if (ec)
         {
-            messages::internalError(res);
+            messages::internalError(asyncResp->res);
             return;
         }
+
+        if(!result)
+        {
+            std::cerr << "bef invalidFileContent " << std::endl;
+            messages::invalidFileContent(asyncResp->res, "output.key");
+            return;
+        }
+	asyncResp->res.result(boost::beast::http::status::no_content);
+
         },
         "xyz.openbmc_project.License", "/xyz/openbmc_project/License",
         "xyz.openbmc_project.License.LicenseControl", "AddLicenseKey");
-    res.result(boost::beast::http::status::no_content);
+}
+
+// Function to check if a given string has the ".key" extension
+
+bool hasKeyExtension(const std::string& str) {
+    const std::string extension = ".key";
+    if (str.size() >= extension.size() &&
+        str.compare(str.size() - extension.size(), extension.size(), extension) == 0) {
+        return true;
+    }
+    return false;
 }
 
 inline void
@@ -239,6 +273,12 @@ inline void
         for (const auto& param :
              boost::beast::http::param_list{it->value().substr(index)})
         {
+            if(param.first == "filename" && !hasKeyExtension(param.second))
+            {
+                messages::invalidLicenseKeyFileFormat(asyncResp->res,param.second);
+                return;
+            }
+
             if (param.first != "name" || param.second.empty())
             {
                 continue;
@@ -257,7 +297,7 @@ inline void
         return;
     }
 
-    uploadLicenseKeyFile(asyncResp->res, *uploadData);
+    uploadLicenseKeyFile(asyncResp, *uploadData);
 }
 
 inline void handleLicenseControlPost(
@@ -275,7 +315,7 @@ inline void handleLicenseControlPost(
 
     if (boost::iequals(contentType, "application/octet-stream"))
     {
-        uploadLicenseKeyFile(asyncResp->res, req.body());
+        uploadLicenseKeyFile(asyncResp, req.body());
     }
     else if (contentType.starts_with("multipart/form-data"))
     {
@@ -295,6 +335,7 @@ inline void handleLicenseControlPost(
     else
     {
         BMCWEB_LOG_DEBUG("Bad content type specified:{}", contentType);
+        messages::unrecognizedRequestBody(asyncResp->res);
         asyncResp->res.result(boost::beast::http::status::bad_request);
     }
 }

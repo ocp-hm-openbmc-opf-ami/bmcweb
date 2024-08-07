@@ -1369,6 +1369,30 @@ constexpr std::array registry =
             },
             "Enable interface and try patch.",
         }},
+    MessageEntry{
+        "InvalidLicenseKeyFileFormat",
+        {
+            "Indicates that uploaded license key file format is not a valid one.",
+            "The uploaded %1 is not a valid license key file. Acceptable license key formats is .key.",
+            "Warning",
+            1,
+            {
+                "string",
+            },
+            "Resubmit the request with the valid license key.",
+        }},
+    MessageEntry{
+        "InvalidFileContent",
+        {
+            "Indicates that uploaded file content is not a valid one.",
+            "The uploaded %1 is not a valid file. Give the valid file content.",
+            "Warning",
+            1,
+            {
+                "string",
+            },
+            "Resubmit the request with the valid file content.",
+        }},
 };
 
 enum class Index
@@ -1488,5 +1512,7 @@ enum class Index
     passwordResetFailed=112,
     differentIpSeries=113,
     interfaceDisabled=114,
+    invalidLicenseKeyFileFormat=115,
+    invalidFileContent=116,
 };
 } // namespace redfish::registries::base
