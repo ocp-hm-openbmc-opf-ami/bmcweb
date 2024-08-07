@@ -172,9 +172,9 @@ inline bool handleIfMatch(crow::App& app, const crow::Request& req,
         asyncResp->res.releaseCompleteRequestHandler();
 
     asyncResp->res.setCompleteRequestHandler(
-        [&app, handler(std::move(handler)), query{std::move(*queryOpt)},
+        [&app, req, handler(std::move(handler)), query{std::move(*queryOpt)},
          delegated{delegated}](crow::Response& resIn) mutable {
-        processAllParams(app, query, delegated, handler, resIn);
+        processAllParams(app, query, delegated, handler, resIn, req);
     });
 
     return needToCallHandlers;

@@ -464,7 +464,8 @@ inline std::optional<Query> parseParameters(boost::urls::params_view urlParams,
 }
 
 inline bool processOnly(crow::App& app, crow::Response& res,
-                        std::function<void(crow::Response&)>& completionHandler)
+                        std::function<void(crow::Response&)>& completionHandler,
+			const crow::Request& req)
 {
     BMCWEB_LOG_DEBUG("Processing only query param");
     auto itMembers = res.jsonValue.find("Members");
@@ -511,6 +512,8 @@ inline bool processOnly(crow::App& app, crow::Response& res,
         completionHandler(res);
         return false;
     }
+    // New request has the same credentials as the old request
+    newReq->session = req.session;
 
     auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
     BMCWEB_LOG_DEBUG("setting completion handler on {}",
@@ -1007,7 +1010,8 @@ inline void processSelect(crow::Response& intermediateResponse,
 inline void
     processAllParams(crow::App& app, const Query& query, const Query& delegated,
                      std::function<void(crow::Response&)>& completionHandler,
-                     crow::Response& intermediateResponse)
+                     crow::Response& intermediateResponse,
+		     const crow::Request& req)
 {
     if (!completionHandler)
     {
@@ -1026,7 +1030,7 @@ inline void
     }
     if (query.isOnly)
     {
-        processOnly(app, intermediateResponse, completionHandler);
+        processOnly(app, intermediateResponse, completionHandler, req);
         return;
     }
 
