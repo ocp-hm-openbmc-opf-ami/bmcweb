@@ -193,8 +193,8 @@ inline void handleLogin(const crow::Request& req,
                             bool ServiceEnabled) {
                 if (ec)
                 {
-                    asyncResp->res.result(
-                        boost::beast::http::status::internal_server_error);
+                  //  asyncResp->res.result(
+                  //      boost::beast::http::status::internal_server_error);
                     return;
                 }
                 asyncResp->res.jsonValue["TwoFacEnableStatus"] = ServiceEnabled;
