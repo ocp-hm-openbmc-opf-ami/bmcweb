@@ -2072,6 +2072,12 @@ inline void handleAccountCollectionPost(
         return;
     }
 
+    if (!roleIdJson)
+    {
+        messages::propertyMissing(asyncResp->res, "RoleId");
+        return;
+    }
+
     std::string roleId = roleIdJson.value_or("User");
     std::string priv = getPrivilegeFromRoleId(roleId);
     if (priv.empty())
