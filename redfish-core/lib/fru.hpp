@@ -293,7 +293,7 @@ inline void requestRoutesFru(App& app)
 
 inline void requestRoutesFruCollection(App& app)
 {
-    BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/FRU")
+    BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/FRU/")
         .privileges(redfish::privileges::getFruCollection)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleFruCollectionGet, std::ref(app)));
