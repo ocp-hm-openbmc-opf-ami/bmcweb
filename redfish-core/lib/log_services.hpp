@@ -1949,7 +1949,7 @@ inline void requestRoutesDBusEventLogEntryCollection(App& app)
             }
             std::ranges::sort(entriesArray, [](const nlohmann::json& left,
                                                const nlohmann::json& right) {
-                return (left["Id"] <= right["Id"]);
+                return std::stoi(left["Id"].get<std::string>()) <= std::stoi(right["Id"].get<std::string>());
             });
             asyncResp->res.jsonValue["Members@odata.count"] =
                 entriesArray.size();
