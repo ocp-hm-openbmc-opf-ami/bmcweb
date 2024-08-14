@@ -135,9 +135,6 @@ inline void getSmtpConfig(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         }
         asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]["@odata.type"] =
             "#AMIEventService.SMTP";
-        asyncResp->res
-            .jsonValue["Oem"]["OpenBmc"]["SMTP"][configuration]["@odata.type"] =
-            "#AMIEventService.Configuration";
         asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"][configuration]
                                 ["Authentication"] = authentication;
 
@@ -920,6 +917,24 @@ inline void requestRoutesEventService(App& app)
         getSmtpConfig(asyncResp, "xyz.openbmc_project.mail.alert.secondary",
                       "SecondaryConfiguration");
         getSmtpSSLCertificates(asyncResp);
+
+        asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]
+                                ["PrimaryConfiguration"]["@odata.type"] =
+            "#AMIEventService.PrimaryConfiguration";
+        asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]
+                                ["SecondaryConfiguration"]["@odata.type"] =
+            "#AMIEventService.SecondaryConfiguration";
+
+        asyncResp->res
+            .jsonValue["Oem"]["OpenBmc"]["SMTP"]["PrimaryConfiguration"]
+                      ["Actions"]["#AMIEventService.PrimaryConfiguration"]
+                      ["target"] =
+            "/redfish/v1/EventService/Actions/Oem/Ami/SMTP.PrimarySSLCertificateUpload";
+        asyncResp->res
+            .jsonValue["Oem"]["OpenBmc"]["SMTP"]["SecondaryConfiguration"]
+                      ["Actions"]["#AMIEventService.SecondaryConfiguration"]
+                      ["target"] =
+            "/redfish/v1/EventService/Actions/Oem/Ami/SMTP.SecondarySSLCertificateUpload";
     });
 
     BMCWEB_ROUTE(app, "/redfish/v1/EventService/")
