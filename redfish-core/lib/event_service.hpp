@@ -1562,7 +1562,7 @@ inline void requestRoutesEventService(App& app)
                                     messages::propertyValueEmpty(
                                         asyncResp->res,
                                         "SSL Server.crt Certificate is not exits",
-                                        sslPrimaryServerKeyFile);
+                                        sslSecondaryServerKeyFile);
                                 }
                                 else if (!isSecondrayServerCRT)
                                 {
