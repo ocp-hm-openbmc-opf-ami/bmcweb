@@ -60,17 +60,21 @@
 namespace redfish
 {
 
-constexpr const char* crashdumpObject = "com.intel.crashdump";
-constexpr const char* crashdumpPath = "/com/intel/crashdump";
-constexpr const char* crashdumpInterface = "com.intel.crashdump";
+constexpr const char* crashdumpObject = "com.amd.crashdump";
+constexpr const char* crashdumpPath = "/com/amd/crashdump";
+constexpr const char* crashdumpInterface = "com.amd.crashdump";
+constexpr const char* crashdumpconfigInterface =
+    "com.amd.crashdump.Configuration";
 constexpr const char* deleteAllInterface =
     "xyz.openbmc_project.Collection.DeleteAll";
-constexpr const char* crashdumpOnDemandInterface =
-    "com.intel.crashdump.OnDemand";
+constexpr const char* crashdumpOnDemandInterface = "com.amd.crashdump.OnDemand";
 constexpr const char* crashdumpTelemetryInterface =
-    "com.intel.crashdump.Telemetry";
+    "com.amd.crashdump.Telemetry";
 static const char* acpiFilePath = "/var/lib/acpi/acpi2";
 static const char* acpiFileName = "acpi2";
+
+using PropertyValue = std::variant<uint8_t, uint16_t, uint64_t, std::string,
+                                   std::vector<std::string>, bool>;
 
 enum class DumpCreationProgress
 {
@@ -116,6 +120,44 @@ inline std::optional<bool> getProviderNotifyAction(const std::string& notify)
     }
 
     return notifyAction;
+}
+
+const PropertyValue getCrashdumpConfig(const std::string& processName,
+                                       const std::string& objectPath,
+                                       const std::string& interfaceName,
+                                       const std::string& propertyName)
+{
+    PropertyValue value;
+
+    auto b = sdbusplus::bus::new_default_system();
+    auto method = b.new_method_call(processName.c_str(), objectPath.c_str(),
+                                    "org.freedesktop.DBus.Properties", "Get");
+    method.append(interfaceName, propertyName);
+    auto reply = b.call(method);
+    reply.read(value);
+    return value;
+}
+
+std::string getRecoveryMode(uint16_t value)
+{
+    if (value == 2)
+        return "WarmReset";
+    else if (value == 1)
+        return "ColdReset";
+    else
+        return "None";
+}
+
+uint16_t getrecoverydata(std::string value)
+{
+    if (value == "WarmReset")
+        return 2;
+    else if (value == "ColdReset")
+        return 1;
+    else if (value == "None")
+        return 0;
+    else
+        return 3;
 }
 
 inline std::string getDumpPath(std::string_view dumpType)
@@ -3196,6 +3238,126 @@ inline void handleLogServicesDumpClearLogComputerSystemPost(
     clearDump(asyncResp, "System");
 }
 
+inline void handleLogServicesDumpConfigGet(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+
+    sdbusplus::asio::getAllProperties(
+        *crow::connections::systemBus, crashdumpObject, crashdumpPath,
+        crashdumpconfigInterface,
+        [asyncResp](const boost::system::error_code& ec,
+                    const dbus::utility::DBusPropertiesMap& propertiesList) {
+        if (ec)
+        {
+            if (ec.value() != EBADR)
+            {
+                BMCWEB_LOG_ERROR("DBUS response error for Asset {}",
+                                 ec.value());
+            }
+            return;
+        }
+
+        const uint16_t* apmlretries = nullptr;
+        const bool* harvestppin = nullptr;
+        const bool* harvestucodeversion = nullptr;
+        const uint16_t* systemrecovery = nullptr;
+        const bool* mcaPollingEn = nullptr;
+        const uint16_t* mcaPollingPeriod = nullptr;
+        const bool* dramCeccPollingEn = nullptr;
+        const uint16_t* dramCeccPollingPeriod = nullptr;
+        const bool* pcieAerPollingEn = nullptr;
+        const uint16_t* pcieAerPollingPeriod = nullptr;
+
+        const bool success = sdbusplus::unpackPropertiesNoThrow(
+            dbus_utils::UnpackErrorPrinter(), propertiesList, "apmlRetries",
+            apmlretries, "harvestPpin", harvestppin, "harvestuCodeVersion",
+            harvestucodeversion, "systemRecovery", systemrecovery,
+            "McaPollingEn", mcaPollingEn, "McaPollingPeriod", mcaPollingPeriod,
+            "DramCeccPollingEn", dramCeccPollingEn, "DramCeccPollingPeriod",
+            dramCeccPollingPeriod, "PcieAerPollingEn", pcieAerPollingEn,
+            "PcieAerPollingPeriod", pcieAerPollingPeriod);
+
+        if (!success)
+        {
+            messages::internalError(asyncResp->res);
+            return;
+        }
+
+        asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] =
+            "#AMIADDCConfiguration.v1_0_0.AMIADDCConfiguration";
+
+        if (apmlretries != nullptr)
+        {
+            asyncResp->res.jsonValue["Oem"]["Ami"]["Configuration"]["Retry"] =
+                *apmlretries;
+        }
+
+        if (harvestppin != nullptr)
+        {
+            asyncResp->res
+                .jsonValue["Oem"]["Ami"]["Configuration"]["HarvestPPIN"] =
+                *harvestppin;
+        }
+
+        if (harvestucodeversion != nullptr)
+        {
+            asyncResp->res
+                .jsonValue["Oem"]["Ami"]["Configuration"]["HarvestUCode"] =
+                *harvestucodeversion;
+        }
+
+        if (systemrecovery != nullptr)
+        {
+            std::string value = getRecoveryMode(*systemrecovery);
+            asyncResp->res
+                .jsonValue["Oem"]["Ami"]["Configuration"]["RecoverMode"] =
+                value;
+        }
+
+        if (mcaPollingEn != nullptr)
+        {
+            asyncResp->res
+                .jsonValue["Oem"]["Ami"]["Configuration"]["McaPollingEn"] =
+                *mcaPollingEn;
+        }
+
+        if (mcaPollingPeriod != nullptr)
+        {
+            asyncResp->res
+                .jsonValue["Oem"]["Ami"]["Configuration"]["McaPollingPeriod"] =
+                *mcaPollingPeriod;
+        }
+
+        if (dramCeccPollingEn != nullptr)
+        {
+            asyncResp->res
+                .jsonValue["Oem"]["Ami"]["Configuration"]["DramCeccPollingEn"] =
+                *dramCeccPollingEn;
+        }
+
+        if (dramCeccPollingPeriod != nullptr)
+        {
+            asyncResp->res.jsonValue["Oem"]["Ami"]["Configuration"]
+                                    ["DramCeccPollingPeriod"] =
+                *dramCeccPollingPeriod;
+        }
+
+        if (pcieAerPollingEn != nullptr)
+        {
+            asyncResp->res
+                .jsonValue["Oem"]["Ami"]["Configuration"]["PcieAerPollingEn"] =
+                *pcieAerPollingEn;
+        }
+
+        if (pcieAerPollingPeriod != nullptr)
+        {
+            asyncResp->res.jsonValue["Oem"]["Ami"]["Configuration"]
+                                    ["PcieAerPollingPeriod"] =
+                *pcieAerPollingPeriod;
+        }
+        });
+}
+
 inline void requestRoutesBMCDumpService(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/LogServices/Dump/")
@@ -3427,7 +3589,210 @@ inline void requestRoutesCrashdumpService(App& app)
                                 ["target"] = std::format(
             "/redfish/v1/Systems/{}/LogServices/Crashdump/Actions/LogService.CollectDiagnosticData",
             BMCWEB_REDFISH_SYSTEM_URI_NAME);
+
+        handleLogServicesDumpConfigGet(asyncResp);
     });
+
+    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/LogServices/Crashdump/")
+        .privileges({{"ConfigureComponents"}})
+        .methods(boost::beast::http::verb::patch)(
+            [&app](const crow::Request& req,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const std::string& systemName) {
+        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+        {
+            return;
+        }
+        if constexpr (BMCWEB_EXPERIMENTAL_REDFISH_MULTI_COMPUTER_SYSTEM)
+        {
+            // Option currently returns no systems.  TBD
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
+            return;
+        }
+        if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+        {
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
+            return;
+        }
+
+        BMCWEB_LOG_DEBUG("doPatch...");
+
+        std::optional<uint16_t> apmlretries;
+        std::optional<std::string> systemrecovery;
+        std::optional<bool> harvestppin;
+        std::optional<bool> harvestucodeversion;
+        std::optional<bool> dramCeccPollingEn;
+        std::optional<uint16_t> dramCeccPollingPeriod;
+        std::optional<bool> mcaPollingEn;
+        std::optional<uint16_t> mcaPollingPeriod;
+        std::optional<bool> pcieAerPollingEn;
+        std::optional<uint16_t> pcieAerPollingPeriod;
+
+        if (!json_util::readJsonPatch(
+                req, asyncResp->res, "Oem/Ami/Configuration/Retry", apmlretries,
+                "Oem/Ami/Configuration/HarvestPPIN", harvestppin,
+                "Oem/Ami/Configuration/HarvestUCode", harvestucodeversion,
+                "Oem/Ami/Configuration/RecoverMode", systemrecovery,
+                "Oem/Ami/Configuration/DramCeccPollingEn", dramCeccPollingEn,
+                "Oem/Ami/Configuration/DramCeccPollingPeriod",
+                dramCeccPollingPeriod, "Oem/Ami/Configuration/McaPollingEn",
+                mcaPollingEn, "Oem/Ami/Configuration/McaPollingPeriod",
+                mcaPollingPeriod, "Oem/Ami/Configuration/PcieAerPollingEn",
+                pcieAerPollingEn, "Oem/Ami/Configuration/PcieAerPollingPeriod",
+                pcieAerPollingPeriod))
+        {
+            BMCWEB_LOG_DEBUG("doPatch: Invalid request body");
+            return;
+        }
+
+        if (apmlretries)
+        {
+            if (*apmlretries <= 100)
+            {
+                setDbusProperty(
+                    asyncResp, "com.amd.crashdump",
+                    sdbusplus::message::object_path("/com/amd/crashdump"),
+                    "com.amd.crashdump.Configuration", "apmlRetries", "Retry",
+                    *apmlretries);
+            }
+            else
+            {
+                messages::propertyValueNotInList(asyncResp->res, *apmlretries,
+                                                 "Retry");
+                return;
+            }
+        }
+
+        if (harvestppin)
+        {
+            setDbusProperty(
+                asyncResp, "com.amd.crashdump",
+                sdbusplus::message::object_path("/com/amd/crashdump"),
+                "com.amd.crashdump.Configuration", "harvestPpin", "HarvestPPIN",
+                *harvestppin);
+        }
+
+        if (harvestucodeversion)
+        {
+            setDbusProperty(
+                asyncResp, "com.amd.crashdump",
+                sdbusplus::message::object_path("/com/amd/crashdump"),
+                "com.amd.crashdump.Configuration", "harvestuCodeVersion",
+                "HarvestUCode", *harvestucodeversion);
+        }
+
+        if (systemrecovery)
+        {
+            uint16_t value = getrecoverydata(*systemrecovery);
+
+            if (value < 3)
+            {
+                setDbusProperty(
+                    asyncResp, "com.amd.crashdump",
+                    sdbusplus::message::object_path("/com/amd/crashdump"),
+                    "com.amd.crashdump.Configuration", "systemRecovery",
+                    "RecoveryMode", value);
+            }
+            else
+            {
+                messages::propertyValueNotInList(
+                    asyncResp->res, *systemrecovery, "RecoveryMode");
+                return;
+            }
+        }
+
+        if (dramCeccPollingEn)
+        {
+            setDbusProperty(
+                asyncResp, "com.amd.crashdump",
+                sdbusplus::message::object_path("/com/amd/crashdump"),
+                "com.amd.crashdump.Configuration", "DramCeccPollingEn",
+                "DramCeccPollingEn", *dramCeccPollingEn);
+        }
+
+        if (dramCeccPollingPeriod)
+        {
+            auto value = getCrashdumpConfig(crashdumpObject, crashdumpPath,
+                                            crashdumpconfigInterface,
+                                            "DramCeccPollingEn");
+            auto dramCeccEnable = std::get<bool>(value);
+            if (dramCeccEnable)
+            {
+                setDbusProperty(
+                    asyncResp, "com.amd.crashdump",
+                    sdbusplus::message::object_path("/com/amd/crashdump"),
+                    "com.amd.crashdump.Configuration", "DramCeccPollingPeriod",
+                    "DramCeccPollingPeriod", *dramCeccPollingPeriod);
+            }
+            else
+            {
+                messages::propertyMissing(asyncResp->res, "DramCeccPollingEn");
+                return;
+            }
+        }
+
+        if (mcaPollingEn)
+        {
+            setDbusProperty(
+                asyncResp, "com.amd.crashdump",
+                sdbusplus::message::object_path("/com/amd/crashdump"),
+                "com.amd.crashdump.Configuration", "McaPollingEn",
+                "McaPollingEn", *mcaPollingEn);
+        }
+
+        if (mcaPollingPeriod)
+        {
+            auto value =
+                getCrashdumpConfig(crashdumpObject, crashdumpPath,
+                                   crashdumpconfigInterface, "McaPollingEn");
+            auto mcaPollEnable = std::get<bool>(value);
+            if (mcaPollEnable)
+            {
+                setDbusProperty(
+                    asyncResp, "com.amd.crashdump",
+                    sdbusplus::message::object_path("/com/amd/crashdump"),
+                    "com.amd.crashdump.Configuration", "McaPollingPeriod",
+                    "McaPollingPeriod", *mcaPollingPeriod);
+            }
+            else
+            {
+                messages::propertyMissing(asyncResp->res, "McaPollingEn");
+                return;
+            }
+        }
+
+        if (pcieAerPollingEn)
+        {
+            setDbusProperty(
+                asyncResp, "com.amd.crashdump",
+                sdbusplus::message::object_path("/com/amd/crashdump"),
+                "com.amd.crashdump.Configuration", "PcieAerPollingEn",
+                "PcieAerPollingEn", *pcieAerPollingEn);
+        }
+
+        if (pcieAerPollingPeriod)
+        {
+            auto value = getCrashdumpConfig(crashdumpObject, crashdumpPath,
+                                            crashdumpconfigInterface,
+                                            "PcieAerPollingEn");
+            auto pcieAerPollEnable = std::get<bool>(value);
+            if (pcieAerPollEnable)
+            {
+                setDbusProperty(
+                    asyncResp, "com.amd.crashdump",
+                    sdbusplus::message::object_path("/com/amd/crashdump"),
+                    "com.amd.crashdump.Configuration", "PcieAerPollingPeriod",
+                    "PcieAerPollingPeriod", *pcieAerPollingPeriod);
+            }
+            else
+            {
+                messages::propertyMissing(asyncResp->res, "PcieAerPollingEn");
+                return;
+            }
+        }
+        });
 }
 
 void inline requestRoutesCrashdumpClear(App& app)
@@ -4699,3 +5064,4 @@ inline void requestRoutesAcpiFile(App& app)
 }
 
 } // namespace redfish
+

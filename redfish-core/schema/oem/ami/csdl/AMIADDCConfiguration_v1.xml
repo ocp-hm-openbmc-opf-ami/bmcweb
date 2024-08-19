@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
+    <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Capabilities.V1.xml">
+    <edmx:Include Namespace="Org.OData.Capabilities.V1" Alias="Capabilities"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
+    <edmx:Include Namespace="Resource.v1_0_0"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
+    <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+  </edmx:Reference>
+
+  <edmx:Reference Uri="/redfish/v1/schema/LogService_v1.xml">
+    <edmx:Include Namespace="LogService"/>
+    <edmx:Include Namespace="LogService.v1_2_0"/>
+  </edmx:Reference>
+
+  <edmx:DataServices>
+
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AMIADDCConfiguration">
+      <Annotation Term="Redfish.OwningEntity" String="Ami"/>
+    </Schema>
+
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AMIADDCConfiguration.v1_0_0">
+      <Annotation Term="Redfish.OwningEntity" String="Ami"/>
+      <Annotation Term="Redfish.Release" String="1.0"/>
+
+       <ComplexType Name="AMIADDCConfiguration" BaseType="Resource.OemObject">
+        <Annotation Term="OData.Description" String="Ami OEM Extension for LogService."/>
+        <Annotation Term="OData.LongDescription" String="Ami OEM Extension for LogService providing info about ADDC configuration."/>
+
+        <Property Name="Configuration" Type="AMIADDCConfiguration.v1_0_0.ConfigurationData">
+          <Annotation Term="OData.Description" String="ADDC configuration."/>
+          <Annotation Term="OData.LongDescription" String="Configuration Autonomous debug data collection."/>
+        </Property>
+       </ComplexType>
+
+   <ComplexType Name="ConfigurationData" BaseType="Resource.OemObject">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="ADDC configuration."/>
+        <Annotation Term="OData.LongDescription" String="Configuration Autonomous debug data collection."/>
+
+        <Property Name="DramCeccPollingEn" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="Indicates whether Enable or Disable DramCecc Polloing check."/>
+          <Annotation Term="OData.LongDescription" String="The value of this property shall be a Enable or Disable DramCecc Polloing check."/>
+        </Property>
+
+        <Property Name="DramCeccPollingPeriod" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="Indicates Set DramCecc Polloing Period time, 0 100 seconds."/>
+          <Annotation Term="OData.LongDescription" String="The value of this property Indicates Set DramCecc Polloing Period time, 0 100 seconds."/>
+        </Property>
+
+        <Property Name="HarvestPPIN" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="Indicates Whether to provide PPIN in RAS-CPER when error occurs."/>
+          <Annotation Term="OData.LongDescription" String="The value of this property shall be Indicates Whether to provide PPIN in RAS-CPER when error occurs."/>
+        </Property>
+
+        <Property Name="HarvestUCode" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="Indicates Whether to provide uCode in RAS-CPER when error occurs."/>
+          <Annotation Term="OData.LongDescription" String="The value of this property shall be indicates Whether to provide uCode in RAS-CPER when error occurs."/>
+        </Property>
+
+        <Property Name="McaPollingEn" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="Indicates Enable or Disable MCA Polling check."/>
+          <Annotation Term="OData.LongDescription" String="The value of this property shall be a boolean indicating whether Mca polling is Enabled or Disable."/>
+        </Property>
+
+        <Property Name="McaPollingPeriod" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="Indicates Set Mca Polloing Period time, 0 100 seconds."/>
+          <Annotation Term="OData.LongDescription" String="The value of this property Indicates Set Mca Polloing Period time, 0 100 seconds."/>
+        </Property>
+
+        <Property Name="PcieAerPollingEn" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="Indicates Enable or Disable PcieAerPollingEn Polling check."/>
+          <Annotation Term="OData.LongDescription" String="The value of this property Indicates Enable or Disable PcieAerPollingEn Polling check."/>
+        </Property>
+
+        <Property Name="PcieAerPollingPeriod" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="Indicates Set PcieAer Polling Period time, 0 100 seconds."/>
+          <Annotation Term="OData.LongDescription" String="The value of this property Indicates Set PcieAerPolling Period time, 0 100 seconds."/>
+        </Property>
+
+        <Property Name="RecoverMode" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="Indicates Error Recovery mode option."/>
+          <Annotation Term="OData.LongDescription" String="The value of this property Indicates Error Recovery modes."/>
+        </Property>
+
+        <Property Name="Retry" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="Indicates Set Retry count."/>
+          <Annotation Term="OData.LongDescription" String="The value of this property Indicates Set Retry count."/>
+        </Property>
+
+      </ComplexType>
+
+    </Schema>
+
+  </edmx:DataServices>
+</edmx:Edmx>
+
+
