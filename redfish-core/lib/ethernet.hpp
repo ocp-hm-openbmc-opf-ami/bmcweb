@@ -1634,8 +1634,16 @@ inline void handleDHCPPatch(const std::string& ifaceId,
     }
 
     BMCWEB_LOG_DEBUG("set DHCPEnabled...");
+    if(v4dhcpParms.dhcpv4Enabled && *v4dhcpParms.dhcpv4Enabled)
+    {
     setDHCPEnabled(ifaceId, "DHCPEnabled", nextv4DHCPState, nextv6DHCPState,
                    ipv6AcceptRA, asyncResp);
+    }
+    if(v6dhcpParms.dhcpv6OperatingMode && *v6dhcpParms.dhcpv6OperatingMode == "Enabled")
+    {
+    setDHCPEnabled(ifaceId, "DHCPEnabled", nextv4DHCPState, nextv6DHCPState,
+                   ipv6AcceptRA, asyncResp);
+    }
     BMCWEB_LOG_DEBUG("set DNSEnabled...");
     setDHCPConfig("DNSEnabled", nextDNSv4, asyncResp, ifaceId,
                   NetworkType::dhcp4);
@@ -2009,7 +2017,11 @@ inline void handleIPv4StaticPatch(
                     triggerDHCPDisable(ifaceId, ethData, v4dhcpParms, v6dhcpParms,
                                        ipv6AcceptRA, asyncResp, true);
                 }
-                createIPv4(ifaceId, prefixLength, *gateway, *address,
+                bool dhcpv4 = false;
+		bool dhcpv6 = translateDhcpEnabledToBool(ethData.dhcpEnabled, false); 
+                setDHCPEnabled(ifaceId, "DHCPEnabled", dhcpv4, dhcpv6,
+                	ipv6AcceptRA, asyncResp);
+		createIPv4(ifaceId, prefixLength, *gateway, *address,
                            asyncResp);
                 preserveGateway = true;
             }
@@ -2113,7 +2125,8 @@ inline void handleIPv6StaticAddressesPatch(
                 }
                 prefixLength = nicIpEntry->prefixLength;
             }
-
+	    bool dhcpv4val = translateDhcpEnabledToBool(ethData.dhcpEnabled, true);
+            bool dhcpv6val = false;
             if (nicIpEntry != ipv6Data.end())
             {
                 while (nicIpEntry != ipv6Data.cend())
@@ -2122,10 +2135,14 @@ inline void handleIPv6StaticAddressesPatch(
                     nicIpEntry = getNextStaticIpEntry(++nicIpEntry,
                                                       ipv6Data.cend());
                 }
+		setDHCPEnabled(ifaceId, "DHCPEnabled", dhcpv4val, dhcpv6val,
+	                ipv6AcceptRA, asyncResp);
                 createIPv6(ifaceId, *prefixLength, *address, asyncResp);
             }
             else
             {
+		setDHCPEnabled(ifaceId, "DHCPEnabled", dhcpv4val, dhcpv6val,
+	                ipv6AcceptRA, asyncResp);
                 createIPv6(ifaceId, *prefixLength, *address, asyncResp);
             }
             entryIdx++;
