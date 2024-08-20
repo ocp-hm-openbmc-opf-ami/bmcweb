@@ -204,7 +204,7 @@ inline void doPowerHeader(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         boost::urls::format("/redfish/v1/Chassis/{}/Power", chassisId);
 }
 
-inline void requestRoutesPower(App& app)
+inline void requestRoutesNodeManagerPower(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/Power/")
         .privileges(redfish::privileges::privilegeSetLogin)

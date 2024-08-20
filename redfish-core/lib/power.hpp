@@ -34,6 +34,26 @@
 namespace redfish
 {
 
+inline void setPowerCapEnabled(
+    const std::shared_ptr<SensorsAsyncResp>& sensorsAsyncResp,
+    const bool enabled)
+{
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus, "xyz.openbmc_project.Settings",
+        "/xyz/openbmc_project/control/host0/power_cap",
+        "xyz.openbmc_project.Control.Power.Cap", "PowerCapEnable", enabled,
+
+        [sensorsAsyncResp](const boost::system::error_code& ec) {
+        if (ec)
+        {
+            messages::internalError(sensorsAsyncResp->asyncResp->res);
+            BMCWEB_LOG_ERROR(
+                "powerCapEnable unable to set handler: Dbus error {}", ec);
+            return;
+        }
+    });
+}
+
 inline void afterGetPowerCapEnable(
     const std::shared_ptr<SensorsAsyncResp>& sensorsAsyncResp,
     uint32_t valueToSet, const boost::system::error_code& ec,
@@ -45,13 +65,13 @@ inline void afterGetPowerCapEnable(
         BMCWEB_LOG_ERROR("powerCapEnable Get handler: Dbus error {}", ec);
         return;
     }
-    if (!powerCapEnable)
+    if (!powerCapEnable && valueToSet != 0)
     {
-        messages::actionNotSupported(
-            sensorsAsyncResp->asyncResp->res,
-            "Setting LimitInWatts when PowerLimit feature is disabled");
-        BMCWEB_LOG_ERROR("PowerLimit feature is disabled ");
-        return;
+        setPowerCapEnabled(sensorsAsyncResp, true);
+    }
+    else if (powerCapEnable && valueToSet == 0)
+    {
+        setPowerCapEnabled(sensorsAsyncResp, false);
     }
 
     setDbusProperty(sensorsAsyncResp->asyncResp, "xyz.openbmc_project.Settings",
@@ -94,11 +114,15 @@ inline void afterGetChassisPath(
     {
         return;
     }
-    sdbusplus::asio::getProperty<bool>(
-        *crow::connections::systemBus, "xyz.openbmc_project.Settings",
-        "/xyz/openbmc_project/control/host0/power_cap",
-        "xyz.openbmc_project.Control.Power.Cap", "PowerCapEnable",
-        std::bind_front(afterGetPowerCapEnable, sensorsAsyncResp, *value));
+
+    if (value)
+    {
+        sdbusplus::asio::getProperty<bool>(
+            *crow::connections::systemBus, "xyz.openbmc_project.Settings",
+            "/xyz/openbmc_project/control/host0/power_cap",
+            "xyz.openbmc_project.Control.Power.Cap", "PowerCapEnable",
+            std::bind_front(afterGetPowerCapEnable, sensorsAsyncResp, *value));
+    }
 }
 
 inline void afterPowerCapSettingGet(
@@ -112,7 +136,12 @@ inline void afterPowerCapSettingGet(
         BMCWEB_LOG_ERROR("Power Limit GetAll handler: Dbus error {}", ec);
         return;
     }
-
+    sensorAsyncResp->asyncResp->res.jsonValue["@odata.type"] =
+        "#Power.v1_7_1.Power";
+    sensorAsyncResp->asyncResp->res.jsonValue["@odata.id"] =
+        "/redfish/v1/Chassis/" + sensorAsyncResp->chassisId + "/Power";
+    sensorAsyncResp->asyncResp->res.jsonValue["Id"] = "Power";
+    sensorAsyncResp->asyncResp->res.jsonValue["Name"] = "Power";
     nlohmann::json& tempArray =
         sensorAsyncResp->asyncResp->res.jsonValue["PowerControl"];
 
@@ -123,12 +152,11 @@ inline void afterPowerCapSettingGet(
         // Mandatory properties odata.id and MemberId
         // A warning without a odata.type
         nlohmann::json::object_t powerControl;
-        powerControl["@odata.type"] = "#Power.v1_0_0.PowerControl";
         powerControl["@odata.id"] = "/redfish/v1/Chassis/" +
                                     sensorAsyncResp->chassisId +
                                     "/Power#/PowerControl/0";
-        powerControl["Name"] = "Chassis Power Control";
         powerControl["MemberId"] = "0";
+        powerControl["Name"] = "Server Power Control";
         tempArray.emplace_back(std::move(powerControl));
     }
 
@@ -180,7 +208,7 @@ inline void afterPowerCapSettingGet(
     }
 
     // LimitException is Mandatory attribute as per OCP
-    // Baseline Profile â€“ v1.0.0, so currently making it
+    // Baseline Profile – v1.0.0, so currently making it
     // "NoAction" as default value to make it OCP Compliant.
     sensorJson["PowerLimit"]["LimitException"] = "NoAction";
 

@@ -40,6 +40,7 @@
 #include "node-manager/triggers.hpp"
 #include "pcie.hpp"
 #include "pef_service.hpp"
+#include "power.hpp"
 #include "power_subsystem.hpp"
 #include "power_supply.hpp"
 #include "processor.hpp"
