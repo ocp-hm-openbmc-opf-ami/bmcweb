@@ -2419,6 +2419,30 @@ inline void
         return;
     }
 
+    sdbusplus::message::object_path path("/xyz/openbmc_project/user");
+    dbus::utility::getManagedObjects(
+        "xyz.openbmc_project.User.Manager", path,
+        [asyncResp, username](
+            const boost::system::error_code& ec,
+            const dbus::utility::ManagedObjectType& users) {
+        if (ec)
+        {
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        for (const auto& userpath : users)
+        {
+            std::string user = userpath.first.filename();
+            if (user != username)
+            {
+                asyncResp->res.clear();
+                messages::resourceNotFound(asyncResp->res, "ManagerAccount",
+                                           username);
+                return;
+            }
+        }
+    });
+
     bool userSelf = (username == req.session->username);
 
     Privileges effectiveUserPrivileges =
