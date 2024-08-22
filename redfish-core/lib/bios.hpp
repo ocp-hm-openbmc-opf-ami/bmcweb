@@ -1587,6 +1587,14 @@ inline void
         return;
     }
 
+    if (!req.body().empty() && req.body() != "{}")
+    {
+        nlohmann::json jsonBody = nlohmann::json::parse(req.body());
+        std::string key = jsonBody.begin().key();
+        messages::actionParameterUnknown(asyncResp->res, "/redfish/v1/Systems/system/Bios/Actions/Bios.ResetBios/", key);
+        return;
+    }
+
     /*if constexpr (bmcwebEnableMultiHost)
     {
         // Option currently returns no systems.  TBD
