@@ -15,6 +15,50 @@ namespace obmc_kvm
 
 static constexpr const uint maxSessions = 1;
 int kvmActiveStatus = 0;
+using PropertyValue = std::variant<uint8_t, uint16_t, std::string,
+                                   std::vector<std::string>, bool>;
+
+uint16_t getPortNumberFromDBus()
+{
+
+    PropertyValue property;
+    uint16_t portNumber = 5900; // Default port number
+    try
+    {
+        // Create a D-Bus connection
+        auto bus = sdbusplus::bus::new_default_system();
+
+        // Prepare the D-Bus method call
+        auto method = bus.new_method_call(
+            "xyz.openbmc_project.Control.Service.Manager",
+            "/xyz/openbmc_project/control/service/start_2dipkvm",
+            "org.freedesktop.DBus.Properties", "Get");
+
+        // Append interface and property name to the method call
+        method.append("xyz.openbmc_project.Control.Service.SocketAttributes",
+                      "Port");
+
+        auto reply = bus.call(method);
+
+        reply.read(property);
+
+        if (auto val = std::get_if<uint16_t>(&property))
+        {
+            portNumber = *val;
+        }
+        else
+        {
+            std::cerr << "Property is not of type uint16_t" << std::endl;
+        }
+    }
+    catch (const std::exception& e)
+    {
+        std::cerr << "Error retrieving port number from D-Bus: " << e.what()
+                  << std::endl;
+    }
+
+    return portNumber;
+}
 
 class KvmSession : public std::enable_shared_from_this<KvmSession>
 {
@@ -24,8 +68,9 @@ class KvmSession : public std::enable_shared_from_this<KvmSession>
         timeoutInSeconds(
             persistent_data::SessionStore::getInstance().getTimeoutInSeconds())
     {
+        uint16_t port = getPortNumberFromDBus();
         boost::asio::ip::tcp::endpoint endpoint(
-            boost::asio::ip::make_address("127.0.0.1"), 5900);
+            boost::asio::ip::make_address("127.0.0.1"), port);
         hostSocket.async_connect(
             endpoint, [this, &connIn](const boost::system::error_code& ec) {
             if (ec)

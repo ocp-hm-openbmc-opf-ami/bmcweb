@@ -38,6 +38,10 @@
               <Annotation Term="OData.LongDescription" String="if Kvm session timeout reached Kvm session will close."/>
             </Property>
 
+	    <Property Name="KVMPort" Type="Edm.Decimal">
+              <Annotation Term="OData.Description" String="Kvm Port."/>
+              <Annotation Term="OData.LongDescription" String="The vakue indicates Kvm port ."/>
+            </Property>
       </EntityType>
     </Schema>
   </edmx:DataServices>

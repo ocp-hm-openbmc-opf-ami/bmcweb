@@ -94,6 +94,48 @@ const propertyValue getSessiondata(const std::string& interface,
     return value;
 }
 
+uint16_t getBmcwebPort()
+{
+
+    PropertyValue property;
+    uint16_t portNumber;
+    try
+    {
+        // Create a D-Bus connection
+        auto bus = sdbusplus::bus::new_default_system();
+
+        // Prepare the D-Bus method call
+        auto method =
+            bus.new_method_call("xyz.openbmc_project.Control.Service.Manager",
+                                "/xyz/openbmc_project/control/service/bmcweb",
+                                "org.freedesktop.DBus.Properties", "Get");
+
+        // Append interface and property name to the method call
+        method.append("xyz.openbmc_project.Control.Service.SocketAttributes",
+                      "Port");
+
+        auto reply = bus.call(method);
+
+        reply.read(property);
+
+        if (auto val = std::get_if<uint16_t>(&property))
+        {
+            portNumber = *val;
+        }
+        else
+        {
+            std::cerr << "Property is not of type uint16_t" << std::endl;
+        }
+    }
+    catch (const std::exception& e)
+    {
+        std::cerr << "Error retrieving port number from D-Bus: " << e.what()
+                  << std::endl;
+    }
+
+    return portNumber;
+}
+
 inline void fillSessionObject(crow::Response& res,
                               const persistent_data::UserSession& session)
 {
@@ -777,27 +819,23 @@ inline void
 
         const uint64_t* s = std::get_if<uint64_t>(&value);
         asyncResp->res.jsonValue["SessionTimeout"] = *s;
-    },
+        },
         "xyz.openbmc_project.Control.Service.Manager",
         "/xyz/openbmc_project/control/service/bmcweb",
         "org.freedesktop.DBus.Properties", "Get",
         "xyz.openbmc_project.Control.Service.Attributes", "SessionTimeOut");
-    crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code ec,
-                    const std::variant<uint16_t>& value) {
-        if (ec)
-        {
-            BMCWEB_LOG_DEBUG("failed to get property Value  ", ec);
-            return;
-        }
 
-        const uint16_t* s = std::get_if<uint16_t>(&value);
-        asyncResp->res.jsonValue["Oem"]["Ami"]["BMCwebPort"] = *s;
-    },
-        "xyz.openbmc_project.Control.Service.Manager",
-        "/xyz/openbmc_project/control/service/bmcweb",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Control.Service.SocketAttributes", "Port");
+    uint16_t bmcwebPort = getBmcwebPort();
+    if (bmcwebPort)
+    {
+        asyncResp->res.jsonValue["Oem"]["Ami"]["BMCwebPort"] = bmcwebPort;
+    }
+    else
+    {
+        BMCWEB_LOG_DEBUG("failed to get property Value");
+        return;
+    }
+
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code ec,
                     const std::variant<uint64_t>& value) {
@@ -818,6 +856,26 @@ inline void
         "/xyz/openbmc_project/control/service/start_2dipkvm",
         "org.freedesktop.DBus.Properties", "Get",
         "xyz.openbmc_project.Control.Service.Attributes", "SessionTimeOut");
+
+    crow::connections::systemBus->async_method_call(
+        [asyncResp](const boost::system::error_code ec,
+                    const std::variant<uint16_t>& value) {
+        if (ec)
+        {
+            BMCWEB_LOG_DEBUG("failed to get property Value  ", ec);
+            return;
+        }
+        const uint16_t* s = std::get_if<uint16_t>(&value);
+        asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.id"] =
+            "/redfish/v1/SessionService#/Oem/Ami";
+        asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] =
+            "#AMISessionService.v1_0_0.Ami";
+        asyncResp->res.jsonValue["Oem"]["Ami"]["KVMPort"] = *s;
+        },
+        "xyz.openbmc_project.Control.Service.Manager",
+        "/xyz/openbmc_project/control/service/start_2dipkvm",
+        "org.freedesktop.DBus.Properties", "Get",
+        "xyz.openbmc_project.Control.Service.SocketAttributes", "Port");
 }
 
 inline void handleSessionServicePatch(
@@ -884,9 +942,10 @@ inline void handleSessionServicePatch(
         {
             std::optional<uint64_t> kvmSessionTimeout;
             std::optional<uint16_t> bmcwebPort;
+            std::optional<uint16_t> kvmPort;
             if (!json_util::readJson(*ami, asyncResp->res, "KVMSessionTimeout",
                                      kvmSessionTimeout, "BMCwebPort",
-                                     bmcwebPort))
+                                     bmcwebPort, "KVMPort", kvmPort))
             {
                 return;
             }
@@ -926,6 +985,34 @@ inline void handleSessionServicePatch(
                     "org.freedesktop.DBus.Properties", "Set",
                     "xyz.openbmc_project.Control.Service.SocketAttributes",
                     "Port", std::variant<uint16_t>(*bmcwebPort));
+            }
+
+            if (kvmPort)
+            {
+                uint16_t bmcweb_Port = getBmcwebPort();
+                if (kvmPort != bmcweb_Port)
+                {
+                    crow::connections::systemBus->async_method_call(
+                        [asyncResp](const boost::system::error_code ec) {
+                        if (ec)
+                        {
+                            BMCWEB_LOG_ERROR("Error patching {}", ec);
+                            messages::internalError(asyncResp->res);
+                            return;
+                        }
+                        messages::success(asyncResp->res);
+                        },
+                        "xyz.openbmc_project.Control.Service.Manager",
+                        "/xyz/openbmc_project/control/service/start_2dipkvm",
+                        "org.freedesktop.DBus.Properties", "Set",
+                        "xyz.openbmc_project.Control.Service.SocketAttributes",
+                        "Port", std::variant<uint16_t>(*kvmPort));
+                }
+                else
+                {
+                    messages::resourceInUse(asyncResp->res);
+                    return;
+                }
             }
         }
     }
