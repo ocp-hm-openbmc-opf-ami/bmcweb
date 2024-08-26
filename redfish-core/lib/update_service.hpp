@@ -1199,7 +1199,8 @@ inline void
 
     // Make sure that content type is application/octet-stream or
     // multipart/form-data
-    if (bmcweb::asciiIEquals(contentType, "application/octet-stream"))
+    if (bmcweb::asciiIEquals(contentType, "application/octet-stream") ||
+        bmcweb::asciiIEquals(contentType, "application/x-tar"))
     {
         // Setup callback for when new software detected
         monitorForSoftwareAvailable(asyncResp, req, "/redfish/v1/UpdateService",
