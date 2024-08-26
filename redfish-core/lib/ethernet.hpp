@@ -2892,11 +2892,60 @@ inline void requestEthernetInterfacesRoutes(App& app)
 
             bool isNicEnabled = ethData.nicEnabled;
 
-            if (interfaceEnabled.has_value())
+            // Check for mixed attributes with interfaceEnabled
+            bool hasMixedAttributes = (interfaceEnabled.has_value() &&
+            (hostname.has_value() || fqdn.has_value() || macAddress.has_value() ||
+             ipv6DefaultGateway.has_value() || ipv4StaticAddresses.has_value() ||
+             ipv6StaticAddresses.has_value() || ipv6StaticDefaultGateway.has_value() ||
+             staticNameServers.has_value() || ipv6AutoConfigEnabled.has_value() ||
+             mtuSize.has_value() || v4dhcpParms.dhcpv4Enabled.has_value() ||
+             v4dhcpParms.useDnsServers.has_value() || v4dhcpParms.useDomainName.has_value() ||
+             v4dhcpParms.useNtpServers.has_value() || v6dhcpParms.dhcpv6OperatingMode.has_value() ||
+             v6dhcpParms.useDnsServers.has_value() || v6dhcpParms.useDomainName.has_value() ||
+             v6dhcpParms.useNtpServers.has_value()));
+
+            if (hasMixedAttributes)
             {
-                isNicEnabled = *interfaceEnabled;
-                setEthernetInterfaceBoolProperty(ifaceId, "NICEnabled",
+                messages::propertyValueExternalConflict(asyncResp->res,"InterfaceEnabled",*interfaceEnabled);
+                return;
+            }
+			
+			if (interfaceEnabled.has_value() && (!hasMixedAttributes))
+            {
+
+                if(*interfaceEnabled)
+                {
+                    messages::success(asyncResp->res);	
+                }
+                else 
+                {
+                    sdbusplus::asio::getProperty<uint8_t>(
+                    *crow::connections::systemBus, "xyz.openbmc_project.Network",
+                    "/xyz/openbmc_project/network/config",
+                    "xyz.openbmc_project.Network.SystemConfiguration", "InterfaceCount",
+                    [asyncResp{std::move(asyncResp)},&isNicEnabled,ifaceId,interfaceEnabled](const boost::system::error_code& ec,const uint8_t& Interface_Count ) {
+                    if (ec)
+                    {
+                    
+                       BMCWEB_LOG_DEBUG("DBUS response error");
+                       messages::internalError(asyncResp->res);
+                       return;
+                    }
+                
+				    BMCWEB_LOG_DEBUG("InterfaceCount: {}", Interface_Count);
+                    if(Interface_Count <=1)
+                    {
+                        messages::propertyValueExternalConflict(asyncResp->res,"InterfaceEnabled",*interfaceEnabled);
+                        return;
+                    }
+                    else
+                    {
+                        isNicEnabled = *interfaceEnabled;
+                        setEthernetInterfaceBoolProperty(ifaceId, "NICEnabled",
                                                  *interfaceEnabled, asyncResp);
+                    }
+                 });
+                }
             }
             if (!isNicEnabled)
             {
