@@ -92,7 +92,7 @@ class ConnectionImpl : public Connection
             });
 
             openHandler(self, req, asyncResp);
-            sendSSEHeader();
+            //sendSSEHeader();
         }
     }
 
@@ -229,6 +229,8 @@ class ConnectionImpl : public Connection
 
         boost::beast::http::response<boost::beast::http::string_body> Message;
         Message.body() = *asyncResp->res.body();
+        Message.result(asyncResp->res.result());
+
         boost::beast::http::async_write(
             adaptor, Message,
             std::bind_front(&ConnectionImpl::completeRequestCallback, this,
