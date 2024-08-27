@@ -1847,6 +1847,7 @@ inline void handleAccountServicePatch(
     std::optional<uint8_t> RememberOldPasswordTimes;
     std::optional<std::string> vId;
     std::optional<std::vector<std::string>> pamOrder;
+    std::optional<bool> serviceEnable;
     // clang-format off
     if (!json_util::readJsonPatch(
             req, asyncResp->res,
@@ -1880,7 +1881,8 @@ inline void handleAccountServicePatch(
 	    "Oem/Ami/Configuration/PamOrder",pamOrder,
             "HTTPBasicAuth", httpBasicAuth,
             "Oem/OpenBMC/PasswordPolicyComplexity",passwordcomplexity,
-            "Oem/OpenBMC/RememberOldPasswordTimes",RememberOldPasswordTimes, "Id", vId))
+            "Oem/OpenBMC/RememberOldPasswordTimes",RememberOldPasswordTimes, "Id", vId,
+            "ServiceEnabled", serviceEnable))
     {
         return;
     }
@@ -1906,6 +1908,13 @@ inline void handleAccountServicePatch(
     if (vId)
     {
         messages::propertyNotWritable(asyncResp->res, "Id");
+        asyncResp->res.result(boost::beast::http::status::bad_request);
+        return;
+    }
+
+    if (serviceEnable)
+    {
+        messages::propertyNotWritable(asyncResp->res, "ServiceEnabled");
         asyncResp->res.result(boost::beast::http::status::bad_request);
         return;
     }
