@@ -1626,6 +1626,12 @@ inline void doSubscriptionCollection(
         getSnmpSubscriptionList(asyncResp, snmpId, memberArray);
     }
 }
+inline std::string removeProtocol(const std::string& url)
+{
+    std::regex pattern("^.+://");
+    return std::regex_replace(url, pattern, "");
+}
+
 
 inline void requestRoutesEventDestinationCollection(App& app)
 {
@@ -1770,7 +1776,25 @@ inline void requestRoutesEventDestinationCollection(App& app)
                                                "Destination");
             return;
         }
-        url->normalize();
+        
+	if (url)
+        {
+           std::string destIp = removeProtocol(destUrl);
+           std::vector<std::string> ip_segments;
+           bmcweb::split(ip_segments, destIp, ':');
+           std::string ip = ip_segments[0];
+
+           boost::system::error_code ec;
+           boost::asio::ip::make_address(ip, ec);
+           if (ec)
+           {
+                messages::propertyValueFormatError(asyncResp->res, destUrl,
+                                                "Destination");
+                return;
+           }
+        }
+
+	url->normalize();
         crow::utility::setProtocolDefaults(*url, protocol);
         crow::utility::setPortDefaults(*url);
 
