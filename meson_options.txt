@@ -297,6 +297,13 @@ option(
 )
 
 option(
+    'redfish-intel-feature',
+    type: 'feature',
+    value: 'disabled',
+    description: '''Enable/disable the intel uri.'''
+)
+
+option(
     'redfish-allow-deprecated-power-thermal',
     type: 'feature',
     value: 'enabled',

@@ -31,6 +31,7 @@ feature_options = [
     'redfish-provisioning-feature',
     'redfish-post-to-old-updateservice',
     'redfish-updateservice-use-dbus',
+    'redfish-intel-feature',
     'redfish',
     'rest',
     'session-auth',
