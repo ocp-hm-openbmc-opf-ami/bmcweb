@@ -2076,6 +2076,24 @@ inline void handleIPv6StaticAddressesPatch(
     const DHCPParameters& v6dhcpParms, bool ipv6AcceptRA,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
+    std::vector<IPv6AddressData>::const_iterator nicIpv6Entry = getNextStaticIpEntry(ipv6Data.cbegin(), ipv6Data.cend());
+    for (std::variant<nlohmann::json::object_t, std::nullptr_t>& thisJson : input) 
+    {
+        if (auto* obj = std::get_if<nlohmann::json::object_t>(&thisJson)) 
+        {
+            if (obj->empty()) 
+            {
+                if (nicIpv6Entry != ipv6Data.cend()) 
+                {
+                    const IPv6AddressData& addressData = *nicIpv6Entry;
+                    (*obj)["Address"] = addressData.address;
+                    (*obj)["PrefixLength"] = addressData.prefixLength;
+                }
+            }
+        }
+        nicIpv6Entry = getNextStaticIpEntry(++nicIpv6Entry,ipv6Data.cend());
+    }
+    nicIpv6Entry = getNextStaticIpEntry(ipv6Data.cbegin(), ipv6Data.cend());
     size_t entryIdx = 1;
     std::vector<IPv6AddressData>::const_iterator nicIpEntry =
         getNextStaticIpEntry(ipv6Data.cbegin(), ipv6Data.cend());
@@ -2149,7 +2167,7 @@ inline void handleIPv6StaticAddressesPatch(
         }
         else
         {
-            if (nicIpEntry == ipv6Data.end())
+            if (nicIpv6Entry == ipv6Data.end())
             {
                 // Requesting a DELETE/DO NOT MODIFY action for an item
                 // that isn't present on the eth(n) interface. Input JSON is
@@ -2164,17 +2182,15 @@ inline void handleIPv6StaticAddressesPatch(
                 return;
             }
 
-            if (obj == nullptr)
+            if (obj == nullptr && nicIpEntry != ipv6Data.cend())
             {
                 deleteIPAddress(ifaceId, nicIpEntry->id, asyncResp);
-            }
-            if (nicIpEntry != ipv6Data.cend())
-            {
                 nicIpEntry = getNextStaticIpEntry(++nicIpEntry,
                                                   ipv6Data.cend());
             }
             entryIdx++;
         }
+        nicIpv6Entry = getNextStaticIpEntry(++nicIpv6Entry,ipv6Data.cend());
     }
     if (!v6dhcpParms.dhcpv6OperatingMode) // Invoke triggerDHCPDisable when
                                           // DHCPv6 -> OperatingMode not present
