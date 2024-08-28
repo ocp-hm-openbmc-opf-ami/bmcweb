@@ -2064,6 +2064,27 @@ void invalidFileContent(crow::Response& res, std::string_view arg1)
     addMessageToErrorJson(res.jsonValue, invalidFileContent(arg1));
 }
 
+/**
+ * @internal
+ * @brief Formats FactoryDefaultResetActionConflict message into JSON
+ *
+ * See header file for more information
+ * @endinternal
+ */
+nlohmann::json factoryDefaultResetActionConflict(std::string_view arg1,
+                                     std::string_view arg2)
+{
+    return getLog(redfish::registries::base::Index::factoryDefaultResetActionConflict,
+                  std::to_array({arg1, arg2}));
+}
+
+void factoryDefaultResetActionConflict(crow::Response& res, std::string_view arg1,
+                           std::string_view arg2)
+{
+    res.result(boost::beast::http::status::bad_request);
+    addMessageToErrorJson(res.jsonValue, factoryDefaultResetActionConflict(arg1, arg2));
+}
+
 } // namespace messages
 
 } // namespace redfish

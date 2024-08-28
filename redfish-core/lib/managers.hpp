@@ -524,6 +524,19 @@ inline void requestRoutesManagerResetToDefaultsAction(App& app)
             return;
         }
 
+        for (const std::shared_ptr<task::TaskData>& task : task::tasks)
+        {
+            if (task == nullptr)
+            {
+                continue; // shouldn't be possible
+            }
+            if (task->state == "Pending")
+            {
+                messages::factoryDefaultResetActionConflict(asyncResp->res, "FactoryDefaultReset", "FirmwareUpdate");
+                return;
+            }
+        }
+
         crow::connections::systemBus->async_method_call(
             [asyncResp, resetType](const boost::system::error_code& ec) {
             if (ec)

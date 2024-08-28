@@ -46,24 +46,40 @@ static std::deque<std::shared_ptr<struct TaskData>> tasks;
 static size_t lastTask = 1;
 constexpr bool completed = true;
 
-inline void setStatus(const std::string status)
+inline void setStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, const std::string status)
 {
-    auto bus = sdbusplus::bus::new_default();
-    auto method = bus.new_method_call("xyz.openbmc_project.State.Host0",
-                                      "/xyz/openbmc_project/state/host0",
-                                      "org.freedesktop.DBus.Properties", "Set");
+    std::array<std::string, 1> interfaces = {
+        "xyz.openbmc_project.Common.Task"};
 
-    method.append("xyz.openbmc_project.Common.Task", "Status",
-                  dbus::utility::DbusVariantType(status));
-
-    try
-    {
-        auto reply = bus.call(method);
-    }
-    catch (const sdbusplus::exception::SdBusError& e)
-    {
-        BMCWEB_LOG_ERROR("D-Bus error:", e.what());
-    }
+    crow::connections::systemBus->async_method_call(
+        [asyncResp, status](const boost::system::error_code ec,
+                    const std::vector<std::string>& ifaceList) {
+        if (ec)
+        {
+            BMCWEB_LOG_DEBUG(
+                "Error in querying GetSubTreePaths with Object Mapper. {}", ec);
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        if (ifaceList.size() == 0)
+        {
+            BMCWEB_LOG_DEBUG("Can't find Task Info Attributes!");
+            return;
+        }
+        for (const std::string& fwPath : ifaceList)
+        {
+            setDbusProperty(
+                asyncResp,
+                "xyz.openbmc_project.Software.BMC.Updater",
+                fwPath,
+                "xyz.openbmc_project.Common.Task",
+                "Status", "Status", status);
+        }
+    },
+        "xyz.openbmc_project.ObjectMapper",
+        "/xyz/openbmc_project/object_mapper",
+        "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths", "/xyz/openbmc_project/software/", 0,
+        interfaces);
 }
 
 struct Payload
@@ -199,14 +215,14 @@ struct TaskData : std::enable_shared_from_this<TaskData>
         return;
     }
 
-    void deleteTasks(const std::string& strParam)
+    void deleteTasks(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, const std::string& strParam)
     {
         int pos = 0;
         for (const std::shared_ptr<task::TaskData>& task : task::tasks)
         {
             if (std::to_string(task->index) == strParam)
             {
-                setStatus(
+                setStatus(asyncResp,
                     "xyz.openbmc_project.Common.Task.OperationStatus.Cancelled");
                 auto taskToDelete = task::tasks.begin();
                 advance(taskToDelete, pos);
@@ -426,7 +442,7 @@ inline void
         return;
     }
 
-    ptr->deleteTasks(strParam);
+    ptr->deleteTasks(asyncResp, strParam);
     asyncResp->res.result(boost::beast::http::status::no_content);
 }
 inline void requestRoutesTaskMonitor(App& app)

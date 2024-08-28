@@ -267,7 +267,7 @@ inline bool handleCreateTask(const boost::system::error_code& ec2,
 
         if (state->ends_with("Staged"))
         {
-            taskData->state = "Stopping";
+            taskData->state = "Pending";
             taskData->messages.emplace_back(messages::taskPaused(index));
 
             // its staged, set a long timer to

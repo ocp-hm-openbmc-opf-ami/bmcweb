@@ -1393,6 +1393,19 @@ constexpr std::array registry =
             },
             "Resubmit the request with the valid file content.",
         }},
+    MessageEntry{
+        "FactoryDefaultResetActionConflict",
+        {
+            "Indicates that the requested action could not be completed, because it would conflict with the other action in the resource.",
+            "The action '%1' could not be supported because it would conflict with the '%2' action.",
+            "Warning",
+            2,
+            {
+                "string",
+                "string",
+            },
+            "Wait for firmware update to complete.",
+        }},
 };
 
 enum class Index
@@ -1514,5 +1527,6 @@ enum class Index
     interfaceDisabled=114,
     invalidLicenseKeyFileFormat=115,
     invalidFileContent=116,
+    factoryDefaultResetActionConflict = 117,
 };
 } // namespace redfish::registries::base

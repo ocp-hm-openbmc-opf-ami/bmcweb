@@ -1192,6 +1192,22 @@ nlohmann::json invalidFileContent(std::string_view arg1);
 
 void invalidFileContent(crow::Response& res, std::string_view arg1);
 
+/**
+ * @brief Formats FactoryDefaultResetActionConflict message into JSON
+ * Message body: "The property '<arg1>' could not be written because its value
+ * would conflict with the value of the '<arg2>' property."
+ *
+ * @param[in] arg1 Parameter of message that will replace %1 in its body.
+ * @param[in] arg2 Parameter of message that will replace %2 in its body.
+ *
+ * @returns Message FactoryDefaultResetActionConflict formatted to JSON */
+nlohmann::json FactoryDefaultResetActionConflict(std::string_view arg1,
+                                     std::string_view arg2);
+
+void factoryDefaultResetActionConflict(crow::Response& res, std::string_view arg1,
+                           std::string_view arg2);
+
+
 } // namespace messages
 
 } // namespace redfish
