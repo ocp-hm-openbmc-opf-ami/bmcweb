@@ -103,6 +103,13 @@ inline void handleServiceRootGetImpl(
     asyncResp->res.jsonValue["Oem"]["Intel"]["CupsService"] = {
         {"@odata.id", "/redfish/v1/Oem/Intel/CupsService"}};
 
+    asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] =
+        "#OemServiceRoot.v1_0_0.Ami";
+    asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.id"] =
+        "/redfish/v1/#Oem/Ami";
+    asyncResp->res.jsonValue["Oem"]["Ami"]["PcieSwitch"] = {
+        {"@odata.id", "/redfish/v1/Oem/Ami/PcieSwitch"}};
+
     asyncResp->res.jsonValue["Oem"]["Ami"]["LicenseControl"] = {
         {"@odata.id", "/redfish/v1/Oem/Ami/LicenseControl"}};
 

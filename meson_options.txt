@@ -78,6 +78,13 @@ option(
 )
 
 option(
+    'ami-pciesw',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable the AMI PCIESW.'
+)
+
+option(
     'rest',
     type: 'feature',
     value: 'disabled',
