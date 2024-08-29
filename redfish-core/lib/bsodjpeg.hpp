@@ -93,7 +93,7 @@ inline void requestRoutesDeleteBsodjpeg(App& app)
         }
         else
         {
-            messages::internalError(asyncResp->res);
+            messages::resourceNotFound(asyncResp->res, "Jpeg", "Image");
             return;
         }
     });
