@@ -1183,8 +1183,7 @@ inline void handleManagersVirtualMediaCollectionGet(
         if (ec)
         {
             BMCWEB_LOG_ERROR("ObjectMapper::GetObject call failed: {}", ec);
-            messages::internalError(asyncResp->res);
-
+            messages::resourceNotFound(asyncResp->res ,"VirtualMedia", name);
             return;
         }
         std::string service = getObjectType.begin()->first;
