@@ -1325,7 +1325,7 @@ constexpr std::array registry =
         "PropertyValueEmpty",
         {
         "Indicates that a Property Value is empty",
-        "The value %1 for the property %2 should not be empty",
+        "The value %1 for the property %2 should not be empty when authentication is enabled.",
         "Critical",
         2,
         {

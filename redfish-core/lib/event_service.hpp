@@ -877,7 +877,7 @@ inline void requestRoutesEventService(App& app)
             "#EventService.v1_5_0.EventService";
         asyncResp->res.jsonValue["Id"] = "EventService";
         asyncResp->res.jsonValue["Name"] = "Event Service";
-	asyncResp->res.jsonValue["Description"] = "Event Service";
+        asyncResp->res.jsonValue["Description"] = "Event Service";
         asyncResp->res.jsonValue["ServerSentEventUri"] =
             "/redfish/v1/EventService/SSE";
 
@@ -1108,17 +1108,92 @@ inline void requestRoutesEventService(App& app)
 
                         if (primary_username)
                         {
-                            setUsername(
-                                asyncResp,
-                                "xyz.openbmc_project.mail.alert.primary",
-                                *primary_username);
+                            if (primary_username == "")
+                            {
+                                sdbusplus::asio::getProperty<bool>(
+                                    *crow::connections::systemBus,
+                                    "xyz.openbmc_project.mail",
+                                    "/xyz/openbmc_project/mail/alert",
+                                    "xyz.openbmc_project.mail.alert.primary",
+                                    "Authentication",
+                                    [asyncResp, primary_username](
+                                        const boost::system::error_code& ec,
+                                        bool ServiceEnabled) {
+                                    if (ec)
+                                    {
+                                        BMCWEB_LOG_ERROR(
+                                            "D-BUS response error on PrimarySmtp enable Status Get{}",
+                                            ec);
+                                        messages::internalError(asyncResp->res);
+                                        return;
+                                    }
+                                    if (ServiceEnabled)
+                                    {
+                                        messages::propertyValueEmpty(
+                                            asyncResp->res, *primary_username, "UserName");
+                                        return;
+                                    }
+                                    else
+                                    {
+                                        setUsername(
+                                            asyncResp,
+                                            "xyz.openbmc_project.mail.alert.primary",
+                                            *primary_username);
+                                    }
+                                });
+                            }
+                            else
+                            {
+                                setUsername(
+                                    asyncResp,
+                                    "xyz.openbmc_project.mail.alert.primary",
+                                    *primary_username);
+                            }
                         }
                         if (primary_password)
                         {
-                            setPassword(
-                                asyncResp,
-                                "xyz.openbmc_project.mail.alert.primary",
-                                *primary_password);
+                            if (primary_password == "")
+                            {
+                                sdbusplus::asio::getProperty<bool>(
+                                    *crow::connections::systemBus,
+                                    "xyz.openbmc_project.mail",
+                                    "/xyz/openbmc_project/mail/alert",
+                                    "xyz.openbmc_project.mail.alert.primary",
+                                    "Authentication",
+                                    [asyncResp, primary_password](
+                                        const boost::system::error_code& ec,
+                                        bool ServiceEnabled) {
+                                    if (ec)
+                                    {
+                                        BMCWEB_LOG_ERROR(
+                                            "D-BUS response error on PrimarySmtp enable Status Get{}",
+                                            ec);
+                                        messages::internalError(asyncResp->res);
+                                        return;
+                                    }
+                                    if (ServiceEnabled)
+                                    {
+                                        messages::propertyValueEmpty(
+                                            asyncResp->res, *primary_password,
+                                            "Password");
+                                        return;
+                                    }
+                                    else
+                                    {
+                                        setPassword(
+                                            asyncResp,
+                                            "xyz.openbmc_project.mail.alert.primary",
+                                            *primary_password);
+                                    }
+                                });
+                            }
+                            else
+                            {
+                                setPassword(
+                                    asyncResp,
+                                    "xyz.openbmc_project.mail.alert.primary",
+                                    *primary_password);
+                            }
                         }
 
                         if (primary_tlsenable)
@@ -1222,96 +1297,10 @@ inline void requestRoutesEventService(App& app)
                         }
                         if (primary_enable)
                         {
-                            if (*primary_enable)
-                            {
-                                setServiceEnable(
-                                    asyncResp,
-                                    "xyz.openbmc_project.mail.alert.primary",
-                                    *primary_enable);
-                            }
-                            else
-                            {
-                                if (SecondaryConfiguration)
-                                {
-                                    std::optional<bool> authentication;
-                                    std::optional<bool> enable2;
-                                    std::optional<std::string> host;
-                                    std::optional<std::string> password;
-                                    std::optional<uint16_t> port;
-                                    std::optional<std::vector<std::string>>
-                                        recipient;
-                                    std::optional<std::string> sender;
-                                    std::optional<bool> tlsenable;
-                                    std::optional<std::string> username;
-                                    if (!json_util::readJson(
-                                            *SecondaryConfiguration,
-                                            asyncResp->res, "Authentication",
-                                            authentication, "Enable", enable2,
-                                            "Host", host, "Password", password,
-                                            "Port", port, "Recipient",
-                                            recipient, "Sender", sender,
-                                            "TLSEnable", tlsenable, "UserName",
-                                            username))
-                                    {
-                                        return;
-                                    }
-                                    if (primary_enable)
-                                    {
-                                        if (*primary_enable)
-                                        {
-                                            messages::propertyValueConflict(
-                                                asyncResp->res,
-                                                "PrimaryConfiguration.Enable",
-                                                "SecondaryConfiguration.Enable");
-                                            return;
-                                        }
-                                        else
-                                        {
-                                            setServiceEnable(
-                                                asyncResp,
-                                                "xyz.openbmc_project.mail.alert.primary",
-                                                *primary_enable);
-                                        }
-                                    }
-                                }
-                                else
-                                {
-                                    sdbusplus::asio::getProperty<bool>(
-                                        *crow::connections::systemBus,
-                                        "xyz.openbmc_project.mail",
-                                        "/xyz/openbmc_project/mail/alert",
-                                        "xyz.openbmc_project.mail.alert.secondary",
-                                        "Enable",
-                                        [asyncResp, &primary_enable](
-                                            const boost::system::error_code& ec,
-                                            bool ServiceEnabled) {
-                                        if (ec)
-                                        {
-                                            BMCWEB_LOG_ERROR(
-                                                "D-BUS response error on SnmpTrapStatus Get{}",
-                                                ec);
-                                            messages::internalError(
-                                                asyncResp->res);
-                                            return;
-                                        }
-                                        if (ServiceEnabled)
-                                        {
-                                            messages::propertyValueConflict(
-                                                asyncResp->res,
-                                                "PrimaryConfiguration.Enable",
-                                                "SecondaryConfiguration.Enable");
-                                            return;
-                                        }
-                                        else
-                                        {
-                                            setServiceEnable(
-                                                asyncResp,
-                                                "xyz.openbmc_project.mail.alert.primary",
-                                                *primary_enable);
-                                        }
-                                    });
-                                }
-                            }
+                            setServiceEnable(
+                                asyncResp,
+                                "xyz.openbmc_project.mail.alert.primary",
+                                *primary_enable);
                         }
                         if (primary_host)
                         {
@@ -1425,17 +1414,91 @@ inline void requestRoutesEventService(App& app)
                         }
                         if (username)
                         {
-                            setUsername(
-                                asyncResp,
-                                "xyz.openbmc_project.mail.alert.secondary",
-                                *username);
+                            if (username == "")
+                            {
+                                sdbusplus::asio::getProperty<bool>(
+                                    *crow::connections::systemBus,
+                                    "xyz.openbmc_project.mail",
+                                    "/xyz/openbmc_project/mail/alert",
+                                    "xyz.openbmc_project.mail.alert.secondary",
+                                    "Authentication",
+                                    [asyncResp, username](
+                                        const boost::system::error_code& ec,
+                                        bool ServiceEnabled) {
+                                    if (ec)
+                                    {
+                                        BMCWEB_LOG_ERROR(
+                                            "D-BUS response error on PrimarySmtp enable Status Get{}",
+                                            ec);
+                                        messages::internalError(asyncResp->res);
+                                        return;
+                                    }
+                                    if (ServiceEnabled)
+                                    {
+                                        messages::propertyValueEmpty(asyncResp->res, *username,
+                                             "UserName");
+                                        return;
+                                    }
+                                    else
+                                    {
+                                        setUsername(
+                                            asyncResp,
+                                            "xyz.openbmc_project.mail.alert.secondary",
+                                            *username);
+                                    }
+                                });
+                            }
+                            else
+                            {
+                                setUsername(
+                                    asyncResp,
+                                    "xyz.openbmc_project.mail.alert.secondary",
+                                    *username);
+                            }
                         }
                         if (password)
                         {
-                            setPassword(
-                                asyncResp,
-                                "xyz.openbmc_project.mail.alert.secondary",
-                                *password);
+                            if (password == "")
+                            {
+                                sdbusplus::asio::getProperty<bool>(
+                                    *crow::connections::systemBus,
+                                    "xyz.openbmc_project.mail",
+                                    "/xyz/openbmc_project/mail/alert",
+                                    "xyz.openbmc_project.mail.alert.secondary",
+                                    "Authentication",
+                                    [asyncResp, password](
+                                        const boost::system::error_code& ec,
+                                        bool ServiceEnabled) {
+                                    if (ec)
+                                    {
+                                        BMCWEB_LOG_ERROR(
+                                            "D-BUS response error on secondarySmtp enable Status Get{}",
+                                            ec);
+                                        messages::internalError(asyncResp->res);
+                                        return;
+                                    }
+                                    if (ServiceEnabled)
+                                    {
+                                         messages::propertyValueEmpty(asyncResp->res, *password,
+                                             "Password");
+                                        return;
+                                    }
+                                    else
+                                    {
+                                        setPassword(
+                                            asyncResp,
+                                            "xyz.openbmc_project.mail.alert.secondary",
+                                            *password);
+                                    }
+                                });
+                            }
+                            else
+                            {
+                                setPassword(
+                                    asyncResp,
+                                    "xyz.openbmc_project.mail.alert.secondary",
+                                    *password);
+                            }
                         }
                         if (tlsenable)
                         {
@@ -1683,7 +1746,8 @@ inline void requestRoutesEventDestinationCollection(App& app)
         asyncResp->res.jsonValue["@odata.id"] =
             "/redfish/v1/EventService/Subscriptions";
         asyncResp->res.jsonValue["Name"] = "Event Destination Collections";
-	asyncResp->res.jsonValue["Description"] = "Event Destination Collections";
+        asyncResp->res.jsonValue["Description"] =
+            "Event Destination Collections";
 
         nlohmann::json& memberArray = asyncResp->res.jsonValue["Members"];
 

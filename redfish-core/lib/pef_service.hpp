@@ -29,7 +29,6 @@ static constexpr const char* pefConfIface =
 using GetSubTreeType = std::vector<
     std::pair<std::string,
               std::vector<std::pair<std::string, std::vector<std::string>>>>>;
-
 inline void getFilterEnable(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
 {
     crow::connections::systemBus->async_method_call(
@@ -249,7 +248,7 @@ void getEventEntries(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                   "/redfish/v1/PefService/" + objpath.substr(lastPos + 1)}});
             std::cerr << "PEF getEventEntries entry details : " << objpath;
         }
-	 aResp->res.jsonValue["Members@odata.count"] = entriesArray.size();
+        aResp->res.jsonValue["Members@odata.count"] = entriesArray.size();
     },
 
         "xyz.openbmc_project.ObjectMapper",
@@ -316,6 +315,20 @@ inline void setEventSeverity(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     });
 }
 
+const PropertyValue getSmtpEnable(const std::string& interfaceName)
+{
+    PropertyValue value{};
+    auto b = sdbusplus::bus::new_default_system();
+    auto method = b.new_method_call("xyz.openbmc_project.mail",
+                                    "/xyz/openbmc_project/mail/alert",
+                                    dbusPropertyInterface, "Get");
+
+    method.append(interfaceName, "Enable");
+    auto reply = b.call(method);
+    reply.read(value);
+    return value;
+}
+
 inline void requestRoutesPefService(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/PefService/")
@@ -328,7 +341,7 @@ inline void requestRoutesPefService(App& app)
             {"@odata.id", "/redfish/v1/PefService"},
             {"Id", "Pef Service"},
             {"Name", "Pef Service"},
-	    {"Description", "Pef Service Collections"}};
+            {"Description", "Pef Service Collections"}};
         aResp->res.jsonValue["Actions"]["#PefService.SendAlertMail"]["target"] =
             "/redfish/v1/PefService/Actions/"
             "PefService.SendAlertMail/";
@@ -450,53 +463,52 @@ inline void requestRoutesPefService(App& app)
             aResp->res.result(boost::beast::http::status::bad_request);
             return;
         }
-        crow::connections::systemBus->async_method_call(
-            [subject, mailBuf, aResp](const boost::system::error_code ec1,
-                                      const std::uint16_t& response) {
-            if (ec1)
-            {
-                BMCWEB_LOG_ERROR("SendMail: Can't get "
-                                 "alertMailIface ");
-                messages::internalError(aResp->res);
-                return;
-            }
-            else
-            {
-                sdbusplus::asio::getProperty<bool>(
-                    *crow::connections::systemBus, "xyz.openbmc_project.mail",
-                    "/xyz/openbmc_project/mail/alert",
-                    "xyz.openbmc_project.mail.alert.primary", "Enable",
-                    [aResp, response](const boost::system::error_code& ec,
-                                      bool ServiceEnabled) {
-                    if (ec)
-                    {
-                        BMCWEB_LOG_ERROR(
-                            "D-BUS response error on SnmpTrapStatus Get{}", ec);
-                        messages::internalError(aResp->res);
-                        return;
-                    }
-                    else if (!ServiceEnabled)
-                    {
-                        messages::serviceDisabled(aResp->res,
-                                                  "Primary Configuration");
-                        return;
-                    }
-                    else if (response == 65535)
-                    {
-                        messages::internalError(aResp->res);
-                        return;
-                    }
-                    else if (response == 65534)
-                    {
-                        messages::insufficientPrivilege(aResp->res);
-                        return;
-                    }
+        auto primaryvalue =
+            getSmtpEnable("xyz.openbmc_project.mail.alert.primary");
+        auto primaryconfiguration = std::get<bool>(primaryvalue);
+
+        auto secondaryvalue =
+            getSmtpEnable("xyz.openbmc_project.mail.alert.secondary");
+        auto secondaryconfiguration = std::get<bool>(secondaryvalue);
+
+        if (!primaryconfiguration && !secondaryconfiguration)
+        {
+            messages::serviceDisabled(
+                aResp->res,
+                "Primary Configuration and secondary configuration");
+            aResp->res.result(boost::beast::http::status::bad_request);
+            return;
+        }
+        else
+        {
+            crow::connections::systemBus->async_method_call(
+                [subject, mailBuf, aResp](const boost::system::error_code ec1,
+                                          const std::uint16_t& response) {
+                if (ec1)
+                {
+                    BMCWEB_LOG_ERROR("SendMail: Can't get "
+                                     "alertMailIface ");
+                    messages::internalError(aResp->res);
+                    return;
+                }
+                else if (response == 65535)
+                {
+                    messages::internalError(aResp->res);
+                    return;
+                }
+                else if (response == 65534)
+                {
+                    messages::insufficientPrivilege(aResp->res);
+                    return;
+                }
+                else
+                {
                     messages::success(aResp->res);
-                });
-            }
-        },
-            "xyz.openbmc_project.mail", "/xyz/openbmc_project/mail/alert",
-            "xyz.openbmc_project.mail.alert", "SendMail", subject, mailBuf);
+                }
+            },
+                "xyz.openbmc_project.mail", "/xyz/openbmc_project/mail/alert",
+                "xyz.openbmc_project.mail.alert", "SendMail", subject, mailBuf);
+        }
     });
 }
 
