@@ -2118,6 +2118,13 @@ inline void handleIPv6StaticAddressesPatch(
                 return;
             }
 
+            if (prefixLength && prefixLength == 0)
+            {
+                messages::propertyValueFormatError(asyncResp->res, "0", 
+pathString + "/PrefixLength");
+                return;
+            }
+
             // Find the address and prefixLength values. Any values that are
             // not explicitly provided are assumed to be unmodified from the
             // current state of the interface. Merge existing state into the
