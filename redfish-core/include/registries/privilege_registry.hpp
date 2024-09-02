@@ -1658,6 +1658,11 @@ const static auto& postSensorCollection = privilegeSetConfigureComponents;
 const static auto& putSensorCollection = privilegeSetConfigureComponents;
 const static auto& deleteSensorCollection = privilegeSetConfigureComponents;
 
+// SensorThreshCollection
+const static auto& getSensorThreshCollection = privilegeSetLogin;
+const static auto& getSensorThresh = privilegeSetLogin;
+const static auto& patchSensorThresh = privilegeSetConfigureComponents;
+
 // SerialInterface
 const static auto& getSerialInterface = privilegeSetLogin;
 const static auto& headSerialInterface = privilegeSetLogin;

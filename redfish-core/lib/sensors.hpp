@@ -1137,13 +1137,18 @@ inline void objectPropertiesToJson(
             {
                 if (key == nlohmann::json::json_pointer("/Reading"))
                 {
-                    double roundedValue = std::round(*doubleValue * 10000.0) /
-                                          10000.0;
-
-                    std::stringstream ss;
-                    ss << std::fixed << std::setprecision(4) << roundedValue;
-                    std::string roundedStringValue = ss.str();
-                    sensorJson[key] = std::stoi(roundedStringValue);
+                    double roundedValue = std::round(*doubleValue * 100.0) / 100.0;
+                    sensorJson[key] = roundedValue;
+                }
+                else if (key == nlohmann::json::json_pointer("/Thresholds/LowerCaution/Reading") ||
+                         key == nlohmann::json::json_pointer("/Thresholds/LowerCritical/Reading") ||
+                         key == nlohmann::json::json_pointer("/Thresholds/UpperCaution/Reading") ||
+                         key == nlohmann::json::json_pointer("/Thresholds/UpperCritical/Reading"))
+                {
+                    std::cout << "sensors :: Reading rounded " << __LINE__ << std::endl;
+                    // Round to two decimal places for Threshold Readings
+                    double roundedValue = std::round(*doubleValue * 100.0) / 100.0;
+                    sensorJson[key] = roundedValue;
                 }
                 else
                 {
@@ -1152,7 +1157,7 @@ inline void objectPropertiesToJson(
                 if (keyMax == nlohmann::json::json_pointer("/ReadingRangeMax"))
                 {
                     double roundedValueMax =
-                        std::round(*doubleValue * 10000.0) / 10000.0;
+                        std::round(*doubleValue * 100.0) / 100.0;
                     sensorJson[keyMax] = roundedValueMax;
                 }
             }
@@ -3220,11 +3225,84 @@ inline void handleSensorCollectionGet(
         return;
     }
 
+    asyncResp->res.jsonValue["Oem"]["Ami"]["Threshold"]["@odata.id"] = boost::urls::format(
+                    "/redfish/v1/Chassis/{}/Sensors/Oem/Threshold", chassisId);
+
     // We get all sensors as hyperlinkes in the chassis (this
     // implies we reply on the default query parameters handler)
     getChassis(asyncResp, chassisId, sensors::node::sensors, dbus::sensorPaths,
                std::bind_front(sensors::getChassisCallback, asyncResp,
                                chassisId, sensors::node::sensors));
+}
+
+inline void
+    handleSensorThreshCollectionGet(App& app,  const crow::Request& req,
+                                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                                    const std::string& chassisId)
+{
+    BMCWEB_LOG_DEBUG("Sensor Thresh Collections");
+
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
+    asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
+        "/redfish/v1/Chassis/{}/Sensors/Oem/Threshold", chassisId);
+
+    std::array<std::string, 2> interfaces = {
+      "xyz.openbmc_project.Sensor.Threshold.Warning",
+      "xyz.openbmc_project.Sensor.Threshold.Critical"};
+
+    crow::connections::systemBus->async_method_call(
+        [asyncResp, chassisId](const boost::system::error_code ec,
+                    const std::vector<std::string>& ifaceList) {
+        if (ec)
+        {
+            BMCWEB_LOG_DEBUG(
+                "Error in querying GetSubTreePaths with Object Mapper. {}", ec);
+            messages::internalError(asyncResp->res);
+            return;
+        }
+
+        asyncResp->res.jsonValue["@odata.type"] = "#ThresholdSensorCollection.ThresholdSensorCollection";
+        asyncResp->res.jsonValue["Description"] = "Collection of Threshold Sensors of this Chassis";
+        asyncResp->res.jsonValue["Name"] = "Threshold Sensors";
+        nlohmann::json& sensorPathList = asyncResp->res.jsonValue["Members"];
+        sensorPathList = nlohmann::json::array();
+
+        for (const std::string& objpath : ifaceList)
+        {
+            std::size_t lastSlashPos = objpath.rfind('/');
+            std::size_t secondLastSlashPos = objpath.rfind('/', lastSlashPos - 1);
+
+            if (lastSlashPos == std::string::npos ||
+                secondLastSlashPos == std::string::npos ||
+                (objpath.size() <= lastSlashPos + 1))
+           {
+                  BMCWEB_LOG_ERROR("Failed to parse object path: {}", objpath);
+                  continue;
+           }
+
+            std::string sensorType = objpath.substr(secondLastSlashPos + 1, lastSlashPos - secondLastSlashPos - 1);
+            std::string sensorName = objpath.substr(lastSlashPos + 1);
+
+            if (sensorType == "fan_tach")
+            {
+                  sensorType = "fantach";
+            }
+	    std::string sensorTypeName = sensorType + "_" + sensorName;
+
+            sensorPathList.push_back(
+              {"@odata.id",
+                boost::urls::format("/redfish/v1/Chassis/{}/Sensors/Oem/Threshold/{}", chassisId, sensorTypeName)});
+        }
+        asyncResp->res.jsonValue["Members@odata.count"] = sensorPathList.size();
+      },
+        "xyz.openbmc_project.ObjectMapper",
+        "/xyz/openbmc_project/object_mapper",
+        "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths", "/", 0,
+        interfaces);
 }
 
 inline void
@@ -3337,6 +3415,334 @@ inline void
     });
 }
 
+inline void handleSensorThreshGet(App& app, const crow::Request& req,
+                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                            const std::string& chassisId,
+                            const std::string& sensorId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    std::pair<std::string, std::string> nameType =
+        splitSensorNameAndType(sensorId);
+    if (nameType.first.empty() || nameType.second.empty())
+    {
+        messages::resourceNotFound(asyncResp->res, sensorId, "Sensor");
+        return;
+    }
+
+    asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
+        "/redfish/v1/Chassis/{}/Sensors/Oem/Threshold/{}", chassisId, sensorId);
+
+    constexpr std::array<std::string_view, 3> interfaces = {
+        "xyz.openbmc_project.Sensor.Value", "xyz.openbmc_project.Sensor.State",
+        "xyz.openbmc_project.Association.Definitions"};
+    std::string sensorPath = "/xyz/openbmc_project/sensors/" + nameType.first +
+                             '/' + nameType.second;
+    ::dbus::utility::getDbusObject(
+        sensorPath, interfaces,
+        [asyncResp, sensorId,
+         sensorPath](const boost::system::error_code& ec,
+                     const ::dbus::utility::MapperGetObject& subtree) {
+        if (ec == boost::system::errc::io_error)
+        {
+            BMCWEB_LOG_WARNING("Sensor not found from getSensorPaths");
+            messages::resourceNotFound(asyncResp->res, sensorId, "Sensor");
+            return;
+        }
+        if (ec)
+        {
+            messages::internalError(asyncResp->res);
+            BMCWEB_LOG_ERROR(
+                "Sensor getSensorPaths resp_handler: Dbus error {}", ec);
+            return;
+        }
+        getSensorFromDbus(asyncResp, sensorPath, subtree);
+    });
+}
+
+inline void setSensorThreshold (
+     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+     std::string& sensorType, std::string& sensorName,
+     const double thresholdValue, std::string& threshold, std::string& objEnd)
+{
+    std::string service;
+    std::string interface;
+    std::string property;
+    std::string Objpath;
+
+    std::replace(sensorName.begin(), sensorName.end(), ' ', '_');
+
+    std::array<std::string, 2> interfacesList = {
+        "xyz.openbmc_project.Sensor.Threshold.Warning",
+        "xyz.openbmc_project.Sensor.Threshold.Critical"};
+
+
+    crow::connections::systemBus->async_method_call(
+        [asyncResp, &service,
+	&Objpath, threshold, &interface, sensorName,
+	&property, objEnd, thresholdValue, sensorType](const boost::system::error_code ec,
+                    std::map<std::string, std::map<std::string, std::vector<std::string>>>& resp) {
+        if (ec)
+        {
+            return; // don't have to have this interface
+        }
+	std::string objectPath;
+        for (const auto& pathPair : resp)
+        {
+            Objpath = pathPair.first;
+            size_t pos = Objpath.find_last_of('/');
+	    if (pos == std::string::npos) {
+	        return;
+	    }
+            std::string last_string;
+            last_string = Objpath;
+            if (pos != std::string::npos)
+            {
+                last_string.erase(0, pos + 1);
+            }
+
+	    if (sensorName == last_string)
+            {
+                const auto& objDict = pathPair.second;
+                if (objDict.empty())
+                {
+                    continue;
+                }
+                service = objDict.begin()->first;
+                objectPath = Objpath;
+	    }
+        }
+
+        if (threshold == "LowerCaution")
+        {
+              interface = "xyz.openbmc_project.Sensor.Threshold.Warning";
+              property = "WarningLow";
+        }
+        else if (threshold == "LowerCritical")
+        {
+              interface = "xyz.openbmc_project.Sensor.Threshold.Critical";
+              property = "CriticalLow";
+        }
+        else if (threshold == "UpperCaution")
+        {
+              interface = "xyz.openbmc_project.Sensor.Threshold.Warning";
+              property = "WarningHigh";
+        }
+        else if (threshold == "UpperCritical")
+        {
+              interface = "xyz.openbmc_project.Sensor.Threshold.Critical";
+              property = "CriticalHigh";
+        }
+        else {
+            messages::propertyUnknown(asyncResp->res, threshold);
+            return;
+        }
+
+        sdbusplus::asio::getProperty<double>(
+            *crow::connections::systemBus, service,
+            objectPath, "xyz.openbmc_project.Sensor.Value", "Value",
+            [asyncResp, thresholdValue, threshold](const boost::system::error_code& ec1, double sensorValue) {
+            if (ec1)
+            {
+                BMCWEB_LOG_ERROR("Error while getting progress");
+                messages::internalError(asyncResp->res);
+                return;
+            }
+
+
+            if (threshold == "LowerCaution" || threshold == "LowerCritical")
+            {
+                if (sensorValue > thresholdValue)
+                {
+                      asyncResp->res.jsonValue["Status"] = "Asserted";
+                      BMCWEB_LOG_DEBUG("Sensor Asserted successfully");
+                }
+                else {
+                      asyncResp->res.jsonValue["Status"] = "Deasserted";
+                      BMCWEB_LOG_DEBUG("Sensor Deasserted successfully");
+                }
+            }
+            if (threshold == "UpperCaution" || threshold == "UpperCritical")
+            {
+                if (sensorValue < thresholdValue)
+                {
+                      asyncResp->res.jsonValue["Status"] = "Asserted";
+                      BMCWEB_LOG_DEBUG("Sensor Asserted successfully");
+                }
+                else {
+                      asyncResp->res.jsonValue["Status"] = "Deasserted";
+                      BMCWEB_LOG_DEBUG("Sensor Deasserted successfully");
+                }
+            }
+        });
+
+        sdbusplus::asio::setProperty(
+          *crow::connections::systemBus, service,
+          objectPath, interface,
+          property, thresholdValue,[asyncResp](const boost::system::error_code& ec2){
+          if (ec2)
+          {
+              messages::internalError(asyncResp->res);
+              return;
+          }
+          //messages::success(asyncResp->res);
+        });
+      },
+        "xyz.openbmc_project.ObjectMapper",
+        "/xyz/openbmc_project/object_mapper",
+        "xyz.openbmc_project.ObjectMapper", "GetSubTree", "/xyz/openbmc_project/sensors", 0,
+        interfacesList);
+}
+
+inline void handleSensorThreshPatch (
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& sensorId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
+    std::pair<std::string, std::string> nameType =
+        splitSensorNameAndType(sensorId);
+    if (nameType.first.empty() || nameType.second.empty())
+    {
+        messages::resourceNotFound(asyncResp->res, sensorId, "Sensor");
+        return;
+    }
+
+    constexpr std::array<std::string_view, 3> interfaces = {
+        "xyz.openbmc_project.Sensor.Value", "xyz.openbmc_project.Sensor.State",
+        "xyz.openbmc_project.Association.Definitions"};
+    std::string sensorPath = "/xyz/openbmc_project/sensors/" + nameType.first +
+                             '/' + nameType.second;
+    ::dbus::utility::getDbusObject(
+        sensorPath, interfaces,
+        [asyncResp, sensorId](const boost::system::error_code& ec,
+                     const ::dbus::utility::MapperGetObject&) {
+        if (ec == boost::system::errc::io_error)
+        {
+            BMCWEB_LOG_WARNING("Sensor not found from getSensorPaths");
+            messages::resourceNotFound(asyncResp->res, sensorId, "Sensor");
+            return;
+        }
+        if (ec)
+        {
+            messages::internalError(asyncResp->res);
+            BMCWEB_LOG_ERROR(
+                "Sensor getSensorPaths resp_handler: Dbus error {}", ec);
+            return;
+        }
+    });
+
+    std::string sensorType = nameType.first;
+    std::string objectNameEnd = nameType.second;
+    std::string sensorName = nameType.second;
+    std::replace(sensorName.begin(), sensorName.end(), '_', ' ');
+
+    std::optional<double> lowerCaution;
+    std::optional<double> lowerCritical;
+    std::optional<double> upperCaution;
+    std::optional<double> upperCritical;
+    std::string threshold;
+
+    if (!json_util::readJsonPatch(req, asyncResp->res,
+                            "Thresholds/LowerCaution", lowerCaution,
+                            "Thresholds/LowerCritical", lowerCritical,
+                            "Thresholds/UpperCaution", upperCaution,
+                            "Thresholds/UpperCritical", upperCritical))
+    {
+        return;
+    }
+
+    asyncResp->res.jsonValue = {
+        {"@odata.type", "#SensorThreshold.v1_0_0.SensorThreshold"},
+        {"@odata.id", "/redfish/v1/Chassis/" + chassisId + "/" + "Sensors/Oem/Threshold/" +
+                          sensorId},
+        {"Id", sensorId + " Sensor Threshold"},
+        {"Name", sensorName}};
+
+    if (lowerCaution)
+    {
+        threshold = "LowerCaution";
+        setSensorThreshold(asyncResp, sensorType, sensorName, *lowerCaution, threshold, objectNameEnd);
+    }
+    if (lowerCritical)
+    {
+        threshold = "LowerCritical";
+        setSensorThreshold(asyncResp, sensorType, sensorName, *lowerCritical, threshold, objectNameEnd);
+    }
+    if (upperCaution)
+    {
+        threshold = "UpperCaution";
+        setSensorThreshold(asyncResp, sensorType, sensorName, *upperCaution, threshold, objectNameEnd);
+    }
+    if (upperCritical)
+    {
+        threshold = "UpperCritical";
+        setSensorThreshold(asyncResp, sensorType, sensorName, *upperCritical, threshold, objectNameEnd);
+    }
+}
+
+inline void filterThresholdSensors(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                                   const std::string& chassisId,const std::string& sensorId)
+{
+    std::array<std::string, 2> interfaces = {
+      "xyz.openbmc_project.Sensor.Threshold.Warning",
+      "xyz.openbmc_project.Sensor.Threshold.Critical"};
+
+    std::pair<std::string, std::string> nameType =
+        splitSensorNameAndType(sensorId);
+    if (nameType.first.empty() || nameType.second.empty())
+    {
+        messages::resourceNotFound(asyncResp->res, sensorId, "Sensor");
+        return;
+    }
+
+    crow::connections::systemBus->async_method_call(
+        [asyncResp, chassisId, sensorId/*, &result*/](const boost::system::error_code ec,
+                    const std::vector<std::string>& ifaceList) {
+        if (ec)
+        {
+            BMCWEB_LOG_DEBUG(
+                "Error in querying GetSubTreePaths with Object Mapper. {}", ec);
+           messages::internalError(asyncResp->res);
+            return;
+        }
+        for (const std::string& objpath : ifaceList)
+        {
+            std::size_t lastSlashPos = objpath.rfind('/');
+            std::size_t secondLastSlashPos = objpath.rfind('/', lastSlashPos - 1);
+
+            std::string sensorType = objpath.substr(secondLastSlashPos + 1, lastSlashPos - secondLastSlashPos - 1);
+            std::string sensorName = objpath.substr(lastSlashPos + 1);
+
+            std::string sensorTypeName = sensorType + "_" + sensorName;
+
+            if (sensorTypeName == sensorId)
+            {
+                asyncResp->res.jsonValue["Oem"]["Ami"]["SensorThreshold"]["@odata.id"] =
+                               boost::urls::format(
+                                  "/redfish/v1/Chassis/{}/Sensors/Oem/Threshold/{}",
+                                  chassisId, sensorId);
+                return;
+            }
+            else {
+               continue;
+            }
+        }
+       return;
+      },
+        "xyz.openbmc_project.ObjectMapper",
+        "/xyz/openbmc_project/object_mapper",
+        "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths", "/xyz/openbmc_project/sensors/", 0,
+        interfaces);
+    return;
+}
+
 inline bool valideSensorWithConfFile(const std::string& sensorId)
 {
     std::ifstream inputFile("/etc/sensor-reader/configuredsensors");
@@ -3427,6 +3833,7 @@ inline void handleSensorGet(App& app, const crow::Request& req,
             }
         });
     }
+    filterThresholdSensors(asyncResp, chassisId, sensorId);
     asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
         "/redfish/v1/Chassis/{}/Sensors/{}", chassisId, sensorId);
 
@@ -3665,6 +4072,27 @@ inline void requestRoutesSensorCollection(App& app)
         .privileges(redfish::privileges::getSensorCollection)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(sensors::handleSensorCollectionGet, std::ref(app)));
+}
+
+inline void requestRoutesSensorThreshCollection(App& app)
+{
+    BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/Sensors/Oem/Threshold/")
+        .privileges(redfish::privileges::getSensorThreshCollection)
+        .methods(boost::beast::http::verb::get)(
+            std::bind_front(sensors::handleSensorThreshCollectionGet, std::ref(app)));
+}
+
+inline void requestRoutesSensorThresh(App& app)
+{
+    BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/Sensors/Oem/Threshold/<str>/")
+        .privileges(redfish::privileges::getSensorThresh)
+        .methods(boost::beast::http::verb::get)(
+            std::bind_front(sensors::handleSensorThreshGet, std::ref(app)));
+
+    BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/Sensors/Oem/Threshold/<str>/")
+        .privileges(redfish::privileges::patchSensorThresh)
+        .methods(boost::beast::http::verb::patch)(
+            std::bind_front(sensors::handleSensorThreshPatch, std::ref(app)));
 }
 
 inline void requestRoutesSensor(App& app)
