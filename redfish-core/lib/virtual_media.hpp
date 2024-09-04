@@ -770,8 +770,9 @@ inline void validateParams(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     {
         BMCWEB_LOG_ERROR("Request action parameter Image is empty.");
 
-        messages::actionParameterMissing(asyncResp->res, "<empty>", "Image");
-
+	boost::urls::url urlObj = boost::urls::format("/redfish/v1/Managers/bmc/VirtualMedia/{}/Actions/{}", resName, "VirtualMedia.InsertMedia");
+        std::string Url = urlObj.buffer();
+        messages::actionParameterMissing(asyncResp->res, Url, "Image");
         return;
     }
 
