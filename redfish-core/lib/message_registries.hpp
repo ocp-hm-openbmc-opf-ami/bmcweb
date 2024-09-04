@@ -87,36 +87,117 @@ inline void handleMessageRoutesMessageRegistryFileGet(
     const registries::Header* header = nullptr;
     std::string dmtf = "DMTF ";
     const char* url = nullptr;
+    std::vector<const registries::MessageEntry*> registryEntries;
+    int registryVal = 0;
 
-    if (registry == "Base")
+    size_t pos = registry.find('.');
+    std::string registryName;
+    if (pos != std::string::npos) {
+        // Retrieve the substring before the first full stop
+        registryName = registry.substr(0, pos);
+    }
+    std::string Val;
+    if (registry == "Base" || registryName == "Base")
     {
         header = &registries::base::header;
         url = registries::base::url;
+        Val= header->id;
+        if(registry == "Base"){
+                registryVal = 0;
+        }
+        else if (registry == Val + ".json")
+        {
+                for (const registries::MessageEntry& entry : registries::base::registry)
+                {
+                        registryEntries.emplace_back(&entry);
+                }
+                registryVal = 1;
+        }
     }
-    else if (registry == "TaskEvent")
+    else if (registry == "TaskEvent" || registryName == "TaskEvent")
     {
         header = &registries::task_event::header;
         url = registries::task_event::url;
+        Val= header->id;
+        if(registry == "TaskEvent"){
+                registryVal = 0;
+        }
+        else if (registry == Val + ".json")
+        {
+                for (const registries::MessageEntry& entry : registries::task_event::registry)
+                {
+                        registryEntries.emplace_back(&entry);
+                }
+                registryVal = 1;
+        }
     }
-    else if (registry == "OpenBMC")
+    else if (registry == "OpenBMC" || registryName == "OpenBMC")
     {
         header = &registries::openbmc::header;
-        dmtf.clear();
+        Val= header->id;
+        if(registry == "OpenBMC"){
+                dmtf.clear();
+                registryVal = 0;
+        }
+        else if (registry == Val + ".json")
+        {
+                for (const registries::MessageEntry& entry : registries::openbmc::registry)
+                {
+                        registryEntries.emplace_back(&entry);
+                }
+                registryVal = 1;
+        }
     }
-    else if (registry == "NodeManager")
+    else if (registry == "NodeManager" || registryName == "NodeManager")
     {
         header = &registries::nm::header;
-        dmtf.clear();
+        Val= header->id;
+        if(registry == "NodeManager"){
+                dmtf.clear();
+                registryVal = 0;
+        }
+        else if (registry == Val + ".json")
+        {
+                for (const registries::MessageEntry& entry : registries::nm::registry)
+                {
+                        registryEntries.emplace_back(&entry);
+                }
+                registryVal = 1;
+        }
     }
-    else if (registry == "ResourceEvent")
+    else if (registry == "ResourceEvent" || registryName == "ResourceEvent")
     {
         header = &registries::resource_event::header;
         url = registries::resource_event::url;
+        Val= header->id;
+        if(registry == "ResourceEvent"){
+                registryVal = 0;
+        }
+        else if (registry == Val + ".json")
+        {
+                for (const registries::MessageEntry& entry : registries::resource_event::registry)
+                {
+                        registryEntries.emplace_back(&entry);
+                }
+                registryVal = 1;
+        }
     }
-    else if (registry == "BiosAttributeRegistry")
+    else if (registry == "BiosAttributeRegistry" || registryName == "BiosAttributeRegistry")
     {
         header = &registries::bios::header;
         url = registries::bios::url;
+        Val= header->id;
+        if(registry == "BiosAttributeRegistry"){
+                registryVal = 0;
+        }
+        else if (registry == Val + ".json")
+        {
+                for (const registries::MessageEntry& entry : registries::bios::registry)
+                {
+                        registryEntries.emplace_back(&entry);
+                }
+                registryVal = 1;
+        }
     }
     else
     {
@@ -124,32 +205,74 @@ inline void handleMessageRoutesMessageRegistryFileGet(
                                    registry);
         return;
     }
-
-    asyncResp->res.jsonValue["@odata.id"] =
-        boost::urls::format("/redfish/v1/Registries/{}", registry);
-    asyncResp->res.jsonValue["@odata.type"] =
-        "#MessageRegistryFile.v1_1_0.MessageRegistryFile";
-    asyncResp->res.jsonValue["Name"] = registry + " Message Registry File";
-    asyncResp->res.jsonValue["Description"] = dmtf + registry +
-                                              " Message Registry File Location";
-    asyncResp->res.jsonValue["Id"] = header->registryPrefix;
-    asyncResp->res.jsonValue["Registry"] = header->id;
-    nlohmann::json::array_t languages;
-    languages.emplace_back(header->language);
-    asyncResp->res.jsonValue["Languages@odata.count"] = languages.size();
-    asyncResp->res.jsonValue["Languages"] = std::move(languages);
-    nlohmann::json::array_t locationMembers;
-    nlohmann::json::object_t location;
-    location["Language"] = header->language;
-    location["Uri"] = "/redfish/v1/Registries/" + registry + "/" + registry;
-
-    if (url != nullptr)
+    if (registryVal == 0)
     {
-        location["PublicationUri"] = url;
+        asyncResp->res.jsonValue["@odata.id"] =
+            boost::urls::format("/redfish/v1/Registries/{}", registry);
+        asyncResp->res.jsonValue["@odata.type"] =
+            "#MessageRegistryFile.v1_1_0.MessageRegistryFile";
+        asyncResp->res.jsonValue["Name"] = registry + " Message Registry File";
+        asyncResp->res.jsonValue["Description"] = dmtf + registry +
+                                              " Message Registry File Location";
+        asyncResp->res.jsonValue["Id"] = header->registryPrefix;
+        asyncResp->res.jsonValue["Registry"] = header->id;
+        nlohmann::json::array_t languages;
+        languages.emplace_back(header->language);
+        asyncResp->res.jsonValue["Languages@odata.count"] = languages.size();
+        asyncResp->res.jsonValue["Languages"] = std::move(languages);
+        nlohmann::json::array_t locationMembers;
+        nlohmann::json::object_t location;
+        location["Language"] = header->language;
+    location["Uri"] = "/redfish/v1/Registries/" + Val + ".json";
+
+        if (url != nullptr)
+        {
+            location["PublicationUri"] = url;
+        }
+        locationMembers.emplace_back(std::move(location));
+        asyncResp->res.jsonValue["Location@odata.count"] = locationMembers.size();
+        asyncResp->res.jsonValue["Location"] = std::move(locationMembers);
     }
-    locationMembers.emplace_back(std::move(location));
-    asyncResp->res.jsonValue["Location@odata.count"] = locationMembers.size();
-    asyncResp->res.jsonValue["Location"] = std::move(locationMembers);
+    if(registryVal == 1){
+        std::cerr << "Enter in registryVal == 1 " << std::endl;
+        asyncResp->res.jsonValue["@Redfish.Copyright"] = header->copyright;
+        asyncResp->res.jsonValue["@odata.type"] = header->type;
+        asyncResp->res.jsonValue["Id"] = header->id;
+        asyncResp->res.jsonValue["Name"] = header->name;
+        asyncResp->res.jsonValue["Language"] = header->language;
+        asyncResp->res.jsonValue["Description"] = header->description;
+        asyncResp->res.jsonValue["RegistryPrefix"] = header->registryPrefix;
+        asyncResp->res.jsonValue["RegistryVersion"] = header->registryVersion;
+        asyncResp->res.jsonValue["OwningEntity"] = header->owningEntity;
+
+        nlohmann::json& messageObj = asyncResp->res.jsonValue["Messages"];
+
+        // Go through the Message Registry and populate each Message
+        for (const registries::MessageEntry* message : registryEntries)
+        {
+            nlohmann::json& obj = messageObj[message->first];
+            obj["Description"] = message->second.description;
+            obj["Message"] = message->second.message;
+            obj["Severity"] = message->second.messageSeverity;
+            obj["MessageSeverity"] = message->second.messageSeverity;
+            obj["NumberOfArgs"] = message->second.numberOfArgs;
+            obj["Resolution"] = message->second.resolution;
+            if (message->second.numberOfArgs > 0)
+            {
+                nlohmann::json& messageParamArray = obj["ParamTypes"];
+                messageParamArray = nlohmann::json::array();
+                for (const char* str : message->second.paramTypes)
+                {
+                   if (str == nullptr)
+                   {
+                       break;
+                   }
+                   messageParamArray.push_back(str);
+                }
+             }
+         }
+    }
+
 }
 
 inline void requestRoutesMessageRegistryFile(App& app)
@@ -160,124 +283,4 @@ inline void requestRoutesMessageRegistryFile(App& app)
             handleMessageRoutesMessageRegistryFileGet, std::ref(app)));
 }
 
-inline void handleMessageRegistryGet(
-    crow::App& app, const crow::Request& req,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& registry, const std::string& registryMatch)
-{
-    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-    {
-        return;
-    }
-    const registries::Header* header = nullptr;
-    std::vector<const registries::MessageEntry*> registryEntries;
-    if (registry == "Base")
-    {
-        header = &registries::base::header;
-        for (const registries::MessageEntry& entry : registries::base::registry)
-        {
-            registryEntries.emplace_back(&entry);
-        }
-    }
-    else if (registry == "TaskEvent")
-    {
-        header = &registries::task_event::header;
-        for (const registries::MessageEntry& entry :
-             registries::task_event::registry)
-        {
-            registryEntries.emplace_back(&entry);
-        }
-    }
-    else if (registry == "OpenBMC")
-    {
-        header = &registries::openbmc::header;
-        for (const registries::MessageEntry& entry :
-             registries::openbmc::registry)
-        {
-            registryEntries.emplace_back(&entry);
-        }
-    }
-    else if (registry == "NodeManager")
-    {
-        header = &registries::nm::header;
-        for (const registries::MessageEntry& entry : registries::nm::registry)
-        {
-            registryEntries.emplace_back(&entry);
-        }
-    }
-    else if (registry == "ResourceEvent")
-    {
-        header = &registries::resource_event::header;
-        for (const registries::MessageEntry& entry :
-             registries::resource_event::registry)
-        {
-            registryEntries.emplace_back(&entry);
-        }
-    }
-    else if (registry == "BiosAttributeRegistry")
-    {
-        header = &registries::bios::header;
-        for (const registries::MessageEntry& entry : registries::bios::registry)
-        {
-            registryEntries.emplace_back(&entry);
-        }
-    }
-    else
-    {
-        messages::resourceNotFound(asyncResp->res, "MessageRegistryFile",
-                                   registry);
-        return;
-    }
-
-    if (registry != registryMatch)
-    {
-        messages::resourceNotFound(asyncResp->res, header->type, registryMatch);
-        return;
-    }
-
-    asyncResp->res.jsonValue["@Redfish.Copyright"] = header->copyright;
-    asyncResp->res.jsonValue["@odata.type"] = header->type;
-    asyncResp->res.jsonValue["Id"] = header->id;
-    asyncResp->res.jsonValue["Name"] = header->name;
-    asyncResp->res.jsonValue["Language"] = header->language;
-    asyncResp->res.jsonValue["Description"] = header->description;
-    asyncResp->res.jsonValue["RegistryPrefix"] = header->registryPrefix;
-    asyncResp->res.jsonValue["RegistryVersion"] = header->registryVersion;
-    asyncResp->res.jsonValue["OwningEntity"] = header->owningEntity;
-
-    nlohmann::json& messageObj = asyncResp->res.jsonValue["Messages"];
-
-    // Go through the Message Registry and populate each Message
-    for (const registries::MessageEntry* message : registryEntries)
-    {
-        nlohmann::json& obj = messageObj[message->first];
-        obj["Description"] = message->second.description;
-        obj["Message"] = message->second.message;
-        obj["Severity"] = message->second.messageSeverity;
-        obj["MessageSeverity"] = message->second.messageSeverity;
-        obj["NumberOfArgs"] = message->second.numberOfArgs;
-        obj["Resolution"] = message->second.resolution;
-        if (message->second.numberOfArgs > 0)
-        {
-            nlohmann::json& messageParamArray = obj["ParamTypes"];
-            messageParamArray = nlohmann::json::array();
-            for (const char* str : message->second.paramTypes)
-            {
-                if (str == nullptr)
-                {
-                    break;
-                }
-                messageParamArray.push_back(str);
-            }
-        }
-    }
-}
-
-inline void requestRoutesMessageRegistry(App& app)
-{
-    BMCWEB_ROUTE(app, "/redfish/v1/Registries/<str>/<str>/")
-        .privileges(redfish::privileges::getMessageRegistryFile)
-        .methods(boost::beast::http::verb::get)(
-            std::bind_front(handleMessageRegistryGet, std::ref(app)));
-}
 } // namespace redfish

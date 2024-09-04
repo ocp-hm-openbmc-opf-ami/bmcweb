@@ -205,7 +205,7 @@ RedfishService::RedfishService(App& app)
     requestRoutesBiosReset(app);
     requestRoutesBiosSettings(app);
     //requestRoutesBiosAttributeRegistry(app);
-    requestRoutesBiosAttrRegistryService(app);
+    //requestRoutesBiosAttrRegistryService(app);
     requestRoutesBiosChangePassword(app);
 
     if constexpr (BMCWEB_VM_NBDPROXY)
@@ -230,7 +230,7 @@ RedfishService::RedfishService(App& app)
 
     requestRoutesMessageRegistryFileCollection(app);
     requestRoutesMessageRegistryFile(app);
-    requestRoutesMessageRegistry(app);
+    //requestRoutesMessageRegistry(app);
 
     requestRoutesCertificateService(app);
     requestRoutesHTTPSCertificate(app);
