@@ -2404,11 +2404,11 @@ inline void handleManagersInstanceGet(
         boost::urls::format("/redfish/v1/Managers/{}/ManagerDiagnosticData",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
 
-    /* if constexpr (BMCWEB_REDFISH_OEM_MANAGER_FAN_DATA)
+     if constexpr (BMCWEB_REDFISH_OEM_MANAGER_FAN_DATA)
      {
          auto pids = std::make_shared<GetPIDValues>(asyncResp);
          pids->run();
-     }*/
+     }
 
     getMainChassisId(asyncResp,
                      [](const std::string& chassisId,
