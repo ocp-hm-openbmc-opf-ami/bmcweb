@@ -570,7 +570,7 @@ inline void requestRoutesTask(App& app)
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& strParam) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-                {
+               {
                     return;
                 }
                 auto find = std::ranges::find_if(
