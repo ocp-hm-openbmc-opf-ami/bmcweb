@@ -75,8 +75,26 @@ inline void setCapabilities(
         return;
     }
 
+    if (capabilitiesMax == 0 && capabilitiesMin == 0)
+    {
+	setProperty(response, kNodeManagerService, kDomainPath + domainName,
+			kCapabilitiesInterface, "Max", *capabilitiesMax,
+			finalCallback);
+	setProperty(response, kNodeManagerService, kDomainPath + domainName,
+			kCapabilitiesInterface, "Min",*capabilitiesMin,
+			finalCallback);
+    }
+    else
+    {
     if (capabilitiesMax)
     {
+	if(capabilitiesMax <= capabilitiesMin)
+	{
+	   response->res.result(boost::beast::http::status::bad_request);
+	   messages::propertyValueIncorrect(response->res, "Min",
+			std::to_string(*capabilitiesMin));
+	   return;
+	}
         setProperty(response, kNodeManagerService, kDomainPath + domainName,
                     kCapabilitiesInterface, "Max", *capabilitiesMax,
                     finalCallback);
@@ -84,9 +102,17 @@ inline void setCapabilities(
 
     if (capabilitiesMin)
     {
+	if(capabilitiesMax <= capabilitiesMin)
+	{
+	  response->res.result(boost::beast::http::status::bad_request);
+	  messages::propertyValueIncorrect(response->res, "Min",
+			  std::to_string(*capabilitiesMin));
+	  return;
+	}
         setProperty(response, kNodeManagerService, kDomainPath + domainName,
                     kCapabilitiesInterface, "Min", *capabilitiesMin,
                     finalCallback);
+    }
     }
 }
 
