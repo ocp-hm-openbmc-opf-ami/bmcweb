@@ -91,10 +91,4 @@ inline nlohmann::json taskStarted(std::string_view arg1)
                            std::to_array({arg1}));
 }
 
-inline nlohmann::json taskCreated(std::string_view arg1)
-{
-    return getLogTaskEvent(registries::task_event::Index::taskCreated,
-                           std::to_array({arg1}));
-}
-
 } // namespace redfish::messages

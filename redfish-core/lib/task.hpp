@@ -339,12 +339,12 @@ struct TaskData : std::enable_shared_from_this<TaskData>
                 redfish::messages::taskCancelled(std::to_string(index)), origin,
                 resType);
         }
-	else if (state == "New")
-        {
-            redfish::EventServiceManager::getInstance().sendEvent(
-                redfish::messages::taskCreated(std::to_string(index)), origin,
-                resType);
-        }
+	// else if (state == "New")
+    //     {
+    //         redfish::EventServiceManager::getInstance().sendEvent(
+    //             redfish::messages::taskNew(std::to_string(index)), origin,
+    //             resType);
+    //     }
         else
         {
             BMCWEB_LOG_INFO("sendTaskEvent: No events to send");
