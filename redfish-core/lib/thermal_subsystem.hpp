@@ -124,7 +124,10 @@ inline void doThermalSubsystemCollection(
 
     asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
     asyncResp->res.jsonValue["Status"]["Health"] = "OK";
-    getFanRedundancy(asyncResp, chassisId);
+    if(chassisId != "Cpld")
+    {
+        getFanRedundancy(asyncResp, chassisId);
+    }	
 }
 
 inline void handleThermalSubsystemCollectionHead(
