@@ -463,9 +463,33 @@ inline void
     asyncResp->res.jsonValue["Name"] = "License Service";
     asyncResp->res.jsonValue["Description"] =
         "Actions available to manage Licenses";
-    asyncResp->res.jsonValue["ServiceEnabled"] = true;
-    asyncResp->res.jsonValue["Licenses"]["@odata.id"] =
-        "/redfish/v1/LicenseService/Licenses";
+    constexpr std::array<std::string_view, 1> interfaces = {
+        "xyz.openbmc_project.Inventory.Item.Board"};
+    dbus::utility::getSubTreePaths(
+        "/xyz/openbmc_project/inventory", 0, interfaces,
+        [asyncResp](
+            const boost::system::error_code& ec,
+            const dbus::utility::MapperGetSubTreePathsResponse& subtreePath) {
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR("{}", ec);
+            return;
+        }
+        for (const auto& pathStr : subtreePath)
+        {
+            if (pathStr.find("AC_Baseboard") != std::string::npos)
+            {
+                asyncResp->res.jsonValue["ServiceEnabled"] = false;
+                break;
+            }
+            else
+            {
+                asyncResp->res.jsonValue["ServiceEnabled"] = true;
+                asyncResp->res.jsonValue["Licenses"]["@odata.id"] =
+                    "/redfish/v1/LicenseService/Licenses";
+            }
+        }
+        });
 
 } // requestRoutesLicenseService
 
