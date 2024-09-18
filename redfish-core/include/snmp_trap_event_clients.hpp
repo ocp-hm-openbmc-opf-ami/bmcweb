@@ -332,7 +332,9 @@ inline void
     addSnmpTrapClient(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                       const std::string& host, uint16_t snmpTrapPort,
                       const std::string& protocol, const std::string& username,
-                      const std::shared_ptr<Subscription>& subValue)
+                      const std::shared_ptr<Subscription>& subValue,
+                      std::optional<bool> readOnlyPermission, std::optional<std::string>& password,
+                      std::optional<std::string>& algorithm, std::optional<std::string>& encryption)
 
 {
     sdbusplus::asio::setProperty(
@@ -350,7 +352,8 @@ inline void
         });
 
     crow::connections::systemBus->async_method_call(
-        [asyncResp, host, subValue](const boost::system::error_code& ec,
+        [asyncResp, host, subValue, password,
+         algorithm, encryption, readOnlyPermission](const boost::system::error_code& ec,
                                     const sdbusplus::message_t& msg,
                                     const std::string& dbusSNMPid) {
         afterSnmpClientCreate(asyncResp, ec, msg, host, dbusSNMPid, subValue);
@@ -358,7 +361,8 @@ inline void
         "xyz.openbmc_project.Network.SNMP",
         "/xyz/openbmc_project/network/snmp/manager",
         "xyz.openbmc_project.Network.Client.Create", "Client", host,
-        snmpTrapPort, getProtocol(protocol), username);
+        snmpTrapPort, getProtocol(protocol), username, readOnlyPermission.value_or(false),
+        password.value_or(""), algorithm.value_or(""), encryption.value_or(""));
 }
 
 inline void

@@ -1833,6 +1833,10 @@ inline void requestRoutesEventDestinationCollection(App& app)
         std::optional<std::vector<nlohmann::json::object_t>> headers;
         std::optional<std::vector<nlohmann::json::object_t>> mrdJsonArray;
         std::optional<nlohmann::json> oemObj;
+        std::optional<std::string> password;
+        std::optional<std::string> algorithm;
+        std::optional<std::string> encryption;
+        std::optional<bool> readOnlyPermission;
 
         if (!json_util::readJsonPatch(
                 req, asyncResp->res, "Destination", destUrl, "Context", context,
@@ -1841,7 +1845,8 @@ inline void requestRoutesEventDestinationCollection(App& app)
                 "RegistryPrefixes", regPrefixes, "MessageIds", msgIds, "Id",
                 vId, "DeliveryRetryPolicy", retryPolicy,
                 "MetricReportDefinitions", mrdJsonArray, "ResourceTypes",
-                resTypes, "Oem", oemObj))
+                resTypes, "ReadOnlyPermission", readOnlyPermission, "Password",
+                password, "Algorithm", algorithm, "Encryption", encryption, "Oem", oemObj))
         {
             return;
         }
@@ -1893,6 +1898,11 @@ inline void requestRoutesEventDestinationCollection(App& app)
 	if (url)
         {
            std::string destIp = removeProtocol(destUrl);
+           size_t atPos = destIp.find('@');
+           if (atPos != std::string::npos)
+           {
+               destIp = destIp.substr(atPos + 1);
+           }
            std::vector<std::string> ip_segments;
            bmcweb::split(ip_segments, destIp, ':');
            std::string ip = ip_segments[0];
@@ -2235,6 +2245,53 @@ inline void requestRoutesEventDestinationCollection(App& app)
         // be set to "Disabled" state.
         subValue->state = "Enabled";
 
+        if (encryption)
+        {
+            if (*encryption != "AES" && *encryption != "DES")
+            {
+                messages::propertyValueNotInList(asyncResp->res, *encryption, "Encryption");
+                return;
+            }
+        }
+
+       if (algorithm)
+        {
+            if (*algorithm != "SHA" && *algorithm != "SHA-256" && *algorithm != "SHA-512" && *algorithm != "SHA-384")
+            {
+                messages::propertyValueNotInList(asyncResp->res, *algorithm, "Algorithm");
+                return;
+            }
+        }
+
+       if (!password && protocol == "SNMPv3")
+        {
+           messages::propertyMissing(asyncResp->res, "Password");
+          return;
+       }
+       if (!algorithm && protocol == "SNMPv3")
+        {
+           messages::propertyMissing(asyncResp->res, "Algorithm");
+           return;
+        }
+       if (!encryption && protocol == "SNMPv3")
+        {
+           messages::propertyMissing(asyncResp->res, "Encryption");
+           return;
+        }
+       if (!readOnlyPermission && protocol == "SNMPv3")
+        {
+           messages::propertyMissing(asyncResp->res, "ReadOnlyPermission");
+           return;
+        }
+
+        if (protocol != "SNMPv3")
+        {
+            *password = " ";
+            *algorithm = " ";
+            *encryption = " ";
+            readOnlyPermission = false;
+        }
+
         if (protocol == "SNMPv2c" || protocol == "SNMPv3" ||
             protocol == "SNMPv1")
         {
@@ -2250,7 +2307,8 @@ inline void requestRoutesEventDestinationCollection(App& app)
             }
             addSnmpTrapClient(asyncResp, url->host_address(),
                               url->port_number(), protocol, url->user(),
-                              subValue);
+                              subValue, readOnlyPermission, password,
+                              algorithm, encryption);
             return;
         }
 
@@ -2401,17 +2459,27 @@ inline void requestRoutesEventDestination(App& app)
         std::optional<std::string> authenticationProtocol;
         std::optional<std::string> protocol;
         std::optional<std::string> destUrl;
+        std::optional<std::string> password;
+        std::optional<std::string> algorithm;
+        std::optional<std::string> encryption;
+        std::optional<bool> readOnlyPermission;
 
         if (!json_util::readJsonPatch(
                 req, asyncResp->res, "Context", context, "DeliveryRetryPolicy",
                 retryPolicy, "HttpHeaders", headers,
                 "SNMP/AuthenticationProtocol", authenticationProtocol,
-                "Protocol", protocol, "Destination", destUrl))
+                "Protocol", protocol, "Destination", destUrl, "ReadOnlyPermission",
+                readOnlyPermission, "Password", password, "Algorithm",
+                algorithm, "Encryption", encryption))
 
         {
             return;
         }
 
+	std::string_view snmpTrapId = param.substr(4);
+        sdbusplus::message::object_path snmpPath = sdbusplus::message::object_path(
+                                                      "/xyz/openbmc_project/network/snmp/manager/"
+                                                      + std::string(snmpTrapId));
         if (context)
         {
             subValue->customText = *context;
@@ -2530,6 +2598,89 @@ inline void requestRoutesEventDestination(App& app)
                 return;
             }
         }
+
+        if (encryption)
+        {
+            if (*encryption != "AES" && *encryption != "DES")
+            {
+                messages::propertyValueNotInList(asyncResp->res, *encryption, "Encryption");
+                return;
+            }
+            sdbusplus::asio::setProperty(
+              *crow::connections::systemBus, "xyz.openbmc_project.Network.SNMP",
+              static_cast<std::string>(snmpPath),
+              "xyz.openbmc_project.Network.Client", "Encryption",
+              *encryption,
+              [asyncResp](const boost::system::error_code& ec) {
+              if (ec)
+              {
+                  BMCWEB_LOG_DEBUG(
+                      "Error occurred in Encryption");
+                  messages::internalError(asyncResp->res);
+                  return;
+              }
+            });
+        }
+
+        if (algorithm)
+        {
+            if (*algorithm != "SHA" && *algorithm != "SHA-256" && *algorithm != "SHA-512" && *algorithm != "SHA-384")
+            {
+                messages::propertyValueNotInList(asyncResp->res, *algorithm, "Algorithm");
+                return;
+            }
+            sdbusplus::asio::setProperty(
+              *crow::connections::systemBus, "xyz.openbmc_project.Network.SNMP",
+              static_cast<std::string>(snmpPath),
+              "xyz.openbmc_project.Network.Client", "Algorithm",
+              *algorithm,
+              [asyncResp](const boost::system::error_code& ec) {
+              if (ec)
+              {
+                  BMCWEB_LOG_DEBUG(
+                      "Error occurred in updating the Algorithm");
+                  messages::internalError(asyncResp->res);
+                  return;
+              }
+            });
+        }
+
+        if (readOnlyPermission)
+        {
+            sdbusplus::asio::setProperty(
+              *crow::connections::systemBus, "xyz.openbmc_project.Network.SNMP",
+              static_cast<std::string>(snmpPath),
+              "xyz.openbmc_project.Network.Client", "Readonlypermission",
+              *readOnlyPermission,
+              [asyncResp](const boost::system::error_code& ec) {
+              if (ec)
+              {
+                  BMCWEB_LOG_DEBUG(
+                      "Error occurred in updating the ReadOnlyPermission");
+                  messages::internalError(asyncResp->res);
+                  return;
+              }
+            });
+        }
+
+        if (password)
+        {
+            sdbusplus::asio::setProperty(
+              *crow::connections::systemBus, "xyz.openbmc_project.Network.SNMP",
+              static_cast<std::string>(snmpPath),
+              "xyz.openbmc_project.Network.Client", "Password",
+              *password,
+              [asyncResp](const boost::system::error_code& ec) {
+              if (ec)
+              {
+                  BMCWEB_LOG_DEBUG(
+                      "Error occurred in updating the Password");
+                  messages::internalError(asyncResp->res);
+                  return;
+              }
+            });
+        }
+
         EventServiceManager::getInstance().updateSubscription(param);
         asyncResp->res.result(boost::beast::http::status::no_content);
     });
