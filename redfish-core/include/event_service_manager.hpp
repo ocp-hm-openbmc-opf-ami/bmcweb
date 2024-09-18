@@ -482,7 +482,7 @@ class Subscription : public persistent_data::UserSubscription
         }
     }
 
-    bool sendTestEventLog()
+    bool sendTestEventLog(std::string msgId)
     {
         nlohmann::json logEntryArray;
         logEntryArray.push_back({});
@@ -492,7 +492,7 @@ class Subscription : public persistent_data::UserSubscription
         logEntryJson["EventType"] = "Event";
         logEntryJson["Severity"] = "OK";
         logEntryJson["Message"] = "Generated test event";
-        logEntryJson["MessageId"] = "OpenBMC.0.2.TestEventLog";
+        logEntryJson["MessageId"] = msgId;
         logEntryJson["MessageArgs"] = nlohmann::json::array();
         logEntryJson["EventTimestamp"] =
             redfish::time_utils::getDateTimeOffsetNow().first;
@@ -1233,7 +1233,7 @@ class EventServiceManager
         return idList;
     }
 
-    bool sendTestEventLog()
+    bool sendTestEventLog(std::string msgId)
     {
         bool snmpNotified = false;
         for (const auto& it : subscriptionsMap)
@@ -1252,7 +1252,7 @@ class EventServiceManager
                 continue;
             }
 
-            if (!entry->sendTestEventLog())
+            if (!entry->sendTestEventLog(msgId))
             {
                 return false;
             }

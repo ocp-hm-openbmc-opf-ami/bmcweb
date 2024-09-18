@@ -1671,6 +1671,23 @@ inline void handleSubmitTestEventActionGet(
     asyncResp->res.jsonValue["Parameters"] = std::move(parameters);
 }
 
+inline const registries::Header* getRegistryHeader(std::string registry)
+{
+    if(registry == "Base")
+    {
+        return &registries::base::header;
+    }
+    if(registry == "OpenBMC")
+    {
+        return &registries::openbmc::header;
+    }
+    if(registry == "TaskEvent")
+    {
+        return &registries::task_event::header;
+    }
+    return &registries::openbmc::header;
+}
+
 inline void requestRoutesSubmitTestEvent(App& app)
 {
     BMCWEB_ROUTE(
@@ -1683,8 +1700,94 @@ inline void requestRoutesSubmitTestEvent(App& app)
         {
             return;
         }
+	std::string msgIds;
+
+        if (!json_util::readJsonPatch(
+                req, asyncResp->res, "MessageId", msgIds))
+        {
+            return;
+	}
+
+	if (!msgIds.empty())
+        {
+	    size_t count = 0;
+            size_t pos = msgIds.find(".");
+            while (pos != std::string::npos)
+            {
+                count++;
+                pos = msgIds.find(".", pos + 1); 
+            }
+            if(count <= 3)
+            {
+                messages::propertyValueFormatError(asyncResp->res, msgIds,
+                                                    "MessageIds");
+                return;
+
+            }
+
+            const registries::Header* header = nullptr;
+            std::vector<std::string> registryPrefix;
+            std::vector<std::string> msgIdSplit;
+            
+	    bmcweb::split(msgIdSplit, msgIds, '.');
+            
+	    const std::string& id = msgIdSplit[4];
+            const std::string& regPrefixes = msgIdSplit[0];
+            const std::string& prefixesVersion = msgIdSplit[1] + "." + msgIdSplit[2] + "." + msgIdSplit[3];
+
+            auto prefixes = std::find(supportedRegPrefixes.begin(),
+                                        supportedRegPrefixes.end(), regPrefixes);
+
+            if (prefixes == supportedRegPrefixes.end())
+            {
+                 messages::propertyValueNotInList(asyncResp->res, msgIds,
+                                                     "MessageIds");
+                 return;
+            }
+
+            header = getRegistryHeader(regPrefixes);
+
+            if(prefixesVersion != header->registryVersion)
+            {
+                messages::propertyValueNotInList(asyncResp->res, msgIds,
+                                                     "MessageIds");
+                 return;
+            }
+
+            registryPrefix.assign(supportedRegPrefixes.begin(),
+                                        supportedRegPrefixes.end());
+
+            bool validId = false;
+
+            const std::span<const redfish::registries::MessageEntry>
+                registry =
+                    redfish::registries::getRegistryFromPrefix(regPrefixes);
+
+            if (std::ranges::any_of(
+                    registry,
+                    [&id](const redfish::registries::MessageEntry&
+                                messageEntry) {
+                return id == messageEntry.first;
+            }))
+            {
+                validId = true;
+            }
+            if (!validId)
+            {
+                messages::propertyValueNotInList(asyncResp->res, msgIds,
+                                                    "MessageId");
+                return;
+            }
+        }
+        else
+        {
+		BMCWEB_LOG_DEBUG("Missing MessageId in SubmitTestEvent ");
+		messages::propertyMissing(asyncResp->res, "MessageId");
+                return;
+
+        }
         // EventServiceManager::getInstance().readEventLogsFromFile();
-        bool status = EventServiceManager::getInstance().sendTestEventLog();
+        bool status = EventServiceManager::getInstance().sendTestEventLog(msgIds);
         if (status)
             asyncResp->res.result(boost::beast::http::status::no_content);
     });
