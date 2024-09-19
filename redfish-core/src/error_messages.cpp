@@ -549,7 +549,7 @@ void propertyValueNotInList(crow::Response& res, const nlohmann::json& arg1,
                             std::string_view arg2)
 {
     res.result(boost::beast::http::status::bad_request);
-    addMessageToJson(res.jsonValue, propertyValueNotInList(arg1, arg2), arg2);
+    addMessageToErrorJson(res.jsonValue, propertyValueNotInList(arg1, arg2));
 }
 
 /**
