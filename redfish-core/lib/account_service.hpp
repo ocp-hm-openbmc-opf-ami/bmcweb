@@ -1421,6 +1421,7 @@ inline void updateUserProperties(
                 isDuplicateCreated = false;
                 messages::resourceNotFound(asyncResp->res, "ManagerAccount",
                                            username);
+                return;
             }
             else if (retval == PAM_AUTHTOK_ERR)
             {
@@ -1429,6 +1430,7 @@ inline void updateUserProperties(
                 messages::propertyValueFormatError(asyncResp->res, nullptr,
                                                    "Password");
                 BMCWEB_LOG_ERROR("pamUpdatePassword Failed");
+                return;
             }
             else if (retval != PAM_SUCCESS)
             {
@@ -2719,6 +2721,9 @@ inline void
                                            username);
                 return;
             }
+            else {
+                break;
+            }
         }
     });
 
@@ -2770,6 +2775,19 @@ inline void
                              passwordChangeRequired, oemAccountTypes);
         return;
     }
+
+    std::string newPassword;
+    if (password)
+    {
+        newPassword = *password;
+    }
+    if (pamUpdatePassword(username, newPassword) != PAM_SUCCESS)
+    {
+            messages::propertyValueFormatError(asyncResp->res, nullptr,
+                                               "Password");
+            return;
+    }
+
     crow::connections::systemBus->async_method_call(
         [asyncResp, username, password(std::move(password)),
          roleId(std::move(roleId)), enabled, newUser{std::string(*newUserName)},
