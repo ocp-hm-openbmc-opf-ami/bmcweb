@@ -17,6 +17,9 @@
 
 #include "app.hpp"
 #include "dbus_utility.hpp"
+#include "generated/enums/action_info.hpp"
+#include "generated/enums/chassis.hpp"
+#include "generated/enums/resource.hpp"
 #include "led.hpp"
 #include "query.hpp"
 #include "redfish_util.hpp"
@@ -134,14 +137,16 @@ inline void getChassisState(std::shared_ptr<bmcweb::AsyncResp> asyncResp)
         // Verify Chassis State
         if (chassisState == "xyz.openbmc_project.State.Chassis.PowerState.On")
         {
-            asyncResp->res.jsonValue["PowerState"] = "On";
-            asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
+            asyncResp->res.jsonValue["PowerState"] = resource::PowerState::On;
+            asyncResp->res.jsonValue["Status"]["State"] =
+                resource::State::Enabled;
         }
         else if (chassisState ==
                  "xyz.openbmc_project.State.Chassis.PowerState.Off")
         {
-            asyncResp->res.jsonValue["PowerState"] = "Off";
-            asyncResp->res.jsonValue["Status"]["State"] = "StandbyOffline";
+            asyncResp->res.jsonValue["PowerState"] = resource::PowerState::Off;
+            asyncResp->res.jsonValue["Status"]["State"] =
+                resource::State::StandbyOffline;
         }
     });
 }
@@ -219,7 +224,7 @@ inline void handleChassisCollectionGet(
 inline void getChassisContainedBy(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, const boost::system::error_code& ec,
-    const dbus::utility::MapperEndPoints& upstreamChassisPaths)
+    const dbus::utility::MapperGetSubTreePathsResponse& upstreamChassisPaths)
 {
     if (ec)
     {
@@ -258,7 +263,7 @@ inline void getChassisContainedBy(
 inline void getChassisContains(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, const boost::system::error_code& ec,
-    const dbus::utility::MapperEndPoints& downstreamChassisPaths)
+    const dbus::utility::MapperGetSubTreePathsResponse& downstreamChassisPaths)
 {
     if (ec)
     {
@@ -304,13 +309,20 @@ inline void
 {
     BMCWEB_LOG_DEBUG("Get chassis connectivity");
 
-    dbus::utility::getAssociationEndPoints(
+    constexpr std::array<std::string_view, 2> interfaces{
+        "xyz.openbmc_project.Inventory.Item.Board",
+        "xyz.openbmc_project.Inventory.Item.Chassis"};
+
+    dbus::utility::getAssociatedSubTreePaths(
         chassisPath + "/contained_by",
+        sdbusplus::message::object_path("/xyz/openbmc_project/inventory"), 0,
+        interfaces,
         std::bind_front(getChassisContainedBy, asyncResp, chassisId));
 
-    dbus::utility::getAssociationEndPoints(
+    dbus::utility::getAssociatedSubTreePaths(
         chassisPath + "/containing",
-        std::bind_front(getChassisContains, asyncResp, chassisId));
+        sdbusplus::message::object_path("/xyz/openbmc_project/inventory"), 0,
+        interfaces, std::bind_front(getChassisContains, asyncResp, chassisId));
 }
 
 /**
@@ -453,7 +465,7 @@ inline void handleDecoratorAssetProperties(
     // SensorCollection
     asyncResp->res.jsonValue["Sensors"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Chassis/{}/Sensors", chassisId);
-    asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
+    asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
 
     // SensorThreshold Collection
     asyncResp->res.jsonValue["Oem"]["AMI"]["SensorThreshold"]["@odata.id"] =
@@ -518,7 +530,8 @@ inline void handleChassisGetSubTree(
         asyncResp->res.jsonValue["@odata.id"] =
             boost::urls::format("/redfish/v1/Chassis/{}", chassisId);
         asyncResp->res.jsonValue["Name"] = "Chassis Collection";
-        asyncResp->res.jsonValue["ChassisType"] = "RackMount";
+        asyncResp->res.jsonValue["ChassisType"] =
+            chassis::ChassisType::RackMount;
         asyncResp->res.jsonValue["Actions"]["#Chassis.Reset"]["target"] =
             boost::urls::format("/redfish/v1/Chassis/{}/Actions/Chassis.Reset",
                                 chassisId);
@@ -1486,7 +1499,7 @@ inline void handleChassisResetActionInfoGet(
     nlohmann::json::object_t parameter;
     parameter["Name"] = "ResetType";
     parameter["Required"] = true;
-    parameter["DataType"] = "String";
+    parameter["DataType"] = action_info::ParameterTypes::String;
     nlohmann::json::array_t allowed;
     allowed.emplace_back("PowerCycle");
     parameter["AllowableValues"] = std::move(allowed);

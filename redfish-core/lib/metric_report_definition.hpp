@@ -3,6 +3,7 @@
 #include "app.hpp"
 #include "dbus_utility.hpp"
 #include "generated/enums/metric_report_definition.hpp"
+#include "generated/enums/resource.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "sensors.hpp"
@@ -50,8 +51,7 @@ class ErrorVerificator
     ErrorVerificator(
         crow::Response& resIn, boost::system::error_code ecIn,
         const sdbusplus::message_t& msgIn = sdbusplus::message_t()) :
-        res(resIn),
-        ec(ecIn), msg(msgIn)
+        res(resIn), ec(ecIn), msg(msgIn)
     {}
 
     bool verifyId(const std::optional<std::string>& id)
@@ -500,11 +500,11 @@ inline void
 
     if (enabled)
     {
-        asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
+        asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
     }
     else
     {
-        asyncResp->res.jsonValue["Status"]["State"] = "Disabled";
+        asyncResp->res.jsonValue["Status"]["State"] = resource::State::Disabled;
     }
 
     metric_report_definition::ReportUpdatesEnum redfishReportUpdates =
@@ -639,16 +639,16 @@ inline bool getUserMetric(crow::Response& res, nlohmann::json::object_t& metric,
     return true;
 }
 
-inline bool getValidationDuration (crow::Response& res, nlohmann::json::object_t& metric,
+inline bool
+    getValidationDuration(crow::Response& res, nlohmann::json::object_t& metric,
                           std::optional<std::string> scheduleDurationStr)
 {
-     std::optional<std::vector<std::string>> uris;
-     std::optional<std::string> collectionDurationStr;
-     std::optional<std::string> collectionFunction;
-     std::optional<std::string> collectionTimeScopeStr;
+    std::optional<std::vector<std::string>> uris;
+    std::optional<std::string> collectionDurationStr;
+    std::optional<std::string> collectionFunction;
+    std::optional<std::string> collectionTimeScopeStr;
 
-
-     if (!json_util::readJsonObject(
+    if (!json_util::readJsonObject(
             metric, res, "MetricProperties", uris, "CollectionFunction",
             collectionFunction, "CollectionTimeScope", collectionTimeScopeStr,
             "CollectionDuration", collectionDurationStr))
@@ -656,37 +656,32 @@ inline bool getValidationDuration (crow::Response& res, nlohmann::json::object_t
         return false;
     }
 
-
     std::optional<std::chrono::milliseconds> collectionDuration =
-             time_utils::fromDurationString(*collectionDurationStr);
-
+        time_utils::fromDurationString(*collectionDurationStr);
 
     std::optional<std::chrono::milliseconds> scheduleDuration =
-            time_utils::fromDurationString(*scheduleDurationStr);
-    
+        time_utils::fromDurationString(*scheduleDurationStr);
+
     if (scheduleDuration->count() < collectionDuration->count())
     {
         messages::propertyValueConflict(res, "CollectionDuration",
-                                                   "RecurrenceInterval");
+                                        "RecurrenceInterval");
         return false;
     }
     return true;
 }
 
-
 inline void validateDuration(crow::Response& res,
-                std::span<nlohmann::json::object_t> metric,
-                std::optional<std::string> scheduleDurationStr)
+                             std::span<nlohmann::json::object_t> metric,
+                             std::optional<std::string> scheduleDurationStr)
 {
-     for (nlohmann::json::object_t& m : metric)
-     {
-
-         if (!getValidationDuration(res, m, scheduleDurationStr))
-         {
-             return;
-         }
-     }
-
+    for (nlohmann::json::object_t& m : metric)
+    {
+        if (!getValidationDuration(res, m, scheduleDurationStr))
+        {
+            return;
+        }
+    }
 }
 
 inline bool getUserMetrics(crow::Response& res,
@@ -810,7 +805,8 @@ class ReportUserArgs
         {
             if (metrics && scheduleDurationStr)
             {
-                std::optional<std::vector<nlohmann::json::object_t>> updatedMetrics;
+                std::optional<std::vector<nlohmann::json::object_t>>
+                    updatedMetrics;
                 updatedMetrics = metrics;
 
                 validateDuration(res, *updatedMetrics, scheduleDurationStr);
@@ -863,8 +859,8 @@ class AddReport
     AddReport(AddReportArgs argsIn, ReportUserArgs userArgsIn,
               const std::shared_ptr<bmcweb::AsyncResp>& asyncRespIn,
               AddReportType typeIn) :
-        asyncResp(asyncRespIn),
-        args(std::move(argsIn)), userArgs(std::move(userArgsIn)), type(typeIn)
+        asyncResp(asyncRespIn), args(std::move(argsIn)),
+        userArgs(std::move(userArgsIn)), type(typeIn)
     {}
 
     ~AddReport()
@@ -1002,8 +998,7 @@ class UpdateMetrics
     UpdateMetrics(std::string_view idIn,
                   const std::shared_ptr<bmcweb::AsyncResp>& asyncRespIn,
                   std::span<const nlohmann::json::object_t> redfishMetricsIn) :
-        id(idIn),
-        asyncResp(asyncRespIn),
+        id(idIn), asyncResp(asyncRespIn),
         redfishMetrics(redfishMetricsIn.begin(), redfishMetricsIn.end())
     {}
 
@@ -1659,8 +1654,7 @@ inline void handleMetricReportDelete(
         }
 
         asyncResp->res.result(boost::beast::http::status::no_content);
-    },
-        telemetry::service, reportPath, "xyz.openbmc_project.Object.Delete",
+    }, telemetry::service, reportPath, "xyz.openbmc_project.Object.Delete",
         "Delete");
 }
 

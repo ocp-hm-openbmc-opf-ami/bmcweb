@@ -68,14 +68,20 @@ class ConfigFile
             }
             else
             {
-                for (const auto& item : data.items())
+                const nlohmann::json::object_t* obj =
+                    data.get_ptr<nlohmann::json::object_t*>();
+                if (obj == nullptr)
                 {
-                    if (item.key() == "revision")
+                    return;
+                }
+                for (const auto& item : *obj)
+                {
+                    if (item.first == "revision")
                     {
                         fileRevision = 0;
 
                         const uint64_t* uintPtr =
-                            item.value().get_ptr<const uint64_t*>();
+                            item.second.get_ptr<const uint64_t*>();
                         if (uintPtr == nullptr)
                         {
                             BMCWEB_LOG_ERROR("Failed to read revision flag");
@@ -85,24 +91,24 @@ class ConfigFile
                             fileRevision = *uintPtr;
                         }
                     }
-                    else if (item.key() == "system_uuid")
+                    else if (item.first == "system_uuid")
                     {
                         const std::string* jSystemUuid =
-                            item.value().get_ptr<const std::string*>();
+                            item.second.get_ptr<const std::string*>();
                         if (jSystemUuid != nullptr)
                         {
                             systemUuid = *jSystemUuid;
                         }
                     }
-                    else if (item.key() == "auth_config")
+                    else if (item.first == "auth_config")
                     {
                         SessionStore::getInstance()
                             .getAuthMethodsConfig()
-                            .fromJson(item.value());
+                            .fromJson(item.second);
                     }
-                    else if (item.key() == "sessions")
+                    else if (item.first == "sessions")
                     {
-                        for (const auto& elem : item.value())
+                        for (const auto& elem : item.second)
                         {
                             std::shared_ptr<UserSession> newSession =
                                 UserSession::fromJson(elem);
@@ -122,10 +128,10 @@ class ConfigFile
                                 newSession->sessionToken, newSession);
                         }
                     }
-                    else if (item.key() == "timeout")
+                    else if (item.first == "timeout")
                     {
                         const int64_t* jTimeout =
-                            item.value().get_ptr<int64_t*>();
+                            item.second.get_ptr<const int64_t*>();
                         if (jTimeout == nullptr)
                         {
                             BMCWEB_LOG_DEBUG(
@@ -138,15 +144,25 @@ class ConfigFile
                         SessionStore::getInstance().updateSessionTimeout(
                             sessionTimeoutInseconds);
                     }
-                    else if (item.key() == "eventservice_config")
+                    else if (item.first == "eventservice_config")
                     {
+                        const nlohmann::json::object_t* esobj =
+                            item.second
+                                .get_ptr<const nlohmann::json::object_t*>();
+                        if (esobj == nullptr)
+                        {
+                            BMCWEB_LOG_DEBUG(
+                                "Problem reading EventService value");
+                            continue;
+                        }
+
                         EventServiceStore::getInstance()
                             .getEventServiceConfig()
-                            .fromJson(item.value());
+                            .fromJson(*esobj);
                     }
-                    else if (item.key() == "subscriptions")
+                    else if (item.first == "subscriptions")
                     {
-                        for (const auto& elem : item.value())
+                        for (const auto& elem : item.second)
                         {
                             std::shared_ptr<UserSubscription> newSubscription =
                                 UserSubscription::fromJson(elem);
@@ -227,7 +243,8 @@ class ConfigFile
             std::filesystem::perms::owner_write |
             std::filesystem::perms::group_read;
         std::filesystem::permissions(filename, permission);
-        const auto& c = SessionStore::getInstance().getAuthMethodsConfig();
+        const AuthConfigMethods& c =
+            SessionStore::getInstance().getAuthMethodsConfig();
         const auto& eventServiceConfig =
             EventServiceStore::getInstance().getEventServiceConfig();
         nlohmann::json::object_t data;
@@ -238,6 +255,9 @@ class ConfigFile
         authConfig["SessionToken"] = c.sessionToken;
         authConfig["BasicAuth"] = c.basic;
         authConfig["TLS"] = c.tls;
+        authConfig["TLSStrict"] = c.tlsStrict;
+        authConfig["TLSCommonNameParseMode"] =
+            static_cast<int>(c.mTLSCommonNameParsingMode);
 
         nlohmann::json& eventserviceConfig = data["eventservice_config"];
         eventserviceConfig["ServiceEnabled"] = eventServiceConfig.enabled;
@@ -254,8 +274,9 @@ class ConfigFile
         sessions = nlohmann::json::array();
         for (const auto& p : SessionStore::getInstance().authTokens)
         {
-            if (p.second->persistence !=
-                persistent_data::PersistenceType::SINGLE_REQUEST)
+            if (p.second->sessionType != persistent_data::SessionType::Basic &&
+                p.second->sessionType !=
+                    persistent_data::SessionType::MutualTLS)
             {
                 nlohmann::json::object_t session;
                 session["unique_id"] = p.second->uniqueId;
@@ -276,15 +297,15 @@ class ConfigFile
         for (const auto& it :
              EventServiceStore::getInstance().subscriptionsConfigMap)
         {
-            std::shared_ptr<UserSubscription> subValue = it.second;
-            if (subValue->subscriptionType == "SSE")
+            const UserSubscription& subValue = *it.second;
+            if (subValue.subscriptionType == "SSE")
             {
                 BMCWEB_LOG_DEBUG("The subscription type is SSE, so skipping.");
                 continue;
             }
             nlohmann::json::object_t headers;
             for (const boost::beast::http::fields::value_type& header :
-                 subValue->httpHeaders)
+                 subValue.httpHeaders)
             {
                 // Note, these are technically copies because nlohmann doesn't
                 // support key lookup by std::string_view.  At least the
@@ -296,21 +317,22 @@ class ConfigFile
 
             nlohmann::json::object_t subscription;
 
-            subscription["Id"] = subValue->id;
-            subscription["Context"] = subValue->customText;
-            subscription["DeliveryRetryPolicy"] = subValue->retryPolicy;
-            subscription["Destination"] = subValue->destinationUrl;
-            subscription["EventFormatType"] = subValue->eventFormatType;
+            subscription["Id"] = subValue.id;
+            subscription["Context"] = subValue.customText;
+            subscription["DeliveryRetryPolicy"] = subValue.retryPolicy;
+            subscription["Destination"] = subValue.destinationUrl;
+            subscription["EventFormatType"] = subValue.eventFormatType;
             subscription["HttpHeaders"] = std::move(headers);
-            subscription["MessageIds"] = subValue->registryMsgIds;
-            subscription["Protocol"] = subValue->protocol;
-            subscription["RegistryPrefixes"] = subValue->registryPrefixes;
-            subscription["ResourceTypes"] = subValue->resourceTypes;
-            subscription["SubscriptionType"] = subValue->subscriptionType;
+            subscription["MessageIds"] = subValue.registryMsgIds;
+            subscription["Protocol"] = subValue.protocol;
+            subscription["RegistryPrefixes"] = subValue.registryPrefixes;
+            subscription["ResourceTypes"] = subValue.resourceTypes;
+            subscription["SubscriptionType"] = subValue.subscriptionType;
             subscription["MetricReportDefinitions"] =
-                subValue->metricReportDefinitions;
-            subscription["State"] = subValue->state;
-            subscription["Owner"] = subValue->owner;
+                subValue.metricReportDefinitions;
+            subscription["VerifyCertificate"] = subValue.verifyCertificate;
+            subscription["State"] = subValue.state;
+            subscription["Owner"] = subValue.owner;
 
             subscriptions.emplace_back(std::move(subscription));
         }

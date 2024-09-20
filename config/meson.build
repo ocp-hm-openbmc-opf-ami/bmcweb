@@ -9,6 +9,7 @@ feature_options = [
     'experimental-redfish-multi-computer-system',
     'google-api',
     'host-serial-socket',
+    'hypervisor-computer-system',
     'ibm-management-console',
     'insecure-disable-auth',
     'insecure-disable-csrf',
@@ -16,8 +17,8 @@ feature_options = [
     'insecure-enable-redfish-query',
     'insecure-ignore-content-type',
     'insecure-push-style-notification',
-    'insecure-tftp-update',
     'kvm',
+    'meta-tls-common-name-parsing',
     'mutual-tls-auth',
     'redfish-aggregation',
     'redfish-allow-deprecated-power-thermal',
@@ -29,7 +30,6 @@ feature_options = [
     'redfish-new-powersubsystem-thermalsubsystem',
     'redfish-oem-manager-fan-data',
     'redfish-provisioning-feature',
-    'redfish-post-to-old-updateservice',
     'redfish-updateservice-use-dbus',
     'redfish-intel-feature',
     'redfish',
@@ -50,15 +50,12 @@ feature_options = [
 string_options = [
     'dns-resolver',
     'image-upload-dir',
-    'mutual-tls-common-name-parsing',
+    'mutual-tls-common-name-parsing-default',
     'redfish-manager-uri-name',
     'redfish-system-uri-name',
 ]
 
-int_options = [
-    'http-body-limit',
-    'image-payload-limit',
-]
+int_options = ['http-body-limit', 'image-payload-limit']
 
 feature_options_string = '\n//Feature options\n'
 string_options_string = '\n// String options\n'
@@ -78,7 +75,15 @@ foreach option_key : feature_options + string_options + int_options
         int_options_string += 'constexpr const int         ' + option_key_config + ' = ' + opt.to_string() + ';\n'
     else
         feature_options_string += 'constexpr const bool        ' + option_key_config + ' = ' + opt.allowed().to_string() + ';\n'
-        if option_key.contains('ami-nvme') or option_key.contains('ami-raidbrcm') or option_key.contains('ami-raidmscc') or option_key.contains('ami-rep') or option_key.contains('ami-nic') or option_key.contains('ami-pciesw')
+        if option_key.contains('ami-nvme') or option_key.contains('ami-raidbrcm') or option_key.contains(
+            'ami-raidmscc',
+        ) or option_key.contains(
+            'ami-rep',
+        ) or option_key.contains(
+            'ami-nic',
+        ) or option_key.contains(
+            'ami-pciesw',
+        )
             feature_options_string += '#define ' + option_macro_config + '  ' + opt.allowed().to_string() + '\n'
         endif
         opt = opt.allowed().to_string()
@@ -89,7 +94,7 @@ endforeach
 # Logging level
 loglvlopt = get_option('bmcweb-logging')
 if get_option('buildtype').startswith('debug') and loglvlopt == 'disabled'
-    # Override logging level as 'debug' if 'bmcweb-logging' is set as 'disabled'
+# Override logging level as 'debug' if 'bmcweb-logging' is set as 'disabled'
     loglvlopt = 'debug'
 endif
 loglvlopt = loglvlopt.to_upper()
@@ -119,9 +124,9 @@ configure_file(
     output: 'bmcweb.socket',
     install_dir: systemd_system_unit_dir,
     install: true,
-    configuration: configuration_data({
-        'BMCWEB_HTTPS_PORT': get_option('https_port'),
-    }),
+    configuration: configuration_data(
+        {'BMCWEB_HTTPS_PORT': get_option('https_port')},
+    ),
 )
 
 configure_file(
@@ -129,14 +134,10 @@ configure_file(
     output: 'bmcweb.service',
     install_dir: systemd_system_unit_dir,
     install: true,
-    configuration: configuration_data({
-        'MESON_INSTALL_PREFIX': get_option('prefix'),
-    }),
+    configuration: configuration_data(
+        {'MESON_INSTALL_PREFIX': get_option('prefix')},
+    ),
 )
 
 # Copy pam-webserver to etc/pam.d
-install_data(
-    'pam-webserver',
-    install_dir: '/etc/pam.d/',
-    rename: 'webserver',
-)
+install_data('pam-webserver', install_dir: '/etc/pam.d/', rename: 'webserver')

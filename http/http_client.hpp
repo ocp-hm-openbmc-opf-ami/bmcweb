@@ -120,8 +120,7 @@ struct PendingRequest
     PendingRequest(
         boost::beast::http::request<bmcweb::HttpBody>&& reqIn,
         const std::function<void(bool, uint32_t, Response&)>& callbackIn) :
-        req(std::move(reqIn)),
-        callback(callbackIn)
+        req(std::move(reqIn)), callback(callbackIn)
     {}
 };
 
@@ -134,9 +133,8 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
     std::string subId;
     std::shared_ptr<ConnectionPolicy> connPolicy;
     boost::urls::url host;
-    bool verifyCert;
+    ensuressl::VerifyCertificate verifyCert;
     uint32_t connId;
-
     // Data buffers
     http::request<bmcweb::HttpBody> req;
     using parser_type = http::response_parser<bmcweb::HttpBody>;
@@ -311,19 +309,18 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
         // Set a timeout on the operation
         timer.expires_after(std::chrono::seconds(30));
         timer.async_wait(std::bind_front(onTimeout, weak_from_this()));
-        boost::beast::http::message_generator messageGenerator(std::move(req));
         // Send the HTTP request to the remote host
         if (sslConn)
         {
-            boost::beast::async_write(
-                *sslConn, std::move(messageGenerator),
+            boost::beast::http::async_write(
+                *sslConn, req,
                 std::bind_front(&ConnectionInfo::afterWrite, this,
                                 shared_from_this()));
         }
         else
         {
-            boost::beast::async_write(
-                conn, std::move(messageGenerator),
+            boost::beast::http::async_write(
+                conn, req,
                 std::bind_front(&ConnectionInfo::afterWrite, this,
                                 shared_from_this()));
         }
@@ -669,11 +666,11 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
     explicit ConnectionInfo(
         boost::asio::io_context& iocIn, const std::string& idIn,
         const std::shared_ptr<ConnectionPolicy>& connPolicyIn,
-        const boost::urls::url_view_base& hostIn, bool verifyCertIn,
-        unsigned int connIdIn) :
-        subId(idIn),
-        connPolicy(connPolicyIn), host(hostIn), verifyCert(verifyCertIn),
-        connId(connIdIn), ioc(iocIn), resolver(iocIn), conn(iocIn), timer(iocIn)
+        const boost::urls::url_view_base& hostIn,
+        ensuressl::VerifyCertificate verifyCertIn, unsigned int connIdIn) :
+        subId(idIn), connPolicy(connPolicyIn), host(hostIn),
+        verifyCert(verifyCertIn), connId(connIdIn), ioc(iocIn), resolver(iocIn),
+        conn(iocIn), timer(iocIn)
     {
         initializeConnection(host.scheme() == "https");
     }
@@ -686,9 +683,9 @@ class ConnectionPool : public std::enable_shared_from_this<ConnectionPool>
     std::string id;
     std::shared_ptr<ConnectionPolicy> connPolicy;
     boost::urls::url destIP;
-    bool verifyCert;
     std::vector<std::shared_ptr<ConnectionInfo>> connections;
     boost::container::devector<PendingRequest> requestQueue;
+    ensuressl::VerifyCertificate verifyCert;
 
     friend class HttpClient;
 
@@ -744,7 +741,7 @@ class ConnectionPool : public std::enable_shared_from_this<ConnectionPool>
                 // Server is not keep-alive enabled so we need to close the
                 // connection and then start over from resolve
                 conn->doClose();
-                conn->doResolve();
+                conn->restartConnection();
             }
             return;
         }
@@ -798,7 +795,7 @@ class ConnectionPool : public std::enable_shared_from_this<ConnectionPool>
                 {
                     BMCWEB_LOG_DEBUG("Reusing existing connection {}",
                                      commonMsg);
-                    conn->doResolve();
+                    conn->restartConnection();
                 }
                 return;
             }
@@ -870,9 +867,9 @@ class ConnectionPool : public std::enable_shared_from_this<ConnectionPool>
     explicit ConnectionPool(
         boost::asio::io_context& iocIn, const std::string& idIn,
         const std::shared_ptr<ConnectionPolicy>& connPolicyIn,
-        const boost::urls::url_view_base& destIPIn, bool verifyCertIn) :
-        ioc(iocIn),
-        id(idIn), connPolicy(connPolicyIn), destIP(destIPIn),
+        const boost::urls::url_view_base& destIPIn,
+        ensuressl::VerifyCertificate verifyCertIn) :
+        ioc(iocIn), id(idIn), connPolicy(connPolicyIn), destIP(destIPIn),
         verifyCert(verifyCertIn)
     {
         BMCWEB_LOG_DEBUG("Initializing connection pool for {}", id);
@@ -902,8 +899,7 @@ class HttpClient
     HttpClient() = delete;
     explicit HttpClient(boost::asio::io_context& iocIn,
                         const std::shared_ptr<ConnectionPolicy>& connPolicyIn) :
-        ioc(iocIn),
-        connPolicy(connPolicyIn)
+        ioc(iocIn), connPolicy(connPolicyIn)
     {}
 
     HttpClient(const HttpClient&) = delete;
@@ -915,7 +911,8 @@ class HttpClient
     // Send a request to destIP where additional processing of the
     // result is not required
     void sendData(std::string&& data, const boost::urls::url_view_base& destUri,
-                  bool verifyCert, const boost::beast::http::fields& httpHeader,
+                  ensuressl::VerifyCertificate verifyCert,
+                  const boost::beast::http::fields& httpHeader,
                   const boost::beast::http::verb verb)
     {
         const std::function<void(Response&)> cb = genericResHandler;
@@ -927,12 +924,18 @@ class HttpClient
     // handle the response
     void sendDataWithCallback(std::string&& data,
                               const boost::urls::url_view_base& destUrl,
-                              bool verifyCert,
+                              ensuressl::VerifyCertificate verifyCert,
                               const boost::beast::http::fields& httpHeader,
                               const boost::beast::http::verb verb,
                               const std::function<void(Response&)>& resHandler)
     {
-        std::string clientKey = std::format("{}://{}", destUrl.scheme(),
+        std::string_view verify = "ssl_verify";
+        if (verifyCert == ensuressl::VerifyCertificate::NoVerify)
+        {
+            verify = "ssl no verify";
+        }
+        std::string clientKey = std::format("{}{}://{}", verify,
+                                            destUrl.scheme(),
                                             destUrl.encoded_host_and_port());
         auto pool = connectionPools.try_emplace(clientKey);
         if (pool.first->second == nullptr)

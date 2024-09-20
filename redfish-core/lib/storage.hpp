@@ -21,6 +21,7 @@
 #include "dbus_utility.hpp"
 #include "generated/enums/drive.hpp"
 #include "generated/enums/protocol.hpp"
+#include "generated/enums/resource.hpp"
 #include "human_sort.hpp"
 #include "query.hpp"
 #include "redfish_util.hpp"
@@ -61,7 +62,8 @@ inline void handleSystemsStorageCollectionGet(
     asyncResp->res.jsonValue["@odata.id"] = std::format(
         "/redfish/v1/Systems/{}/Storage", BMCWEB_REDFISH_SYSTEM_URI_NAME);
     asyncResp->res.jsonValue["Name"] = "Storage Collection";
-    asyncResp->res.jsonValue["Description"] = "Collection of storage for this system";
+    asyncResp->res.jsonValue["Description"] =
+        "Collection of storage for this system";
 
     constexpr std::array<std::string_view, 1> interface{
         "xyz.openbmc_project.Inventory.Item.Storage"};
@@ -179,7 +181,7 @@ inline void afterSystemsStorageGetSubtree(
                             BMCWEB_REDFISH_SYSTEM_URI_NAME, storageId);
     asyncResp->res.jsonValue["Name"] = "Storage";
     asyncResp->res.jsonValue["Id"] = storageId;
-    asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
+    asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
 
     getDrives(asyncResp);
     asyncResp->res.jsonValue["Controllers"]["@odata.id"] =
@@ -195,7 +197,7 @@ inline void handleSystemsStorageGetSingleInstance(
         "/redfish/v1/Systems/system/Storage/1";
     asyncResp->res.jsonValue["Name"] = "Storage";
     asyncResp->res.jsonValue["Id"] = "1";
-    asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
+    asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
 
     getDrives(asyncResp);
     asyncResp->res.jsonValue["Controllers"]["@odata.id"] =
@@ -407,7 +409,8 @@ inline void getDrivePresent(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
         if (!isPresent)
         {
-            asyncResp->res.jsonValue["Status"]["State"] = "Absent";
+            asyncResp->res.jsonValue["Status"]["State"] =
+                resource::State::Absent;
         }
     });
 }
@@ -433,7 +436,8 @@ inline void getDriveState(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         // calls
         if (updating)
         {
-            asyncResp->res.jsonValue["Status"]["State"] = "Updating";
+            asyncResp->res.jsonValue["Status"]["State"] =
+                resource::State::Updating;
         }
     });
 }
@@ -727,7 +731,7 @@ inline void afterGetSubtreeSystemsStorageDrive(
     });
 
     // default it to Enabled
-    asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
+    asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
 
     addAllDriveInfo(asyncResp, connectionNames[0].first, path,
                     connectionNames[0].second);
@@ -843,7 +847,7 @@ inline void afterChassisDriveCollectionSubtreeGet(
             asyncResp->res.jsonValue["Members@odata.count"] = resp.size();
         }); // end association lambda
 
-    }       // end Iterate over all retrieved ObjectPaths
+    } // end Iterate over all retrieved ObjectPaths
 }
 /**
  * Chassis drives, this URL will show all the DriveCollection
@@ -912,7 +916,7 @@ inline void buildDrive(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         asyncResp->res.jsonValue["Name"] = driveName;
         asyncResp->res.jsonValue["Id"] = driveName;
         // default it to Enabled
-        asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
+        asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
 
         nlohmann::json::object_t linkChassisNav;
         linkChassisNav["@odata.id"] =
@@ -1078,7 +1082,7 @@ inline void populateStorageController(
                             BMCWEB_REDFISH_SYSTEM_URI_NAME, controllerId);
     asyncResp->res.jsonValue["Name"] = controllerId;
     asyncResp->res.jsonValue["Id"] = controllerId;
-    asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
+    asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
 
     sdbusplus::asio::getProperty<bool>(
         *crow::connections::systemBus, connectionName, path,
@@ -1093,7 +1097,8 @@ inline void populateStorageController(
         }
         if (!isPresent)
         {
-            asyncResp->res.jsonValue["Status"]["State"] = "Absent";
+            asyncResp->res.jsonValue["Status"]["State"] =
+                resource::State::Absent;
         }
     });
 

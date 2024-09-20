@@ -18,6 +18,7 @@
 #include "app.hpp"
 #include "async_resp.hpp"
 #include "dbus_utility.hpp"
+#include "generated/enums/chassis.hpp"
 #include "redfish_util.hpp"
 
 #include <boost/algorithm/string/predicate.hpp>
@@ -55,7 +56,8 @@ inline void
         // Blinking ON, no need to check enclosure_identify assert.
         if (!ec && blinking)
         {
-            asyncResp->res.jsonValue["IndicatorLED"] = "Blinking";
+            asyncResp->res.jsonValue["IndicatorLED"] =
+                chassis::IndicatorLED::Blinking;
             return;
         }
 
@@ -81,11 +83,13 @@ inline void
 
             if (ledOn)
             {
-                asyncResp->res.jsonValue["IndicatorLED"] = "Lit";
+                asyncResp->res.jsonValue["IndicatorLED"] =
+                    chassis::IndicatorLED::Lit;
             }
             else
             {
-                asyncResp->res.jsonValue["IndicatorLED"] = "Off";
+                asyncResp->res.jsonValue["IndicatorLED"] =
+                    chassis::IndicatorLED::Off;
             }
         });
     });
@@ -140,11 +144,10 @@ inline void
             }
         }
         setDbusProperty(
-            asyncResp, "xyz.openbmc_project.LED.GroupManager",
+            asyncResp, "IndicatorLED", "xyz.openbmc_project.LED.GroupManager",
             sdbusplus::message::object_path(
                 "/xyz/openbmc_project/led/groups/enclosure_identify"),
-            "xyz.openbmc_project.Led.Group", "Asserted", "IndicatorLED",
-            ledBlinkng);
+            "xyz.openbmc_project.Led.Group", "Asserted", ledBlinkng);
     });
 }
 
@@ -230,11 +233,11 @@ inline void setSystemLocationIndicatorActive(
             // lets set enclosure_identify state also if
             // enclosure_identify_blink failed
             setDbusProperty(
-                asyncResp, "xyz.openbmc_project.LED.GroupManager",
+                asyncResp, "LocationIndicatorActive",
+                "xyz.openbmc_project.LED.GroupManager",
                 sdbusplus::message::object_path(
                     "/xyz/openbmc_project/led/groups/enclosure_identify"),
-                "xyz.openbmc_project.Led.Group", "Asserted",
-                "LocationIndicatorActive", ledState);
+                "xyz.openbmc_project.Led.Group", "Asserted", ledState);
         }
     });
 }

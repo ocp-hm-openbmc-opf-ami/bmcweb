@@ -64,15 +64,6 @@
 #include <variant>
 #include <vector>
 
-// IWYU pragma: no_include <boost/algorithm/string/detail/classification.hpp>
-// IWYU pragma: no_include <boost/system/detail/error_code.hpp>
-// IWYU pragma: no_include <boost/system/detail/error_category.hpp>
-// IWYU pragma: no_include <errno.h>
-// IWYU pragma: no_include <string.h>
-// IWYU pragma: no_include <ext/alloc_traits.h>
-// IWYU pragma: no_include <exception>
-// IWYU pragma: no_include <boost/type_index/type_index_facade.hpp>
-
 namespace crow
 {
 namespace openbmc_mapper
@@ -211,8 +202,7 @@ inline void getPropertiesForEnumerate(
         for (const auto& [name, value] : propertiesList)
         {
             nlohmann::json& propertyJson = objectJson[name];
-            std::visit(
-                [&propertyJson](auto&& val) {
+            std::visit([&propertyJson](auto&& val) {
                 if constexpr (std::is_same_v<std::decay_t<decltype(val)>,
                                              sdbusplus::message::unix_fd>)
                 {
@@ -222,8 +212,7 @@ inline void getPropertiesForEnumerate(
                 {
                     propertyJson = val;
                 }
-            },
-                value);
+            }, value);
         }
     });
 }
@@ -267,8 +256,7 @@ struct InProgressEnumerateData
     InProgressEnumerateData(
         const std::string& objectPathIn,
         const std::shared_ptr<bmcweb::AsyncResp>& asyncRespIn) :
-        objectPath(objectPathIn),
-        asyncResp(asyncRespIn)
+        objectPath(objectPathIn), asyncResp(asyncRespIn)
     {}
 
     ~InProgressEnumerateData()
@@ -334,8 +322,7 @@ inline void getManagedObjectsForEnumerate(
                     {
                         nlohmann::json& propertyJson =
                             objectJson[property.first];
-                        std::visit(
-                            [&propertyJson](auto&& val) {
+                        std::visit([&propertyJson](auto&& val) {
                             if constexpr (std::is_same_v<
                                               std::decay_t<decltype(val)>,
                                               sdbusplus::message::unix_fd>)
@@ -346,8 +333,7 @@ inline void getManagedObjectsForEnumerate(
                             {
                                 propertyJson = val;
                             }
-                        },
-                            property.second);
+                        }, property.second);
                     }
                 }
             }
@@ -478,8 +464,7 @@ inline void getObjectAndEnumerate(
 struct InProgressActionData
 {
     explicit InProgressActionData(
-        const std::shared_ptr<bmcweb::AsyncResp>& res) :
-        asyncResp(res)
+        const std::shared_ptr<bmcweb::AsyncResp>& res) : asyncResp(res)
     {}
     ~InProgressActionData()
     {
@@ -914,15 +899,21 @@ inline int convertJsonToDbus(sd_bus_message* m, const std::string& argType,
             }
             const std::string& keyType = codes[0];
             const std::string& valueType = codes[1];
-            for (const auto& it : j->items())
+            const nlohmann::json::object_t* arr =
+                j->get_ptr<const nlohmann::json::object_t*>();
+            if (arr == nullptr)
             {
-                r = convertJsonToDbus(m, keyType, it.key());
+                return -1;
+            }
+            for (const auto& it : *arr)
+            {
+                r = convertJsonToDbus(m, keyType, it.first);
                 if (r < 0)
                 {
                     return r;
                 }
 
-                r = convertJsonToDbus(m, valueType, it.value());
+                r = convertJsonToDbus(m, valueType, it.second);
                 if (r < 0)
                 {
                     return r;
@@ -1349,20 +1340,23 @@ inline void handleMethodResponse(
     // an entry.  Could also just fail in that case, but it
     // seems better to get the data back somehow.
 
-    if (transaction->methodResponse.is_object() && data.is_object())
+    nlohmann::json::object_t* dataobj =
+        data.get_ptr<nlohmann::json::object_t*>();
+    if (transaction->methodResponse.is_object() && dataobj != nullptr)
     {
-        for (const auto& obj : data.items())
+        for (const auto& obj : *dataobj)
         {
             // Note: Will overwrite the data for a duplicate key
-            transaction->methodResponse.emplace(obj.key(),
-                                                std::move(obj.value()));
+            transaction->methodResponse.emplace(obj.first,
+                                                std::move(obj.second));
         }
         return;
     }
 
-    if (transaction->methodResponse.is_array() && data.is_array())
+    nlohmann::json::array_t* dataarr = data.get_ptr<nlohmann::json::array_t*>();
+    if (transaction->methodResponse.is_array() && dataarr != nullptr)
     {
-        for (auto& obj : data)
+        for (auto& obj : *dataarr)
         {
             transaction->methodResponse.emplace_back(std::move(obj));
         }
@@ -1768,7 +1762,13 @@ inline void handleGet(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         }
                         else
                         {
-                            for (const auto& prop : properties.items())
+                            nlohmann::json::object_t* obj =
+                                properties.get_ptr<nlohmann::json::object_t*>();
+                            if (obj == nullptr)
+                            {
+                                return;
+                            }
+                            for (auto& prop : *obj)
                             {
                                 // if property name is empty, or
                                 // matches our search query, add it
@@ -1776,12 +1776,12 @@ inline void handleGet(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
                                 if (propertyName->empty())
                                 {
-                                    (*response)[prop.key()] =
-                                        std::move(prop.value());
+                                    (*response)[prop.first] =
+                                        std::move(prop.second);
                                 }
-                                else if (prop.key() == *propertyName)
+                                else if (prop.first == *propertyName)
                                 {
-                                    *response = std::move(prop.value());
+                                    *response = std::move(prop.second);
                                 }
                             }
                         }
@@ -1936,6 +1936,11 @@ inline void handlePut(const crow::Request& req,
                     while (propNode != nullptr)
                     {
                         const char* propertyName = propNode->Attribute("name");
+                        if (propertyName == nullptr)
+                        {
+                            BMCWEB_LOG_DEBUG("Couldn't find name property");
+                            continue;
+                        }
                         BMCWEB_LOG_DEBUG("Found property {}", propertyName);
                         if (propertyName == transaction->propertyName)
                         {

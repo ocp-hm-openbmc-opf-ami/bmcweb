@@ -1,0 +1,54 @@
+{
+    "$id": "http://redfish.dmtf.org/schemas/v1/OemPower.json",
+    "$schema": "http://redfish.dmtf.org/schemas/v1/redfish-schema-v1.json",
+    "copyright": "Copyright 2014-2019 DMTF. For the full DMTF copyright policy, see http://www.dmtf.org/about/policies/copyright",
+    "definitions": {
+        "PowerControl": {
+            "additionalProperties": false,
+            "description": "OEM Extension for PowerControl.",
+            "longDescription": "OEM Extension for PowerControl.",
+            "patternProperties": {
+                "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
+                    "description": "This property shall specify a valid odata or Redfish property.",
+                    "type": [
+                        "array",
+                        "boolean",
+                        "integer",
+                        "number",
+                        "null",
+                        "object",
+                        "string"
+                    ]
+                }
+            },
+            "properties": {
+                "PowerLimitStorage": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/definitions/PowerLimitStorage"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "description": "Storage configuration of power limit.",
+                    "longDescription": "This property shall contain value defining configuration for power limit storage option.",
+                    "readonly": false
+                }
+            },
+            "type": "object"
+        },
+        "PowerLimitStorage": {
+            "enum": [
+                "Volatile",
+                "Persistent"
+            ],
+            "enumDescriptions": {
+                "Persistent": "Power limit is stored in non-volatile memory.",
+                "Volatile": "Power limit is only stored in volatile memory."
+            },
+            "type": "string"
+        }
+    },
+    "title": "#OemPower"
+}

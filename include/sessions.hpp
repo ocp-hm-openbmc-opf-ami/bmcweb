@@ -9,8 +9,11 @@
 
 #include <algorithm>
 #include <csignal>
+#include <memory>
 #include <optional>
 #include <random>
+#include <string>
+#include <vector>
 
 namespace persistent_data
 {
@@ -20,10 +23,13 @@ namespace persistent_data
 // https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html#session-id-entropy
 constexpr std::size_t sessionTokenSize = 20;
 
-enum class PersistenceType
+enum class SessionType
 {
-    TIMEOUT, // User session times out after a predetermined amount of time
-    SINGLE_REQUEST // User times out once this request is completed.
+    None,
+    Basic,
+    Session,
+    Cookie,
+    MutualTLS
 };
 
 struct UserSession
@@ -34,9 +40,8 @@ struct UserSession
     std::string csrfToken;
     std::optional<std::string> clientId;
     std::string clientIp;
-    std::string sessionType;
     std::chrono::time_point<std::chrono::steady_clock> lastUpdated;
-    PersistenceType persistence{PersistenceType::TIMEOUT};
+    SessionType sessionType{SessionType::None};
     bool cookieAuth = false;
     bool isConfigureSelfOnly = false;
     std::string userRole;
@@ -64,42 +69,43 @@ struct UserSession
      * @return a shared pointer if data has been loaded properly, nullptr
      * otherwise
      */
-    static std::shared_ptr<UserSession> fromJson(const nlohmann::json& j)
+    static std::shared_ptr<UserSession>
+        fromJson(const nlohmann::json::object_t& j)
     {
         std::shared_ptr<UserSession> userSession =
             std::make_shared<UserSession>();
-        for (const auto& element : j.items())
+        for (const auto& element : j)
         {
             const std::string* thisValue =
-                element.value().get_ptr<const std::string*>();
+                element.second.get_ptr<const std::string*>();
             if (thisValue == nullptr)
             {
-                BMCWEB_LOG_ERROR(
-                    "Error reading persistent store.  Property {} was not of type string",
-                    element.key());
+                BMCWEB_LOG_ERROR("Error reading persistent store.  Property {} "
+                                 "was not of type string",
+                                 element.first);
                 continue;
             }
-            if (element.key() == "unique_id")
+            if (element.first == "unique_id")
             {
                 userSession->uniqueId = *thisValue;
             }
-            else if (element.key() == "session_token")
+            else if (element.first == "session_token")
             {
                 userSession->sessionToken = *thisValue;
             }
-            else if (element.key() == "csrf_token")
+            else if (element.first == "csrf_token")
             {
                 userSession->csrfToken = *thisValue;
             }
-            else if (element.key() == "username")
+            else if (element.first == "username")
             {
                 userSession->username = *thisValue;
             }
-            else if (element.key() == "client_id")
+            else if (element.first == "client_id")
             {
                 userSession->clientId = *thisValue;
             }
-            else if (element.key() == "client_ip")
+            else if (element.first == "client_ip")
             {
                 userSession->clientIp = *thisValue;
             }
@@ -108,7 +114,7 @@ struct UserSession
             {
                 BMCWEB_LOG_ERROR(
                     "Got unexpected property reading persistent file: {}",
-                    element.key());
+                    element.first);
                 continue;
             }
         }
@@ -131,49 +137,125 @@ struct UserSession
         // the tradeoffs of all the corner cases involved are non-trivial, so
         // this is done temporarily
         userSession->lastUpdated = std::chrono::steady_clock::now();
-        userSession->persistence = PersistenceType::TIMEOUT;
+        userSession->sessionType = SessionType::Session;
 
         return userSession;
     }
 };
 
+enum class MTLSCommonNameParseMode
+{
+    Invalid = 0,
+    // This section approximately matches Redfish AccountService
+    // CertificateMappingAttribute,  plus bmcweb defined OEM ones.
+    // Note, IDs in this enum must be maintained between versions, as they are
+    // persisted to disk
+    Whole = 1,
+    CommonName = 2,
+    UserPrincipalName = 3,
+
+    // Intentional gap for future DMTF-defined enums
+
+    // OEM parsing modes for various OEMs
+    Meta = 100,
+};
+
+inline MTLSCommonNameParseMode getMTLSCommonNameParseMode(std::string_view name)
+{
+    if (name == "CommonName")
+    {
+        return MTLSCommonNameParseMode::CommonName;
+    }
+    if (name == "Whole")
+    {
+        // Not yet supported
+        // return MTLSCommonNameParseMode::Whole;
+    }
+    if (name == "UserPrincipalName")
+    {
+        // Not yet supported
+        // return MTLSCommonNameParseMode::UserPrincipalName;
+    }
+    if constexpr (BMCWEB_META_TLS_COMMON_NAME_PARSING)
+    {
+        if (name == "Meta")
+        {
+            return MTLSCommonNameParseMode::Meta;
+        }
+    }
+    return MTLSCommonNameParseMode::Invalid;
+}
+
 struct AuthConfigMethods
 {
+    // Authentication paths
     bool basic = BMCWEB_BASIC_AUTH;
     bool sessionToken = BMCWEB_SESSION_AUTH;
     bool xtoken = BMCWEB_XTOKEN_AUTH;
     bool cookie = BMCWEB_COOKIE_AUTH;
     bool tls = BMCWEB_MUTUAL_TLS_AUTH;
 
-    void fromJson(const nlohmann::json& j)
-    {
-        for (const auto& element : j.items())
-        {
-            const bool* value = element.value().get_ptr<const bool*>();
-            if (value == nullptr)
-            {
-                continue;
-            }
+    // Whether or not unauthenticated TLS should be accepted
+    // true = reject connections if mutual tls is not provided
+    // false = allow connection, and allow user to use other auth method
+    // Always default to false, because root certificates will not
+    // be provisioned at startup
+    bool tlsStrict = false;
 
-            if (element.key() == "XToken")
+    MTLSCommonNameParseMode mTLSCommonNameParsingMode =
+        getMTLSCommonNameParseMode(
+            BMCWEB_MUTUAL_TLS_COMMON_NAME_PARSING_DEFAULT);
+
+    void fromJson(const nlohmann::json::object_t& j)
+    {
+        for (const auto& element : j)
+        {
+            const bool* value = element.second.get_ptr<const bool*>();
+            if (value != nullptr)
             {
-                xtoken = *value;
+                if (element.first == "XToken")
+                {
+                    xtoken = *value;
+                }
+                else if (element.first == "Cookie")
+                {
+                    cookie = *value;
+                }
+                else if (element.first == "SessionToken")
+                {
+                    sessionToken = *value;
+                }
+                else if (element.first == "BasicAuth")
+                {
+                    basic = *value;
+                }
+                else if (element.first == "TLS")
+                {
+                    tls = *value;
+                }
+                else if (element.first == "TLSStrict")
+                {
+                    tlsStrict = *value;
+                }
             }
-            else if (element.key() == "Cookie")
+            const uint64_t* intValue =
+                element.second.get_ptr<const uint64_t*>();
+            if (intValue != nullptr)
             {
-                cookie = *value;
-            }
-            else if (element.key() == "SessionToken")
-            {
-                sessionToken = *value;
-            }
-            else if (element.key() == "BasicAuth")
-            {
-                basic = *value;
-            }
-            else if (element.key() == "TLS")
-            {
-                tls = *value;
+                if (element.first == "MTLSCommonNameParseMode")
+                {
+                    if (*intValue <= 2 || *intValue == 100)
+                    {
+                        mTLSCommonNameParsingMode =
+                            static_cast<MTLSCommonNameParseMode>(*intValue);
+                    }
+                    else
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "Json value of {} was out of range of the enum.  Ignoring",
+                            *intValue);
+                    }
+                }
             }
         }
     }
@@ -184,57 +266,21 @@ class SessionStore
   public:
     std::shared_ptr<UserSession> generateUserSession(
         std::string_view username, const boost::asio::ip::address& clientIp,
-        const std::optional<std::string>& clientId,
-        PersistenceType persistence = PersistenceType::TIMEOUT,
+        const std::optional<std::string>& clientId, SessionType sessionType,
         bool isConfigureSelfOnly = false)
     {
-        // TODO(ed) find a secure way to not generate session identifiers if
-        // persistence is set to SINGLE_REQUEST
-        static constexpr std::array<char, 62> alphanum = {
-            '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C',
-            'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P',
-            'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c',
-            'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p',
-            'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'};
-
-        std::string sessionToken;
-        sessionToken.resize(sessionTokenSize, '0');
-        std::uniform_int_distribution<size_t> dist(0, alphanum.size() - 1);
-
-        bmcweb::OpenSSLGenerator gen;
-
-        for (char& sessionChar : sessionToken)
-        {
-            sessionChar = alphanum[dist(gen)];
-            if (gen.error())
-            {
-                return nullptr;
-            }
-        }
         // Only need csrf tokens for cookie based auth, token doesn't matter
-        std::string csrfToken;
-        csrfToken.resize(sessionTokenSize, '0');
-        for (char& csrfChar : csrfToken)
+        std::string sessionToken =
+            bmcweb::getRandomIdOfLength(sessionTokenSize);
+        std::string csrfToken = bmcweb::getRandomIdOfLength(sessionTokenSize);
+        std::string uniqueId = bmcweb::getRandomIdOfLength(10);
+        //
+        if (sessionToken.empty() || csrfToken.empty() || uniqueId.empty())
         {
-            csrfChar = alphanum[dist(gen)];
-            if (gen.error())
-            {
-                return nullptr;
-            }
+            BMCWEB_LOG_ERROR("Failed to generate session tokens");
+            return nullptr;
         }
 
-        std::string uniqueId;
-        uniqueId.resize(10, '0');
-        for (char& uidChar : uniqueId)
-        {
-            uidChar = alphanum[dist(gen)];
-            if (gen.error())
-            {
-                return nullptr;
-            }
-        }
-
-        std::string sessionType = "WebUI";
         auto session = std::make_shared<UserSession>(
             UserSession{uniqueId,
                         sessionToken,
@@ -242,16 +288,16 @@ class SessionStore
                         csrfToken,
                         clientId,
                         redfish::ip_util::toString(clientIp),
-                        sessionType,
                         std::chrono::steady_clock::now(),
-                        persistence,
+                        sessionType,
                         false,
                         isConfigureSelfOnly,
                         "",
                         {}});
         auto it = authTokens.emplace(sessionToken, session);
         // Only need to write to disk if session isn't about to be destroyed.
-        needWrite = persistence == PersistenceType::TIMEOUT;
+        needWrite = sessionType != SessionType::Basic &&
+                    sessionType != SessionType::MutualTLS;
         return it.first->second;
     }
 
@@ -295,22 +341,44 @@ class SessionStore
         needWrite = true;
     }
 
-    std::vector<const std::string*> getUniqueIds(
-        bool getAll = true,
-        const PersistenceType& type = PersistenceType::SINGLE_REQUEST)
+    std::vector<std::string> getAllUniqueIds()
     {
         applySessionTimeouts();
-
-        std::vector<const std::string*> ret;
+        std::vector<std::string> ret;
         ret.reserve(authTokens.size());
         for (auto& session : authTokens)
         {
-            if (getAll || type == session.second->persistence)
+            ret.push_back(session.second->uniqueId);
+        }
+        return ret;
+    }
+
+    std::vector<std::string> getUniqueIdsBySessionType(SessionType type)
+    {
+        applySessionTimeouts();
+
+        std::vector<std::string> ret;
+        ret.reserve(authTokens.size());
+
+        for (auto& session : authTokens)
+        {
+            if (type == session.second->sessionType)
             {
-                ret.push_back(&session.second->uniqueId);
+                ret.push_back(session.second->uniqueId);
             }
         }
         return ret;
+    }
+
+    std::vector<std::shared_ptr<UserSession>> getSessions()
+    {
+        std::vector<std::shared_ptr<UserSession>> sessions;
+        sessions.reserve(authTokens.size());
+        for (auto& session : authTokens)
+        {
+            sessions.push_back(session.second);
+        }
+        return sessions;
     }
 
     void removeSessionsByUsername(std::string_view username)

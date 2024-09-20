@@ -16,6 +16,7 @@
 #pragma once
 
 #include "app.hpp"
+#include "boost_formatters.hpp"
 #include "certificate_service.hpp"
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
@@ -23,6 +24,7 @@
 #include "persistent_data.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
+#include "sessions.hpp"
 #include "utils/collection.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/json_utils.hpp"
@@ -348,9 +350,10 @@ inline void
         // logged.
         return;
     }
-    setDbusProperty(asyncResp, "xyz.openbmc_project.User.Manager",
-                    dbusObjectPath, "xyz.openbmc_project.User.Attributes",
-                    "UserGroups", "AccountTypes", updatedUserGroups);
+    setDbusProperty(asyncResp, "AccountTypes",
+                    "xyz.openbmc_project.User.Manager", dbusObjectPath,
+                    "xyz.openbmc_project.User.Attributes", "UserGroups",
+                    updatedUserGroups);
 }
 
 inline void userErrorMessageHandler(
@@ -457,12 +460,14 @@ inline void handleRoleMapPatch(
     {
         for (size_t j = i + 1; j < input.size(); ++j)
         {
-           if (input[i].index() == 0 && input[j].index() == 0)
+            if (input[i].index() == 0 && input[j].index() == 0)
             {
-               if( std::get<nlohmann::json::object_t>(input[i]) == std::get<nlohmann::json::object_t>(input[j]))
-               {
-                  asyncResp->res.result(boost::beast::http::status::bad_request);
-                   return ; // Indicating a bad request
+                if (std::get<nlohmann::json::object_t>(input[i]) ==
+                    std::get<nlohmann::json::object_t>(input[j]))
+                {
+                    asyncResp->res.result(
+                        boost::beast::http::status::bad_request);
+                    return; // Indicating a bad request
                 }
             }
         }
@@ -562,6 +567,15 @@ inline void handleRoleMapPatch(
                 // If "LocalRole" info is provided
                 if (localRole)
                 {
+                    std::string priv = getPrivilegeFromRoleId(*localRole);
+                    if (priv.empty())
+                    {
+                        messages::propertyValueNotInList(
+                            asyncResp->res, *localRole,
+                            std::format("RemoteRoleMapping/{}/LocalRole",
+                                        index));
+                        return;
+                    }
                     sdbusplus::asio::setProperty(
                         *crow::connections::systemBus, ldapDbusService,
                         roleMapObjData[index].first,
@@ -910,6 +924,10 @@ inline void
                                 ["Username"] = username;
         BMCWEB_LOG_DEBUG("Updated the username");
     });
+    setDbusProperty(asyncResp,
+                    ldapServerElementName + "/Authentication/Username",
+                    ldapDbusService, ldapConfigObject, ldapConfigInterface,
+                    "LDAPBindDN", username);
 }
 
 /**
@@ -1406,7 +1424,7 @@ inline void updateUserProperties(
 
         if (password)
         {
-            int pamrc = pamAuthenticateUser(username, *password);
+            int pamrc = pamAuthenticateUser(username, *password, std::nullopt);
             if ((pamrc == PAM_NEW_AUTHTOK_REQD))
             {
                 isDuplicateCreated = false;
@@ -1446,10 +1464,10 @@ inline void updateUserProperties(
 
         if (enabled)
         {
-            setDbusProperty(asyncResp, "xyz.openbmc_project.User.Manager",
-                            dbusObjectPath,
+            setDbusProperty(asyncResp, "Enabled",
+                            "xyz.openbmc_project.User.Manager", dbusObjectPath,
                             "xyz.openbmc_project.User.Attributes",
-                            "UserEnabled", "Enabled", *enabled);
+                            "UserEnabled", *enabled);
             isDuplicateCreated = true;
         }
 
@@ -1472,10 +1490,10 @@ inline void updateUserProperties(
                                                  "Locked");
                 return;
             }
-            setDbusProperty(asyncResp, "xyz.openbmc_project.User.Manager",
-                            dbusObjectPath,
+            setDbusProperty(asyncResp, "RoleId",
+                            "xyz.openbmc_project.User.Manager", dbusObjectPath,
                             "xyz.openbmc_project.User.Attributes",
-                            "UserPrivilege", "RoleId", priv);
+                            "UserPrivilege", priv);
             isDuplicateCreated = true;
         }
 
@@ -1490,10 +1508,10 @@ inline void updateUserProperties(
                                                  "Locked");
                 return;
             }
-            setDbusProperty(asyncResp, "xyz.openbmc_project.User.Manager",
-                            dbusObjectPath,
+            setDbusProperty(asyncResp, "Locked",
+                            "xyz.openbmc_project.User.Manager", dbusObjectPath,
                             "xyz.openbmc_project.User.Attributes",
-                            "UserLockedForFailedAttempt", "Locked", *locked);
+                            "UserLockedForFailedAttempt", *locked);
         }
 
         if (accountTypes)
@@ -1649,6 +1667,45 @@ inline void handleAccountServiceClientCertificatesGet(
     getClientCertificates(asyncResp, "/Members"_json_pointer);
 }
 
+using account_service::CertificateMappingAttribute;
+using persistent_data::MTLSCommonNameParseMode;
+inline CertificateMappingAttribute
+    getCertificateMapping(MTLSCommonNameParseMode parse)
+{
+    switch (parse)
+    {
+        case MTLSCommonNameParseMode::CommonName:
+        {
+            return CertificateMappingAttribute::CommonName;
+        }
+        break;
+        case MTLSCommonNameParseMode::Whole:
+        {
+            return CertificateMappingAttribute::Whole;
+        }
+        break;
+        case MTLSCommonNameParseMode::UserPrincipalName:
+        {
+            return CertificateMappingAttribute::UserPrincipalName;
+        }
+        break;
+
+        case MTLSCommonNameParseMode::Meta:
+        {
+            if constexpr (BMCWEB_META_TLS_COMMON_NAME_PARSING)
+            {
+                return CertificateMappingAttribute::CommonName;
+            }
+        }
+        break;
+        default:
+        {
+            return CertificateMappingAttribute::Invalid;
+        }
+        break;
+    }
+}
+
 inline void
     handleAccountServiceGet(App& app, const crow::Request& req,
                             const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
@@ -1692,9 +1749,21 @@ inline void
 
     nlohmann::json::object_t clientCertificate;
     clientCertificate["Enabled"] = authMethodsConfig.tls;
-    clientCertificate["RespondToUnauthenticatedClients"] = true;
-    clientCertificate["CertificateMappingAttribute"] =
-        account_service::CertificateMappingAttribute::CommonName;
+    clientCertificate["RespondToUnauthenticatedClients"] =
+        !authMethodsConfig.tlsStrict;
+
+    using account_service::CertificateMappingAttribute;
+
+    CertificateMappingAttribute mapping =
+        getCertificateMapping(authMethodsConfig.mTLSCommonNameParsingMode);
+    if (mapping == CertificateMappingAttribute::Invalid)
+    {
+        messages::internalError(asyncResp->res);
+    }
+    else
+    {
+        clientCertificate["CertificateMappingAttribute"] = mapping;
+    }
     nlohmann::json::object_t certificates;
     certificates["@odata.id"] =
         "/redfish/v1/AccountService/MultiFactorAuth/ClientCertificate/Certificates";
@@ -1824,9 +1893,59 @@ inline void
             messages::internalError(asyncResp->res);
             return;
         }
-        },
+    },
         "xyz.openbmc_project.User.Manager", "/xyz/openbmc_project/user",
         "xyz.openbmc_project.User.AccountPolicy", "GetPamOrder");
+}
+
+inline void
+    handleCertificateMappingAttributePatch(crow::Response& res,
+                                           const std::string& certMapAttribute)
+{
+    MTLSCommonNameParseMode parseMode =
+        persistent_data::getMTLSCommonNameParseMode(certMapAttribute);
+    if (parseMode == MTLSCommonNameParseMode::Invalid)
+    {
+        messages::propertyValueNotInList(res, "CertificateMappingAttribute",
+                                         certMapAttribute);
+        return;
+    }
+
+    persistent_data::AuthConfigMethods& authMethodsConfig =
+        persistent_data::SessionStore::getInstance().getAuthMethodsConfig();
+    authMethodsConfig.mTLSCommonNameParsingMode = parseMode;
+}
+
+inline void handleRespondToUnauthenticatedClientsPatch(
+    App& app, const crow::Request& req, crow::Response& res,
+    bool respondToUnauthenticatedClients)
+{
+    if (req.session != nullptr)
+    {
+        // Sanity check.  If the user isn't currently authenticated with mutual
+        // TLS, they very likely are about to permanently lock themselves out.
+        // Make sure they're using mutual TLS before allowing locking.
+        if (req.session->sessionType != persistent_data::SessionType::MutualTLS)
+        {
+            messages::propertyValueExternalConflict(
+                res,
+                "MultiFactorAuth/ClientCertificate/RespondToUnauthenticatedClients",
+                respondToUnauthenticatedClients);
+            return;
+        }
+    }
+
+    persistent_data::AuthConfigMethods& authMethodsConfig =
+        persistent_data::SessionStore::getInstance().getAuthMethodsConfig();
+
+    // Change the settings
+    authMethodsConfig.tlsStrict = !respondToUnauthenticatedClients;
+
+    // Write settings to disk
+    persistent_data::getConfig().writeData();
+
+    // Trigger a reload, to apply the new settings to new connections
+    app.loadCertificate();
 }
 
 inline void handleAccountServicePatch(
@@ -1842,6 +1961,8 @@ inline void handleAccountServicePatch(
     std::optional<uint8_t> minPasswordLength;
     std::optional<uint16_t> maxPasswordLength;
     LdapPatchParams ldapObject;
+    std::optional<std::string> certificateMappingAttribute;
+    std::optional<bool> respondToUnauthenticatedClients;
     LdapPatchParams activeDirectoryObject;
     AuthMethods auth;
     std::optional<std::string> httpBasicAuth;
@@ -1864,6 +1985,8 @@ inline void handleAccountServicePatch(
             "ActiveDirectory/RemoteRoleMapping", activeDirectoryObject.remoteRoleMapData,
             "ActiveDirectory/ServiceAddresses", activeDirectoryObject.serviceAddressList,
             "ActiveDirectory/ServiceEnabled", activeDirectoryObject.serviceEnabled,
+            "MultiFactorAuth/ClientCertificate/CertificateMappingAttribute", certificateMappingAttribute,
+            "MultiFactorAuth/ClientCertificate/RespondToUnauthenticatedClients", respondToUnauthenticatedClients,
             "LDAP/Authentication/AuthenticationType", ldapObject.authType,
             "LDAP/Authentication/Password", ldapObject.password,
             "LDAP/Authentication/Username", ldapObject.userName,
@@ -1921,13 +2044,25 @@ inline void handleAccountServicePatch(
         return;
     }
 
+    if (respondToUnauthenticatedClients)
+    {
+        handleRespondToUnauthenticatedClientsPatch(
+            app, req, asyncResp->res, *respondToUnauthenticatedClients);
+    }
+
+    if (certificateMappingAttribute)
+    {
+        handleCertificateMappingAttributePatch(asyncResp->res,
+                                               *certificateMappingAttribute);
+    }
+
     if (minPasswordLength)
     {
         setDbusProperty(
-            asyncResp, "xyz.openbmc_project.User.Manager",
+            asyncResp, "MinPasswordLength", "xyz.openbmc_project.User.Manager",
             sdbusplus::message::object_path("/xyz/openbmc_project/user"),
             "xyz.openbmc_project.User.AccountPolicy", "MinPasswordLength",
-            "MinPasswordLength", *minPasswordLength);
+            *minPasswordLength);
     }
 
     if (maxPasswordLength)
@@ -2002,8 +2137,7 @@ inline void handleAccountServicePatch(
                 messages::success(asyncResp->res);
                 return;
             }
-            },
-            "xyz.openbmc_project.User.Manager", "/xyz/openbmc_project/user",
+        }, "xyz.openbmc_project.User.Manager", "/xyz/openbmc_project/user",
             "xyz.openbmc_project.User.AccountPolicy", "SetPamOrder", value);
     }
 
@@ -2026,19 +2160,20 @@ inline void handleAccountServicePatch(
         }*/
 
         setDbusProperty(
-            asyncResp, "xyz.openbmc_project.User.Manager",
+            asyncResp, "AccountLockoutDuration",
+            "xyz.openbmc_project.User.Manager",
             sdbusplus::message::object_path("/xyz/openbmc_project/user"),
             "xyz.openbmc_project.User.AccountPolicy", "AccountUnlockTimeout",
-            "AccountLockoutDuration", *unlockTimeout);
+            *unlockTimeout);
     }
     if (lockoutThreshold)
     {
         setDbusProperty(
-            asyncResp, "xyz.openbmc_project.User.Manager",
+            asyncResp, "AccountLockoutThreshold",
+            "xyz.openbmc_project.User.Manager",
             sdbusplus::message::object_path("/xyz/openbmc_project/user"),
             "xyz.openbmc_project.User.AccountPolicy",
-            "MaxLoginAttemptBeforeLockout", "AccountLockoutThreshold",
-            *lockoutThreshold);
+            "MaxLoginAttemptBeforeLockout", *lockoutThreshold);
     }
 }
 
@@ -2171,10 +2306,11 @@ inline void handleAccountCollectionGet(
                 }
                 else
                 {
-                    BMCWEB_LOG_DEBUG("Add the HostInterface User in Accounts Collection");
+                    BMCWEB_LOG_DEBUG(
+                        "Add the HostInterface User in Accounts Collection");
                     memberArray.push_back(
-                            {{"@odata.id",
-                              "/redfish/v1/AccountService/Accounts/" + user}});
+                        {{"@odata.id",
+                          "/redfish/v1/AccountService/Accounts/" + user}});
                 }
                 asyncResp->res.jsonValue["Members@odata.count"] =
                     memberArray.size();
@@ -2411,11 +2547,10 @@ inline void handleAccountCollectionPost(
                 const std::vector<std::string>& allGroupsList) {
         if (ec)
         {
-            BMCWEB_LOG_DEBUG("ERROR with async_method_call");
+            BMCWEB_LOG_ERROR("D-Bus response error {}", ec);
             messages::internalError(asyncResp->res);
             return;
         }
-
         if (allGroupsList.empty())
         {
             messages::internalError(asyncResp->res);
@@ -2703,9 +2838,8 @@ inline void
     sdbusplus::message::object_path path("/xyz/openbmc_project/user");
     dbus::utility::getManagedObjects(
         "xyz.openbmc_project.User.Manager", path,
-        [asyncResp, username](
-            const boost::system::error_code& ec,
-            const dbus::utility::ManagedObjectType& users) {
+        [asyncResp, username](const boost::system::error_code& ec,
+                              const dbus::utility::ManagedObjectType& users) {
         if (ec)
         {
             messages::internalError(asyncResp->res);

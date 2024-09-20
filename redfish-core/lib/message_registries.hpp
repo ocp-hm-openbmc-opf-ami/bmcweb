@@ -25,6 +25,7 @@
 #include "registries/privilege_registry.hpp"
 #include "registries/resource_event_message_registry.hpp"
 #include "registries/task_event_message_registry.hpp"
+#include "registries/telemetry_message_registry.hpp"
 
 #include <boost/url/format.hpp>
 
@@ -50,12 +51,12 @@ inline void handleMessageRegistryFileCollectionGet(
     asyncResp->res.jsonValue["Name"] = "MessageRegistryFile Collection";
     asyncResp->res.jsonValue["Description"] =
         "Collection of MessageRegistryFiles";
-    asyncResp->res.jsonValue["Members@odata.count"] = 6;
+    asyncResp->res.jsonValue["Members@odata.count"] = 7;
 
     nlohmann::json& members = asyncResp->res.jsonValue["Members"];
     for (const char* memberName :
          std::to_array({"Base", "TaskEvent", "NodeManager", "ResourceEvent",
-                        "BiosAttributeRegistry", "OpenBMC"}))
+                        "BiosAttributeRegistry", "OpenBMC", "Telemetry"}))
     {
         nlohmann::json::object_t member;
         member["@odata.id"] = boost::urls::format("/redfish/v1/Registries/{}",
@@ -199,6 +200,23 @@ inline void handleMessageRoutesMessageRegistryFileGet(
                 registryVal = 1;
         }
     }
+    else if (registry == "Telemetry" || registryName == "Telemetry")
+    {
+        header = &registries::telemetry::header;
+        url = registries::telemetry::url;
+         Val= header->id;
+        if(registry == "Telemetry"){
+                registryVal = 0;
+        }
+        else if (registry == Val + ".json")
+        {
+                for (const registries::MessageEntry& entry : registries::telemetry::registry)
+                {
+                        registryEntries.emplace_back(&entry);
+                }
+                registryVal = 1;
+        }
+    }
     else
     {
         messages::resourceNotFound(asyncResp->res, "MessageRegistryFile",
@@ -282,5 +300,4 @@ inline void requestRoutesMessageRegistryFile(App& app)
         .methods(boost::beast::http::verb::get)(std::bind_front(
             handleMessageRoutesMessageRegistryFileGet, std::ref(app)));
 }
-
 } // namespace redfish

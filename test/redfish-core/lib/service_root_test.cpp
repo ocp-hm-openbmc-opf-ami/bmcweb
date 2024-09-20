@@ -8,14 +8,8 @@
 
 #include <memory>
 
-#include <gmock/gmock.h> // IWYU pragma: keep
-#include <gtest/gtest.h> // IWYU pragma: keep
-
-// IWYU pragma: no_include <gtest/gtest-message.h>
-// IWYU pragma: no_include <gtest/gtest-test-part.h>
-// IWYU pragma: no_include "gtest/gtest_pred_impl.h"
-// IWYU pragma: no_include <gmock/gmock-matchers.h>
-// IWYU pragma: no_include <gtest/gtest-matchers.h>
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
 
 namespace redfish
 {
@@ -109,7 +103,17 @@ void assertServiceRootGet(crow::Response& res)
     EXPECT_FALSE(
         json["ProtocolFeaturesSupported"]["DeepOperations"]["DeepPATCH"]);
     EXPECT_EQ(json["ProtocolFeaturesSupported"]["DeepOperations"].size(), 2);
-    EXPECT_EQ(json.size(), 21);
+
+    size_t expectedSize = 21;
+
+    if (BMCWEB_REDFISH_AGGREGATION)
+    {
+        EXPECT_EQ(json["AggregationService"]["@odata.id"],
+                  "/redfish/v1/AggregationService");
+        expectedSize++;
+    }
+
+    EXPECT_EQ(json.size(), expectedSize);
 }
 
 TEST(HandleServiceRootGet, ServiceRootStaticAttributesAreExpected)

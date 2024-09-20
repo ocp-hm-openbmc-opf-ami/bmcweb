@@ -93,6 +93,14 @@ enum class TransferProtocolType{
     OEM,
 };
 
+enum class AutoClearResolvedEntries{
+    Invalid,
+    ClearEventGroup,
+    RetainCauseResolutionEntries,
+    UpdateCauseEntry,
+    None,
+};
+
 NLOHMANN_JSON_SERIALIZE_ENUM(OverWritePolicy, {
     {OverWritePolicy::Invalid, "Invalid"},
     {OverWritePolicy::Unknown, "Unknown"},

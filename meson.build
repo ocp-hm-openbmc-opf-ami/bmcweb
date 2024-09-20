@@ -2,7 +2,7 @@ project(
     'bmcweb',
     'cpp',
     version: '1.0',
-    meson_version: '>=0.63.0',
+    meson_version: '>=1.3.0',
     default_options: [
         'b_lto_mode=default',
         'b_lto_threads=0',
@@ -10,7 +10,7 @@ project(
         'b_ndebug=if-release',
         'buildtype=debugoptimized',
         'cpp_rtti=false',
-        'cpp_std=c++20',
+        'cpp_std=c++23',
         'warning_level=3',
         'werror=true',
     ],
@@ -25,8 +25,8 @@ summary('Issues', project_issues_url, section: 'Report Issues')
 
 # Validate the c++ Standard
 
-if get_option('cpp_std') != 'c++20'
-    error('This project requires c++20 support')
+if get_option('cpp_std') != 'c++23'
+    error('This project requires c++23 support')
 endif
 
 # Get compiler and default build type
@@ -39,7 +39,10 @@ summary('Optimization', optimization, section: 'Build Info')
 
 # remove debug information for minsize buildtype
 if (get_option('buildtype') == 'minsize')
-    add_project_arguments(['-fdata-sections', '-ffunction-sections'], language: 'cpp')
+    add_project_arguments(
+        ['-fdata-sections', '-ffunction-sections'],
+        language: 'cpp',
+    )
     add_project_arguments('-DNDEBUG', language: 'cpp')
 endif
 
@@ -55,7 +58,12 @@ endif
 
 # Include Directories
 
-incdir = include_directories('include', 'redfish-core/include', 'redfish-core/lib', 'http')
+incdir = include_directories(
+    'include',
+    'redfish-core/include',
+    'redfish-core/lib',
+    'http',
+)
 
 if (get_option('tests').allowed())
     summary('unittest', 'NA', section: 'Features')
@@ -115,7 +123,7 @@ endif
 
 if (get_option('buildtype') != 'plain')
     if (get_option('b_lto') == true and get_option('optimization') != '0')
-        # Reduce the binary size by removing unnecessary
+# Reduce the binary size by removing unnecessary
         # dynamic symbol table entries
 
         add_project_arguments(
@@ -147,11 +155,13 @@ security_flags = [
 
 ## Add security flags for builds of type 'release','debugoptimized' and 'minsize'
 
-if not (
-    get_option('buildtype') == 'plain'
-    or get_option('buildtype').startswith('debug')
+if not (get_option('buildtype') == 'plain'
+or get_option('buildtype').startswith('debug')
 )
-    add_project_arguments(cxx.get_supported_arguments([security_flags]), language: 'cpp')
+    add_project_arguments(
+        cxx.get_supported_arguments([security_flags]),
+        language: 'cpp',
+    )
 endif
 
 # Boost dependency configuration
@@ -205,10 +215,7 @@ if not nghttp2.found()
     cmake = import('cmake')
     opt_var = cmake.subproject_options()
     opt_var.add_cmake_defines(
-        {
-            'ENABLE_LIB_ONLY': true,
-            'ENABLE_STATIC_LIB': true,
-        },
+        {'ENABLE_LIB_ONLY': true, 'ENABLE_STATIC_LIB': true},
     )
     nghttp2_ex = cmake.subproject('nghttp2', options: opt_var)
     nghttp2 = nghttp2_ex.dependency('nghttp2')
@@ -237,17 +244,22 @@ endif
 bmcweb_dependencies += tinyxml
 
 systemd = dependency('systemd')
-zlib = dependency('zlib')
-bmcweb_dependencies += [systemd, zlib]
+libsystemd = dependency('libsystemd')
+add_project_arguments('-DLIBSYSTEMD_VERSION=' + libsystemd.version(), language: 'cpp')
 
-nlohmann_json_dep = dependency('nlohmann_json', version: '>=3.11.2', include_type: 'system')
+zlib = dependency('zlib')
+bmcweb_dependencies += [libsystemd, zlib]
+
+nlohmann_json_dep = dependency(
+    'nlohmann_json',
+    version: '>=3.11.2',
+    include_type: 'system',
+)
 bmcweb_dependencies += nlohmann_json_dep
 
 boost = dependency(
     'boost',
-    modules: [
-        'url',
-    ],
+    modules: ['url'],
     version: '>=1.84.0',
     required: false,
     include_type: 'system',
@@ -259,6 +271,8 @@ else
     opt = cmake.subproject_options()
     opt.add_cmake_defines(
         {
+# 1.86.0 fails this.  Hopefully fixed in 1.86.1
+            'CMAKE_CXX_FLAGS': '-Wno-unused-parameter',
             'BOOST_INCLUDE_LIBRARIES': 'asio;beast;callable_traits;headers;process;type_index;url;uuid',
             'BUILD_SHARED_LIBS': 'OFF',
         },
@@ -316,10 +330,10 @@ summary(
     section: 'Directories',
 )
 
-install_subdir('static', install_dir: 'share/www', strip_directory: true, follow_symlinks: true)
+subdir('static')
+subdir('redfish-core')
 
 # Config subdirectory
-
 subdir('config')
 bmcweb_dependencies += conf_h_dep
 
@@ -327,7 +341,7 @@ bmcweb_dependencies += conf_h_dep
 fs = import('fs')
 
 srcfiles_bmcweb = files(
-    # end large files
+# end large files
 
     'redfish-core/src/error_messages.cpp',
     # Begin large files, should be at the beginning
@@ -389,6 +403,7 @@ srcfiles_unittest = files(
     'test/include/multipart_test.cpp',
     'test/include/openbmc_dbus_rest_test.cpp',
     'test/include/ossl_random.cpp',
+    'test/include/ssl_key_handler_test.cpp',
     'test/include/str_utility_test.cpp',
     'test/redfish-core/include/privileges_test.cpp',
     'test/redfish-core/include/redfish_aggregator_test.cpp',
@@ -398,23 +413,24 @@ srcfiles_unittest = files(
     'test/redfish-core/include/utils/ip_utils_test.cpp',
     'test/redfish-core/include/utils/json_utils_test.cpp',
     'test/redfish-core/include/utils/query_param_test.cpp',
+    'test/redfish-core/include/utils/sensor_utils_test.cpp',
     'test/redfish-core/include/utils/stl_utils_test.cpp',
     'test/redfish-core/include/utils/time_utils_test.cpp',
     'test/redfish-core/lib/chassis_test.cpp',
     'test/redfish-core/lib/log_services_dump_test.cpp',
-    'test/redfish-core/lib/log_services_test.cpp',
     'test/redfish-core/lib/manager_diagnostic_data_test.cpp',
+    'test/redfish-core/lib/manager_logservices_journal_test.cpp',
     'test/redfish-core/lib/metadata_test.cpp',
     'test/redfish-core/lib/power_subsystem_test.cpp',
-    'test/redfish-core/lib/sensors_test.cpp',
     'test/redfish-core/lib/service_root_test.cpp',
     'test/redfish-core/lib/system_test.cpp',
+    'test/redfish-core/lib/systems_logservices_postcode.cpp',
     'test/redfish-core/lib/thermal_subsystem_test.cpp',
     'test/redfish-core/lib/update_service_test.cpp',
 )
 
 if (get_option('tests').allowed())
-    # generate the test executable
+# generate the test executable
     foreach test_src : srcfiles_unittest
         test_bin = executable(
             fs.stem(test_src),
@@ -422,11 +438,7 @@ if (get_option('tests').allowed())
             link_with: bmcweblib,
             include_directories: incdir,
             install_dir: bindir,
-            dependencies: bmcweb_dependencies
-            + [
-                gtest,
-                gmock,
-            ],
+            dependencies: bmcweb_dependencies + [gtest, gmock],
         )
         test(fs.stem(test_src), test_bin)
     endforeach

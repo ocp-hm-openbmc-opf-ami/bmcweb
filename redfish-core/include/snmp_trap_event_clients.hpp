@@ -5,6 +5,7 @@
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
 #include "event_service_manager.hpp"
+#include "generated/enums/event_destination.hpp"
 #include "http_request.hpp"
 #include "http_response.hpp"
 #include "logging.hpp"
@@ -86,8 +87,8 @@ inline void
     asyncResp->res.jsonValue["Id"] = id;
     asyncResp->res.jsonValue["Name"] = "Event Destination";
 
-    asyncResp->res.jsonValue["SubscriptionType"] = "SNMPTrap";
-    asyncResp->res.jsonValue["EventFormatType"] = "Event";
+    asyncResp->res.jsonValue["SubscriptionType"] = event_destination::SubscriptionType::SNMPTrap;
+    asyncResp->res.jsonValue["EventFormatType"] = event_destination::EventFormatType::Event;
 
     std::shared_ptr<Subscription> subValue =
         EventServiceManager::getInstance().getSubscription(id);

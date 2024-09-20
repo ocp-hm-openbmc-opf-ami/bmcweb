@@ -1,15 +1,16 @@
 #pragma once
 
 #include "app.hpp"
+#include "generated/enums/metric_definition.hpp"
 #include "generated/enums/resource.hpp"
 #include "generated/enums/triggers.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
-#include "sensors.hpp"
 #include "utility.hpp"
 #include "utils/collection.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/json_utils.hpp"
+#include "utils/sensor_utils.hpp"
 #include "utils/telemetry_utils.hpp"
 #include "utils/time_utils.hpp"
 
@@ -567,7 +568,7 @@ inline bool parseMetricProperties(crow::Response& res, Context& ctx)
         }
 
         std::pair<std::string, std::string> split =
-            splitSensorNameAndType(sensorName);
+            redfish::sensor_utils::splitSensorNameAndType(sensorName);
         if (split.first.empty() || split.second.empty())
         {
             messages::propertyValueIncorrect(
@@ -900,7 +901,7 @@ inline bool fillTrigger(
             json["DiscreteTriggers"] = *discreteTriggers;
             json["DiscreteTriggerCondition"] =
                 discreteTriggers->empty() ? "Changed" : "Specified";
-            json["MetricType"] = "Discrete";
+            json["MetricType"] = metric_definition::MetricType::Discrete;
         }
         else
         {
@@ -916,7 +917,7 @@ inline bool fillTrigger(
             }
 
             json["NumericThresholds"] = *numericThresholds;
-            json["MetricType"] = "Numeric";
+            json["MetricType"] = metric_definition::MetricType::Numeric;
         }
     }
 
@@ -982,7 +983,7 @@ inline void requestRoutesTriggerCollection(App& app)
         asyncResp->res.jsonValue["@odata.id"] =
             "/redfish/v1/TelemetryService/Triggers";
         asyncResp->res.jsonValue["Name"] = "Triggers Collection";
-	asyncResp->res.jsonValue["Description"] = "Triggers Collection";
+        asyncResp->res.jsonValue["Description"] = "Triggers Collection";
         constexpr std::array<std::string_view, 1> interfaces{
             telemetry::triggerInterface};
         collection_util::getCollectionMembers(
@@ -1065,9 +1066,8 @@ inline void requestRoutesTrigger(App& app)
             }
 
             asyncResp->res.result(boost::beast::http::status::no_content);
-        },
-            telemetry::service, triggerPath,
-            "xyz.openbmc_project.Object.Delete", "Delete");
+        }, telemetry::service, triggerPath, "xyz.openbmc_project.Object.Delete",
+            "Delete");
     });
 }
 

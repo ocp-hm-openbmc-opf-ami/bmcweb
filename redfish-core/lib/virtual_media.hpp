@@ -355,9 +355,9 @@ inline nlohmann::json vmItemTemplate(const std::string& name,
     item["WriteProtected"] = true;
     item["ConnectedVia"] = virtual_media::ConnectedVia::NotConnected;
     item["MediaTypes"] = nlohmann::json::array_t({"CD", "USBStick"});
-    item["TransferMethod"] = "Stream";
+    item["TransferMethod"] = virtual_media::TransferMethod::Stream;
     item["Oem"]["OpenBMC"]["@odata.type"] =
-        "#OemVirtualMedia.v1_0_0.VirtualMedia";
+        "#OpenBMCVirtualMedia.v1_0_0.VirtualMedia";
     item["Oem"]["OpenBMC"]["@odata.id"] = boost::urls::format(
         "/redfish/v1/Managers/{}/VirtualMedia/{}#/Oem/OpenBMC", name, resName);
 
@@ -620,9 +620,8 @@ static inline std::shared_ptr<MatchWrapper>
                     break;
                 case 22:
                 case 111:
-                    messages::actionParameterValueError(asyncResp->res,
-                                                        "UserName/Password",
-                                                        "InsertMedia");
+                    messages::actionParameterValueError(
+                        asyncResp->res, "UserName/Password", "InsertMedia");
                     break;
                 default:
                     BMCWEB_LOG_ERROR("Signal received: Other: {}", errorCode);
@@ -827,10 +826,11 @@ inline void validateParams(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         return;
     }
 
-    if(!paramTransferProtocolType)
+    if (!paramTransferProtocolType)
     {
-       messages::actionParameterMissing(asyncResp->res, "InsertMedia", "TransferProtocolType");
-       return;
+        messages::actionParameterMissing(asyncResp->res, "InsertMedia",
+                                         "TransferProtocolType");
+        return;
     }
 
     // transferProtocolType should contain value from list
@@ -998,7 +998,7 @@ inline void handleManagersVirtualMediaActionInsertPost(
 
         return;
     }
-    if((resName == "Slot_0" ) || (resName == "Slot_1"))
+    if ((resName == "Slot_0") || (resName == "Slot_1"))
     {
         messages::resourceNotFound(asyncResp->res, "Virtual Media", resName);
         return;
@@ -1173,7 +1173,8 @@ inline void handleManagersVirtualMediaCollectionGet(
     asyncResp->res.jsonValue["@odata.type"] =
         "#VirtualMediaCollection.VirtualMediaCollection";
     asyncResp->res.jsonValue["Name"] = "Virtual Media Services";
-    asyncResp->res.jsonValue["Description"] = "The Collection for Virtual Media Services";
+    asyncResp->res.jsonValue["Description"] =
+        "The Collection for Virtual Media Services";
     asyncResp->res.jsonValue["@odata.id"] =
         boost::urls::format("/redfish/v1/Managers/{}/VirtualMedia", name);
 
@@ -1240,10 +1241,10 @@ inline void
     });
 }
 
-inline void
-    handleVirtualMediaValueGet(crow::App& app, const crow::Request& req,
-                          const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                          const std::string& name, const std::string& resName)
+inline void handleVirtualMediaValueGet(
+    crow::App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& name, const std::string& resName)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -1298,7 +1299,7 @@ inline void insertMediaCheckMode(
 inline void requestNBDVirtualMediaRoutes(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/VirtualMedia/<str>/Actions/"
-                      "VirtualMedia.InsertMedia" )
+                      "VirtualMedia.InsertMedia")
         .privileges(redfish::privileges::getVirtualMedia)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleVirtualMediaValueGet, std::ref(app)));
@@ -1310,10 +1311,11 @@ inline void requestNBDVirtualMediaRoutes(App& app)
             []([[maybe_unused]] const crow::Request& req,
                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                const std::string& name, const std::string& resName) {
-	if((resName == "Slot_0") || (resName=="Slot_1"))
+        if ((resName == "Slot_0") || (resName == "Slot_1"))
         {
-                messages::resourceNotFound(asyncResp->res, "Virtual Media", resName);
-                return ;
+            messages::resourceNotFound(asyncResp->res, "Virtual Media",
+                                       resName);
+            return;
         }
         findItemAndRunHandler(asyncResp, name, resName, insertMediaCheckMode,
                               req);
@@ -1325,10 +1327,11 @@ inline void requestNBDVirtualMediaRoutes(App& app)
             []([[maybe_unused]] const crow::Request& req,
                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                const std::string& name, const std::string& resName) {
-	if((resName == "Slot_0") || (resName=="Slot_1"))
+        if ((resName == "Slot_0") || (resName == "Slot_1"))
         {
-                messages::resourceNotFound(asyncResp->res, "Virtual Media", resName);
-                return ;
+            messages::resourceNotFound(asyncResp->res, "Virtual Media",
+                                       resName);
+            return;
         }
         findItemAndRunHandler(asyncResp, name, resName, insertMediaCheckMode,
                               req);
@@ -1340,10 +1343,11 @@ inline void requestNBDVirtualMediaRoutes(App& app)
             []([[maybe_unused]] const crow::Request& req,
                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                const std::string& name, const std::string& resName) {
-	if((resName == "Slot_0") || (resName=="Slot_1"))
+        if ((resName == "Slot_0") || (resName == "Slot_1"))
         {
-                messages::resourceNotFound(asyncResp->res, "Virtual Media", resName);
-                return ;
+            messages::resourceNotFound(asyncResp->res, "Virtual Media",
+                                       resName);
+            return;
         }
         findItemAndRunHandler(asyncResp, name, resName, insertMediaCheckMode,
                               req);

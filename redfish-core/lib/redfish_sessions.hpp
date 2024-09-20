@@ -17,6 +17,7 @@
 
 #include "account_service.hpp"
 #include "app.hpp"
+#include "cookies.hpp"
 #include "error_messages.hpp"
 #include "http/utility.hpp"
 #include "persistent_data.hpp"
@@ -26,6 +27,9 @@
 #include "utils/json_utils.hpp"
 
 #include <boost/url/format.hpp>
+
+#include <string>
+#include <vector>
 
 namespace redfish
 {
@@ -41,20 +45,19 @@ std::vector<std::string> SessionProperties = {
     "KvmSessionInfo", "VmediaSessionInfo", "WebSessionInfo"};
 constexpr const char* DBUS_PROPERTY_IFACE = "org.freedesktop.DBus.Properties";
 
-using sessionInfo =
-    std::tuple<uint8_t, std::string, std::string, uint8_t, uint8_t, uint8_t, std::string>;
+using sessionInfo = std::tuple<uint8_t, std::string, std::string, uint8_t,
+                               uint8_t, uint8_t, std::string>;
 
 using sessionRet = std::vector<sessionInfo>;
 using propertyValue = std::variant<std::vector<sessionInfo>>;
 
-
 using privPropertyValue = std::variant<uint8_t, uint16_t, uint64_t, std::string,
-                                   std::vector<std::string>, bool>;
+                                       std::vector<std::string>, bool>;
 
 const privPropertyValue getRolePrivilege(const std::string& processName,
-                                 const std::string& objectPath,
-                                 const std::string& interfaceName,
-                                 const std::string& propertyName)
+                                         const std::string& objectPath,
+                                         const std::string& interfaceName,
+                                         const std::string& propertyName)
 {
     privPropertyValue value{};
 
@@ -67,7 +70,6 @@ const privPropertyValue getRolePrivilege(const std::string& processName,
     reply.read(value);
     return value;
 }
-
 
 std::string getRole(std::string role)
 {
@@ -146,15 +148,16 @@ inline void fillSessionObject(crow::Response& res,
     const char* processName = "xyz.openbmc_project.User.Manager";
     const char* interfaceName = "xyz.openbmc_project.User.Attributes";
     const char* propName = "UserPrivilege";
-    std::string objectPathStr = std::string("/xyz/openbmc_project/user/") + std::string(session.username);
+    std::string objectPathStr = std::string("/xyz/openbmc_project/user/") +
+                                std::string(session.username);
     const char* objectPath = objectPathStr.c_str();
-    
+
     auto value = getRolePrivilege(processName, objectPath, interfaceName,
-                                      propName);
+                                  propName);
     auto prive = std::get<std::string>(value);
-    
+
     roles.emplace_back(redfish::getRoleIdFromPrivilege(prive));
-    
+
     res.jsonValue["Roles"] = std::move(roles);
     res.jsonValue["@odata.id"] = boost::urls::format(
         "/redfish/v1/SessionService/Sessions/{}", session.uniqueId);
@@ -162,7 +165,6 @@ inline void fillSessionObject(crow::Response& res,
     res.jsonValue["Name"] = "User Session";
     res.jsonValue["Description"] = "Manager User Session";
     res.jsonValue["ClientOriginIPAddress"] = session.clientIp;
-    res.jsonValue["SessionType"] = session.sessionType;
     res.jsonValue["Oem"]["AMI_WebSession"]["@odata.id"] = boost::urls::format(
         "/redfish/v1/SessionService/Sessions/{}#/Oem/AMI_WebSession",
         session.uniqueId);
@@ -172,7 +174,7 @@ inline void fillSessionObject(crow::Response& res,
         static_cast<bool>(session.kvmConnections);
     res.jsonValue["Oem"]["AMI_WebSession"]["VmActive"] =
         nlohmann::json::array();
-    res.jsonValue["Oem"]["Ami"]["MountType"] ="";
+    res.jsonValue["Oem"]["Ami"]["MountType"] = "";
     for (const bool status : session.vmNbdActive)
     {
         res.jsonValue["Oem"]["AMI_WebSession"]["VmActive"].push_back(status);
@@ -239,9 +241,9 @@ inline void getSessionInfo(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
             int SessionType;
             int privilege;
             int UserId;
-	    std::string additionalConfigValue;
-            std::tie(id, IpAddess, userName, SessionType, privilege, UserId, additionalConfigValue) =
-                tuple;
+            std::string additionalConfigValue;
+            std::tie(id, IpAddess, userName, SessionType, privilege, UserId,
+                     additionalConfigValue) = tuple;
             if (SessId == id)
             {
                 found = true;
@@ -257,10 +259,11 @@ inline void getSessionInfo(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
                 asyncResp->res.jsonValue["Description"] =
                     "Manager User Session";
                 asyncResp->res.jsonValue["ClientOriginIPAddress"] = IpAddess;
-		asyncResp->res.jsonValue["Oem"]["Ami"]["MountType"] = additionalConfigValue;
-		asyncResp->res.jsonValue["SessionType"] =
+                asyncResp->res.jsonValue["Oem"]["Ami"]["MountType"] =
+                    additionalConfigValue;
+                asyncResp->res.jsonValue["SessionType"] =
                     getSessionType(SessionType);
-	        nlohmann::json::array_t roles;
+                nlohmann::json::array_t roles;
                 roles.emplace_back(getprivilege(privilege));
                 asyncResp->res.jsonValue["Roles"] = std::move(roles);
                 asyncResp->res.jsonValue["UserId"] = UserId;
@@ -444,15 +447,15 @@ inline void
         // Fetching sessionType with sessionId
         for (size_t i = 0; i < SessionInterfaces.size(); ++i)
         {
-            propertyValue data =
-                getSessiondata(SessionInterfaces[i], SessionProperties[i]);
+            propertyValue data = getSessiondata(SessionInterfaces[i],
+                                                SessionProperties[i]);
             if (std::holds_alternative<sessionRet>(data))
             {
                 sessionRet& vec = std::get<sessionRet>(data);
                 for (const auto& tuple : vec)
                 {
-		     uint8_t id = std::get<0>(tuple);
-                    uint8_t SessionType = std::get<3>(tuple);	
+                    uint8_t id = std::get<0>(tuple);
+                    uint8_t SessionType = std::get<3>(tuple);
                     if (SessId == id)
                     {
                         sessType = SessionType;
@@ -478,8 +481,7 @@ inline void
                 asyncResp->res.result(boost::beast::http::status::no_content);
                 return;
             }
-            },
-            SessionManagerService, SessionManagerObj,
+        }, SessionManagerService, SessionManagerObj,
             "xyz.openbmc_project.SessionManager", "SessionUnregister",
             static_cast<uint8_t>(SessId), static_cast<uint8_t>(sessType), 1);
 
@@ -506,6 +508,11 @@ inline void
                 messages::insufficientPrivilege(asyncResp->res);
                 return;
             }
+        }
+
+        if (session->cookieAuth)
+        {
+            bmcweb::clearSessionCookies(asyncResp->res);
         }
 
         persistent_data::SessionStore::getInstance().removeSession(session);
@@ -560,15 +567,14 @@ inline void
 
 inline nlohmann::json getSessionCollectionMembers()
 {
-    std::vector<const std::string*> sessionIds =
-        persistent_data::SessionStore::getInstance().getUniqueIds(
-            false, persistent_data::PersistenceType::TIMEOUT);
+    std::vector<std::string> sessionIds =
+        persistent_data::SessionStore::getInstance().getAllUniqueIds();
     nlohmann::json ret = nlohmann::json::array();
-    for (const std::string* uid : sessionIds)
+    for (const std::string& uid : sessionIds)
     {
         nlohmann::json::object_t session;
         session["@odata.id"] =
-            boost::urls::format("/redfish/v1/SessionService/Sessions/{}", *uid);
+            boost::urls::format("/redfish/v1/SessionService/Sessions/{}", uid);
         ret.emplace_back(std::move(session));
     }
     return ret;
@@ -601,7 +607,7 @@ inline void getSessions(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
                 {{"@odata.id", "/redfish/v1/SessionService/Sessions/session_" +
                                    std::to_string(value)}});
         }
-        });
+    });
 }
 
 inline void handleSessionCollectionHead(
@@ -706,33 +712,32 @@ inline void handleSessionCollectionPost(
     std::string username;
     std::string password;
     std::optional<std::string> clientId;
+    std::optional<std::string> token;
     if (!json_util::readJsonPatch(req, asyncResp->res, "UserName", username,
-                                  "Password", password, "Context", clientId))
+                                  "Password", password, "Token", token,
+                                  "Context", clientId))
     {
         return;
     }
-
     if (password.empty() || username.empty() ||
         asyncResp->res.result() != boost::beast::http::status::ok)
     {
         if (username.empty())
         {
             messages::resourceAtUriUnauthorized(asyncResp->res, req.url(),
-                                            "Invalid username ");
-
+                                                "Invalid username ");
         }
 
         if (password.empty())
         {
             messages::resourceAtUriUnauthorized(asyncResp->res, req.url(),
-                                            "Invalid Password ");
-
+                                                "Invalid Password ");
         }
 
         return;
     }
 
-    int pamrc = pamAuthenticateUser(username, password);
+    int pamrc = pamAuthenticateUser(username, password, token);
     bool isConfigureSelfOnly = pamrc == PAM_NEW_AUTHTOK_REQD;
     if ((pamrc != PAM_SUCCESS) && !isConfigureSelfOnly)
     {
@@ -745,7 +750,7 @@ inline void handleSessionCollectionPost(
     std::shared_ptr<persistent_data::UserSession> session =
         persistent_data::SessionStore::getInstance().generateUserSession(
             username, req.ipAddress, clientId,
-            persistent_data::PersistenceType::TIMEOUT, isConfigureSelfOnly);
+            persistent_data::SessionType::Session, isConfigureSelfOnly);
     if (session == nullptr)
     {
         messages::internalError(asyncResp->res);
@@ -753,7 +758,17 @@ inline void handleSessionCollectionPost(
     }
 
     asyncResp->res.addHeader("X-XSS-Protection", "1; mode=block");
-    asyncResp->res.addHeader("X-Auth-Token", session->sessionToken);
+    // When session is created by webui-vue give it session cookies as a
+    // non-standard Redfish extension. This is needed for authentication for
+    // WebSockets-based functionality.
+    if (!req.getHeaderValue("X-Requested-With").empty())
+    {
+        bmcweb::setSessionCookies(asyncResp->res, *session);
+    }
+    else
+    {
+        asyncResp->res.addHeader("X-Auth-Token", session->sessionToken);
+    }
     asyncResp->res.addHeader(
         "Location", "/redfish/v1/SessionService/Sessions/" + session->uniqueId);
     if (session->isConfigureSelfOnly)
@@ -767,8 +782,9 @@ inline void handleSessionCollectionPost(
     else
     {
         asyncResp->res.result(boost::beast::http::status::created);
-        session->sessionType = "Redfish";
-        fillSessionObject(asyncResp->res, *session);
+        crow::getUserInfo(asyncResp, username, session, [asyncResp, session]() {
+            fillSessionObject(asyncResp->res, *session);
+        });
     }
 }
 inline void handleSessionServiceHead(

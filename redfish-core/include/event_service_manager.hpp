@@ -17,6 +17,8 @@
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
 #include "event_service_store.hpp"
+#include "generated/enums/event.hpp"
+#include "generated/enums/log_entry.hpp"
 #include "http_client.hpp"
 #include "kafka_manager.hpp"
 #include "metric_report.hpp"
@@ -50,9 +52,6 @@
 namespace redfish
 {
 
-using ReadingsObjType =
-    std::vector<std::tuple<std::string, std::string, double, int32_t>>;
-
 static constexpr const char* eventFormatType = "Event";
 static constexpr const char* metricReportFormatType = "MetricReport";
 
@@ -70,11 +69,10 @@ using EventLogObjectsType =
     std::tuple<std::string, std::string, std::string, std::string, std::string,
                std::vector<std::string>>;
 
-using Value =
-    std::variant<bool, uint8_t, int16_t, uint16_t, int32_t, uint32_t, int64_t,
-                 uint64_t, double, std::string, std::vector<uint8_t>,
-                 std::vector<uint16_t>, std::vector<uint32_t>,
-                 std::vector<std::string>>;
+using Value = std::variant<bool, uint8_t, int16_t, uint16_t, int32_t, uint32_t,
+                           int64_t, uint64_t, double, std::string,
+                           std::vector<uint8_t>, std::vector<uint16_t>,
+                           std::vector<uint32_t>, std::vector<std::string>>;
 
 using ObjectType =
     boost::container::flat_map<std::string,
@@ -101,9 +99,10 @@ static const Message*
 static const Message* formatMessage(std::string messageID)
 {
     // Find the right registry and check it for the MessageKey
-    const std::string&   registryName="OpenBMC";
-    std::string  messageKey=messageID;
-    messageKey.erase(std::remove(messageKey.begin(), messageKey.end(), ' '), messageKey.end());
+    const std::string& registryName = "OpenBMC";
+    std::string messageKey = messageID;
+    messageKey.erase(std::remove(messageKey.begin(), messageKey.end(), ' '),
+                     messageKey.end());
     return getMsgFromRegistry(messageKey, getRegistryFromPrefix(registryName));
 }
 } // namespace registries
@@ -148,12 +147,12 @@ inline int getEventLogParams(const std::string& logEntry,
     size_t colonPos = logEntry.find(':');
     if (colonPos == std::string::npos)
     {
-       messageID=logEntry;
+        messageID = logEntry;
     }
     else
     {
-    messageID = logEntry.substr(0, colonPos);
-    messageArgs.push_back(logEntry.substr(colonPos + 1));
+        messageID = logEntry.substr(0, colonPos);
+        messageArgs.push_back(logEntry.substr(colonPos + 1));
     }
     return 0;
 }
@@ -162,9 +161,10 @@ inline void getRegistryAndMessageKey(const std::string& messageID,
                                      std::string& registryName,
                                      std::string& messageKey)
 {
-   registryName="OpenBMC";
-   messageKey=messageID;
-   messageKey.erase(std::remove(messageKey.begin(), messageKey.end(), ' '), messageKey.end());
+    registryName = "OpenBMC";
+    messageKey = messageID;
+    messageKey.erase(std::remove(messageKey.begin(), messageKey.end(), ' '),
+                     messageKey.end());
 }
 
 inline int formatEventLogEntry(const std::string& logEntryID,
@@ -201,7 +201,7 @@ inline int formatEventLogEntry(const std::string& logEntryID,
 
     // Fill in the log entry with the gathered data
     logEntryJson["EventId"] = logEntryID;
-    logEntryJson["EventType"] = "Event";
+
     logEntryJson["Severity"] = message->messageSeverity;
     logEntryJson["Message"] = std::move(msg);
     logEntryJson["MessageId"] = messageID;
@@ -350,10 +350,11 @@ class Subscription : public persistent_data::UserSubscription
 
     ~Subscription() = default;
 
-    void getSseConnection(std::shared_ptr<crow::sse_socket::Connection>& connPtr)
+    void
+        getSseConnection(std::shared_ptr<crow::sse_socket::Connection>& connPtr)
     {
-	connPtr = sseConn;
-	return;
+        connPtr = sseConn;
+        return;
     }
 
     bool sendEvent(std::string&& msg)
@@ -397,9 +398,10 @@ class Subscription : public persistent_data::UserSubscription
                 }
             };
 
-            client->sendDataWithCallback(
-                std::move(msg), destinationUrl, verifyCertificate, httpHeaders,
-                boost::beast::http::verb::post, sendEventCallback);
+            client->sendData(
+                std::move(msg), destinationUrl,
+                static_cast<ensuressl::VerifyCertificate>(verifyCertificate),
+                httpHeaders, boost::beast::http::verb::post);
             return true;
         }
 
@@ -489,10 +491,12 @@ class Subscription : public persistent_data::UserSubscription
         nlohmann::json& logEntryJson = logEntryArray.back();
 
         logEntryJson["EventId"] = "TestID";
-        logEntryJson["EventType"] = "Event";
-        logEntryJson["Severity"] = "OK";
+
+        logEntryJson["Severity"] = log_entry::EventSeverity::OK;
         logEntryJson["Message"] = "Generated test event";
         logEntryJson["MessageId"] = msgId;
+        // MemberId is 0 : since we are sending one event record.
+        logEntryJson["MemberId"] = 0;
         logEntryJson["MessageArgs"] = nlohmann::json::array();
         logEntryJson["EventTimestamp"] =
             redfish::time_utils::getDateTimeOffsetNow().first;
@@ -682,11 +686,6 @@ class Subscription : public persistent_data::UserSubscription
     std::string path;
     std::string uriProto;
 
-    // As per DMTF Redfish EventDestination schema, if 'VerifyCertificate'
-    // is not supported by service, It shall be assumed 'false'. So setting
-    // this value to false default till EventService add support it.
-    bool verifyCertificate = false;
-
     // Check used to indicate what response codes are valid as part of our retry
     // policy.  2XX is considered acceptable
     static boost::system::error_code retryRespHandler(unsigned int respCode)
@@ -712,7 +711,6 @@ class EventServiceManager
     uint32_t retryAttempts = 0;
     uint32_t retryTimeoutInterval = 0;
 
-   
     size_t noOfEventLogSubscribers{0};
     size_t noOfMetricReportSubscribers{0};
     std::shared_ptr<sdbusplus::bus::match_t> matchTelemetryMonitor;
@@ -805,6 +803,7 @@ class EventServiceManager
             subValue->id = newSub->id;
             subValue->destinationUrl = newSub->destinationUrl;
             subValue->protocol = newSub->protocol;
+            subValue->verifyCertificate = newSub->verifyCertificate;
             subValue->retryPolicy = newSub->retryPolicy;
             subValue->customText = newSub->customText;
             subValue->eventFormatType = newSub->eventFormatType;
@@ -845,17 +844,19 @@ class EventServiceManager
             return;
         }
 
-        for (const auto& item : jsonData.items())
+        const nlohmann::json::object_t* obj =
+            jsonData.get_ptr<const nlohmann::json::object_t*>();
+        for (const auto& item : *obj)
         {
-            if (item.key() == "Configuration")
+            if (item.first == "Configuration")
             {
                 persistent_data::EventServiceStore::getInstance()
                     .getEventServiceConfig()
-                    .fromJson(item.value());
+                    .fromJson(item.second);
             }
-            else if (item.key() == "Subscriptions")
+            else if (item.first == "Subscriptions")
             {
-                for (const auto& elem : item.value())
+                for (const auto& elem : item.second)
                 {
                     std::shared_ptr<persistent_data::UserSubscription>
                         newSubscription =
@@ -1085,7 +1086,6 @@ class EventServiceManager
             persistSubscriptionData();
         }
 
-    
         // Update retry configuration.
         subValue->updateRetryConfig(retryAttempts, retryTimeoutInterval);
 
@@ -1093,22 +1093,25 @@ class EventServiceManager
         subValue->setSubscriptionId(id);
 
         /* Log event for subscription addition */
-        std::string severity = "xyz.openbmc_project.Logging.Entry.Level.Informational";
+        std::string severity =
+            "xyz.openbmc_project.Logging.Entry.Level.Informational";
         auto bus = sdbusplus::bus::new_default_system();
-        sdbusplus::message::message m = bus.new_method_call("xyz.openbmc_project.Logging", "/xyz/openbmc_project/logging",
-                  "xyz.openbmc_project.Logging.Create", "Create" );
+        sdbusplus::message::message m = bus.new_method_call(
+            "xyz.openbmc_project.Logging", "/xyz/openbmc_project/logging",
+            "xyz.openbmc_project.Logging.Create", "Create");
         std::string journalMsg = "EventSubscriptionAdded:" + id;
 
-           // Append the arguments to the method call
-            m.append(journalMsg, severity, std::map<std::string, std::string>());
-            try
-            {
-                bus.call(m);
-            }
-            catch (const sdbusplus::exception_t& e)
-            {
-                std::cerr << "Failed to create log entry: " << e.what() << std::endl;
-            }
+        // Append the arguments to the method call
+        m.append(journalMsg, severity, std::map<std::string, std::string>());
+        try
+        {
+            bus.call(m);
+        }
+        catch (const sdbusplus::exception_t& e)
+        {
+            std::cerr << "Failed to create log entry: " << e.what()
+                      << std::endl;
+        }
 
         return;
     }
@@ -1125,11 +1128,11 @@ class EventServiceManager
         std::shared_ptr<crow::sse_socket::Connection> sseConnPtr = NULL;
         if (obj != subscriptionsMap.end())
         {
-	       std::shared_ptr<Subscription> entry = obj->second;
-	       if (entry->subscriptionType == subscriptionTypeSSE)
-	        {
-		       entry->getSseConnection(sseConnPtr);
-	        }	
+            std::shared_ptr<Subscription> entry = obj->second;
+            if (entry->subscriptionType == subscriptionTypeSSE)
+            {
+                entry->getSseConnection(sseConnPtr);
+            }
 
             subscriptionsMap.erase(obj);
             auto obj2 = persistent_data::EventServiceStore::getInstance()
@@ -1140,27 +1143,31 @@ class EventServiceManager
             persistSubscriptionData();
 
             /* Log event for subscription delete. */
-           std::string severity = "xyz.openbmc_project.Logging.Entry.Level.Informational";
+            std::string severity =
+                "xyz.openbmc_project.Logging.Entry.Level.Informational";
             auto bus = sdbusplus::bus::new_default_system();
-            sdbusplus::message::message m = bus.new_method_call("xyz.openbmc_project.Logging", "/xyz/openbmc_project/logging",
-                  "xyz.openbmc_project.Logging.Create", "Create" );
+            sdbusplus::message::message m = bus.new_method_call(
+                "xyz.openbmc_project.Logging", "/xyz/openbmc_project/logging",
+                "xyz.openbmc_project.Logging.Create", "Create");
             std::string journalMsg = "EventSubscriptionRemoved:" + id;
 
             // Append the arguments to the method call
-            m.append(journalMsg, severity, std::map<std::string, std::string>());
+            m.append(journalMsg, severity,
+                     std::map<std::string, std::string>());
             try
             {
                 bus.call(m);
             }
             catch (const sdbusplus::exception_t& e)
             {
-                std::cerr << "Failed to create log entry: " << e.what() << std::endl;
+                std::cerr << "Failed to create log entry: " << e.what()
+                          << std::endl;
             }
         }
-        if(sseConnPtr)
+        if (sseConnPtr)
         {
             sseConnPtr->close("subscription deleted");
-        }	
+        }
     }
 
     void deleteSseSubscription(
@@ -1188,13 +1195,15 @@ class EventServiceManager
         persistSubscriptionData();
 
         /* Log event for subscription update. */
-        std::string severity = "xyz.openbmc_project.Logging.Entry.Level.Informational";
+        std::string severity =
+            "xyz.openbmc_project.Logging.Entry.Level.Informational";
         auto bus = sdbusplus::bus::new_default_system();
-        sdbusplus::message::message m = bus.new_method_call("xyz.openbmc_project.Logging", "/xyz/openbmc_project/logging",
-                  "xyz.openbmc_project.Logging.Create", "Create" );
+        sdbusplus::message::message m = bus.new_method_call(
+            "xyz.openbmc_project.Logging", "/xyz/openbmc_project/logging",
+            "xyz.openbmc_project.Logging.Create", "Create");
 
-         std::string journalMsg = "EventSubscriptionUpdated:" + id;
- 
+        std::string journalMsg = "EventSubscriptionUpdated:" + id;
+
         // Append the arguments to the method call
         m.append(journalMsg, severity, std::map<std::string, std::string>());
         try
@@ -1203,7 +1212,8 @@ class EventServiceManager
         }
         catch (const sdbusplus::exception_t& e)
         {
-            std::cerr << "Failed to create log entry: " << e.what() << std::endl;
+            std::cerr << "Failed to create log entry: " << e.what()
+                      << std::endl;
         }
     }
 
@@ -1260,8 +1270,8 @@ class EventServiceManager
         return true;
     }
 
-    void sendEvent(nlohmann::json eventMessage, const std::string& origin,
-                   const std::string& resType)
+    void sendEvent(nlohmann::json eventMessage, std::string_view origin,
+                   std::string_view resType)
     {
         std::string msg;
         if (!serviceEnabled || (noOfEventLogSubscribers == 0U))
@@ -1358,17 +1368,17 @@ class EventServiceManager
         }
     }
 
-
-    void readEventLogsFromDbus(const std::string& logEntry , std::string& timestampStr)
+    void readEventLogsFromDbus(const std::string& logEntry,
+                               std::string& timestampStr)
     {
-         std::vector<EventLogObjectsType> eventRecords;
-         std::vector<std::string> messageArgs;
-         std::string idStr,messageID,registryName,messageKey;
+        std::vector<EventLogObjectsType> eventRecords;
+        std::vector<std::string> messageArgs;
+        std::string idStr, messageID, registryName, messageKey;
 
-        //convert time to human readable format
-        long long millisec = std::stoll(timestampStr); 
+        // convert time to human readable format
+        long long millisec = std::stoll(timestampStr);
         auto time_point = std::chrono::system_clock::time_point(
-        std::chrono::milliseconds(millisec));
+            std::chrono::milliseconds(millisec));
 
         // Convert time_point to std::tm (local time)
         std::time_t time = std::chrono::system_clock::to_time_t(time_point);
@@ -1376,21 +1386,23 @@ class EventServiceManager
 
         // Extract milliseconds
         auto millis = std::chrono::duration_cast<std::chrono::milliseconds>(
-        time_point.time_since_epoch()) % 1000;
+                          time_point.time_since_epoch()) %
+                      1000;
 
         // Format ISO 8601 string
-         std::ostringstream oss;
-         oss << std::put_time(&tm, "%Y-%m-%dT%H:%M:%S");
-	     std::string timestamp=oss.str();
-            
+        std::ostringstream oss;
+        oss << std::put_time(&tm, "%Y-%m-%dT%H:%M:%S");
+        std::string timestamp = oss.str();
+
         event_log::getUniqueEntryID(logEntry, idStr);
-            
-        event_log::getEventLogParams(logEntry, messageID,messageArgs);
-           
-        event_log::getRegistryAndMessageKey(messageID, registryName, messageKey);
-           
+
+        event_log::getEventLogParams(logEntry, messageID, messageArgs);
+
+        event_log::getRegistryAndMessageKey(messageID, registryName,
+                                            messageKey);
+
         eventRecords.emplace_back(idStr, timestamp, messageID, registryName,
-                                      messageKey, messageArgs);
+                                  messageKey, messageArgs);
 
         if (eventRecords.empty())
         {
@@ -1418,9 +1430,9 @@ class EventServiceManager
                 }
             }
         }
-    } 
+    }
 
-   static  void readEventLogsLambda(sdbusplus::message_t& msg)
+    static void readEventLogsLambda(sdbusplus::message_t& msg)
     {
         sdbusplus::message::object_path path;
         ObjectType object;
@@ -1434,47 +1446,48 @@ class EventServiceManager
             return;
         }
 
-       auto findType = object.find("xyz.openbmc_project.Logging.Entry");
-       if (findType != object.end())
-       {
-           std::string messages,timestampStr;
-           uint64_t timestamp ;
+        auto findType = object.find("xyz.openbmc_project.Logging.Entry");
+        if (findType != object.end())
+        {
+            std::string messages, timestampStr;
+            uint64_t timestamp;
 
-           auto property_Msg = findType->second.find("Message");
-           auto property_Time = findType->second.find("Timestamp");
-           if (property_Msg != findType->second.end() && property_Time!= findType->second.end())
-           {
+            auto property_Msg = findType->second.find("Message");
+            auto property_Time = findType->second.find("Timestamp");
+            if (property_Msg != findType->second.end() &&
+                property_Time != findType->second.end())
+            {
                 if (std::holds_alternative<std::string>(property_Msg->second))
                 {
                     messages = std::get<std::string>(property_Msg->second);
                 }
-            
+
                 if (std::holds_alternative<uint64_t>(property_Time->second))
                 {
                     timestamp = std::get<uint64_t>(property_Time->second);
                     timestampStr = std::to_string(timestamp);
-                }  
-                 EventServiceManager::getInstance().readEventLogsFromDbus(messages,timestampStr);
+                }
+                EventServiceManager::getInstance().readEventLogsFromDbus(
+                    messages, timestampStr);
             }
         }
-   
-    }                       
+    }
 
     static void startEventLogMonitor()
     {
-        
-       std::string matchStr1 = "type='signal',member='InterfacesAdded',path='/xyz/openbmc_project/logging'";
-       try
-       {
-
-        EventServiceManager::getInstance().matchEventLog = std::make_shared<sdbusplus::bus::match_t>(
-         *crow::connections::systemBus,matchStr1,readEventLogsLambda);
-       
-       }
-       catch(const std::exception& e)
-       {
-            std::cerr<<"bmcweb::error in signal "<<e.what()<<"\n";
-       }
+        std::string matchStr1 =
+            "type='signal',member='InterfacesAdded',path='/xyz/openbmc_project/logging'";
+        try
+        {
+            EventServiceManager::getInstance().matchEventLog =
+                std::make_shared<sdbusplus::bus::match_t>(
+                    *crow::connections::systemBus, matchStr1,
+                    readEventLogsLambda);
+        }
+        catch (const std::exception& e)
+        {
+            std::cerr << "bmcweb::error in signal " << e.what() << "\n";
+        }
     }
     static void getReadingsForReport(sdbusplus::message_t& msg)
     {

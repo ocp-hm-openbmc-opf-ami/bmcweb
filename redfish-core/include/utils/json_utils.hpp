@@ -41,7 +41,6 @@
 #include <variant>
 #include <vector>
 
-// IWYU pragma: no_include <stdint.h>
 // IWYU pragma: no_forward_declare crow::Request
 
 namespace redfish
@@ -282,7 +281,9 @@ bool unpackValue(nlohmann::json& jsonValue, std::string_view key,
     }
     else if constexpr (IsStdArray<Type>::value)
     {
-        if (!jsonValue.is_array())
+        nlohmann::json::array_t* arr =
+            jsonValue.get_ptr<nlohmann::json::array_t*>();
+        if (arr == nullptr)
         {
             messages::propertyValueTypeError(res, res.jsonValue, key);
             return false;
@@ -293,25 +294,27 @@ bool unpackValue(nlohmann::json& jsonValue, std::string_view key,
             return false;
         }
         size_t index = 0;
-        for (const auto& val : jsonValue.items())
+        for (auto& val : *arr)
         {
-            ret = unpackValue<typename Type::value_type>(val.value(), key, res,
+            ret = unpackValue<typename Type::value_type>(val, key, res,
                                                          value[index++]) &&
                   ret;
         }
     }
     else if constexpr (IsVector<Type>::value)
     {
-        if (!jsonValue.is_array())
+        nlohmann::json::array_t* arr =
+            jsonValue.get_ptr<nlohmann::json::array_t*>();
+        if (arr == nullptr)
         {
             messages::propertyValueTypeError(res, res.jsonValue, key);
             return false;
         }
 
-        for (const auto& val : jsonValue.items())
+        for (auto& val : *arr)
         {
             value.emplace_back();
-            ret = unpackValue<typename Type::value_type>(val.value(), key, res,
+            ret = unpackValue<typename Type::value_type>(val, key, res,
                                                          value.back()) &&
                   ret;
         }
@@ -364,7 +367,9 @@ bool unpackValue(nlohmann::json& jsonValue, std::string_view key, Type& value)
     }
     else if constexpr (IsStdArray<Type>::value)
     {
-        if (!jsonValue.is_array())
+        nlohmann::json::array_t* arr =
+            jsonValue.get_ptr<nlohmann::json::array_t*>();
+        if (arr == nullptr)
         {
             return false;
         }
@@ -373,24 +378,26 @@ bool unpackValue(nlohmann::json& jsonValue, std::string_view key, Type& value)
             return false;
         }
         size_t index = 0;
-        for (const auto& val : jsonValue.items())
+        for (const auto& val : *arr)
         {
-            ret = unpackValue<typename Type::value_type>(val.value(), key,
+            ret = unpackValue<typename Type::value_type>(val, key,
                                                          value[index++]) &&
                   ret;
         }
     }
     else if constexpr (IsVector<Type>::value)
     {
-        if (!jsonValue.is_array())
+        nlohmann::json::array_t* arr =
+            jsonValue.get_ptr<nlohmann::json::array_t*>();
+        if (arr == nullptr)
         {
             return false;
         }
 
-        for (const auto& val : jsonValue.items())
+        for (const auto& val : *arr)
         {
             value.emplace_back();
-            ret = unpackValue<typename Type::value_type>(val.value(), key,
+            ret = unpackValue<typename Type::value_type>(val, key,
                                                          value.back()) &&
                   ret;
         }

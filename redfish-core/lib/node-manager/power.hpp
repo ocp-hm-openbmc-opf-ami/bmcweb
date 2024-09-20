@@ -220,7 +220,8 @@ inline void requestRoutesNodeManagerPower(App& app)
 
         auto sensorAsyncResp = std::make_shared<SensorsAsyncResp>(
             asyncResp, chassisName, sensors::dbus::powerPaths,
-            sensors::node::power);
+            sensor_utils::chassisSubNodeToString(
+            sensor_utils::ChassisSubNode::powerNode));
 
         crow::connections::systemBus->async_method_call(
             [sensorAsyncResp](const boost::system::error_code e,
@@ -247,7 +248,8 @@ inline void requestRoutesNodeManagerPower(App& app)
                const std::string& chassisName, const std::string& node) {
         auto sensorAsyncResp = std::make_shared<SensorsAsyncResp>(
             asyncResp, chassisName, sensors::dbus::powerPaths,
-            sensors::node::power);
+            sensor_utils::chassisSubNodeToString(
+            sensor_utils::ChassisSubNode::powerNode));
 
         crow::connections::systemBus->async_method_call(
             [sensorAsyncResp,
@@ -275,8 +277,8 @@ inline void requestRoutesNodeManagerPower(App& app)
                const std::string& chassisName, const std::string& node) {
         auto sensorAsyncResp = std::make_shared<SensorsAsyncResp>(
             asyncResp, chassisName, sensors::dbus::powerPaths,
-            sensors::node::power);
-
+            sensor_utils::chassisSubNodeToString(
+            sensor_utils::ChassisSubNode::powerNode));
         crow::connections::systemBus->async_method_call(
             [req, sensorAsyncResp,
              node](const boost::system::error_code e,
@@ -303,7 +305,8 @@ inline void requestRoutesNodeManagerPower(App& app)
                const std::string& chassisName) {
         auto sensorAsyncResp = std::make_shared<SensorsAsyncResp>(
             asyncResp, chassisName, sensors::dbus::powerPaths,
-            sensors::node::power);
+            sensor_utils::chassisSubNodeToString(
+            sensor_utils::ChassisSubNode::powerNode));
         sensorAsyncResp->asyncResp->res.result(
             boost::beast::http::status::no_content);
 

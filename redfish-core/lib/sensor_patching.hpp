@@ -61,7 +61,8 @@ inline void
                     objectsWithConnection.size(), overrideMap.size());
                 messages::resourceNotFound(sensorAsyncResp->asyncResp->res,
                                            sensorAsyncResp->chassisSubNode ==
-                                                   sensors::node::thermal
+                                                    sensor_utils::chassisSubNodeToString(
+                        sensor_utils::ChassisSubNode::thermalNode)
                                                ? "Temperatures"
                                                : "Voltages",
                                            "Count");
@@ -95,8 +96,7 @@ inline void
                             sensorAsyncResp->asyncResp->res);
                         return;
                     }
-                    },
-                    item.second, item.first, "org.freedesktop.DBus.Properties",
+                }, item.second, item.first, "org.freedesktop.DBus.Properties",
                     "Set", "xyz.openbmc_project.Sensor.Value", "Value",
                     std::variant<double>(iterator->second.first));
             }
@@ -126,7 +126,7 @@ inline void requestRoutesSensorPatching(App& app)
 
         auto sensorsAsyncResp = std::make_shared<SensorsAsyncResp>(
             asyncResp, chassisName, sensors::dbus::sensorPaths,
-            sensors::node::sensors);
+             sensors::sensorsNodeStr);
 
         if (!json_util::readJsonPatch(req, sensorsAsyncResp->asyncResp->res,
                                       "Id", memberId, "Reading", value))
@@ -135,7 +135,7 @@ inline void requestRoutesSensorPatching(App& app)
         }
 
         std::pair<std::string, std::string> nameType =
-            splitSensorNameAndType(memberId);
+            redfish::sensor_utils::splitSensorNameAndType(memberId);
         overrideMap.emplace(nameType.second, std::make_pair(value, "Reading"));
 
         setSensor(sensorsAsyncResp, overrideMap);

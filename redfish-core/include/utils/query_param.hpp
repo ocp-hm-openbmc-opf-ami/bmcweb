@@ -12,7 +12,7 @@
 
 #include <sys/types.h>
 
-#include <boost/beast/http/message.hpp> // IWYU pragma: keep
+#include <boost/beast/http/message.hpp>
 #include <boost/beast/http/status.hpp>
 #include <boost/beast/http/verb.hpp>
 #include <boost/url/params_view.hpp>
@@ -36,14 +36,6 @@
 #include <system_error>
 #include <utility>
 #include <vector>
-
-// IWYU pragma: no_include <boost/url/impl/params_view.hpp>
-// IWYU pragma: no_include <boost/beast/http/impl/message.hpp>
-// IWYU pragma: no_include <boost/intrusive/detail/list_iterator.hpp>
-// IWYU pragma: no_include <boost/algorithm/string/detail/classification.hpp>
-// IWYU pragma: no_include <boost/iterator/iterator_facade.hpp>
-// IWYU pragma: no_include <boost/type_index/type_index_facade.hpp>
-// IWYU pragma: no_include <stdint.h>
 
 namespace redfish
 {
@@ -169,6 +161,7 @@ struct Query
 {
     // Only
     bool isOnly = false;
+
     // Expand
     uint8_t expandLevel = 0;
     ExpandType expandType = ExpandType::None;
@@ -465,7 +458,7 @@ inline std::optional<Query> parseParameters(boost::urls::params_view urlParams,
 
 inline bool processOnly(crow::App& app, crow::Response& res,
                         std::function<void(crow::Response&)>& completionHandler,
-			const crow::Request& req)
+                        const crow::Request& req)
 {
     BMCWEB_LOG_DEBUG("Processing only query param");
     auto itMembers = res.jsonValue.find("Members");
@@ -814,8 +807,7 @@ class MultiAsyncResp : public std::enable_shared_from_this<MultiAsyncResp>
     // class manages the final "merge" of the json resources.
     MultiAsyncResp(crow::App& appIn,
                    std::shared_ptr<bmcweb::AsyncResp> finalResIn) :
-        app(appIn),
-        finalRes(std::move(finalResIn))
+        app(appIn), finalRes(std::move(finalResIn))
     {}
 
     void addAwaitingResponse(
@@ -1011,7 +1003,7 @@ inline void
     processAllParams(crow::App& app, const Query& query, const Query& delegated,
                      std::function<void(crow::Response&)>& completionHandler,
                      crow::Response& intermediateResponse,
-		     const crow::Request& req)
+                     const crow::Request& req)
 {
     if (!completionHandler)
     {
@@ -1050,7 +1042,6 @@ inline void
         multi->startQuery(query, delegated);
         return;
     }
-
     // According to Redfish Spec Section 7.3.1, $select is the last parameter to
     // to process
     if (!query.selectTrie.root.empty())

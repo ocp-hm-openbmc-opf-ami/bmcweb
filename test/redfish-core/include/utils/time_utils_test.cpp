@@ -6,14 +6,7 @@
 #include <limits>
 #include <optional>
 
-#include <gmock/gmock.h> // IWYU pragma: keep
-#include <gtest/gtest.h> // IWYU pragma: keep
-
-// IWYU pragma: no_include <gtest/gtest-message.h>
-// IWYU pragma: no_include <gtest/gtest-test-part.h>
-// IWYU pragma: no_include "gtest/gtest_pred_impl.h"
-// IWYU pragma: no_include <gmock/gmock-matchers.h>
-// IWYU pragma: no_include <gtest/gtest-matchers.h>
+#include <gtest/gtest.h>
 
 namespace redfish::time_utils
 {
@@ -174,6 +167,42 @@ TEST(Utility, DateStringToEpoch)
     // Underflow
     EXPECT_EQ(dateStringToEpoch("1969-12-30T23:59:59.999999+00:00"),
               std::nullopt);
+}
+
+TEST(Utility, DateStringToEpochWithInvalidDateTimeFormats)
+{
+    // invalid month (13)
+    EXPECT_EQ(dateStringToEpoch("2024-13-01T12:00:00Z"), std::nullopt);
+
+    // invalid character for month
+    EXPECT_EQ(dateStringToEpoch("2024-X-01T12:00:00Z"), std::nullopt);
+
+    // invalid day (32)
+    EXPECT_EQ(dateStringToEpoch("2024-07-32T12:00:00Z"), std::nullopt);
+
+    // invalid character for day
+    EXPECT_EQ(dateStringToEpoch("2024-07-XT12:00:00Z"), std::nullopt);
+
+    // invalid hour (25)
+    EXPECT_EQ(dateStringToEpoch("2024-07-01T25:00:00Z"), std::nullopt);
+
+    // invalid character for hour
+    EXPECT_EQ(dateStringToEpoch("2024-07-01TX:00:00Z"), std::nullopt);
+
+    // invalid minute (60)
+    EXPECT_EQ(dateStringToEpoch("2024-07-01T12:60:00Z"), std::nullopt);
+
+    // invalid character for minute
+    EXPECT_EQ(dateStringToEpoch("2024-13-01T12:X:00Z"), std::nullopt);
+
+    // invalid second (60)
+    EXPECT_EQ(dateStringToEpoch("2024-07-01T12:00:XZ"), std::nullopt);
+
+    // invalid character for second
+    EXPECT_EQ(dateStringToEpoch("2024-13-01T12:00:00Z"), std::nullopt);
+
+    // invalid timezone
+    EXPECT_EQ(dateStringToEpoch("2024-07-01T12:00:00X"), std::nullopt);
 }
 
 } // namespace

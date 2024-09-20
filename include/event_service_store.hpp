@@ -15,6 +15,7 @@ struct UserSubscription
     std::string id;
     boost::urls::url destinationUrl;
     std::string protocol;
+    bool verifyCertificate = true;
     std::string retryPolicy;
     std::string customText;
     std::string eventFormatType;
@@ -28,26 +29,27 @@ struct UserSubscription
     std::string owner;
 
     static std::shared_ptr<UserSubscription>
-        fromJson(const nlohmann::json& j, const bool loadFromOldConfig = false)
+        fromJson(const nlohmann::json::object_t& j,
+                 const bool loadFromOldConfig = false)
     {
         std::shared_ptr<UserSubscription> subvalue =
             std::make_shared<UserSubscription>();
-        for (const auto& element : j.items())
+        for (const auto& element : j)
         {
-            if (element.key() == "Id")
+            if (element.first == "Id")
             {
                 const std::string* value =
-                    element.value().get_ptr<const std::string*>();
+                    element.second.get_ptr<const std::string*>();
                 if (value == nullptr)
                 {
                     continue;
                 }
                 subvalue->id = *value;
             }
-            else if (element.key() == "Destination")
+            else if (element.first == "Destination")
             {
                 const std::string* value =
-                    element.value().get_ptr<const std::string*>();
+                    element.second.get_ptr<const std::string*>();
                 if (value == nullptr)
                 {
                     continue;
@@ -60,63 +62,77 @@ struct UserSubscription
                 }
                 subvalue->destinationUrl = std::move(*url);
             }
-            else if (element.key() == "Protocol")
+            else if (element.first == "Protocol")
             {
                 const std::string* value =
-                    element.value().get_ptr<const std::string*>();
+                    element.second.get_ptr<const std::string*>();
                 if (value == nullptr)
                 {
                     continue;
                 }
                 subvalue->protocol = *value;
             }
-            else if (element.key() == "DeliveryRetryPolicy")
+            else if (element.first == "VerifyCertificate")
+            {
+                const bool* value = element.second.get_ptr<const bool*>();
+                if (value == nullptr)
+                {
+                    continue;
+                }
+                subvalue->verifyCertificate = *value;
+            }
+            else if (element.first == "DeliveryRetryPolicy")
             {
                 const std::string* value =
-                    element.value().get_ptr<const std::string*>();
+                    element.second.get_ptr<const std::string*>();
                 if (value == nullptr)
                 {
                     continue;
                 }
                 subvalue->retryPolicy = *value;
             }
-            else if (element.key() == "Context")
+            else if (element.first == "Context")
             {
                 const std::string* value =
-                    element.value().get_ptr<const std::string*>();
+                    element.second.get_ptr<const std::string*>();
                 if (value == nullptr)
                 {
                     continue;
                 }
                 subvalue->customText = *value;
             }
-            else if (element.key() == "EventFormatType")
+            else if (element.first == "EventFormatType")
             {
                 const std::string* value =
-                    element.value().get_ptr<const std::string*>();
+                    element.second.get_ptr<const std::string*>();
                 if (value == nullptr)
                 {
                     continue;
                 }
                 subvalue->eventFormatType = *value;
             }
-            else if (element.key() == "SubscriptionType")
+            else if (element.first == "SubscriptionType")
             {
                 const std::string* value =
-                    element.value().get_ptr<const std::string*>();
+                    element.second.get_ptr<const std::string*>();
                 if (value == nullptr)
                 {
                     continue;
                 }
                 subvalue->subscriptionType = *value;
             }
-            else if (element.key() == "MessageIds")
+            else if (element.first == "MessageIds")
             {
-                const auto& obj = element.value();
-                for (const auto& val : obj.items())
+                const nlohmann::json::array_t* obj =
+                    element.second.get_ptr<const nlohmann::json::array_t*>();
+                if (obj == nullptr)
+                {
+                    continue;
+                }
+                for (const auto& val : *obj)
                 {
                     const std::string* value =
-                        val.value().get_ptr<const std::string*>();
+                        val.get_ptr<const std::string*>();
                     if (value == nullptr)
                     {
                         continue;
@@ -124,13 +140,18 @@ struct UserSubscription
                     subvalue->registryMsgIds.emplace_back(*value);
                 }
             }
-            else if (element.key() == "RegistryPrefixes")
+            else if (element.first == "RegistryPrefixes")
             {
-                const auto& obj = element.value();
-                for (const auto& val : obj.items())
+                const nlohmann::json::array_t* obj =
+                    element.second.get_ptr<const nlohmann::json::array_t*>();
+                if (obj == nullptr)
+                {
+                    continue;
+                }
+                for (const auto& val : *obj)
                 {
                     const std::string* value =
-                        val.value().get_ptr<const std::string*>();
+                        val.get_ptr<const std::string*>();
                     if (value == nullptr)
                     {
                         continue;
@@ -138,13 +159,18 @@ struct UserSubscription
                     subvalue->registryPrefixes.emplace_back(*value);
                 }
             }
-            else if (element.key() == "ResourceTypes")
+            else if (element.first == "ResourceTypes")
             {
-                const auto& obj = element.value();
-                for (const auto& val : obj.items())
+                const nlohmann::json::array_t* obj =
+                    element.second.get_ptr<const nlohmann::json::array_t*>();
+                if (obj == nullptr)
+                {
+                    continue;
+                }
+                for (const auto& val : *obj)
                 {
                     const std::string* value =
-                        val.value().get_ptr<const std::string*>();
+                        val.get_ptr<const std::string*>();
                     if (value == nullptr)
                     {
                         continue;
@@ -152,29 +178,39 @@ struct UserSubscription
                     subvalue->resourceTypes.emplace_back(*value);
                 }
             }
-            else if (element.key() == "HttpHeaders")
+            else if (element.first == "HttpHeaders")
             {
-                const auto& obj = element.value();
-                for (const auto& val : obj.items())
+                const nlohmann::json::object_t* obj =
+                    element.second.get_ptr<const nlohmann::json::object_t*>();
+                if (obj == nullptr)
+                {
+                    continue;
+                }
+                for (const auto& val : *obj)
                 {
                     const std::string* value =
-                        val.value().get_ptr<const std::string*>();
+                        val.second.get_ptr<const std::string*>();
                     if (value == nullptr)
                     {
                         BMCWEB_LOG_ERROR("Failed to parse value for key{}",
-                                         val.key());
+                                         val.first);
                         continue;
                     }
-                    subvalue->httpHeaders.set(val.key(), *value);
+                    subvalue->httpHeaders.set(val.first, *value);
                 }
             }
-            else if (element.key() == "MetricReportDefinitions")
+            else if (element.first == "MetricReportDefinitions")
             {
-                const auto& obj = element.value();
-                for (const auto& val : obj.items())
+                const nlohmann::json::array_t* obj =
+                    element.second.get_ptr<const nlohmann::json::array_t*>();
+                if (obj == nullptr)
+                {
+                    continue;
+                }
+                for (const auto& val : *obj)
                 {
                     const std::string* value =
-                        val.value().get_ptr<const std::string*>();
+                        val.get_ptr<const std::string*>();
                     if (value == nullptr)
                     {
                         continue;
@@ -182,20 +218,20 @@ struct UserSubscription
                     subvalue->metricReportDefinitions.emplace_back(*value);
                 }
             }
-            else if (element.key() == "State")
+            else if (element.first == "State")
             {
                 const std::string* value =
-                    element.value().get_ptr<const std::string*>();
+                    element.second.get_ptr<const std::string*>();
                 if (value == nullptr)
                 {
                     continue;
                 }
                 subvalue->state = *value;
             }
-            else if (element.key() == "Owner")
+            else if (element.first == "Owner")
             {
                 const std::string* value =
-                    element.value().get_ptr<const std::string*>();
+                    element.second.get_ptr<const std::string*>();
                 if (value == nullptr)
                 {
                     continue;
@@ -206,7 +242,7 @@ struct UserSubscription
             {
                 BMCWEB_LOG_ERROR(
                     "Got unexpected property reading persistent file: {}",
-                    element.key());
+                    element.first);
                 continue;
             }
         }
@@ -232,23 +268,23 @@ struct EventServiceConfig
     uint32_t retryAttempts = 3;
     uint32_t retryTimeoutInterval = 30;
 
-    void fromJson(const nlohmann::json& j)
+    void fromJson(const nlohmann::json::object_t& j)
     {
-        for (const auto& element : j.items())
+        for (const auto& element : j)
         {
-            if (element.key() == "ServiceEnabled")
+            if (element.first == "ServiceEnabled")
             {
-                const bool* value = element.value().get_ptr<const bool*>();
+                const bool* value = element.second.get_ptr<const bool*>();
                 if (value == nullptr)
                 {
                     continue;
                 }
                 enabled = *value;
             }
-            else if (element.key() == "DeliveryRetryAttempts")
+            else if (element.first == "DeliveryRetryAttempts")
             {
                 const uint64_t* value =
-                    element.value().get_ptr<const uint64_t*>();
+                    element.second.get_ptr<const uint64_t*>();
                 if ((value == nullptr) ||
                     (*value > std::numeric_limits<uint32_t>::max()))
                 {
@@ -256,10 +292,10 @@ struct EventServiceConfig
                 }
                 retryAttempts = static_cast<uint32_t>(*value);
             }
-            else if (element.key() == "DeliveryRetryIntervalSeconds")
+            else if (element.first == "DeliveryRetryIntervalSeconds")
             {
                 const uint64_t* value =
-                    element.value().get_ptr<const uint64_t*>();
+                    element.second.get_ptr<const uint64_t*>();
                 if ((value == nullptr) ||
                     (*value > std::numeric_limits<uint32_t>::max()))
                 {

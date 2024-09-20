@@ -4,11 +4,7 @@
 
 #include <string>
 
-#include <gtest/gtest.h> // IWYU pragma: keep
-
-// IWYU pragma: no_include <gtest/gtest-message.h>
-// IWYU pragma: no_include <gtest/gtest-test-part.h>
-// IWYU pragma: no_include "gtest/gtest_pred_impl.h"
+#include <gtest/gtest.h>
 
 namespace json_html_util
 {
@@ -19,11 +15,11 @@ const std::string boilerplateStart =
     "<html>\n"
     "<head>\n"
     "<title>Redfish API</title>\n"
-    "<link href=\"/redfish.css\" rel=\"stylesheet\">\n"
+    "<link href=\"/styles/redfish.css\" rel=\"stylesheet\">\n"
     "</head>\n"
     "<body>\n"
     "<div class=\"container\">\n"
-    "<img src=\"/DMTF_Redfish_logo_2017.svg\" alt=\"redfish\" height=\"406px\" width=\"576px\">\n";
+    "<img src=\"/images/DMTF_Redfish_logo_2017.svg\" alt=\"redfish\" height=\"406px\" width=\"576px\">\n";
 
 const std::string boilerplateEnd = "</div>\n"
                                    "</body>\n"

@@ -3,8 +3,8 @@
 #include "app.hpp"
 #include "dbus_utility.hpp"
 #include "privileges.hpp"
-#include "websocket.hpp"
 #include "virtual_media.hpp"
+#include "websocket.hpp"
 
 #include <boost/asio/local/stream_protocol.hpp>
 #include <boost/asio/readable_pipe.hpp>
@@ -197,7 +197,8 @@ struct NbdProxyServer : std::enable_shared_from_this<NbdProxyServer>
         connection(connIn)
     {
         std::filesystem::path endpointPath(endpointIdIn);
-	endpointIndex = static_cast<unsigned int>(std::stoul(endpointPath.filename().string()));
+        endpointIndex = static_cast<unsigned int>(
+            std::stoul(endpointPath.filename().string()));
     }
 
     NbdProxyServer(const NbdProxyServer&) = delete;
@@ -315,8 +316,8 @@ struct NbdProxyServer : std::enable_shared_from_this<NbdProxyServer>
         }
     }
 
-    inline void afterRead(const std::weak_ptr<NbdProxyServer>& weak,
-                          const boost::system::error_code& ec, size_t bytesRead)
+    void afterRead(const std::weak_ptr<NbdProxyServer>& weak,
+                   const boost::system::error_code& ec, size_t bytesRead)
     {
         if (ec)
         {

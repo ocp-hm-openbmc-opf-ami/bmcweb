@@ -19,6 +19,8 @@
 #include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
+#include "generated/enums/ethernet_interface.hpp"
+#include "generated/enums/resource.hpp"
 #include "human_sort.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
@@ -137,7 +139,7 @@ struct EthernetInterfaceData
     std::string defaultGateway;
     std::string ipv6DefaultGateway;
     std::string ipv6StaticDefaultGateway;
-    std::string macAddress;
+    std::optional<std::string> macAddress;
     std::optional<uint32_t> vlanId;
     std::vector<std::string> nameServers;
     std::vector<std::string> staticNameServers;
@@ -772,11 +774,11 @@ inline void updateIPv4DefaultGateway(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     setDbusProperty(
-        asyncResp, "xyz.openbmc_project.Network",
+        asyncResp, "Gateway", "xyz.openbmc_project.Network",
         sdbusplus::message::object_path("/xyz/openbmc_project/network") /
             ifaceId,
         "xyz.openbmc_project.Network.EthernetInterface", "DefaultGateway",
-        "Gateway", gateway);
+        gateway);
 }
 
 /**
@@ -969,10 +971,11 @@ inline void createIPv6(const std::string& ifaceId, uint8_t prefixLength,
  * @return None
  */
 inline void
-    deleteIPv6Gateway(std::string_view gatewayId,
+    deleteIPv6Gateway(std::string_view ifaceId, std::string_view gatewayId,
                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     sdbusplus::message::object_path path("/xyz/openbmc_project/network");
+    path /= ifaceId;
     path /= gatewayId;
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code& ec) {
@@ -1007,19 +1010,21 @@ inline void createIPv6DefaultGateway(
         }
     };
     std::cout << "PrefixLength = " << prefixLength << std::endl;
-    setDbusProperty(
-        asyncResp, "xyz.openbmc_project.Network", path,
-        "xyz.openbmc_project.Network.EthernetInterface", "DefaultGateway6",
-        "DefaultGateway6", gateway);
+    setDbusProperty(asyncResp, "DefaultGtaeway6", "xyz.openbmc_project.Network",
+                    path, "xyz.openbmc_project.Network.EthernetInterface",
+                    "DefaultGateway6", gateway);
 
-    // For setting StaticGateway, back-end MR - https://gerrit.openbmc.org/c/openbmc/phosphor-networkd/+/63033
-    // not merged yet for the time being commented method call and set DefaultGateway6 instead of StaticGateway
+    // For setting StaticGateway, back-end MR -
+    // https://gerrit.openbmc.org/c/openbmc/phosphor-networkd/+/63033 not merged
+    // yet for the time being commented method call and set DefaultGateway6
+    // instead of StaticGateway
 
-/*    crow::connections::systemBus->async_method_call(
-        std::move(createIpHandler), "xyz.openbmc_project.Network", path,
-        "xyz.openbmc_project.Network.StaticGateway.Create", "StaticGateway",
-        gateway, prefixLength, "xyz.openbmc_project.Network.IP.Protocol.IPv6");
-*/
+    /*    crow::connections::systemBus->async_method_call(
+            std::move(createIpHandler), "xyz.openbmc_project.Network", path,
+            "xyz.openbmc_project.Network.StaticGateway.Create", "StaticGateway",
+            gateway, prefixLength,
+       "xyz.openbmc_project.Network.IP.Protocol.IPv6");
+    */
 }
 
 /**
@@ -1040,6 +1045,7 @@ inline void deleteAndCreateIPv6DefaultGateway(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     sdbusplus::message::object_path path("/xyz/openbmc_project/network");
+    path /= ifaceId;
     path /= gatewayId;
     crow::connections::systemBus->async_method_call(
         [asyncResp, ifaceId, gateway,
@@ -1100,7 +1106,7 @@ inline void handleIPv6DefaultGateway(
                 messages::resourceCannotBeDeleted(asyncResp->res);
                 return;
             }
-            deleteIPv6Gateway(staticGatewayEntry->id, asyncResp);
+            deleteIPv6Gateway(ifaceId, staticGatewayEntry->id, asyncResp);
             return;
         }
         if (obj->empty())
@@ -1330,10 +1336,10 @@ inline void
     }
 
     setDbusProperty(
-        asyncResp, "xyz.openbmc_project.Network",
+        asyncResp, "HostName", "xyz.openbmc_project.Network",
         sdbusplus::message::object_path("/xyz/openbmc_project/network/config"),
         "xyz.openbmc_project.Network.SystemConfiguration", "HostName",
-        "HostName", hostname);
+        hostname);
 }
 
 inline void
@@ -1349,9 +1355,9 @@ inline void
         messages::propertyValueOutOfRange(asyncResp->res, mtuview, "MTUSize");
         return;
     }
-    setDbusProperty(asyncResp, "xyz.openbmc_project.Network", objPath,
-                    "xyz.openbmc_project.Network.EthernetInterface", "MTU",
-                    "MTUSize", mtuSize);
+    setDbusProperty(asyncResp, "MTUSize", "xyz.openbmc_project.Network",
+                    objPath, "xyz.openbmc_project.Network.EthernetInterface",
+                    "MTU", mtuSize);
 }
 
 inline void
@@ -1361,10 +1367,10 @@ inline void
 {
     std::vector<std::string> vectorDomainname = {domainname};
     setDbusProperty(
-        asyncResp, "xyz.openbmc_project.Network",
+        asyncResp, "FQDN", "xyz.openbmc_project.Network",
         sdbusplus::message::object_path("/xyz/openbmc_project/network") /
             ifaceId,
-        "xyz.openbmc_project.Network.EthernetInterface", "DomainName", "FQDN",
+        "xyz.openbmc_project.Network.EthernetInterface", "DomainName",
         vectorDomainname);
 }
 
@@ -1429,11 +1435,10 @@ inline void
                           const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     setDbusProperty(
-        asyncResp, "xyz.openbmc_project.Network",
+        asyncResp, "MACAddress", "xyz.openbmc_project.Network",
         sdbusplus::message::object_path("/xyz/openbmc_project/network") /
             ifaceId,
-        "xyz.openbmc_project.Network.MACAddress", "MACAddress", "MACAddress",
-        macAddress);
+        "xyz.openbmc_project.Network.MACAddress", "MACAddress", macAddress);
 }
 
 inline void setDHCPEnabled(const std::string& ifaceId,
@@ -1444,11 +1449,10 @@ inline void setDHCPEnabled(const std::string& ifaceId,
     const std::string dhcp = getDhcpEnabledEnumeration(v4Value, v6Value,
                                                        ipv6AcceptRA);
     setDbusProperty(
-        asyncResp, "xyz.openbmc_project.Network",
+        asyncResp, "DHCPv4", "xyz.openbmc_project.Network",
         sdbusplus::message::object_path("/xyz/openbmc_project/network") /
             ifaceId,
-        "xyz.openbmc_project.Network.EthernetInterface", propertyName, "DHCPv4",
-        dhcp);
+        "xyz.openbmc_project.Network.EthernetInterface", propertyName, dhcp);
 }
 
 enum class NetworkType
@@ -1496,9 +1500,9 @@ inline void setDHCPConfig(const std::string& propertyName, const bool& value,
         redfishPropertyName = "DHCPv6";
     }
 
-    setDbusProperty(asyncResp, "xyz.openbmc_project.Network", path,
-                    "xyz.openbmc_project.Network.DHCPConfiguration",
-                    propertyName, redfishPropertyName, value);
+    setDbusProperty(
+        asyncResp, redfishPropertyName, "xyz.openbmc_project.Network", path,
+        "xyz.openbmc_project.Network.DHCPConfiguration", propertyName, value);
 }
 
 inline void handleSLAACAutoConfigPatch(
@@ -1507,11 +1511,11 @@ inline void handleSLAACAutoConfigPatch(
 {
     sdbusplus::message::object_path path("/xyz/openbmc_project/network");
     path /= ifaceId;
-    setDbusProperty(asyncResp, "xyz.openbmc_project.Network", path,
-                    "xyz.openbmc_project.Network.EthernetInterface",
-                    "IPv6AcceptRA",
+    setDbusProperty(asyncResp,
                     "StatelessAddressAutoConfig/IPv6AutoConfigEnabled",
-                    ipv6AutoConfigEnabled);
+                    "xyz.openbmc_project.Network", path,
+                    "xyz.openbmc_project.Network.EthernetInterface",
+                    "IPv6AcceptRA", ipv6AutoConfigEnabled);
 }
 
 inline void triggerDHCPDisable(
@@ -1752,21 +1756,24 @@ inline bool
 
                 if (!ip_util::isValidIPv4Addr(
                         ipAddress,
-                        ip_util::Type::IP4_ADDRESS)) // checking the IPv4 Address
+                        ip_util::Type::IP4_ADDRESS)) // checking the IPv4
+                                                     // Address
                 {
                     messages::invalidip(asyncResp->res, "Address", ipAddress);
                     return false;
                 }
                 if (!ip_util::isValidIPv4Addr(
-                        ipGateway, ip_util::Type::GATEWAY4_ADDRESS)) // checking the IPv4
-                                                            // gateway Address
+                        ipGateway,
+                        ip_util::Type::GATEWAY4_ADDRESS)) // checking the IPv4
+                                                          // gateway Address
                 {
                     messages::invalidip(asyncResp->res, "Gateway", ipGateway);
                     return false;
                 }
-                if (!ip_util::isValidIPv4Addr(ipSubnetMask,
-                                     ip_util::Type::SUBNETMASK)) // checking the IPv4
-                                                        // subnetmask Address
+                if (!ip_util::isValidIPv4Addr(
+                        ipSubnetMask,
+                        ip_util::Type::SUBNETMASK)) // checking the IPv4
+                                                    // subnetmask Address
                 {
                     messages::invalidip(asyncResp->res, "Subnetmask",
                                         ipSubnetMask);
@@ -2014,8 +2021,9 @@ inline void handleIPv4StaticPatch(
             {
                 if (!dhcp4EnableFlag)
                 {
-                    triggerDHCPDisable(ifaceId, ethData, v4dhcpParms, v6dhcpParms,
-                                       ipv6AcceptRA, asyncResp, true);
+                    triggerDHCPDisable(ifaceId, ethData, v4dhcpParms,
+                                       v6dhcpParms, ipv6AcceptRA, asyncResp,
+                                       true);
                 }
                 bool dhcpv4 = false;
 		bool dhcpv6 = translateDhcpEnabledToBool(ethData.dhcpEnabled, false); 
@@ -2061,11 +2069,11 @@ inline void handleStaticNameServersPatch(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     setDbusProperty(
-        asyncResp, "xyz.openbmc_project.Network",
+        asyncResp, "StaticNameServers", "xyz.openbmc_project.Network",
         sdbusplus::message::object_path("/xyz/openbmc_project/network") /
             ifaceId,
         "xyz.openbmc_project.Network.EthernetInterface", "StaticNameServers",
-        "StaticNameServers", updatedStaticNameServers);
+        updatedStaticNameServers);
 }
 
 inline void handleIPv6StaticAddressesPatch(
@@ -2230,28 +2238,34 @@ inline void
 
     if (ethData.nicEnabled)
     {
-        jsonResponse["LinkStatus"] = ethData.linkUp ? "LinkUp" : "LinkDown";
-        jsonResponse["Status"]["State"] = "Enabled";
+        jsonResponse["LinkStatus"] =
+            ethData.linkUp ? ethernet_interface::LinkStatus::LinkUp
+                           : ethernet_interface::LinkStatus::LinkDown;
+        jsonResponse["Status"]["State"] = resource::State::Enabled;
     }
     else
     {
-        jsonResponse["LinkStatus"] = "NoLink";
-        jsonResponse["Status"]["State"] = "Disabled";
+        jsonResponse["LinkStatus"] = ethernet_interface::LinkStatus::NoLink;
+        jsonResponse["Status"]["State"] = resource::State::Disabled;
     }
 
     jsonResponse["SpeedMbps"] = ethData.speed;
     jsonResponse["MTUSize"] = ethData.mtuSize;
-    jsonResponse["MACAddress"] = ethData.macAddress;
+    if (ethData.macAddress)
+    {
+        jsonResponse["MACAddress"] = *ethData.macAddress;
+    }
     jsonResponse["DHCPv4"]["DHCPEnabled"] =
         translateDhcpEnabledToBool(ethData.dhcpEnabled, true);
     jsonResponse["DHCPv4"]["UseNTPServers"] = ethData.ntpv4Enabled;
     jsonResponse["DHCPv4"]["UseDNSServers"] = ethData.dnsv4Enabled;
     jsonResponse["DHCPv4"]["UseDomainName"] = ethData.domainv4Enabled;
-    //jsonResponse["DHCPv6"]["OperatingMode"] =
-    //    translateDhcpEnabledToBool(ethData.dhcpEnabled, false) ? "Enabled"
-    //                                                           : "Disabled";
-    std::string dhcpv6OperatingMode = translateDhcpEnabledToBool(ethData.dhcpEnabled, false) ? "Enabled"
-                                                                : "Disabled";
+    // jsonResponse["DHCPv6"]["OperatingMode"] =
+    //     translateDhcpEnabledToBool(ethData.dhcpEnabled, false) ? "Enabled"
+    //                                                            : "Disabled";
+    std::string dhcpv6OperatingMode =
+        translateDhcpEnabledToBool(ethData.dhcpEnabled, false) ? "Enabled"
+                                                               : "Disabled";
     jsonResponse["DHCPv6"]["OperatingMode"] = dhcpv6OperatingMode;
     jsonResponse["DHCPv6"]["UseNTPServers"] = ethData.ntpv6Enabled;
     jsonResponse["DHCPv6"]["UseDNSServers"] = ethData.dnsv6Enabled;
@@ -2276,7 +2290,8 @@ inline void
 
     if (ethData.vlanId)
     {
-        jsonResponse["EthernetInterfaceType"] = "Virtual";
+        jsonResponse["EthernetInterfaceType"] =
+            ethernet_interface::EthernetDeviceType::Virtual;
         jsonResponse["VLAN"]["VLANEnable"] = true;
         jsonResponse["VLAN"]["VLANId"] = *ethData.vlanId;
         jsonResponse["VLAN"]["Tagged"] = true;
@@ -2292,7 +2307,8 @@ inline void
     }
     else
     {
-        jsonResponse["EthernetInterfaceType"] = "Physical";
+        jsonResponse["EthernetInterfaceType"] =
+            ethernet_interface::EthernetDeviceType::Physical;
     }
 
     jsonResponse["NameServers"] = ethData.nameServers;
@@ -2339,15 +2355,18 @@ inline void
         ipv6Gateway["PrefixLength"] = ipv6GatewayConfig.prefixLength;
         ipv6StaticGatewayArray.emplace_back(std::move(ipv6Gateway));
     }
-    //jsonResponse["IPv6StaticDefaultGateways"] =
-    //    std::move(ipv6StaticGatewayArray);
-    if(dhcpv6OperatingMode == "Disabled")
+    // jsonResponse["IPv6StaticDefaultGateways"] =
+    //     std::move(ipv6StaticGatewayArray);
+    if (dhcpv6OperatingMode == "Disabled")
     {
         ipv6StaticGatewayArray.emplace_back(std::move(ipv6GatewayStr));
-        jsonResponse["IPv6StaticDefaultGateways"] = std::move(ipv6StaticGatewayArray);
+        jsonResponse["IPv6StaticDefaultGateways"] =
+            std::move(ipv6StaticGatewayArray);
     }
-    else{
-       jsonResponse["IPv6StaticDefaultGateways"] = std::move(ipv6StaticGatewayArray);
+    else
+    {
+        jsonResponse["IPv6StaticDefaultGateways"] =
+            std::move(ipv6StaticGatewayArray);
     }
 
     nlohmann::json& ipv6Array = jsonResponse["IPv6Addresses"];
@@ -2473,7 +2492,8 @@ inline bool
         if (address)
         {
             const std::string& ipAddress = *address;
-            if (!(ip_util::validateIPv6address(ipAddress, ip_util::Type::IP6_ADDRESS)))
+            if (!(ip_util::validateIPv6address(ipAddress,
+                                               ip_util::Type::IP6_ADDRESS)))
             {
                 messages::invalidip(asyncResp->res, "Address", ipAddress);
                 return false;
@@ -3023,14 +3043,15 @@ inline void requestEthernetInterfacesRoutes(App& app)
             bool isDhcpv4Enabled = ethData.dnsv4Enabled;
             bool isDhcpv6Enabled = ethData.dnsv6Enabled;
 
-            if (v4dhcpParms.dhcpv4Enabled || v4dhcpParms.useDnsServers || v4dhcpParms.useDomainName || v4dhcpParms.useNtpServers)
+            if (v4dhcpParms.dhcpv4Enabled || v4dhcpParms.useDnsServers ||
+                v4dhcpParms.useDomainName || v4dhcpParms.useNtpServers)
             {
                 if (isIfaceIdusb0(ifaceId, asyncResp))
                 {
                     return;
                 }
 
-                if(v4dhcpParms.useDnsServers)
+                if (v4dhcpParms.useDnsServers)
                 {
                     isDhcpv4Enabled = *v4dhcpParms.useDnsServers;
                 }
@@ -3041,17 +3062,18 @@ inline void requestEthernetInterfacesRoutes(App& app)
                     if (!v4Value) // DHCPv4.DHCPEnabled attribute is false
                     {
                         if (!ipv4StaticAddresses) // and IPv4StaticAddresses
-                                                // attribute is not present
+                                                  // attribute is not present
                         {
                             messages::propertyMissing(asyncResp->res,
-                                                    "IPv4StaticAddresses");
+                                                      "IPv4StaticAddresses");
                             return;
                         }
                     }
                     else if (v4Value &&
-                            ipv4StaticAddresses) // DHCPv4.DHCPEnabled attribute is
-                                                // true and IPv4StaticAddresses
-                                                // attribute is present
+                             ipv4StaticAddresses) // DHCPv4.DHCPEnabled
+                                                  // attribute is true and
+                                                  // IPv4StaticAddresses
+                                                  // attribute is present
                     {
                         messages::propertyValueConflict(asyncResp->res,
                                                         "DHCPv4.DHCPEnabled",
@@ -3067,20 +3089,21 @@ inline void requestEthernetInterfacesRoutes(App& app)
                 }
             }
 
-            if(v6dhcpParms.dhcpv6OperatingMode || v6dhcpParms.useDnsServers || v6dhcpParms.useDomainName || v4dhcpParms.useNtpServers)
+            if (v6dhcpParms.dhcpv6OperatingMode || v6dhcpParms.useDnsServers ||
+                v6dhcpParms.useDomainName || v4dhcpParms.useNtpServers)
             {
                 if (isIfaceIdusb0(ifaceId, asyncResp))
                 {
                     return;
                 }
 
-                if(v6dhcpParms.useDnsServers)
+                if (v6dhcpParms.useDnsServers)
                 {
                     isDhcpv6Enabled = *v6dhcpParms.useDnsServers;
                 }
 
-                if (v6dhcpParms
-                    .dhcpv6OperatingMode) // DHCPv6 -> OperatingMode is present
+                if (v6dhcpParms.dhcpv6OperatingMode) // DHCPv6 -> OperatingMode
+                                                     // is present
                 {
                     if ((*v6dhcpParms.dhcpv6OperatingMode == "Enabled") &&
                         ipv6StaticAddresses)
@@ -3093,10 +3116,10 @@ inline void requestEthernetInterfacesRoutes(App& app)
                     else if (*v6dhcpParms.dhcpv6OperatingMode == "Disabled")
                     {
                         if (!ipv6StaticAddresses) // and IPv6StaticAddresses
-                                                // attribute is not present
+                                                  // attribute is not present
                         {
                             messages::propertyMissing(asyncResp->res,
-                                                    "IPv6StaticAddresses");
+                                                      "IPv6StaticAddresses");
                             return;
                         }
                     }
@@ -3194,20 +3217,26 @@ inline void requestEthernetInterfacesRoutes(App& app)
             {
                 IPType result = checkIPTypes(staticNameServers.value());
 
-                if(isDhcpv4Enabled && result == IPType::IPv4)
+                if (isDhcpv4Enabled && result == IPType::IPv4)
                 {
-                    messages::propertyValueConflict(asyncResp->res, "StaticNameServers", "DHCPv4.UseDNSServers");
+                    messages::propertyValueConflict(asyncResp->res,
+                                                    "StaticNameServers",
+                                                    "DHCPv4.UseDNSServers");
                     return;
                 }
                 else if (isDhcpv6Enabled && result == IPType::IPv6)
                 {
-                    messages::propertyValueConflict(asyncResp->res, "StaticNameServers", "DHCPv6.UseDNSServers");
+                    messages::propertyValueConflict(asyncResp->res,
+                                                    "StaticNameServers",
+                                                    "DHCPv6.UseDNSServers");
                     return;
                 }
-                else if(isDhcpv4Enabled && isDhcpv6Enabled && result == IPType::Both)
+                else if (isDhcpv4Enabled && isDhcpv6Enabled &&
+                         result == IPType::Both)
                 {
-                    messages::propertyValueConflict(asyncResp->res, "StaticNameServers",
-                                    "DHCPv4.UseDNSServers/DHCPv6.UseDNSServers");
+                    messages::propertyValueConflict(
+                        asyncResp->res, "StaticNameServers",
+                        "DHCPv4.UseDNSServers/DHCPv6.UseDNSServers");
                     return;
                 }
 

@@ -24,6 +24,7 @@
 #include "license_service.hpp"
 #include "log_services.hpp"
 #include "manager_diagnostic_data.hpp"
+#include "manager_logservices_journal.hpp"
 #include "managers.hpp"
 #include "memory.hpp"
 #include "message_registries.hpp"
@@ -38,6 +39,7 @@
 #include "node-manager/power.hpp"
 #include "node-manager/throttling_status.hpp"
 #include "node-manager/triggers.hpp"
+#include "odata.hpp"
 #include "pcie.hpp"
 #include "pef_service.hpp"
 #include "power.hpp"
@@ -54,6 +56,8 @@
 #include "service_root.hpp"
 #include "storage.hpp"
 #include "systems.hpp"
+#include "systems_logservices_hostlogger.hpp"
+#include "systems_logservices_postcodes.hpp"
 #include "task.hpp"
 #include "telemetry_service.hpp"
 #include "thermal.hpp"
@@ -89,6 +93,7 @@ namespace redfish
 RedfishService::RedfishService(App& app)
 {
     requestRoutesMetadata(app);
+    requestRoutesOdata(app);
 
     requestRoutesNodeManagerService(app);
     requestRoutesNodeManagerDomains(app);
@@ -207,12 +212,7 @@ RedfishService::RedfishService(App& app)
 
     requestRoutesSystemLogServiceCollection(app);
     requestRoutesEventLogService(app);
-    requestRoutesPostCodesEntryAdditionalData(app);
-
-    requestRoutesPostCodesLogService(app);
-    requestRoutesPostCodesClear(app);
-    requestRoutesPostCodesEntry(app);
-    requestRoutesPostCodesEntryCollection(app);
+    requestRoutesSystemsLogServicesPostCode(app);
 
     if constexpr (BMCWEB_REDFISH_DUMP_LOG)
     {
@@ -235,19 +235,11 @@ RedfishService::RedfishService(App& app)
         requestRoutesFaultLogDumpClear(app);
     }
 
-    if constexpr (!BMCWEB_REDFISH_DBUS_LOG)
-    {
-        requestRoutesJournalEventLogEntryCollection(app);
-        requestRoutesJournalEventLogEntry(app);
-        requestRoutesJournalEventLogClear(app);
-    }
-
     requestRoutesBMCLogServiceCollection(app);
+
     if constexpr (BMCWEB_REDFISH_BMC_JOURNAL)
     {
         requestRoutesBMCJournalLogService(app);
-        requestRoutesBMCJournalLogEntryCollection(app);
-        requestRoutesBMCJournalLogEntry(app);
     }
 
     if constexpr (BMCWEB_REDFISH_CPU_LOG)
@@ -293,12 +285,16 @@ RedfishService::RedfishService(App& app)
         requestRoutesDBusEventLogEntry(app);
         requestRoutesDBusEventLogEntryDownload(app);
     }
+    else
+    {
+        requestRoutesJournalEventLogEntryCollection(app);
+        requestRoutesJournalEventLogEntry(app);
+        requestRoutesJournalEventLogClear(app);
+    }
 
     if constexpr (BMCWEB_REDFISH_HOST_LOGGER)
     {
-        requestRoutesSystemHostLogger(app);
-        requestRoutesSystemHostLoggerCollection(app);
-        requestRoutesSystemHostLoggerLogEntry(app);
+        requestRoutesSystemsLogServiceHostlogger(app);
     }
 
    #if BMCWEB_AMI_PCIESW_MACRO
@@ -351,7 +347,10 @@ RedfishService::RedfishService(App& app)
     requestRoutesSubmitTestEvent(app);
     requestRoutesSSLEvent(app);
 
-    requestRoutesHypervisorSystems(app);
+    if constexpr (BMCWEB_HYPERVISOR_COMPUTER_SYSTEM)
+    {
+        requestRoutesHypervisorSystems(app);
+    }
 
     requestRoutesTelemetryService(app);
     requestRoutesMetricReportDefinitionCollection(app);
@@ -373,7 +372,7 @@ RedfishService::RedfishService(App& app)
     requestRoutesPefService(app);
     requestRoutesSendTrap(app);
     // Note, this must be the last route registered
-#if (!BMCWEB_AMI_REP_MACRO) || (!BMCWEB_AMI_NIC_MACRO)  
+#if (!BMCWEB_AMI_REP_MACRO) || (!BMCWEB_AMI_NIC_MACRO)
     requestRoutesRedfish(app);
 #endif
 }

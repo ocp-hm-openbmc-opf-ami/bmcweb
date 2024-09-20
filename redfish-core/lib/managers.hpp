@@ -19,6 +19,9 @@
 
 #include "app.hpp"
 #include "dbus_utility.hpp"
+#include "generated/enums/action_info.hpp"
+#include "generated/enums/manager.hpp"
+#include "generated/enums/resource.hpp"
 #include "query.hpp"
 #include "redfish_util.hpp"
 #include "registries/privilege_registry.hpp"
@@ -593,7 +596,7 @@ inline void requestRoutesManagerResetActionInfo(App& app)
         nlohmann::json::object_t parameter;
         parameter["Name"] = "ResetType";
         parameter["Required"] = true;
-        parameter["DataType"] = "String";
+        parameter["DataType"] = action_info::ParameterTypes::String;
 
         nlohmann::json::array_t allowableValues;
         allowableValues.emplace_back("GracefulRestart");
@@ -639,19 +642,20 @@ inline void
         nlohmann::json& configRoot =
             asyncResp->res.jsonValue["Oem"]["OpenBmc"]["Fan"];
         nlohmann::json& fans = configRoot["FanControllers"];
-        fans["@odata.type"] = "#OemManager.FanControllers";
+        fans["@odata.type"] = "#OpenBMCManager.v1_0_0.Manager.FanControllers";
         fans["@odata.id"] = boost::urls::format(
             "/redfish/v1/Managers/{}#/Oem/OpenBmc/Fan/FanControllers",
             BMCWEB_REDFISH_MANAGER_URI_NAME);
 
         nlohmann::json& pids = configRoot["PidControllers"];
-        pids["@odata.type"] = "#OemManager.PidControllers";
+        pids["@odata.type"] = "#OpenBMCManager.v1_0_0.Manager.PidControllers";
         pids["@odata.id"] = boost::urls::format(
             "/redfish/v1/Managers/{}#/Oem/OpenBmc/Fan/PidControllers",
             BMCWEB_REDFISH_MANAGER_URI_NAME);
 
         nlohmann::json& stepwise = configRoot["StepwiseControllers"];
-        stepwise["@odata.type"] = "#OemManager.StepwiseControllers";
+        stepwise["@odata.type"] =
+            "#OpenBMCManager.v1_0_0.Manager.StepwiseControllers";
         stepwise["@odata.id"] = boost::urls::format(
             "/redfish/v1/Managers/{}#/Oem/OpenBmc/Fan/StepwiseControllers",
             BMCWEB_REDFISH_MANAGER_URI_NAME);
@@ -660,11 +664,11 @@ inline void
         zones["@odata.id"] = boost::urls::format(
             "/redfish/v1/Managers/{}#/Oem/OpenBmc/Fan/FanZones",
             BMCWEB_REDFISH_MANAGER_URI_NAME);
-        zones["@odata.type"] = "#OemManager.FanZones";
+        zones["@odata.type"] = "#OpenBMCManager.v1_0_0.Manager.FanZones";
         configRoot["@odata.id"] =
             boost::urls::format("/redfish/v1/Managers/{}#/Oem/OpenBmc/Fan",
                                 BMCWEB_REDFISH_MANAGER_URI_NAME);
-        configRoot["@odata.type"] = "#OemManager.Fan";
+        configRoot["@odata.type"] = "#OpenBMCManager.v1_0_0.Manager.Fan";
         configRoot["Profile@Redfish.AllowableValues"] = supportedProfiles;
 
         if (!currentProfile.empty())
@@ -757,7 +761,8 @@ inline void
                         ("/Oem/OpenBmc/Fan/FanZones"_json_pointer / name)
                             .to_string());
                     zone["@odata.id"] = std::move(url);
-                    zone["@odata.type"] = "#OemManager.FanZone";
+                    zone["@odata.type"] =
+                        "#OpenBMCManager.v1_0_0.Manager.FanZone";
                     config = &zone;
                 }
 
@@ -778,7 +783,7 @@ inline void
                             .to_string());
                     controller["@odata.id"] = std::move(url);
                     controller["@odata.type"] =
-                        "#OemManager.StepwiseController";
+                        "#OpenBMCManager.v1_0_0.Manager.StepwiseController";
 
                     controller["Direction"] = *classPtr;
                 }
@@ -802,7 +807,8 @@ inline void
                              name)
                                 .to_string());
                         element["@odata.id"] = std::move(url);
-                        element["@odata.type"] = "#OemManager.FanController";
+                        element["@odata.type"] =
+                            "#OpenBMCManager.v1_0_0.Manager.FanController";
                     }
                     else
                     {
@@ -811,7 +817,8 @@ inline void
                              name)
                                 .to_string());
                         element["@odata.id"] = std::move(url);
-                        element["@odata.type"] = "#OemManager.PidController";
+                        element["@odata.type"] =
+                            "#OpenBMCManager.v1_0_0.Manager.PidController";
                     }
                 }
                 else
@@ -1818,7 +1825,7 @@ struct SetPIDValues : std::enable_shared_from_this<SetPIDValues>
 
                 auto pathItr = std::ranges::find_if(
                     managedObj, [&dbusObjName](const auto& obj) {
-                    return obj.first.parent_path() == dbusObjName;
+                    return obj.first.filename() == dbusObjName;
                 });
                 dbus::utility::DBusPropertiesMap output;
 
@@ -1946,7 +1953,7 @@ struct SetPIDValues : std::enable_shared_from_this<SetPIDValues>
                     bool foundChassis = false;
                     for (const auto& obj : managedObj)
                     {
-                        if (obj.first.parent_path() == chassis)
+                        if (obj.first.filename() == chassis)
                         {
                             chassis = obj.first.str;
                             foundChassis = true;
@@ -2255,13 +2262,15 @@ inline void
         {
             if (val == "active")
             {
-                asyncResp->res.jsonValue["Status"]["Health"] = "Critical";
-                asyncResp->res.jsonValue["Status"]["State"] = "Quiesced";
+                asyncResp->res.jsonValue["Status"]["Health"] =
+                    resource::Health::Critical;
+                asyncResp->res.jsonValue["Status"]["State"] =
+                    resource::State::Quiesced;
                 return;
             }
         }
-        asyncResp->res.jsonValue["Status"]["Health"] = "OK";
-        asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
+        asyncResp->res.jsonValue["Status"]["Health"] = resource::Health::OK;
+        asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
     });
 }
 
@@ -2288,9 +2297,9 @@ inline void handleManagersInstanceGet(
     asyncResp->res.jsonValue["Id"] = BMCWEB_REDFISH_MANAGER_URI_NAME;
     asyncResp->res.jsonValue["Name"] = "OpenBmc Manager";
     asyncResp->res.jsonValue["Description"] = "Baseboard Management Controller";
-    asyncResp->res.jsonValue["PowerState"] = "On";
+    asyncResp->res.jsonValue["PowerState"] = resource::PowerState::On;
 
-    asyncResp->res.jsonValue["ManagerType"] = "BMC";
+    asyncResp->res.jsonValue["ManagerType"] = manager::ManagerType::BMC;
     asyncResp->res.jsonValue["UUID"] = systemd_utils::getUuid();
     asyncResp->res.jsonValue["ServiceEntryPointUUID"] = uuid;
     asyncResp->res.jsonValue["Model"] = "OpenBmc"; // TODO(ed), get model
@@ -2323,10 +2332,9 @@ inline void handleManagersInstanceGet(
     oemIntel["NodeManager"] = {
         {"@odata.id", "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager"}};
 
-    oem["@odata.type"] = "#OemManager.Oem";
     oem["@odata.id"] = boost::urls::format("/redfish/v1/Managers/{}#/Oem",
                                            BMCWEB_REDFISH_MANAGER_URI_NAME);
-    oemOpenbmc["@odata.type"] = "#OemManager.OpenBmc";
+    oemOpenbmc["@odata.type"] = "#OpenBMCManager.v1_0_0.Manager";
     oemOpenbmc["@odata.id"] =
         boost::urls::format("/redfish/v1/Managers/{}#/Oem/OpenBmc",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
@@ -2439,8 +2447,9 @@ inline void handleManagersInstanceGet(
         }
         if (val < 1.0)
         {
-            asyncResp->res.jsonValue["Status"]["Health"] = "OK";
-            asyncResp->res.jsonValue["Status"]["State"] = "Starting";
+            asyncResp->res.jsonValue["Status"]["Health"] = resource::Health::OK;
+            asyncResp->res.jsonValue["Status"]["State"] =
+                resource::State::Starting;
             return;
         }
         checkForQuiesced(asyncResp);
@@ -2710,7 +2719,7 @@ inline void requestRoutesManagerCollection(App& app)
         asyncResp->res.jsonValue["@odata.type"] =
             "#ManagerCollection.ManagerCollection";
         asyncResp->res.jsonValue["Name"] = "Manager Collection";
-	asyncResp->res.jsonValue["Description"] = "The collection for Managers";
+        asyncResp->res.jsonValue["Description"] = "The collection for Managers";
         asyncResp->res.jsonValue["Members@odata.count"] = 1;
         nlohmann::json::array_t members;
         nlohmann::json& bmc = members.emplace_back();

@@ -83,17 +83,11 @@ class Connection :
   public:
     Connection(Handler* handlerIn, boost::asio::steady_timer&& timerIn,
                std::function<std::string()>& getCachedDateStrF,
-               Adaptor adaptorIn) :
-        adaptor(std::move(adaptorIn)),
-        handler(handlerIn), timer(std::move(timerIn)),
-        getCachedDateStr(getCachedDateStrF)
+               Adaptor&& adaptorIn) :
+        adaptor(std::move(adaptorIn)), handler(handlerIn),
+        timer(std::move(timerIn)), getCachedDateStr(getCachedDateStrF)
     {
         initParser();
-
-        if constexpr (BMCWEB_MUTUAL_TLS_AUTH)
-        {
-            prepareMutualTls();
-        }
 
         connectionCount++;
 
@@ -119,55 +113,60 @@ class Connection :
     bool tlsVerifyCallback(bool preverified,
                            boost::asio::ssl::verify_context& ctx)
     {
-        // We always return true to allow full auth flow for resources that
-        // don't require auth
+        BMCWEB_LOG_DEBUG("{} tlsVerifyCallback called with preverified {}",
+                         logPtr(this), preverified);
         if (preverified)
         {
             mtlsSession = verifyMtlsUser(ip, ctx);
             if (mtlsSession)
             {
-                BMCWEB_LOG_DEBUG("{} Generating TLS session: {}", logPtr(this),
+                BMCWEB_LOG_DEBUG("{} Generated TLS session: {}", logPtr(this),
                                  mtlsSession->uniqueId);
             }
         }
+        const persistent_data::AuthConfigMethods& c =
+            persistent_data::SessionStore::getInstance().getAuthMethodsConfig();
+        if (c.tlsStrict)
+        {
+            return preverified;
+        }
+        // If tls strict mode is disabled
+        // We always return true to allow full auth flow for resources that
+        // don't require auth
         return true;
     }
 
-    void prepareMutualTls()
+    bool prepareMutualTls()
     {
         if constexpr (IsTls<Adaptor>::value)
         {
-            std::error_code error;
-            std::filesystem::path caPath(ensuressl::trustStorePath);
-            auto caAvailable = !std::filesystem::is_empty(caPath, error);
-            caAvailable = caAvailable && !error;
-            if (caAvailable && persistent_data::SessionStore::getInstance()
-                                   .getAuthMethodsConfig()
-                                   .tls)
-            {
-                adaptor.set_verify_mode(boost::asio::ssl::verify_peer);
-                std::string id = "bmcweb";
+            BMCWEB_LOG_DEBUG("prepareMutualTls");
 
-                const char* cStr = id.c_str();
-                // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-                const auto* idC = reinterpret_cast<const unsigned char*>(cStr);
-                int ret = SSL_set_session_id_context(
-                    adaptor.native_handle(), idC,
-                    static_cast<unsigned int>(id.length()));
-                if (ret == 0)
-                {
-                    BMCWEB_LOG_ERROR("{} failed to set SSL id", logPtr(this));
-                }
+            constexpr std::string_view id = "bmcweb";
+
+            const char* idPtr = id.data();
+            const auto* idCPtr = std::bit_cast<const unsigned char*>(idPtr);
+            auto idLen = static_cast<unsigned int>(id.length());
+            int ret = SSL_set_session_id_context(adaptor.native_handle(),
+                                                 idCPtr, idLen);
+            if (ret == 0)
+            {
+                BMCWEB_LOG_ERROR("{} failed to set SSL id", logPtr(this));
+                return false;
             }
+            BMCWEB_LOG_DEBUG("set_verify_callback");
+
+            boost::system::error_code ec;
 
             adaptor.set_verify_callback(
-                std::bind_front(&self_type::tlsVerifyCallback, this));
+                std::bind_front(&self_type::tlsVerifyCallback, this), ec);
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("Failed to set verify callback {}", ec);
+                return false;
+            }
         }
-    }
-
-    Adaptor& socket()
-    {
-        return adaptor;
+        return true;
     }
 
     void start()
@@ -180,6 +179,15 @@ class Connection :
                                 logPtr(this));
             return;
         }*/
+
+        if constexpr (BMCWEB_MUTUAL_TLS_AUTH)
+        {
+            if (!prepareMutualTls())
+            {
+                BMCWEB_LOG_ERROR("{} Failed to prepare mTLS", logPtr(this));
+                return;
+            }
+        }
 
         startDeadline();
 
@@ -263,6 +271,7 @@ class Connection :
         }
         req->session = userSession;
 
+        accept = req->getHeaderValue("Accept");
         // Fetch the client IP address
         req->ipAddress = ip;
 
@@ -360,6 +369,13 @@ class Connection :
 
     void hardClose()
     {
+        if (mtlsSession != nullptr)
+        {
+            BMCWEB_LOG_DEBUG("{} Removing TLS session: {}", logPtr(this),
+                             mtlsSession->uniqueId);
+            persistent_data::SessionStore::getInstance().removeSession(
+                mtlsSession);
+        }
         BMCWEB_LOG_DEBUG("{} Closing socket", logPtr(this));
         boost::beast::get_lowest_layer(adaptor).close();
     }
@@ -378,13 +394,7 @@ class Connection :
     void gracefulClose()
     {
         BMCWEB_LOG_DEBUG("{} Socket close requested", logPtr(this));
-        if (mtlsSession != nullptr)
-        {
-            BMCWEB_LOG_DEBUG("{} Removing TLS session: {}", logPtr(this),
-                             mtlsSession->uniqueId);
-            persistent_data::SessionStore::getInstance().removeSession(
-                mtlsSession);
-        }
+
         if constexpr (IsTls<Adaptor>::value)
         {
             adaptor.async_shutdown(std::bind_front(
@@ -401,7 +411,7 @@ class Connection :
         res = std::move(thisRes);
         res.keepAlive(keepAlive);
 
-        completeResponseFields(*req, res);
+        completeResponseFields(accept, res);
         res.addHeader(boost::beast::http::field::date, getCachedDateStr());
 
         doWrite();
@@ -470,7 +480,7 @@ class Connection :
     {
         if (!parser)
         {
-            BMCWEB_LOG_CRITICAL("Paser was null");
+            BMCWEB_LOG_CRITICAL("Parser was null");
             return false;
         }
         const boost::optional<uint64_t> contentLength =
@@ -564,14 +574,14 @@ class Connection :
                 return;
             }
 
-            if constexpr (!std::is_same_v<Adaptor, boost::beast::test::stream>)
+            constexpr bool isTest =
+                std::is_same_v<Adaptor, boost::beast::test::stream>;
+
+            if constexpr (!BMCWEB_INSECURE_DISABLE_AUTH && !isTest)
             {
-                if constexpr (!BMCWEB_INSECURE_DISABLE_AUTH)
-                {
-                    boost::beast::http::verb method = parser->get().method();
-                    userSession = crow::authentication::authenticate(
-                        ip, res, method, parser->get().base(), mtlsSession);
-                }
+                boost::beast::http::verb method = parser->get().method();
+                userSession = crow::authentication::authenticate(
+                    ip, res, method, parser->get().base(), mtlsSession);
             }
 
             std::string_view expect =
@@ -809,6 +819,7 @@ class Connection :
     boost::beast::flat_static_buffer<8192> buffer;
 
     std::shared_ptr<crow::Request> req;
+    std::string accept;
     crow::Response res;
 
     std::shared_ptr<persistent_data::UserSession> userSession;

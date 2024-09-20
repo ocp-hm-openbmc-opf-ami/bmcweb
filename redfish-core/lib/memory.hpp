@@ -19,6 +19,8 @@
 
 #include "app.hpp"
 #include "dbus_utility.hpp"
+#include "generated/enums/memory.hpp"
+#include "generated/enums/resource.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utils/collection.hpp"
@@ -330,18 +332,21 @@ inline void getPersistentMemoryProperties(
 
     if (allowedMemoryModes != nullptr)
     {
-	constexpr const std::array<const char*, 3> values{"Volatile", "PMEM",													"Block"};
-	for ( auto it = allowedMemoryModes->begin(); it != allowedMemoryModes->end(); it++)
-	{
-	    for (const char* v : values)
-	    {
-		if (it->ends_with(v))
-		{
-		    asyncResp->res.jsonValue[jsonPtr]["OperatingMemoryModes"].push_back(v);
-		    break;
-		}
-	    }
-	}
+        constexpr const std::array<const char*, 3> values{"Volatile", "PMEM",
+                                                          "Block"};
+        for (auto it = allowedMemoryModes->begin();
+             it != allowedMemoryModes->end(); it++)
+        {
+            for (const char* v : values)
+            {
+                if (it->ends_with(v))
+                {
+                    asyncResp->res.jsonValue[jsonPtr]["OperatingMemoryModes"]
+                        .push_back(v);
+                    break;
+                }
+            }
+        }
     }
 
     if (memoryMedia != nullptr)
@@ -399,8 +404,10 @@ inline void
 {
     asyncResp->res.jsonValue[jsonPtr]["Id"] = dimmId;
     asyncResp->res.jsonValue[jsonPtr]["Name"] = "DIMM Slot";
-    asyncResp->res.jsonValue[jsonPtr]["Status"]["State"] = "Enabled";
-    asyncResp->res.jsonValue[jsonPtr]["Status"]["Health"] = "OK";
+    asyncResp->res.jsonValue[jsonPtr]["Status"]["State"] =
+        resource::State::Enabled;
+    asyncResp->res.jsonValue[jsonPtr]["Status"]["Health"] =
+        resource::Health::OK;
 
     const uint16_t* memoryDataWidth = nullptr;
     const size_t* memorySizeInKB = nullptr;
@@ -477,7 +484,8 @@ inline void
 
     if (present != nullptr && !*present)
     {
-        asyncResp->res.jsonValue[jsonPtr]["Status"]["State"] = "Absent";
+        asyncResp->res.jsonValue[jsonPtr]["Status"]["State"] =
+            resource::State::Absent;
     }
 
     if (memoryTotalWidth != nullptr)
@@ -552,11 +560,13 @@ inline void
         }
         if (memoryType->find("DDR") != std::string::npos)
         {
-            asyncResp->res.jsonValue[jsonPtr]["MemoryType"] = "DRAM";
+            asyncResp->res.jsonValue[jsonPtr]["MemoryType"] =
+                memory::MemoryType::DRAM;
         }
         else if (memoryType->ends_with("Logical"))
         {
-            asyncResp->res.jsonValue[jsonPtr]["MemoryType"] = "IntelOptane";
+            asyncResp->res.jsonValue[jsonPtr]["MemoryType"] =
+                memory::MemoryType::IntelOptane;
         }
     }
 
@@ -796,7 +806,8 @@ inline void requestRoutesMemoryCollection(App& app)
         asyncResp->res.jsonValue["@odata.type"] =
             "#MemoryCollection.MemoryCollection";
         asyncResp->res.jsonValue["Name"] = "Memory Module Collection";
-	asyncResp->res.jsonValue["Description"] = "Collection of Memories for this system";
+        asyncResp->res.jsonValue["Description"] =
+            "Collection of Memories for this system";
         asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
             "/redfish/v1/Systems/{}/Memory", BMCWEB_REDFISH_SYSTEM_URI_NAME);
 

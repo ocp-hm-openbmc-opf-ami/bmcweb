@@ -10,6 +10,7 @@
 #include <boost/asio/ssl/context.hpp>
 #include <boost/asio/ssl/stream.hpp>
 #include <boost/asio/steady_timer.hpp>
+#include <boost/beast/core/stream_traits.hpp>
 
 #include <atomic>
 #include <chrono>
@@ -17,6 +18,7 @@
 #include <filesystem>
 #include <future>
 #include <memory>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -26,12 +28,13 @@ namespace crow
 template <typename Handler, typename Adaptor = boost::asio::ip::tcp::socket>
 class Server
 {
+    using self_t = Server<Handler, Adaptor>;
+
   public:
     Server(Handler* handlerIn, boost::asio::ip::tcp::acceptor&& acceptorIn,
            std::shared_ptr<boost::asio::ssl::context> adaptorCtxIn,
            std::shared_ptr<boost::asio::io_context> io) :
-        ioService(std::move(io)),
-        acceptor(std::move(acceptorIn)),
+        ioService(std::move(io)), acceptor(std::move(acceptorIn)),
         signals(*ioService, SIGINT, SIGTERM, SIGHUP), handler(handlerIn),
         adaptorCtx(std::move(adaptorCtxIn))
     {}
@@ -78,27 +81,9 @@ class Server
         {
             return;
         }
-        namespace fs = std::filesystem;
-        // Cleanup older certificate file existing in the system
-        fs::path oldCert = "/home/root/server.pem";
-        if (fs::exists(oldCert))
-        {
-            fs::remove("/home/root/server.pem");
-        }
-        fs::path certPath = "/etc/ssl/certs/https/";
-        // if path does not exist create the path so that
-        // self signed certificate can be created in the
-        // path
-        if (!fs::exists(certPath))
-        {
-            fs::create_directories(certPath);
-        }
-        fs::path certFile = certPath / "server.pem";
-        BMCWEB_LOG_INFO("Building SSL Context file={}", certFile.string());
-        std::string sslPemFile(certFile);
-        ensuressl::ensureOpensslKeyPresentAndValid(sslPemFile);
-        std::shared_ptr<boost::asio::ssl::context> sslContext =
-            ensuressl::getSslContext(sslPemFile);
+
+        auto sslContext = ensuressl::getSslServerContext();
+
         adaptorCtx = sslContext;
         handler->ssl(std::move(sslContext));
     }
@@ -117,14 +102,6 @@ class Server
                 {
                     BMCWEB_LOG_INFO("Receivied reload signal");
                     loadCertificate();
-                    boost::system::error_code ec2;
-                    acceptor.cancel(ec2);
-                    if (ec2)
-                    {
-                        BMCWEB_LOG_ERROR(
-                            "Error while canceling async operations:{}",
-                            ec2.message());
-                    }
                     startAsyncWaitForSignal();
                 }
                 else
@@ -139,6 +116,44 @@ class Server
     {
         ioService->stop();
     }
+    using Socket = boost::beast::lowest_layer_type<Adaptor>;
+    using SocketPtr = std::unique_ptr<Socket>;
+
+    void afterAccept(SocketPtr socket, const boost::system::error_code& ec)
+    {
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR("Failed to accept socket {}", ec);
+            return;
+        }
+
+        boost::asio::steady_timer timer(*ioService);
+        std::shared_ptr<Connection<Adaptor, Handler>> connection;
+
+        if constexpr (std::is_same<Adaptor,
+                                   boost::asio::ssl::stream<
+                                       boost::asio::ip::tcp::socket>>::value)
+        {
+            if (adaptorCtx == nullptr)
+            {
+                BMCWEB_LOG_CRITICAL(
+                    "Asked to launch TLS socket but no context available");
+                return;
+            }
+            connection = std::make_shared<Connection<Adaptor, Handler>>(
+                handler, std::move(timer), getCachedDateStr,
+                Adaptor(std::move(*socket), *adaptorCtx));
+        }
+        else
+        {
+            connection = std::make_shared<Connection<Adaptor, Handler>>(
+                handler, std::move(timer), getCachedDateStr,
+                Adaptor(std::move(*socket)));
+        }
+        boost::asio::post(*ioService, [connection] { connection->start(); });
+
+        doAccept();
+    }
 
     void doAccept()
     {
@@ -147,38 +162,15 @@ class Server
             BMCWEB_LOG_CRITICAL("IoService was null");
             return;
         }
-        boost::asio::steady_timer timer(*ioService);
-        std::shared_ptr<Connection<Adaptor, Handler>> connection;
-        if constexpr (std::is_same<Adaptor,
-                                   boost::asio::ssl::stream<
-                                       boost::asio::ip::tcp::socket>>::value)
-        {
-            if (adaptorCtx == nullptr)
-            {
-                BMCWEB_LOG_CRITICAL(
-                    "Asked to lauch TLS socket but no context available");
-                return;
-            }
-            connection = std::make_shared<Connection<Adaptor, Handler>>(
-                handler, std::move(timer), getCachedDateStr,
-                Adaptor(*ioService, *adaptorCtx));
-        }
-        else
-        {
-            connection = std::make_shared<Connection<Adaptor, Handler>>(
-                handler, std::move(timer), getCachedDateStr,
-                Adaptor(*ioService));
-        }
+
+        SocketPtr socket = std::make_unique<Socket>(*ioService);
+        // Keep a raw pointer so when the socket is moved, the pointer is still
+        // valid
+        Socket* socketPtr = socket.get();
+
         acceptor.async_accept(
-            boost::beast::get_lowest_layer(connection->socket()),
-            [this, connection](const boost::system::error_code& ec) {
-            if (!ec)
-            {
-                boost::asio::post(*ioService,
-                                  [connection] { connection->start(); });
-            }
-            doAccept();
-        });
+            *socketPtr,
+            std::bind_front(&self_t::afterAccept, this, std::move(socket)));
     }
 
   private:

@@ -18,6 +18,7 @@
 #include "app.hpp"
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
+#include "generated/enums/resource.hpp"
 #include "query.hpp"
 #include "redfish_util.hpp"
 #include "registries/privilege_registry.hpp"
@@ -33,6 +34,7 @@
 #include <optional>
 #include <string_view>
 #include <variant>
+#include <vector>
 
 namespace redfish
 {
@@ -63,7 +65,8 @@ static constexpr std::array<std::pair<const char*, const char*>, 4>
 
 inline void extractNTPServersAndDomainNamesData(
     const dbus::utility::ManagedObjectType& dbusData,
-    std::vector<std::string>& ntpData, std::vector<std::string>& dnData)
+    std::vector<std::string>& ntpData, std::vector<std::string>& dynamicNtpData,
+    std::vector<std::string>& dnData)
 {
     for (const auto& obj : dbusData)
     {
@@ -86,6 +89,16 @@ inline void extractNTPServersAndDomainNamesData(
                     {
                         ntpData.insert(ntpData.end(), ntpServers->begin(),
                                        ntpServers->end());
+                    }
+                    else if (propertyPair.first == "NTPServers")
+                    {
+                        const std::vector<std::string>* dynamicNtpServers =
+                            std::get_if<std::vector<std::string>>(
+                                &propertyPair.second);
+                        if (dynamicNtpServers != nullptr)
+                        {
+                            dynamicNtpData = *dynamicNtpServers;
+                        }
                     }
                 }
                 else if (propertyPair.first == "DomainName")
@@ -115,19 +128,21 @@ void getEthernetIfaceData(CallbackFunc&& callback)
         [callback = std::forward<CallbackFunc>(callback)](
             const boost::system::error_code& ec,
             const dbus::utility::ManagedObjectType& dbusData) {
-        std::vector<std::string> ntpServers;
-        std::vector<std::string> domainNames;
+            std::vector<std::string> ntpServers;
+            std::vector<std::string> dynamicNtpServers;
+            std::vector<std::string> domainNames;
 
-        if (ec)
-        {
-            callback(false, ntpServers, domainNames);
-            return;
-        }
+            if (ec)
+            {
+                callback(false, ntpServers, dynamicNtpServers, domainNames);
+                return;
+            }
 
-        extractNTPServersAndDomainNamesData(dbusData, ntpServers, domainNames);
+            extractNTPServersAndDomainNamesData(dbusData, ntpServers,
+                                                dynamicNtpServers, domainNames);
 
-        callback(true, ntpServers, domainNames);
-    });
+            callback(true, ntpServers, dynamicNtpServers, domainNames);
+        });
 }
 
 inline void afterNetworkPortRequest(
@@ -170,16 +185,17 @@ inline void
         "/xyz/openbmc_project/Snmp", "xyz.openbmc_project.Snmp.SnmpUtils",
         "SnmpTrapStatus",
         [asyncResp](const boost::system::error_code& ec, bool protocolEnabled) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("D-BUS response error on SnmpTrapStatus Get{}",
-                             ec);
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        asyncResp->res.jsonValue["SNMP"]["Port"] = 162;
-        asyncResp->res.jsonValue["SNMP"]["ProtocolEnabled"] = protocolEnabled;
-    });
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("D-BUS response error on SnmpTrapStatus Get{}",
+                                 ec);
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            asyncResp->res.jsonValue["SNMP"]["Port"] = 162;
+            asyncResp->res.jsonValue["SNMP"]["ProtocolEnabled"] =
+                protocolEnabled;
+        });
 }
 
 inline void getNetworkData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -195,16 +211,16 @@ inline void getNetworkData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         boost::beast::http::field::link,
         "</redfish/v1/JsonSchemas/ManagerNetworkProtocol/NetworkProtocol.json>; rel=describedby");
     asyncResp->res.jsonValue["@odata.type"] =
-        "#ManagerNetworkProtocol.v1_5_0.ManagerNetworkProtocol";
+        "#ManagerNetworkProtocol.v1_9_0.ManagerNetworkProtocol";
     asyncResp->res.jsonValue["@odata.id"] =
         boost::urls::format("/redfish/v1/Managers/{}/NetworkProtocol",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
     asyncResp->res.jsonValue["Id"] = "NetworkProtocol";
     asyncResp->res.jsonValue["Name"] = "Manager Network Protocol";
     asyncResp->res.jsonValue["Description"] = "Manager Network Service";
-    asyncResp->res.jsonValue["Status"]["Health"] = "OK";
-    asyncResp->res.jsonValue["Status"]["HealthRollup"] = "OK";
-    asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
+    asyncResp->res.jsonValue["Status"]["Health"] = resource::Health::OK;
+    asyncResp->res.jsonValue["Status"]["HealthRollup"] = resource::Health::OK;
+    asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
 
     // HTTP is Mandatory attribute as per OCP Baseline Profile - v1.0.0,
     // but from security perspective it is not recommended to use.
@@ -231,10 +247,11 @@ inline void getNetworkData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     getNTPProtocolEnabled(asyncResp);
     getSNMPProtocolEnabled(asyncResp);
 
-    getEthernetIfaceData(
-        [hostName, asyncResp](const bool& success,
-                              const std::vector<std::string>& ntpServers,
-                              const std::vector<std::string>& domainNames) {
+    getEthernetIfaceData([hostName, asyncResp](
+                             const bool& success,
+                             const std::vector<std::string>& ntpServers,
+                             const std::vector<std::string>& dynamicNtpServers,
+                             const std::vector<std::string>& domainNames) {
         if (!success)
         {
             messages::resourceNotFound(asyncResp->res, "ManagerNetworkProtocol",
@@ -242,6 +259,8 @@ inline void getNetworkData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             return;
         }
         asyncResp->res.jsonValue["NTP"]["NTPServers"] = ntpServers;
+        asyncResp->res.jsonValue["NTP"]["NetworkSuppliedServers"] =
+            dynamicNtpServers;
         if (!hostName.empty())
         {
             std::string fqdn = hostName;
@@ -281,13 +300,13 @@ inline void getNetworkData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         {
             service_util::getEnabled(
                 asyncResp, serviceName,
-                nlohmann::json::json_pointer(std::string("/") + protocolName +
-                                             "/ProtocolEnabled"));
+                nlohmann::json::json_pointer(
+                    std::string("/") + protocolName + "/ProtocolEnabled"));
         }
         service_util::getPortNumber(
             asyncResp, serviceName,
-            nlohmann::json::json_pointer(std::string("/") + protocolName +
-                                         "/Port"));
+            nlohmann::json::json_pointer(
+                std::string("/") + protocolName + "/Port"));
     }
 
 } // namespace redfish
@@ -338,7 +357,8 @@ inline void
     if (ntpServerObjects.size() > limit)
     {
         BMCWEB_LOG_DEBUG("out of Limit");
-        messages::propertyValueOutOfRange(asyncResp->res, ntpServerObjects, "NTP/NTPServers");
+        messages::propertyValueOutOfRange(asyncResp->res, ntpServerObjects,
+                                          "NTP/NTPServers");
         return;
     }
 
@@ -379,9 +399,9 @@ inline void
             // Can't delete an item that doesn't exist
             if (currentNtpServer == currentNtpServers.end())
             {
-                messages::propertyValueNotInList(asyncResp->res, "null",
-                                                 "NTP/NTPServers/" +
-                                                     std::to_string(index));
+                messages::propertyValueNotInList(
+                    asyncResp->res, "null",
+                    "NTP/NTPServers/" + std::to_string(index));
 
                 return;
             }
@@ -442,32 +462,32 @@ inline void
         [asyncResp, currentNtpServers](
             const boost::system::error_code& ec,
             const dbus::utility::MapperGetSubTreeResponse& subtree) {
-        if (ec)
-        {
-            BMCWEB_LOG_WARNING("D-Bus error: {}, {}", ec, ec.message());
-            messages::internalError(asyncResp->res);
-            return;
-        }
-
-        for (const auto& [objectPath, serviceMap] : subtree)
-        {
-            for (const auto& [service, interfaces] : serviceMap)
+            if (ec)
             {
-                for (const auto& interface : interfaces)
-                {
-                    if (interface !=
-                        "xyz.openbmc_project.Network.EthernetInterface")
-                    {
-                        continue;
-                    }
+                BMCWEB_LOG_WARNING("D-Bus error: {}, {}", ec, ec.message());
+                messages::internalError(asyncResp->res);
+                return;
+            }
 
-                    setDbusProperty(asyncResp, service, objectPath, interface,
-                                    "StaticNTPServers", "NTP/NTPServers/",
-                                    currentNtpServers);
+            for (const auto& [objectPath, serviceMap] : subtree)
+            {
+                for (const auto& [service, interfaces] : serviceMap)
+                {
+                    for (const auto& interface : interfaces)
+                    {
+                        if (interface !=
+                            "xyz.openbmc_project.Network.EthernetInterface")
+                        {
+                            continue;
+                        }
+
+                        setDbusProperty(asyncResp, "NTP/NTPServers/", service,
+                                        objectPath, interface,
+                                        "StaticNTPServers", currentNtpServers);
+                    }
                 }
             }
-        }
-    });
+        });
 }
 
 void setEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -479,13 +499,13 @@ void setEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         "/xyz/openbmc_project/control/service/phosphor_2dipmi_2dnet_40eth0",
         "xyz.openbmc_project.Control.Service.Attributes", "Running", enabled,
         [asyncResp](const boost::system::error_code& ec) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
-            messages::internalError(asyncResp->res);
-            return;
-        }
-    });
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
+                messages::internalError(asyncResp->res);
+                return;
+            }
+        });
 
     sdbusplus::asio::setProperty(
         *crow::connections::systemBus,
@@ -493,13 +513,13 @@ void setEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         "/xyz/openbmc_project/control/service/phosphor_2dipmi_2dnet_40eth0",
         "xyz.openbmc_project.Control.Service.Attributes", "Enabled", enabled,
         [asyncResp](const boost::system::error_code& ec) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
-            messages::internalError(asyncResp->res);
-            return;
-        }
-    });
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
+                messages::internalError(asyncResp->res);
+                return;
+            }
+        });
 }
 
 inline void
@@ -514,32 +534,34 @@ inline void
         [protocolEnabled, asyncResp,
          netBasePath](const boost::system::error_code& ec,
                       const dbus::utility::MapperGetSubTreeResponse& subtree) {
-        if (ec)
-        {
-            messages::internalError(asyncResp->res);
-            return;
-        }
-
-        for (const auto& entry : subtree)
-        {
-            if (entry.first.starts_with(netBasePath))
+            if (ec)
             {
-                if (protocolEnabled)
-                {
-                    BMCWEB_LOG_DEBUG("wait for get properties");
-                    sleep(5);
-                }
-                setDbusProperty(
-                    asyncResp, entry.second.begin()->first, entry.first,
-                    "xyz.openbmc_project.Control.Service.Attributes", "Running",
-                    "IPMI/ProtocolEnabled", protocolEnabled);
-                setDbusProperty(
-                    asyncResp, entry.second.begin()->first, entry.first,
-                    "xyz.openbmc_project.Control.Service.Attributes", "Enabled",
-                    "IPMI/ProtocolEnabled", protocolEnabled);
+                messages::internalError(asyncResp->res);
+                return;
             }
-        }
-    });
+
+            for (const auto& entry : subtree)
+            {
+                if (entry.first.starts_with(netBasePath))
+                {
+                    if (protocolEnabled)
+                    {
+                        BMCWEB_LOG_DEBUG("wait for get properties");
+                        sleep(5);
+                    }
+                    setDbusProperty(
+                        asyncResp, "IPMI/ProtocolEnabled",
+                        entry.second.begin()->first, entry.first,
+                        "xyz.openbmc_project.Control.Service.Attributes",
+                        "Running", protocolEnabled);
+                    setDbusProperty(
+                        asyncResp, "IPMI/ProtocolEnabled",
+                        entry.second.begin()->first, entry.first,
+                        "xyz.openbmc_project.Control.Service.Attributes",
+                        "Enabled", protocolEnabled);
+                }
+            }
+        });
 }
 
 inline std::string getHostName()
@@ -561,15 +583,15 @@ inline void
         *crow::connections::systemBus, "org.freedesktop.timedate1",
         "/org/freedesktop/timedate1", "org.freedesktop.timedate1", "NTP",
         [asyncResp](const boost::system::error_code& ec, bool enabled) {
-        if (ec)
-        {
-            BMCWEB_LOG_WARNING(
-                "Failed to get NTP status, assuming not supported");
-            return;
-        }
+            if (ec)
+            {
+                BMCWEB_LOG_WARNING(
+                    "Failed to get NTP status, assuming not supported");
+                return;
+            }
 
-        asyncResp->res.jsonValue["NTP"]["ProtocolEnabled"] = enabled;
-    });
+            asyncResp->res.jsonValue["NTP"]["ProtocolEnabled"] = enabled;
+        });
 }
 
 inline std::string encodeServiceObjectPath(std::string_view serviceName)
@@ -673,15 +695,16 @@ inline void handleManagersNetworkProtocolPatch(
                 [asyncResp, ntpServerObjects](
                     const bool success,
                     std::vector<std::string>& currentNtpServers,
+                    const std::vector<std::string>& /*dynamicNtpServers*/,
                     const std::vector<std::string>& /*domainNames*/) {
-                if (!success)
-                {
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                handleNTPServersPatch(asyncResp, *ntpServerObjects,
-                                      std::move(currentNtpServers));
-            });
+                    if (!success)
+                    {
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    handleNTPServersPatch(asyncResp, *ntpServerObjects,
+                                          std::move(currentNtpServers));
+                });
         }
     }
     if (ipmi)
@@ -811,13 +834,13 @@ inline void handleManagersNetworkProtocolPatch(
                 "/xyz/openbmc_project/Snmp",
                 "xyz.openbmc_project.Snmp.SnmpUtils", "SnmpTrapStatus",
                 *snmpEnabled, [asyncResp](const boost::system::error_code& ec) {
-                if (ec)
-                {
-                    BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-            });
+                    if (ec)
+                    {
+                        BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                });
         }
     }
 }
@@ -851,13 +874,14 @@ void getEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         "xyz.openbmc_project.Control.Service.Attributes", "Enabled",
         [asyncResp, ObjectName,
          propertyName](const boost::system::error_code& ec, bool eventValue) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("D-BUS response error on EventSeverity Get{}", ec);
-            return;
-        }
-        asyncResp->res.jsonValue[ObjectName][propertyName] = eventValue;
-    });
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("D-BUS response error on EventSeverity Get{}",
+                                 ec);
+                return;
+            }
+            asyncResp->res.jsonValue[ObjectName][propertyName] = eventValue;
+        });
 }
 
 inline void getIpmiMasked(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)

@@ -3,6 +3,7 @@
 #include "registries/base_message_registry.hpp"
 #include "registries/nm_message_registry.hpp"
 #include "registries/openbmc_message_registry.hpp"
+#include "registries/telemetry_message_registry.hpp"
 #include "str_utility.hpp"
 
 #include <algorithm>
@@ -57,6 +58,11 @@ const Message* getMessage(std::string_view messageID)
     {
         return getMessageFromRegistry(
             messageKey, std::span<const MessageEntry>(nm::registry));
+    }
+    if (std::string(telemetry::header.registryPrefix) == registryName)
+    {
+        return getMessageFromRegistry(
+            messageKey, std::span<const MessageEntry>(telemetry::registry));
     }
     return nullptr;
 }

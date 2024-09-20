@@ -23,6 +23,9 @@ enum class EncryptionMode{
     Disabled,
     UseExternalKey,
     UseLocalKey,
+    PasswordOnly,
+    PasswordWithExternalKey,
+    PasswordWithLocalKey,
 };
 
 enum class AutoVolumeCreate{
@@ -31,6 +34,27 @@ enum class AutoVolumeCreate{
     NonRAID,
     RAID0,
     RAID1,
+};
+
+
+enum class ConfigurationLock{
+    Invalid,
+    Enabled,
+    Disabled,
+    Partial,
+};
+
+enum class TargetConfigurationLockLevel{
+    Invalid,
+    Baseline,
+};
+
+enum class ConfigLockOptions{
+    Invalid,
+    Unlocked,
+    Locked,
+    LockdownUnsupported,
+    CommandUnsupported,
 };
 
 NLOHMANN_JSON_SERIALIZE_ENUM(ResetToDefaultsType, {
@@ -51,6 +75,9 @@ NLOHMANN_JSON_SERIALIZE_ENUM(EncryptionMode, {
     {EncryptionMode::Disabled, "Disabled"},
     {EncryptionMode::UseExternalKey, "UseExternalKey"},
     {EncryptionMode::UseLocalKey, "UseLocalKey"},
+    {EncryptionMode::PasswordOnly, "PasswordOnly"},
+    {EncryptionMode::PasswordWithExternalKey, "PasswordWithExternalKey"},
+    {EncryptionMode::PasswordWithLocalKey, "PasswordWithLocalKey"},
 });
 
 NLOHMANN_JSON_SERIALIZE_ENUM(AutoVolumeCreate, {
@@ -59,6 +86,26 @@ NLOHMANN_JSON_SERIALIZE_ENUM(AutoVolumeCreate, {
     {AutoVolumeCreate::NonRAID, "NonRAID"},
     {AutoVolumeCreate::RAID0, "RAID0"},
     {AutoVolumeCreate::RAID1, "RAID1"},
+});
+
+NLOHMANN_JSON_SERIALIZE_ENUM(ConfigurationLock, {
+    {ConfigurationLock::Invalid, "Invalid"},
+    {ConfigurationLock::Enabled, "Enabled"},
+    {ConfigurationLock::Disabled, "Disabled"},
+    {ConfigurationLock::Partial, "Partial"},
+});
+
+NLOHMANN_JSON_SERIALIZE_ENUM(TargetConfigurationLockLevel, {
+    {TargetConfigurationLockLevel::Invalid, "Invalid"},
+    {TargetConfigurationLockLevel::Baseline, "Baseline"},
+});
+
+NLOHMANN_JSON_SERIALIZE_ENUM(ConfigLockOptions, {
+    {ConfigLockOptions::Invalid, "Invalid"},
+    {ConfigLockOptions::Unlocked, "Unlocked"},
+    {ConfigLockOptions::Locked, "Locked"},
+    {ConfigLockOptions::LockdownUnsupported, "LockdownUnsupported"},
+    {ConfigLockOptions::CommandUnsupported, "CommandUnsupported"},
 });
 
 }

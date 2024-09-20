@@ -16,6 +16,7 @@
 #pragma once
 #include "app.hpp"
 #include "event_service_manager.hpp"
+#include "generated/enums/event_service.hpp"
 #include "http/utility.hpp"
 #include "logging.hpp"
 #include "multipart_parser.hpp"
@@ -1925,6 +1926,7 @@ inline void requestRoutesEventDestinationCollection(App& app)
         }
         std::string destUrl;
         std::string protocol;
+        std::optional<bool> verifyCertificate;
         std::optional<std::string> vId;
         std::optional<std::string> context;
         std::optional<std::string> subscriptionType;
@@ -1949,7 +1951,7 @@ inline void requestRoutesEventDestinationCollection(App& app)
                 vId, "DeliveryRetryPolicy", retryPolicy,
                 "MetricReportDefinitions", mrdJsonArray, "ResourceTypes",
                 resTypes, "ReadOnlyPermission", readOnlyPermission, "Password",
-                password, "Algorithm", algorithm, "Encryption", encryption, "Oem", oemObj))
+                password, "Algorithm", algorithm, "Encryption", encryption, "VerifyCertificate", verifyCertificate,"Oem", oemObj))
         {
             return;
         }
@@ -2150,6 +2152,11 @@ inline void requestRoutesEventDestinationCollection(App& app)
             return;
         }
         subValue->protocol = protocol;
+
+        if (verifyCertificate)
+        {
+            subValue->verifyCertificate = *verifyCertificate;
+        }
 
         if (eventFormatType2)
         {
@@ -2501,7 +2508,8 @@ inline void requestRoutesEventDestination(App& app)
 
         asyncResp->res.jsonValue["@odata.type"] =
             "#EventDestination.v1_8_0.EventDestination";
-        asyncResp->res.jsonValue["Protocol"] = "Redfish";
+        asyncResp->res.jsonValue["Protocol"] =
+            event_destination::EventDestinationProtocol::Redfish;
         asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
             "/redfish/v1/EventService/Subscriptions/{}", id);
         asyncResp->res.jsonValue["Id"] = id;
@@ -2518,6 +2526,8 @@ inline void requestRoutesEventDestination(App& app)
 
         asyncResp->res.jsonValue["MessageIds"] = subValue->registryMsgIds;
         asyncResp->res.jsonValue["DeliveryRetryPolicy"] = subValue->retryPolicy;
+        asyncResp->res.jsonValue["VerifyCertificate"] =
+            subValue->verifyCertificate;
         asyncResp->res.jsonValue["Status"]["Health"] = "OK";
         asyncResp->res.jsonValue["Status"]["State"] = subValue->state;
 
@@ -2558,6 +2568,7 @@ inline void requestRoutesEventDestination(App& app)
 
         std::optional<std::string> context;
         std::optional<std::string> retryPolicy;
+        std::optional<bool> verifyCertificate;
         std::optional<std::vector<nlohmann::json::object_t>> headers;
         std::optional<std::string> authenticationProtocol;
         std::optional<std::string> protocol;
@@ -2573,8 +2584,8 @@ inline void requestRoutesEventDestination(App& app)
                 "SNMP/AuthenticationProtocol", authenticationProtocol,
                 "Protocol", protocol, "Destination", destUrl, "ReadOnlyPermission",
                 readOnlyPermission, "Password", password, "Algorithm",
-                algorithm, "Encryption", encryption))
-
+                algorithm, "Encryption", encryption,"VerifyCertificate",
+                verifyCertificate))
         {
             return;
         }
@@ -2620,6 +2631,11 @@ inline void requestRoutesEventDestination(App& app)
                 return;
             }
             subValue->retryPolicy = *retryPolicy;
+        }
+
+        if (verifyCertificate)
+        {
+            subValue->verifyCertificate = *verifyCertificate;
         }
 
         if (protocol)

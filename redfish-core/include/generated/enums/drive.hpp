@@ -82,6 +82,26 @@ enum class FormFactor{
     OEM,
 };
 
+enum class ConfigurationLock{
+    Invalid,
+    Enabled,
+    Disabled,
+    Partial,
+};
+
+enum class TargetConfigurationLockLevel{
+    Invalid,
+    Baseline,
+};
+
+enum class ConfigLockOptions{
+    Invalid,
+    Unlocked,
+    Locked,
+    LockdownUnsupported,
+    CommandUnsupported,
+};
+
 NLOHMANN_JSON_SERIALIZE_ENUM(MediaType, {
     {MediaType::Invalid, "Invalid"},
     {MediaType::HDD, "HDD"},

@@ -213,8 +213,8 @@ class Trie
 
             if (reqUrl.starts_with(fragment))
             {
-                FindResult ret = findHelper(reqUrl.substr(fragment.size()),
-                                            child, params);
+                FindResult ret =
+                    findHelper(reqUrl.substr(fragment.size()), child, params);
                 if (ret.ruleIndex != 0U)
                 {
                     return {ret.ruleIndex, std::move(ret.params)};
@@ -272,7 +272,7 @@ class Trie
                     continue;
                 }
 
-                BMCWEB_LOG_CRITICAL("Cant find tag for {}", urlIn);
+                BMCWEB_LOG_CRITICAL("Can't find tag for {}", urlIn);
                 return;
             }
             std::string piece(&c, 1);
@@ -285,14 +285,14 @@ class Trie
             url.remove_prefix(1);
         }
         Node& node = nodes[idx];
-       #if (!BMCWEB_AMI_REP_MACRO) && (!BMCWEB_AMI_NIC_MACRO)
-            if (node.ruleIndex != 0U)
-            {
-                BMCWEB_LOG_CRITICAL("handler already exists for \"{}\"", urlIn);
-                throw std::runtime_error(
-                    std::format("handler already exists for \"{}\"", urlIn));
-            } 
-        #endif
+#if (!BMCWEB_AMI_REP_MACRO) && (!BMCWEB_AMI_NIC_MACRO)
+        if (node.ruleIndex != 0U)
+        {
+            BMCWEB_LOG_CRITICAL("handler already exists for \"{}\"", urlIn);
+            throw std::runtime_error(
+                std::format("handler already exists for \"{}\"", urlIn));
+        }
+#endif
         node.ruleIndex = ruleIndex;
     }
 
@@ -523,19 +523,13 @@ class Router
     {
         FindRouteResponse findRoute;
 
-        std::optional<HttpVerb> verb = httpVerbFromBoost(req.method());
-        if (!verb)
-        {
-            return findRoute;
-        }
-        size_t reqMethodIndex = static_cast<size_t>(*verb);
         // Check to see if this url exists at any verb
         for (size_t perMethodIndex = 0; perMethodIndex <= maxVerbIndex;
              perMethodIndex++)
         {
             // Make sure it's safe to deference the array at that index
-            static_assert(maxVerbIndex <
-                          std::tuple_size_v<decltype(perMethods)>);
+            static_assert(
+                maxVerbIndex < std::tuple_size_v<decltype(perMethods)>);
             FindRoute route = findRouteByPerMethod(req.url().encoded_path(),
                                                    perMethods[perMethodIndex]);
             if (route.rule == nullptr)
@@ -548,10 +542,24 @@ class Router
             }
             HttpVerb thisVerb = static_cast<HttpVerb>(perMethodIndex);
             findRoute.allowHeader += httpVerbToString(thisVerb);
-            if (perMethodIndex == reqMethodIndex)
-            {
-                findRoute.route = route;
-            }
+        }
+
+        std::optional<HttpVerb> verb = httpVerbFromBoost(req.method());
+        if (!verb)
+        {
+            return findRoute;
+        }
+        size_t reqMethodIndex = static_cast<size_t>(*verb);
+        if (reqMethodIndex >= perMethods.size())
+        {
+            return findRoute;
+        }
+
+        FindRoute route = findRouteByPerMethod(req.url().encoded_path(),
+                                               perMethods[reqMethodIndex]);
+        if (route.rule != nullptr)
+        {
+            findRoute.route = route;
         }
         return findRoute;
     }
@@ -586,23 +594,17 @@ class Router
 
         // TODO(ed) This should be able to use std::bind_front, but it doesn't
         // appear to work with the std::move on adaptor.
-        validatePrivilege(req, asyncResp, rule,
-                          [req, &rule, asyncResp, &adaptor]() mutable {
-            rule.handleUpgrade(*req, asyncResp, std::forward<Adaptor>(adaptor));
-        });
+        validatePrivilege(
+            req, asyncResp, rule, [req, &rule, asyncResp, &adaptor]() mutable {
+                rule.handleUpgrade(*req, asyncResp,
+                                   std::forward<Adaptor>(adaptor));
+            });
     }
 
     void handle(const std::shared_ptr<Request>& req,
                 const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 bool requestRedirect = false)
     {
-        std::optional<HttpVerb> verb = httpVerbFromBoost(req->method());
-        if (!verb || static_cast<size_t>(*verb) >= perMethods.size())
-        {
-            asyncResp->res.result(boost::beast::http::status::not_found);
-            return;
-        }
-
         FindRouteResponse foundRoute = findRoute(*req);
 
         if (foundRoute.route.rule == nullptr)
@@ -649,7 +651,7 @@ class Router
         std::vector<std::string> params = std::move(foundRoute.route.params);
 
         BMCWEB_LOG_DEBUG("Matched rule '{}' {} / {}", rule.rule,
-                         static_cast<uint32_t>(*verb), rule.getMethods());
+                         req->methodString(), rule.getMethods());
 
         if (req->session == nullptr || requestRedirect)
         {
@@ -659,23 +661,23 @@ class Router
         validatePrivilege(
             req, asyncResp, rule,
             [req, asyncResp, &rule, params = std::move(params)]() {
-            if (!params.empty())
-            {
-                if ((req->session->isConfigureSelfOnly) &&
-                    !(req->session->username == params[0]))
+                if (!params.empty())
                 {
-                    asyncResp->res.result(
-                        boost::beast::http::status::forbidden);
-                    redfish::messages::passwordChangeRequired(
-                        asyncResp->res,
-                        boost::urls::format(
-                            "/redfish/v1/AccountService/Accounts/{}",
-                            req->session->username));
-                    return;
+                    if ((req->session->isConfigureSelfOnly) &&
+                        !(req->session->username == params[0]))
+                    {
+                        asyncResp->res.result(
+                            boost::beast::http::status::forbidden);
+                        redfish::messages::passwordChangeRequired(
+                            asyncResp->res,
+                            boost::urls::format(
+                                "/redfish/v1/AccountService/Accounts/{}",
+                                req->session->username));
+                        return;
+                    }
                 }
-            }
-            rule.handle(*req, asyncResp, params);
-        });
+                rule.handle(*req, asyncResp, params);
+            });
     }
 
     void debugPrint()

@@ -18,6 +18,7 @@
 
 #include "app.hpp"
 #include "dbus_utility.hpp"
+#include "generated/enums/resource.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utils/collection.hpp"
@@ -28,6 +29,8 @@
 #include <boost/url/format.hpp>
 #include <sdbusplus/asio/property.hpp>
 #include <sdbusplus/unpack_properties.hpp>
+
+#include <limits>
 
 namespace redfish
 {
@@ -56,7 +59,7 @@ static inline void handlePCIeDevicePath(
         }
 
         dbus::utility::getDbusObject(
-            pcieDevicePath, {},
+            pcieDevicePath,pcieDeviceInterface,
             [pcieDevicePath, asyncResp,
              callback](const boost::system::error_code& ec,
                        const dbus::utility::MapperGetObject& object) {
@@ -314,7 +317,8 @@ inline void
 
         if (!value)
         {
-            asyncResp->res.jsonValue["Status"]["Health"] = "Critical";
+            asyncResp->res.jsonValue["Status"]["Health"] =
+                resource::Health::Critical;
         }
     });
 }
@@ -340,7 +344,8 @@ inline void
 
         if (!value)
         {
-            asyncResp->res.jsonValue["Status"]["State"] = "Absent";
+            asyncResp->res.jsonValue["Status"]["State"] =
+                resource::State::Absent;
         }
     });
 }
@@ -479,11 +484,19 @@ inline void addPCIeDeviceProperties(
         }
     }
 
-    // The default value of LanesInUse is 0, and the field will be
-    // left as off if it is a default value.
-    if (lanesInUse != nullptr && *lanesInUse != 0)
+    if (lanesInUse != nullptr)
     {
-        asyncResp->res.jsonValue["PCIeInterface"]["LanesInUse"] = *lanesInUse;
+        if (*lanesInUse == std::numeric_limits<size_t>::max())
+        {
+            // The default value of LanesInUse is "maxint", and the field will
+            // be null if it is a default value.
+            asyncResp->res.jsonValue["PCIeInterface"]["LanesInUse"] = nullptr;
+        }
+        else
+        {
+            asyncResp->res.jsonValue["PCIeInterface"]["LanesInUse"] =
+                *lanesInUse;
+        }
     }
     // The default value of MaxLanes is 0, and the field will be
     // left as off if it is a default value.
@@ -536,8 +549,8 @@ inline void addPCIeDeviceCommonProperties(
                             BMCWEB_REDFISH_SYSTEM_URI_NAME, pcieDeviceId);
     asyncResp->res.jsonValue["Name"] = "PCIe Device";
     asyncResp->res.jsonValue["Id"] = pcieDeviceId;
-    asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
-    asyncResp->res.jsonValue["Status"]["Health"] = "OK";
+    asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
+    asyncResp->res.jsonValue["Status"]["Health"] = resource::Health::OK;
 }
 
 inline void afterGetValidPcieDevicePath(
@@ -716,7 +729,6 @@ inline void addPCIeFunctionProperties(
             std::get_if<std::string>(&property.second);
         if (strProperty == nullptr)
         {
-            BMCWEB_LOG_ERROR("Function wasn't a string?");
             continue;
         }
         if (property.first == functionName + "DeviceId")

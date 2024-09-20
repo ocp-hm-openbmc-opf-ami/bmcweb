@@ -1,6 +1,7 @@
 #pragma once
 
 #include "app.hpp"
+#include "generated/enums/resource.hpp"
 #include "human_sort.hpp"
 #include "logging.hpp"
 #include "query.hpp"
@@ -121,13 +122,13 @@ inline void doThermalSubsystemCollection(
         boost::urls::format(
             "/redfish/v1/Chassis/{}/ThermalSubsystem/ThermalMetrics",
             chassisId);
-
-    asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
-    asyncResp->res.jsonValue["Status"]["Health"] = "OK";
-    if(chassisId != "Cpld")
+    
+    asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
+    asyncResp->res.jsonValue["Status"]["Health"] = resource::Health::OK;
+     if(chassisId != "Cpld")
     {
         getFanRedundancy(asyncResp, chassisId);
-    }	
+    }
 }
 
 inline void handleThermalSubsystemCollectionHead(

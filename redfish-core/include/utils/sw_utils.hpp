@@ -13,6 +13,7 @@
 
 #include <algorithm>
 #include <array>
+#include <optional>
 #include <ranges>
 #include <string>
 #include <string_view>
@@ -30,6 +31,41 @@ constexpr const char* biosPurpose =
 constexpr const char* bmcPurpose =
     "xyz.openbmc_project.Software.Version.VersionPurpose.BMC";
 
+inline std::optional<sdbusplus::message::object_path>
+    getFunctionalSoftwarePath(const std::string& swType)
+{
+    if (swType == bmcPurpose)
+    {
+        if constexpr (BMCWEB_REDFISH_UPDATESERVICE_USE_DBUS)
+        {
+            return sdbusplus::message::object_path(
+                "/xyz/openbmc_project/software/bmc/functional");
+        }
+        else
+        {
+            return sdbusplus::message::object_path(
+                "/xyz/openbmc_project/software/functional");
+        }
+    }
+    else if (swType == biosPurpose)
+    {
+        if constexpr (BMCWEB_REDFISH_UPDATESERVICE_USE_DBUS)
+        {
+            return sdbusplus::message::object_path(
+                "/xyz/openbmc_project/software/bios/functional");
+        }
+        else
+        {
+            return sdbusplus::message::object_path(
+                "/xyz/openbmc_project/software/functional");
+        }
+    }
+    else
+    {
+        BMCWEB_LOG_ERROR("No valid software path");
+        return std::nullopt;
+    }
+}
 /**
  * @brief Populate the running software version and image links
  *
@@ -48,9 +84,16 @@ inline void populateSoftwareInformation(
     const std::string& swVersionPurpose,
     const std::string& activeVersionPropName, const bool populateLinkToImages)
 {
+    auto swPath = getFunctionalSoftwarePath(swVersionPurpose);
+    if (!swPath)
+    {
+        BMCWEB_LOG_ERROR("Invalid software type");
+        messages::internalError(asyncResp->res);
+        return;
+    }
     // Used later to determine running (known on Redfish as active) Sw images
     dbus::utility::getAssociationEndPoints(
-        "/xyz/openbmc_project/software/functional",
+        swPath.value().str,
         [asyncResp, swVersionPurpose, activeVersionPropName,
          populateLinkToImages](
             const boost::system::error_code& ec,
@@ -310,7 +353,8 @@ inline void getSwStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         if (ec)
         {
             // not all swtypes are updateable, this is ok
-            asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
+            asyncResp->res.jsonValue["Status"]["State"] =
+                resource::State::Enabled;
             return;
         }
 
@@ -340,6 +384,52 @@ inline void getSwStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     });
 }
 
+inline void handleUpdateableEndpoints(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::shared_ptr<std::string>& swId,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperEndPoints& objPaths)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_DEBUG(" error_code = {} error msg =  {}", ec, ec.message());
+        // System can exist with no updateable software,
+        // so don't throw error here.
+        return;
+    }
+    sdbusplus::message::object_path reqSwObjPath(
+        "/xyz/openbmc_project/software");
+    reqSwObjPath = reqSwObjPath / *swId;
+
+    if (std::ranges::find(objPaths, reqSwObjPath.str) != objPaths.end())
+    {
+        asyncResp->res.jsonValue["Updateable"] = true;
+        return;
+    }
+}
+
+inline void
+    handleUpdateableObject(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                           const boost::system::error_code& ec,
+                           const dbus::utility::MapperGetObject& objectInfo)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_DEBUG(" error_code = {} error msg =  {}", ec, ec.message());
+        // System can exist with no updateable software,
+        // so don't throw error here.
+        return;
+    }
+    if (objectInfo.empty())
+    {
+        BMCWEB_LOG_DEBUG("No updateable software found");
+        // System can exist with no updateable software,
+        // so don't throw error here.
+        return;
+    }
+    asyncResp->res.jsonValue["Updateable"] = true;
+}
+
 /**
  * @brief Updates programmable status of input swId into json response
  *
@@ -354,26 +444,23 @@ inline void
     getSwUpdatableStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                          const std::shared_ptr<std::string>& swId)
 {
-    dbus::utility::getAssociationEndPoints(
-        "/xyz/openbmc_project/software/updateable",
-        [asyncResp, swId](const boost::system::error_code& ec,
-                          const dbus::utility::MapperEndPoints& objPaths) {
-        if (ec)
-        {
-            BMCWEB_LOG_DEBUG(" error_code = {} error msg =  {}", ec,
-                             ec.message());
-            // System can exist with no updateable software,
-            // so don't throw error here.
-            return;
-        }
-        std::string reqSwObjPath = "/xyz/openbmc_project/software/" + *swId;
-
-        if (std::ranges::find(objPaths, reqSwObjPath) != objPaths.end())
-        {
-            asyncResp->res.jsonValue["Updateable"] = true;
-            return;
-        }
-    });
+    if constexpr (BMCWEB_REDFISH_UPDATESERVICE_USE_DBUS)
+    {
+        sdbusplus::message::object_path swObjectPath(
+            "/xyz/openbmc_project/software");
+        swObjectPath = swObjectPath / *swId;
+        constexpr std::array<std::string_view, 1> interfaces = {
+            "xyz.openbmc_project.Software.Update"};
+        dbus::utility::getDbusObject(
+            swObjectPath.str, interfaces,
+            std::bind_front(handleUpdateableObject, asyncResp));
+    }
+    else
+    {
+        dbus::utility::getAssociationEndPoints(
+            "/xyz/openbmc_project/software/updateable",
+            std::bind_front(handleUpdateableEndpoints, asyncResp, swId));
+    }
 }
 
 } // namespace sw_util

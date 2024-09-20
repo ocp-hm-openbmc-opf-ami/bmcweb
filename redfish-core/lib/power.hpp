@@ -18,11 +18,13 @@
 
 #include "app.hpp"
 #include "dbus_utility.hpp"
+#include "generated/enums/power.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "sensors.hpp"
 #include "utils/chassis_utils.hpp"
 #include "utils/json_utils.hpp"
+#include "utils/sensor_utils.hpp"
 
 #include <sdbusplus/asio/property.hpp>
 
@@ -44,14 +46,14 @@ inline void setPowerCapEnabled(
         "xyz.openbmc_project.Control.Power.Cap", "PowerCapEnable", enabled,
 
         [sensorsAsyncResp](const boost::system::error_code& ec) {
-        if (ec)
-        {
-            messages::internalError(sensorsAsyncResp->asyncResp->res);
-            BMCWEB_LOG_ERROR(
-                "powerCapEnable unable to set handler: Dbus error {}", ec);
-            return;
-        }
-    });
+            if (ec)
+            {
+                messages::internalError(sensorsAsyncResp->asyncResp->res);
+                BMCWEB_LOG_ERROR(
+                    "powerCapEnable unable to set handler: Dbus error {}", ec);
+                return;
+            }
+        });
 }
 
 inline void afterGetPowerCapEnable(
@@ -74,11 +76,12 @@ inline void afterGetPowerCapEnable(
         setPowerCapEnabled(sensorsAsyncResp, false);
     }
 
-    setDbusProperty(sensorsAsyncResp->asyncResp, "xyz.openbmc_project.Settings",
+    setDbusProperty(sensorsAsyncResp->asyncResp, "PowerControl",
+                    "xyz.openbmc_project.Settings",
                     sdbusplus::message::object_path(
                         "/xyz/openbmc_project/control/host0/power_cap"),
                     "xyz.openbmc_project.Control.Power.Cap", "PowerCap",
-                    "PowerControl", valueToSet);
+                    valueToSet);
 }
 
 inline void afterGetChassisPath(
@@ -152,9 +155,9 @@ inline void afterPowerCapSettingGet(
         // Mandatory properties odata.id and MemberId
         // A warning without a odata.type
         nlohmann::json::object_t powerControl;
-        powerControl["@odata.id"] = "/redfish/v1/Chassis/" +
-                                    sensorAsyncResp->chassisId +
-                                    "/Power#/PowerControl/0";
+        powerControl["@odata.id"] =
+            "/redfish/v1/Chassis/" + sensorAsyncResp->chassisId +
+            "/Power#/PowerControl/0";
         powerControl["MemberId"] = "0";
         powerControl["Name"] = "Server Power Control";
         tempArray.emplace_back(std::move(powerControl));
@@ -208,24 +211,24 @@ inline void afterPowerCapSettingGet(
     }
 
     // LimitException is Mandatory attribute as per OCP
-    // Baseline Profile – v1.0.0, so currently making it
+    // Baseline Profile - v1.0.0, so currently making it
     // "NoAction" as default value to make it OCP Compliant.
-    sensorJson["PowerLimit"]["LimitException"] = "NoAction";
+    sensorJson["PowerLimit"]["LimitException"] =
+        power::PowerLimitException::NoAction;
 
     if (enabled)
     {
         // Redfish specification indicates PowerLimit should
         // be null if the limit is not enabled.
-        sensorJson["PowerLimit"]["LimitInWatts"] = powerCap *
-                                                   std::pow(10, scale);
+        sensorJson["PowerLimit"]["LimitInWatts"] =
+            powerCap * std::pow(10, scale);
     }
 }
 
 using Mapper = dbus::utility::MapperGetSubTreePathsResponse;
-inline void
-    afterGetChassis(const std::shared_ptr<SensorsAsyncResp>& sensorAsyncResp,
-                    const boost::system::error_code& ec2,
-                    const Mapper& chassisPaths)
+inline void afterGetChassis(
+    const std::shared_ptr<SensorsAsyncResp>& sensorAsyncResp,
+    const boost::system::error_code& ec2, const Mapper& chassisPaths)
 {
     if (ec2)
     {
@@ -294,7 +297,8 @@ inline void
 
     auto sensorAsyncResp = std::make_shared<SensorsAsyncResp>(
         asyncResp, chassisName, sensors::dbus::powerPaths,
-        sensors::node::power);
+        sensor_utils::chassisSubNodeToString(
+            sensor_utils::ChassisSubNode::powerNode));
 
     getChassisData(sensorAsyncResp);
 
@@ -323,7 +327,8 @@ inline void
     }
     auto sensorAsyncResp = std::make_shared<SensorsAsyncResp>(
         asyncResp, chassisName, sensors::dbus::powerPaths,
-        sensors::node::power);
+        sensor_utils::chassisSubNodeToString(
+            sensor_utils::ChassisSubNode::powerNode));
 
     std::optional<std::vector<nlohmann::json::object_t>> voltageCollections;
     std::optional<std::vector<nlohmann::json::object_t>> powerCtlCollections;
