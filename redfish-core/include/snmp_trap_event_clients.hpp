@@ -51,10 +51,15 @@ inline void afterGetSnmpTrapClientdata(
     std::string version;
     std::string algorithm;
     uint16_t port = 0;
+    std::string password;
+    std::string encryption;
+    bool readOnlyPermission;
+    std::string user;
 
     bool success = sdbusplus::unpackPropertiesNoThrow(
         dbus_utils::UnpackErrorPrinter(), propertiesList, "Address", address,
-        "Port", port, "Version", version, "Algorithm", algorithm);
+        "Port", port, "Version", version, "Algorithm", algorithm, "Encryption",
+        encryption, "Readonlypermission", readOnlyPermission, "User", user);
 
     if (!success)
     {
@@ -73,6 +78,10 @@ inline void afterGetSnmpTrapClientdata(
     asyncResp->res.jsonValue["Protocol"] = "SNMP" + version;
     asyncResp->res.jsonValue["Destination"] =
         "snmp://" + address + ":" + std::to_string(port);
+    asyncResp->res.jsonValue["Readonlypermission"] = readOnlyPermission;
+    asyncResp->res.jsonValue["Encryption"] =  encryption;
+    asyncResp->res.jsonValue["Password"] = nullptr;
+    asyncResp->res.jsonValue["User"] = user;
 }
 
 inline void

@@ -2009,10 +2009,21 @@ inline void requestRoutesEventDestinationCollection(App& app)
            {
                destIp = destIp.substr(atPos + 1);
            }
-           std::vector<std::string> ip_segments;
-           bmcweb::split(ip_segments, destIp, ':');
-           std::string ip = ip_segments[0];
+           if (destIp.front() == '[' && destIp.back() == ']')
+           {
+               destIp = destIp.substr(1, destIp.size() - 2); // Remove brackets for IPv6
+           }
+           size_t lastColon = destIp.rfind(':');
+           if (lastColon != std::string::npos)
+           {
+              std::string possiblePort = destIp.substr(lastColon + 1);
+              if (std::all_of(possiblePort.begin(), possiblePort.end(), ::isdigit))
+              {
+                  destIp = destIp.substr(0, lastColon);
+              }
+           }
 
+          std::string ip = destIp;
            boost::system::error_code ec;
            boost::asio::ip::make_address(ip, ec);
            if (ec)
