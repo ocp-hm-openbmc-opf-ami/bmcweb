@@ -1644,6 +1644,7 @@ inline void requestRoutesEventService(App& app)
 
         EventServiceManager::getInstance().setEventServiceConfig(
             eventServiceConfig);
+        messages::success(asyncResp->res);
     });
 }
 
