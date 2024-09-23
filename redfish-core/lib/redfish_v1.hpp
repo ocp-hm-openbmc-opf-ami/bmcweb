@@ -59,15 +59,58 @@ inline void redfish405(App& app, const crow::Request& req,
         return;
     }
 
-    BMCWEB_LOG_WARNING("405 on path {}", path);
-    asyncResp->res.result(boost::beast::http::status::method_not_allowed);
-    if (req.method() == boost::beast::http::verb::delete_)
-    {
-        messages::resourceCannotBeDeleted(asyncResp->res);
+    std::size_t lastSlashPos = path.rfind('/');
+    std::string accountName;
+    std::string uri;
+    if (lastSlashPos != std::string::npos) {
+        accountName = path.substr(lastSlashPos + 1);
+        uri = "v1/AccountService/Accounts/" + accountName;
     }
-    else
+    if (path == uri)
     {
-        messages::operationNotAllowed(asyncResp->res);
+        sdbusplus::message::object_path objPath("/xyz/openbmc_project/user");
+        dbus::utility::getManagedObjects(
+            "xyz.openbmc_project.User.Manager", objPath,
+            [asyncResp,
+             accountName](const boost::system::error_code& ec,
+                          const dbus::utility::ManagedObjectType& users) {
+            if (ec)
+            {
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            const auto userIt = std::ranges::find_if(
+                users,
+                [accountName](
+                    const std::pair<sdbusplus::message::object_path,
+                                    dbus::utility::DBusInterfacesMap>& user) {
+                return accountName == user.first.filename();
+            });
+
+            if (userIt == users.end())
+            {
+                messages::resourceNotFound(asyncResp->res, "ManagerAccount",
+                                           accountName);
+                return;
+            }
+            else {
+               messages::operationNotAllowed(asyncResp->res);
+               return;
+            }
+        });
+    }
+
+    else {
+        BMCWEB_LOG_WARNING("405 on path {}", path);
+        asyncResp->res.result(boost::beast::http::status::method_not_allowed);
+        if (req.method() == boost::beast::http::verb::delete_)
+        {
+            messages::resourceCannotBeDeleted(asyncResp->res);
+        }
+        else
+        {
+            messages::operationNotAllowed(asyncResp->res);
+        }
     }
 }
 
