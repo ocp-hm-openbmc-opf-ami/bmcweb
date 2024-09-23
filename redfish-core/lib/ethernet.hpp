@@ -2526,9 +2526,9 @@ inline void
     sdbusplus::message::object_path objPath("/xyz/openbmc_project/network");
     objPath /= ifaceId;
 
-    setDbusProperty(asyncResp, "xyz.openbmc_project.Network", objPath,
+    setDbusProperty(asyncResp, "VLANPriority", "xyz.openbmc_project.Network", objPath,
                     "xyz.openbmc_project.Network.VLAN", "Priority",
-                    "VLANPriority", vlanPriority);
+                     vlanPriority);
 }
 
 inline void afterVlanCreate(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
