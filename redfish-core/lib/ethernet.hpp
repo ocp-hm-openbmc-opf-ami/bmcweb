@@ -43,6 +43,8 @@
 #define MAX_MTU 1500
 #define MIN_MTU 68
 
+#define MAX_VLANPRIORITY 7
+
 namespace redfish
 {
 
@@ -141,6 +143,7 @@ struct EthernetInterfaceData
     std::string ipv6StaticDefaultGateway;
     std::optional<std::string> macAddress;
     std::optional<uint32_t> vlanId;
+    std::optional<uint32_t> vlanPriority;
     std::vector<std::string> nameServers;
     std::vector<std::string> staticNameServers;
     std::vector<std::string> domainnames;
@@ -293,6 +296,15 @@ inline bool extractEthernetInterfaceData(
                             if (id != nullptr)
                             {
                                 ethData.vlanId = *id;
+                            }
+                        }
+                        else if (propertyPair.first == "Priority")
+                        {
+                            const uint32_t* priority =
+                                std::get_if<uint32_t>(&propertyPair.second);
+                            if (priority != nullptr)
+                            {
+                                ethData.vlanPriority = *priority;
                             }
                         }
                     }
@@ -2294,12 +2306,13 @@ inline void
             ethernet_interface::EthernetDeviceType::Virtual;
         jsonResponse["VLAN"]["VLANEnable"] = true;
         jsonResponse["VLAN"]["VLANId"] = *ethData.vlanId;
+        jsonResponse["VLAN"]["VLANPriority"] = *ethData.vlanPriority;
         jsonResponse["VLAN"]["Tagged"] = true;
 
         nlohmann::json::array_t relatedInterfaces;
         nlohmann::json& parentInterface = relatedInterfaces.emplace_back();
         parentInterface["@odata.id"] =
-            boost::urls::format("/redfish/v1/Managers/{}/EthernetInterfaces",
+            boost::urls::format("/redfish/v1/Managers/{}/EthernetInterfaces/{}",
                                 BMCWEB_REDFISH_MANAGER_URI_NAME,
                                 extractParentInterfaceName(ifaceId));
         jsonResponse["Links"]["RelatedInterfaces"] =
@@ -2506,9 +2519,22 @@ inline bool
     return true;
 }
 
+inline void
+    handleVlanPriorityPatch(const std::string& ifaceId, uint32_t vlanPriority,
+                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    sdbusplus::message::object_path objPath("/xyz/openbmc_project/network");
+    objPath /= ifaceId;
+
+    setDbusProperty(asyncResp, "xyz.openbmc_project.Network", objPath,
+                    "xyz.openbmc_project.Network.VLAN", "Priority",
+                    "VLANPriority", vlanPriority);
+}
+
 inline void afterVlanCreate(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                             const std::string& parentInterfaceUri,
                             const std::string& vlanInterface,
+                            const uint32_t vlanPriorityVal,
                             const uint32_t vlanId,
                             const boost::system::error_code& ec,
                             const sdbusplus::message_t& m
@@ -2558,6 +2584,7 @@ inline void afterVlanCreate(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         return;
     }
 
+    handleVlanPriorityPatch(vlanInterface, vlanPriorityVal, asyncResp);
     const boost::urls::url vlanInterfaceUri =
         boost::urls::format("/redfish/v1/Managers/{}/EthernetInterfaces/{}",
                             BMCWEB_REDFISH_MANAGER_URI_NAME, vlanInterface);
@@ -2617,6 +2644,18 @@ IPType checkIPTypes(const std::vector<std::string>& ipAddresses)
         return IPType::IPv6;
     }
     return IPType::None;
+}
+
+bool validateVlanPriority(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, uint32_t vlanPriority)
+{
+    if (vlanPriority > MAX_VLANPRIORITY)
+    {
+        std::string priority = std::to_string(vlanPriority);
+        std::string_view priorityview(priority);
+        messages::propertyValueOutOfRange(asyncResp->res, priorityview, "VLANPriority");
+        return false;
+    }
+    return true;
 }
 
 inline void handleEthernetInterfaceInstanceGet(
@@ -2764,11 +2803,13 @@ inline void requestEthernetInterfacesRoutes(App& app)
 
         bool vlanEnable = false;
         uint32_t vlanId = 0;
+        std::optional<uint32_t> vlanPriority;
+
         std::vector<nlohmann::json::object_t> relatedInterfaces;
 
         if (!json_util::readJsonPatch(req, asyncResp->res, "VLAN/VLANEnable",
-                                      vlanEnable, "VLAN/VLANId", vlanId,
-                                      "Links/RelatedInterfaces",
+                                      vlanEnable, "VLAN/VLANId", vlanId, "VLAN/VLANPriority",
+                                      vlanPriority, "Links/RelatedInterfaces",
                                       relatedInterfaces))
         {
             return;
@@ -2822,18 +2863,24 @@ inline void requestEthernetInterfacesRoutes(App& app)
             return;
         }
 
+        uint32_t vlanPriorityVal = vlanPriority.value_or(0);
+
         std::string vlanInterface = parentInterface + "_" +
                                     std::to_string(vlanId);
-        crow::connections::systemBus->async_method_call(
-            [asyncResp, parentInterfaceUri, vlanInterface,
-             vlanId](const boost::system::error_code& ec,
-                     const sdbusplus::message_t& m) {
-            afterVlanCreate(asyncResp, parentInterfaceUri, vlanInterface,
-                            vlanId, ec, m);
-        },
-            "xyz.openbmc_project.Network", "/xyz/openbmc_project/network",
-            "xyz.openbmc_project.Network.VLAN.Create", "VLAN", parentInterface,
-            vlanId);
+
+        if (validateVlanPriority(asyncResp, vlanPriorityVal))
+	{
+            crow::connections::systemBus->async_method_call(
+                [asyncResp, parentInterfaceUri, vlanInterface,
+                vlanId, vlanPriorityVal](const boost::system::error_code& ec,
+                         const sdbusplus::message_t& m) {
+                afterVlanCreate(asyncResp, parentInterfaceUri, vlanInterface,
+                                vlanPriorityVal, vlanId, ec, m);
+            },
+                "xyz.openbmc_project.Network", "/xyz/openbmc_project/network",
+                "xyz.openbmc_project.Network.VLAN.Create", "VLAN", parentInterface,
+                vlanId);
+	}
     });
 
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/EthernetInterfaces/<str>/")
@@ -2876,6 +2923,7 @@ inline void requestEthernetInterfacesRoutes(App& app)
         std::optional<bool> ipv6AutoConfigEnabled;
         std::optional<bool> interfaceEnabled;
         std::optional<size_t> mtuSize;
+        std::optional<uint32_t> vlanPriority;
         DHCPParameters v4dhcpParms;
         DHCPParameters v6dhcpParms;
         // clang-format off
@@ -2898,7 +2946,8 @@ inline void requestEthernetInterfacesRoutes(App& app)
                 "MACAddress", macAddress,
                 "MTUSize", mtuSize,
                 "StatelessAddressAutoConfig/IPv6AutoConfigEnabled", ipv6AutoConfigEnabled,
-                "StaticNameServers", staticNameServers
+                "StaticNameServers", staticNameServers,
+                "VLAN/VLANPriority", vlanPriority
                 )
             )
         {
@@ -2916,7 +2965,7 @@ inline void requestEthernetInterfacesRoutes(App& app)
              ipv6DefaultGateway = std::move(ipv6DefaultGateway),
              ipv6StaticAddresses = std::move(ipv6StaticAddresses),
              ipv6StaticDefaultGateway = std::move(ipv6StaticDefaultGateways),
-             staticNameServers = std::move(staticNameServers), mtuSize,
+             staticNameServers = std::move(staticNameServers), mtuSize, vlanPriority,
              ipv6AutoConfigEnabled, v4dhcpParms = std::move(v4dhcpParms),
              v6dhcpParms = std::move(v6dhcpParms), interfaceEnabled](
                 const bool success, const EthernetInterfaceData& ethData,
@@ -3269,6 +3318,11 @@ inline void requestEthernetInterfacesRoutes(App& app)
             if (mtuSize)
             {
                 handleMTUSizePatch(ifaceId, *mtuSize, asyncResp);
+            }
+
+            if (ethData.vlanId && vlanPriority && validateVlanPriority(asyncResp, *vlanPriority))
+            {
+                handleVlanPriorityPatch(ifaceId, *vlanPriority, asyncResp);
             }
         });
     });
