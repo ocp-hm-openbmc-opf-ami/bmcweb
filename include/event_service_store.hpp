@@ -266,7 +266,7 @@ struct EventServiceConfig
 {
     bool enabled = true;
     uint32_t retryAttempts = 3;
-    uint32_t retryTimeoutInterval = 30;
+    uint32_t retryTimeoutInterval = 60;
 
     void fromJson(const nlohmann::json::object_t& j)
     {
