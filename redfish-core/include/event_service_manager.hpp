@@ -78,6 +78,8 @@ using ObjectType =
     boost::container::flat_map<std::string,
                                boost::container::flat_map<std::string, Value>>;
 
+static std::string existMsg;
+
 namespace registries
 {
 static const Message*
@@ -470,10 +472,11 @@ class Subscription : public persistent_data::UserSubscription
 
             std::string msg = redfish::registries::fillMessageArgs(
                 messageArgsView, message->message);
-            if (msg.empty())
+            if (msg.empty() || existMsg == msg)
             {
                 continue;
             }
+            existMsg = msg;
             std::string messageSeverity{message->messageSeverity};
             this->sendSNMPTrap(static_cast<uint32_t>(eventSeqNum), idStr,
                                messageSeverity == "Ok"         ? "Ok"
@@ -1157,6 +1160,8 @@ class EventServiceManager
             try
             {
                 bus.call(m);
+                std::string timestampStr = std::to_string(std::time(nullptr));
+                readEventLogsFromDbus(journalMsg, timestampStr);
             }
             catch (const sdbusplus::exception_t& e)
             {
@@ -1420,13 +1425,13 @@ class EventServiceManager
                 if (prot != "SNMPv1" && prot != "SNMPv2c" && prot != "SNMPv3")
                 {
                     entry->filterAndSendEventLogs(eventRecords);
-                    break;
+                    //break;
                 }
                 else if (!snmpNotified)
                 {
                     entry->filterAndsendSNMPTrap(eventRecords);
                     snmpNotified = true;
-                    break;
+                    //break;
                 }
             }
         }
