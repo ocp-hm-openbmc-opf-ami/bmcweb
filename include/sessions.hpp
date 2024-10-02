@@ -46,6 +46,7 @@ struct UserSession
     bool isConfigureSelfOnly = false;
     std::string userRole;
     std::vector<std::string> userGroups;
+    int userId;
     // Use counter since one user can have multiple kvm connections
     int kvmConnections = 0;
     // currently there is only 2 nbd slots
@@ -281,6 +282,10 @@ class SessionStore
             return nullptr;
         }
 
+        // Increment the UserId for each new session
+        static int currentUserId = 1;
+        int userId = currentUserId++;
+
         auto session = std::make_shared<UserSession>(
             UserSession{uniqueId,
                         sessionToken,
@@ -293,7 +298,8 @@ class SessionStore
                         false,
                         isConfigureSelfOnly,
                         "",
-                        {}});
+                        {},
+                        userId});
         auto it = authTokens.emplace(sessionToken, session);
         // Only need to write to disk if session isn't about to be destroyed.
         needWrite = sessionType != SessionType::Basic &&

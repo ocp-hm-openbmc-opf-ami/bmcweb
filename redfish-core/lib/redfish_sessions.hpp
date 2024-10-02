@@ -143,6 +143,7 @@ inline void fillSessionObject(crow::Response& res,
 {
     res.jsonValue["Id"] = session.uniqueId;
     res.jsonValue["UserName"] = session.username;
+    res.jsonValue["UserId"] = session.userId;
     nlohmann::json::array_t roles;
 
     const char* processName = "xyz.openbmc_project.User.Manager";
