@@ -129,8 +129,8 @@ inline bool handleIfMatch(crow::App& app, const crow::Request& req,
     std::string_view odataHeader = req.getHeaderValue("OData-Version");
     if (!odataHeader.empty() && odataHeader != "4.0")
     {
-        messages::preconditionFailed(asyncResp->res);
-        return false;
+        messages::headerInvalid(asyncResp->res,"OData-Version");
+	return false;
     }
 
     asyncResp->res.addHeader("OData-Version", "4.0");

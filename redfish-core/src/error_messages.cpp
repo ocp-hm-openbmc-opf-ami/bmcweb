@@ -2121,6 +2121,28 @@ void factoryDefaultResetActionConflict(crow::Response& res, std::string_view arg
     addMessageToErrorJson(res.jsonValue, factoryDefaultResetActionConflict(arg1, arg2));
 }
 
+
+/**
+ * @internal
+ * @brief Formats HeaderInvalid message into JSON
+ *
+ * See header file for more information
+ * @endinternal
+ */
+nlohmann::json headerInvalid(std::string_view arg1)
+{
+    return getLog(redfish::registries::base::Index::headerInvalid,
+                  std::to_array({arg1}));
+}
+
+void headerInvalid(crow::Response& res, std::string_view arg1)
+{
+    res.result(boost::beast::http::status::precondition_failed);
+    addMessageToErrorJson(res.jsonValue, headerInvalid(arg1));
+}
+
+
+
 } // namespace messages
 
 } // namespace redfish

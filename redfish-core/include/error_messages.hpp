@@ -1229,6 +1229,23 @@ void factoryDefaultResetActionConflict(crow::Response& res, std::string_view arg
                            std::string_view arg2);
 
 
+
+
+/**
+ * @internal
+ * @brief Formats HeaderInvalid message into JSON
+ *
+ * See header file for more information
+ * @endinternal
+ */
+
+nlohmann::json headerInvalid(std::string_view arg1);
+
+void headerInvalid(crow::Response& res, std::string_view arg1);
+
+
+
+
 } // namespace messages
 
 } // namespace redfish
