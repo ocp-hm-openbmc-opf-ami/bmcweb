@@ -1397,18 +1397,11 @@ inline void updateUserProperties(
          accountTypes(std::move(accountTypes)), userSelf, session,
          passwordChangeRequired, oemAccountTypes,
          asyncResp{std::move(asyncResp)}](int rc) {
-        // isDuplicateCreated used to reduce success message for each patch
         if (rc <= 0)
         {
             messages::resourceNotFound(asyncResp->res, "ManagerAccount",
                                        username);
             return;
-        }
-
-        if (passwordChangeRequired)
-        {
-            messages::propertyNotWritable(asyncResp->res,
-                                          "PasswordChangeRequired");
         }
 
         if (password)
@@ -1550,6 +1543,23 @@ inline void updateUserProperties(
                     return;
                 }
             });
+        }
+        if (passwordChangeRequired)
+        {
+            if (username != "root")
+            {
+                  crow::connections::systemBus->async_method_call(
+                      [asyncResp,
+                       passwordChangeRequired](const boost::system::error_code ec) {
+                      if (ec)
+                      {
+                          return;
+                      }
+                  },
+                      "xyz.openbmc_project.User.Manager", "/xyz/openbmc_project/user",
+                      "xyz.openbmc_project.User.Manager", "SetPasswordExpired", username,
+                      *passwordChangeRequired);
+            }
         }
     });
 }
