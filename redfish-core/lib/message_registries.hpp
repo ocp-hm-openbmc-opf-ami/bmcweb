@@ -26,6 +26,8 @@
 #include "registries/resource_event_message_registry.hpp"
 #include "registries/task_event_message_registry.hpp"
 #include "registries/telemetry_message_registry.hpp"
+#include "registries/privilege_mapping.hpp"
+
 
 #include <boost/url/format.hpp>
 
@@ -51,12 +53,12 @@ inline void handleMessageRegistryFileCollectionGet(
     asyncResp->res.jsonValue["Name"] = "MessageRegistryFile Collection";
     asyncResp->res.jsonValue["Description"] =
         "Collection of MessageRegistryFiles";
-    asyncResp->res.jsonValue["Members@odata.count"] = 7;
+    asyncResp->res.jsonValue["Members@odata.count"] = 8;
 
     nlohmann::json& members = asyncResp->res.jsonValue["Members"];
     for (const char* memberName :
          std::to_array({"Base", "TaskEvent", "NodeManager", "ResourceEvent",
-                        "BiosAttributeRegistry", "OpenBMC", "Telemetry"}))
+                        "BiosAttributeRegistry", "OpenBMC", "Telemetry", "PrivilegeRegistry"}))
     {
         nlohmann::json::object_t member;
         member["@odata.id"] = boost::urls::format("/redfish/v1/Registries/{}",
@@ -74,6 +76,82 @@ inline void requestRoutesMessageRegistryFileCollection(App& app)
         .privileges(redfish::privileges::getMessageRegistryFileCollection)
         .methods(boost::beast::http::verb::get)(std::bind_front(
             handleMessageRegistryFileCollectionGet, std::ref(app)));
+}
+inline void fillPrivilegeRegistry(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const registries::Header* header
+    )
+{
+    asyncResp->res.jsonValue["@Redfish.Copyright"] = header->copyright;
+    asyncResp->res.jsonValue["@odata.type"] = header->type;
+    asyncResp->res.jsonValue["Id"] = header->id;
+    asyncResp->res.jsonValue["Name"] = header->name;
+    asyncResp->res.jsonValue["Language"] = header->language;
+    asyncResp->res.jsonValue["Description"] = header->description;
+    asyncResp->res.jsonValue["RegistryPrefix"] = header->registryPrefix;
+    asyncResp->res.jsonValue["RegistryVersion"] = header->registryVersion;
+    asyncResp->res.jsonValue["OwningEntity"] = header->owningEntity;
+
+    nlohmann::json& privilegeObj = asyncResp->res.jsonValue["privilegeUsed"];
+    privilegeObj = nlohmann::json::array();
+
+    for (const char* privilegeItem : registries::PrivilegeRegistry::privilegeUsed) {
+        if (privilegeItem == nullptr) {
+            break;
+        }
+        privilegeObj.push_back(privilegeItem);
+    }
+
+    nlohmann::json& oemPrivileges = asyncResp->res.jsonValue["OEMPrivilegesUsed"];
+
+    for (const auto& entity : registries::PrivilegeRegistry::OEMentities) {
+        std::string entityName = entity.first;
+        const auto& operationMaps = entity.second;
+
+        nlohmann::json oemPrivilegesObj = nlohmann::json::object();
+        oemPrivilegesObj["Entity"] = entityName;
+        oemPrivilegesObj["OperationMap"] = nlohmann::json::object();
+
+        for (const auto& operation : operationMaps) {
+
+            const std::string& method = operation.first;
+            const auto& privileges = operation.second;
+            oemPrivilegesObj["OperationMap"][method] = nlohmann::json::array();
+
+            for (const auto& privilege : privileges) {
+                oemPrivilegesObj["OperationMap"][method].push_back({
+                     {"Privilege", nlohmann::json::array({privilege})}
+                     });
+            }
+        }
+
+        oemPrivileges.push_back(oemPrivilegesObj);
+    }
+
+    nlohmann::json& mappings = asyncResp->res.jsonValue["Mappings"];
+    for (const auto& entity : registries::PrivilegeRegistry::entities) {
+        std::string entityName = entity.first;
+        const auto& operationMaps = entity.second;
+
+        nlohmann::json mappingObj = nlohmann::json::object();
+        mappingObj["Entity"] = entityName;
+        mappingObj["OperationMap"] = nlohmann::json::object();
+
+
+        for (const auto& operation : operationMaps) {
+            const std::string& method = operation.first;
+            const auto& privileges = operation.second;
+
+            mappingObj["OperationMap"][method] = nlohmann::json::array();
+            for (const auto& privilege : privileges) {
+                mappingObj["OperationMap"][method].push_back({
+                    {"Privilege", nlohmann::json::array({privilege})}
+                    });
+            }
+        }
+
+        mappings.push_back(mappingObj);
+    }
 }
 
 inline void handleMessageRoutesMessageRegistryFileGet(
@@ -217,6 +295,22 @@ inline void handleMessageRoutesMessageRegistryFileGet(
                 registryVal = 1;
         }
     }
+    else if (registry == "PrivilegeRegistry" || registry.find("PrivilegeRegistry"))
+    {
+        header = &registries::PrivilegeRegistry::header;
+        url = registries::PrivilegeRegistry::url;
+        Val= header->id;
+        if(registry == "PrivilegeRegistry"){
+                registryVal = 0;
+        }
+        else if (registry == Val + ".json")
+        {
+
+           fillPrivilegeRegistry(asyncResp ,header);
+           return;
+
+        }
+    }
     else
     {
         messages::resourceNotFound(asyncResp->res, "MessageRegistryFile",
@@ -300,4 +394,5 @@ inline void requestRoutesMessageRegistryFile(App& app)
         .methods(boost::beast::http::verb::get)(std::bind_front(
             handleMessageRoutesMessageRegistryFileGet, std::ref(app)));
 }
+
 } // namespace redfish
