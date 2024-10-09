@@ -1109,48 +1109,83 @@ inline void handleManagersVirtualMediaActionEject(
         }
     }
 
-    dbus::utility::getDbusObject(
-        "/xyz/openbmc_project/VirtualMedia", {},
-        [asyncResp, action,
-         resName](const boost::system::error_code& ec2,
-                  const dbus::utility::MapperGetObject& getObjectType) {
-        if (ec2)
-        {
-            BMCWEB_LOG_ERROR("ObjectMapper::GetObject call failed: {}", ec2);
-            messages::internalError(asyncResp->res);
+    std::string objectPathStr =
+         std::string("/xyz/openbmc_project/VirtualMedia/Legacy/") +
+         std::string(resName);
+    const char* objectPath = objectPathStr.c_str();
 
+    sdbusplus::asio::getProperty<bool>(
+        *crow::connections::systemBus, "xyz.openbmc_project.VirtualMedia",
+        objectPath, "xyz.openbmc_project.VirtualMedia.Process", "Active",
+        [asyncResp, action, resName](const boost::system::error_code& ec1,
+                                     bool ejectState) {
+        if (ec1)
+        {
+            BMCWEB_LOG_ERROR("GetProperty call failed: {}",ec1);
+            messages::internalError(asyncResp->res);
             return;
         }
-        std::string service = getObjectType.begin()->first;
-        BMCWEB_LOG_DEBUG("GetObjectType: {}", service);
 
-        sdbusplus::message::object_path path(
-            "/xyz/openbmc_project/VirtualMedia");
-        dbus::utility::getManagedObjects(
-            service, path,
-            [resName, service, action,
-             asyncResp](const boost::system::error_code& ec,
-                        const dbus::utility::ManagedObjectType& subtree) {
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR("ObjectMapper : No Service found");
-                messages::resourceNotFound(asyncResp->res, action, resName);
-                return;
-            }
-
-            for (const auto& object : subtree)
-            {
-                VmMode mode = parseObjectPathAndGetMode(object.first, resName);
-                if (mode != VmMode::Invalid)
+        if (!ejectState)
+        {
+           messages::actionNotSupported(
+                asyncResp->res,
+                    std::format(
+                        "in {} does not contain any Media to Eject",resName
+                        ));
+            return;
+            
+        }
+        else
+        {
+            dbus::utility::getDbusObject(
+                "/xyz/openbmc_project/VirtualMedia", {},
+                [asyncResp, action,
+                 resName](const boost::system::error_code& ec2,
+                          const dbus::utility::MapperGetObject& getObjectType) {
+                if (ec2)
                 {
-                    doEjectAction(asyncResp, service, resName,
-                                  mode == VmMode::Legacy);
+                    BMCWEB_LOG_ERROR("ObjectMapper::GetObject call failed: {}",
+                                     ec2);
+                    messages::internalError(asyncResp->res);
+
                     return;
                 }
-            }
-            BMCWEB_LOG_DEBUG("Parent item not found");
-            messages::resourceNotFound(asyncResp->res, "VirtualMedia", resName);
-        });
+                std::string service = getObjectType.begin()->first;
+                BMCWEB_LOG_DEBUG("GetObjectType: {}", service);
+
+                sdbusplus::message::object_path path(
+                    "/xyz/openbmc_project/VirtualMedia");
+                dbus::utility::getManagedObjects(
+                    service, path,
+                    [resName, service, action, asyncResp](
+                        const boost::system::error_code& ec,
+                        const dbus::utility::ManagedObjectType& subtree) {
+                    if (ec)
+                    {
+                        BMCWEB_LOG_ERROR("ObjectMapper : No Service found");
+                        messages::resourceNotFound(asyncResp->res, action,
+                                                   resName);
+                        return;
+                    }
+
+                    for (const auto& object : subtree)
+                    {
+                        VmMode mode = parseObjectPathAndGetMode(object.first,
+                                                                resName);
+                        if (mode != VmMode::Invalid)
+                        {
+                            doEjectAction(asyncResp, service, resName,
+                                          mode == VmMode::Legacy);
+                            return;
+                        }
+                    }
+                    BMCWEB_LOG_DEBUG("Parent item not found");
+                    messages::resourceNotFound(asyncResp->res, "VirtualMedia",
+                                               resName);
+                });
+            });
+        }
     });
 }
 
