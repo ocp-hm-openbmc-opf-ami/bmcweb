@@ -1406,10 +1406,8 @@ inline void updateUserProperties(
          passwordChangeRequired, oemAccountTypes,
          asyncResp{std::move(asyncResp)}](int rc) {
         // isDuplicateCreated used to reduce success message for each patch
-        std::optional<bool> isDuplicateCreated = false;
         if (rc <= 0)
         {
-            isDuplicateCreated = false;
             messages::resourceNotFound(asyncResp->res, "ManagerAccount",
                                        username);
             return;
@@ -1417,7 +1415,6 @@ inline void updateUserProperties(
 
         if (passwordChangeRequired)
         {
-            isDuplicateCreated = false;
             messages::propertyNotWritable(asyncResp->res,
                                           "PasswordChangeRequired");
         }
@@ -1427,7 +1424,6 @@ inline void updateUserProperties(
             int pamrc = pamAuthenticateUser(username, *password, std::nullopt);
             if ((pamrc == PAM_NEW_AUTHTOK_REQD))
             {
-                isDuplicateCreated = false;
                 BMCWEB_LOG_ERROR("Need to provide new Password");
                 messages::passwordResetFailed(asyncResp->res);
                 return;
@@ -1436,14 +1432,12 @@ inline void updateUserProperties(
 
             if (retval == PAM_USER_UNKNOWN)
             {
-                isDuplicateCreated = false;
                 messages::resourceNotFound(asyncResp->res, "ManagerAccount",
                                            username);
                 return;
             }
             else if (retval == PAM_AUTHTOK_ERR)
             {
-                isDuplicateCreated = false;
                 // If password is invalid
                 messages::propertyValueFormatError(asyncResp->res, nullptr,
                                                    "Password");
@@ -1452,13 +1446,8 @@ inline void updateUserProperties(
             }
             else if (retval != PAM_SUCCESS)
             {
-                isDuplicateCreated = false;
                 messages::passwordResetFailed(asyncResp->res);
                 return;
-            }
-            else
-            {
-                isDuplicateCreated = false;
             }
         }
 
@@ -1468,7 +1457,6 @@ inline void updateUserProperties(
                             "xyz.openbmc_project.User.Manager", dbusObjectPath,
                             "xyz.openbmc_project.User.Attributes",
                             "UserEnabled", *enabled);
-            isDuplicateCreated = true;
         }
 
         if ((username == "root") && roleId)
@@ -1485,7 +1473,6 @@ inline void updateUserProperties(
             std::string priv = getPrivilegeFromRoleId(*roleId);
             if (priv.empty())
             {
-                isDuplicateCreated = false;
                 messages::propertyValueNotInList(asyncResp->res, true,
                                                  "Locked");
                 return;
@@ -1494,7 +1481,6 @@ inline void updateUserProperties(
                             "xyz.openbmc_project.User.Manager", dbusObjectPath,
                             "xyz.openbmc_project.User.Attributes",
                             "UserPrivilege", priv);
-            isDuplicateCreated = true;
         }
 
         if (locked)
@@ -1572,10 +1558,6 @@ inline void updateUserProperties(
                     return;
                 }
             });
-        }
-        if (isDuplicateCreated)
-        {
-            messages::success(asyncResp->res);
         }
     });
 }
@@ -2865,19 +2847,25 @@ inline void
             messages::internalError(asyncResp->res);
             return;
         }
+	bool userExists;
         for (const auto& userpath : users)
         {
             std::string user = userpath.first.filename();
             if (user != username)
             {
-                asyncResp->res.clear();
-                messages::resourceNotFound(asyncResp->res, "ManagerAccount",
-                                           username);
-                return;
+	    	userExists = false;
             }
             else {
+	    	userExists = true;
                 break;
             }
+        }
+	if(!userExists)
+        {
+                asyncResp->res.clear();
+                messages::resourceNotFound(asyncResp->res, "ManagerAccount",
+                                                        username);
+                return;
         }
     });
 
@@ -2958,7 +2946,7 @@ inline void
         updateUserProperties(asyncResp, newUser, password, enabled, roleId,
                              locked, accountTypes, userSelf, req.session,
                              passwordChangeRequired, oemAccountTypes);
-        messages::success(asyncResp->res);
+        // messages::success(asyncResp->res);
     },
         "xyz.openbmc_project.User.Manager", "/xyz/openbmc_project/user",
         "xyz.openbmc_project.User.Manager", "RenameUser", username,
