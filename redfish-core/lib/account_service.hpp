@@ -2058,11 +2058,19 @@ inline void handleAccountServicePatch(
 
     if (minPasswordLength)
     {
-        setDbusProperty(
-            asyncResp, "MinPasswordLength", "xyz.openbmc_project.User.Manager",
-            sdbusplus::message::object_path("/xyz/openbmc_project/user"),
+       sdbusplus::asio::setProperty(
+            *crow::connections::systemBus, "xyz.openbmc_project.User.Manager",
+            "/xyz/openbmc_project/user",
             "xyz.openbmc_project.User.AccountPolicy", "MinPasswordLength",
-            *minPasswordLength);
+            *minPasswordLength,
+            [asyncResp](const boost::system::error_code& ec) {
+            if (ec)
+            {
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            messages::success(asyncResp->res);
+            });
     }
 
     if (maxPasswordLength)
@@ -2158,22 +2166,34 @@ inline void handleAccountServicePatch(
                                              "AccountLockoutDuration");
             return;
         }*/
-
-        setDbusProperty(
-            asyncResp, "AccountLockoutDuration",
-            "xyz.openbmc_project.User.Manager",
-            sdbusplus::message::object_path("/xyz/openbmc_project/user"),
+	sdbusplus::asio::setProperty(
+            *crow::connections::systemBus, "xyz.openbmc_project.User.Manager",
+            "/xyz/openbmc_project/user",
             "xyz.openbmc_project.User.AccountPolicy", "AccountUnlockTimeout",
-            *unlockTimeout);
+            *unlockTimeout, [asyncResp](const boost::system::error_code& ec) {
+                if (ec)
+                {
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+                messages::success(asyncResp->res);
+            });
     }
     if (lockoutThreshold)
     {
-        setDbusProperty(
-            asyncResp, "AccountLockoutThreshold",
-            "xyz.openbmc_project.User.Manager",
-            sdbusplus::message::object_path("/xyz/openbmc_project/user"),
+       sdbusplus::asio::setProperty(
+            *crow::connections::systemBus, "xyz.openbmc_project.User.Manager",
+            "/xyz/openbmc_project/user",
             "xyz.openbmc_project.User.AccountPolicy",
-            "MaxLoginAttemptBeforeLockout", *lockoutThreshold);
+            "MaxLoginAttemptBeforeLockout", *lockoutThreshold,
+            [asyncResp](const boost::system::error_code& ec) {
+            if (ec)
+            {
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            messages::success(asyncResp->res);
+            });
     }
 }
 
