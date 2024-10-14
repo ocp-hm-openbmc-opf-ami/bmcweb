@@ -33,8 +33,21 @@ const Header header = {
 // OEM defined registries for this purpose.
 // Below link is wrong - We need to define OEM registries and use
 // appropriate data here.
+
 constexpr const char* url =
     "https://redfish.dmtf.org/registries/BiosAttributeRegistry.1.0.0.json";
 
-constexpr std::array<MessageEntry, 0> registry = {};
+constexpr std::array registry = {
+     MessageEntry{
+        "CertificateDataIncomplete",
+         {
+            "Indicates that the BIOS Inventory data is not completely transferred to BMC.",
+            "The certificate processing is incomplete due to error or due to timeout between BIOS, BMC communication.",
+            "Critical",
+            0,
+            {},
+            "Reboot Host to start processing again.",
+         }},
+
+};
 } // namespace redfish::registries::bios

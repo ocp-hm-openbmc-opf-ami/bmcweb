@@ -28,6 +28,7 @@ inline void updatePowerSupplyList(
     const dbus::utility::MapperGetSubTreePathsResponse& powerSupplyPaths)
 {
     nlohmann::json& powerSupplyList = asyncResp->res.jsonValue["Members"];
+    powerSupplyList = nlohmann::json::array();
     for (const std::string& powerSupplyPath : powerSupplyPaths)
     {
         std::string powerSupplyName =

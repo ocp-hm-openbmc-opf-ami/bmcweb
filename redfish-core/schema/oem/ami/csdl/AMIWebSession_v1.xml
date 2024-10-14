@@ -37,9 +37,16 @@
               <Annotation Term="OData.Description" String="Virtual Media active status."/>
               <Annotation Term="OData.LongDescription" String="Active status of Virtual Media in current session."/>
             </Property>
-
+            
+            <Property Name="MountType" Type="Edm.String">
+              <Annotation Term="OData.Description" String="status of VMEDIA mounting method type in session."/>
+              <Annotation Term="OData.LongDescription" String="Active status of VMEDIA mounting method type in current session."/>
+            </Property>
+            <Property Name="UserId" Type="Edm.Decimal">
+              <Annotation Term="OData.Description" String="The UserId of the WebUI/Redfish session."/>
+              <Annotation Term="OData.LongDescription" String="The UserId of the  Generated WebUI/Redfish Session."/>
+            </Property>
       </EntityType>
     </Schema>
   </edmx:DataServices>
 </edmx:Edmx>
-

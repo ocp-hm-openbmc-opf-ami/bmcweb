@@ -268,7 +268,7 @@ inline void getPhysicalLedState(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
 {
     BMCWEB_LOG_DEBUG("Get Physical Led");
     aResp->res.jsonValue["Oem"]["OpenBmc"]["PhysicalLED"]["@odata.type"] =
-        "#OemComputerSystem.PhysicalLED";
+        "#OpenBMCComputerSystem.v1_0_0.PhysicalLED";
 
     sdbusplus::asio::getProperty<std::string>(
         *crow::connections::systemBus,

@@ -31,6 +31,21 @@
                 <Annotation Term="OData.Description" String="OpenBMCComputerSystem Oem properties." />
                 <Annotation Term="OData.AutoExpand"/>
                 <Property Name="OpenBmc" Type="OpenBMCComputerSystem.OpenBmc"/>
+                <Property Name="Intel" Type="OpenBMCComputerSystem.Intel"/>
+            </ComplexType>
+            <ComplexType Name="Intel" BaseType="Resource.OemObject">
+                <Annotation Term="OData.AdditionalProperties" Bool="true" />
+                <Annotation Term="OData.Description" String="Oem properties for Intel." />
+                <Property Name="CpldErr" Type="Edm.String">
+			<Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+			<Annotation Term="OData.Description" String="CpldErr is the error source."/>
+			<Annotation Term="OData.LongDescription" String="CPLD Postcode displayed."/>
+                </Property>
+                <Property Name="CpldLastState" Type="Edm.String">
+			<Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+			<Annotation Term="OData.Description" String="CpldLastState is the Power state."/>
+			<Annotation Term="OData.LongDescription" String="Power state displayed."/>
+                </Property>
             </ComplexType>
             <ComplexType Name="OpenBmc" BaseType="Resource.OemObject">
                 <Annotation Term="OData.AdditionalProperties" Bool="true" />
@@ -42,6 +57,11 @@
                             <PropertyValue Property="Pattern" String="[A-Za-z0-9_.:]+" />
                             <PropertyValue Property="Type" String="OpenBMCComputerSystem.FirmwareProvisioning" />
                         </NavigationProperty>
+                        <NavigationProperty Type="OpenBMCComputerSystem.PhysicalLED">
+                            <Annotation Term="OData.AutoExpand"/>
+                            <PropertyValue Property="Pattern" String="[A-Za-z0-9_.:]+" />
+                            <PropertyValue Property="Type" String="OpenBMCComputerSystem.PhysicalLED" />
+                        </NavigationProperty>
                     </Collection>
                 </Annotation>
             </ComplexType>
@@ -52,6 +72,22 @@
                     <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
                     <Annotation Term="OData.Description" String="This indicates platform firmware provisioning state."/>
                     <Annotation Term="OData.LongDescription" String="The value of this property indicating provisioning status of platform firmware."/>
+                </Property>
+            </ComplexType>
+            <ComplexType Name="PhysicalLED" BaseType="Resource.OemObject">
+                <Annotation Term="OData.AdditionalProperties" Bool="false" />
+                <Annotation Term="OData.Description" String="physical leds to display status of server." />
+                <Property Name="AmberLED" Type="Edm.String" Nullable="false">
+                    <Annotation Term="OData.Description" String="physical leds to display status of server." />
+                    <Annotation Term="OData.LongDescription" String="physical leds to display status of server." />
+                </Property>
+                <Property Name="GreenLED" Type="Edm.String" Nullable="false">
+                    <Annotation Term="OData.Description" String="physical leds to display status of server." />
+                    <Annotation Term="OData.LongDescription" String="physical leds to display status of server." />
+                </Property>
+                <Property Name="SusackLED" Type="Edm.String" Nullable="false">
+                    <Annotation Term="OData.Description" String="physical leds to display status of server." />
+                    <Annotation Term="OData.LongDescription" String="physical leds to display status of server." />
                 </Property>
             </ComplexType>
             <EnumType Name="FirmwareProvisioningStatus">

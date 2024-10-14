@@ -824,9 +824,8 @@ inline std::string dbusToRfBootProgress(const std::string& dbusBootProgress)
  *
  * @return Integer error code.
  */
-inline int
-    assignBootParameters(const std::string& rfSource, std::string& bootSource,
-                         std::string& bootMode)
+inline int assignBootParameters(const std::string& rfSource,
+                                std::string& bootSource, std::string& bootMode)
 {
     bootSource = "xyz.openbmc_project.Control.Boot.Source.Sources.Default";
     bootMode = "xyz.openbmc_project.Control.Boot.Mode.Modes.Regular";
@@ -961,7 +960,7 @@ inline void getCPLDBootProgress(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
         }
 
         aResp->res.jsonValue["BootProgress"]["Oem"]["Intel"]["@odata.type"] =
-            "#OemComputerSystem.Intel";
+            "#OpenBMCComputerSystem.v1_0_0.Intel";
         const std::string* errorSource = nullptr;
         const std::string* powerState = nullptr;
         for (const std::pair<std::string, dbus::utility::DbusVariantType>&
@@ -1825,8 +1824,7 @@ inline void
     // Source target specified
     BMCWEB_LOG_DEBUG("Boot source: {}", *bootSource);
     // Figure out which DBUS interface and property to use
-    if (assignBootParameters( *bootSource, bootSourceStr,
-                             bootModeStr) != 0)
+    if (assignBootParameters(*bootSource, bootSourceStr, bootModeStr) != 0)
     {
         BMCWEB_LOG_DEBUG(
             "Invalid property value for BootSourceOverrideTarget: {}",
@@ -4200,6 +4198,9 @@ inline void handleComputerSystemPatch(
     std::optional<nlohmann::json> virtualMediaConfig;
     std::optional<nlohmann::json> kvmConfig;
     std::optional<std::string> vId;
+    std::optional<bool> kvmServiceMasked;
+    std::optional<bool> sshServiceMasked;
+    std::optional<bool> vmServiceMasked;
 
     // clang-format off
     if (!json_util::readJsonPatch(
@@ -4226,7 +4227,11 @@ inline void handleComputerSystemPatch(
             "SerialConsole", serialConsole,
             "VirtualMediaConfig", virtualMediaConfig,
             "GraphicalConsole", kvmConfig,
-            "Id", vId))
+            "Id", vId,
+	    "Oem/OpenBmc/GraphicalConsole/Masked",kvmServiceMasked,
+            "Oem/OpenBmc/SerialConsole/SSH/Masked",sshServiceMasked,
+            "Oem/OpenBmc/VirtualMediaConfig/Masked",vmServiceMasked))
+
     {
         return;
     }
@@ -4238,7 +4243,6 @@ inline void handleComputerSystemPatch(
         return;
     }
     // clang-format on
-
     asyncResp->res.result(boost::beast::http::status::no_content);
 
     if (assetTag)
@@ -4310,7 +4314,6 @@ inline void handleComputerSystemPatch(
     if (kvmConfig)
     {
         std::optional<bool> kvmServiceEnabled;
-        std::optional<bool> kvmServiceMasked;
 
         if (!json_util::readJson(*kvmConfig, asyncResp->res, "ServiceEnabled",
                                  kvmServiceEnabled))
@@ -4327,11 +4330,7 @@ inline void handleComputerSystemPatch(
                 {"ConnectTypesSupported", {"KVMIP"}},
             };
         }
-        if (kvmServiceMasked)
-        {
-            service_util::setMasked(asyncResp, kvmServiceName,
-                                    *kvmServiceMasked);
-        }
+      
     }
 
     if (serialConsole)
@@ -4345,11 +4344,10 @@ inline void handleComputerSystemPatch(
         if (ssh)
         {
             std::optional<bool> sshServiceEnabled;
-            std::optional<bool> sshServiceMasked;
+            
             std::optional<uint16_t> sshPortNumber;
             if (!json_util::readJson(*ssh, asyncResp->res, "ServiceEnabled",
-                                     sshServiceEnabled, "Port", sshPortNumber,
-                                     "Masked", sshServiceMasked))
+                                     sshServiceEnabled, "Port", sshPortNumber))
             {
                 return;
             }
@@ -4359,13 +4357,6 @@ inline void handleComputerSystemPatch(
                 service_util::setEnabled(asyncResp, serialConsoleSshServiceName,
                                          *sshServiceEnabled);
             }
-
-            if (sshServiceMasked)
-            {
-                service_util::setMasked(asyncResp, kvmServiceName,
-                                        *sshServiceMasked);
-            }
-
             if (sshPortNumber)
             {
                 service_util::setPortNumber(
@@ -4377,10 +4368,8 @@ inline void handleComputerSystemPatch(
     if (virtualMediaConfig)
     {
         std::optional<bool> vmServiceEnabled;
-        std::optional<bool> vmServiceMasked;
         if (!json_util::readJson(*virtualMediaConfig, asyncResp->res,
-                                 "ServiceEnabled", vmServiceEnabled, "Masked",
-                                 vmServiceMasked))
+                                 "ServiceEnabled", vmServiceEnabled))
         {
             return;
         }
@@ -4390,12 +4379,23 @@ inline void handleComputerSystemPatch(
             service_util::setEnabled(asyncResp, virtualMediaServiceName,
                                      *vmServiceEnabled);
         }
-        if (vmServiceMasked)
-        {
-            service_util::setMasked(asyncResp, virtualMediaServiceName,
-                                    *vmServiceMasked);
-        }
     }
+  
+    if (kvmServiceMasked)
+    {
+        service_util::setMasked(asyncResp, kvmServiceName, *kvmServiceMasked);
+    }
+  
+    if (sshServiceMasked)
+    {
+        service_util::setMasked(asyncResp, serialConsoleSshServiceName , *sshServiceMasked);
+    }
+  
+    if (vmServiceMasked)
+    {
+        service_util::setMasked(asyncResp, virtualMediaServiceName, *vmServiceMasked);
+    }
+
 }
 
 inline void handleSystemCollectionResetActionHead(

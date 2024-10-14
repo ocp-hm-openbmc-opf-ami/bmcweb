@@ -143,7 +143,7 @@ inline void fillSessionObject(crow::Response& res,
 {
     res.jsonValue["Id"] = session.uniqueId;
     res.jsonValue["UserName"] = session.username;
-    res.jsonValue["UserId"] = session.userId;
+    res.jsonValue["Oem"]["AMI_WebSession"]["UserId"] = session.userId;
     nlohmann::json::array_t roles;
 
     const char* processName = "xyz.openbmc_project.User.Manager";
@@ -175,7 +175,7 @@ inline void fillSessionObject(crow::Response& res,
         static_cast<bool>(session.kvmConnections);
     res.jsonValue["Oem"]["AMI_WebSession"]["VmActive"] =
         nlohmann::json::array();
-    res.jsonValue["Oem"]["Ami"]["MountType"] = "";
+    res.jsonValue["Oem"]["AMI_WebSession"]["MountType"] = "";
     for (const bool status : session.vmNbdActive)
     {
         res.jsonValue["Oem"]["AMI_WebSession"]["VmActive"].push_back(status);
@@ -260,14 +260,14 @@ inline void getSessionInfo(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
                 asyncResp->res.jsonValue["Description"] =
                     "Manager User Session";
                 asyncResp->res.jsonValue["ClientOriginIPAddress"] = IpAddess;
-                asyncResp->res.jsonValue["Oem"]["Ami"]["MountType"] =
+                asyncResp->res.jsonValue["Oem"]["AMI_WebSession"]["MountType"] =
                     additionalConfigValue;
                 asyncResp->res.jsonValue["SessionType"] =
                     getSessionType(SessionType);
                 nlohmann::json::array_t roles;
                 roles.emplace_back(getprivilege(privilege));
                 asyncResp->res.jsonValue["Roles"] = std::move(roles);
-                asyncResp->res.jsonValue["UserId"] = UserId;
+                asyncResp->res.jsonValue["Oem"]["AMI_WebSession"]["UserId"] = UserId;
             }
         }
     }

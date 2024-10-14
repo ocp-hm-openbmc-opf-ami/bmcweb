@@ -2372,7 +2372,10 @@ inline void
     //     std::move(ipv6StaticGatewayArray);
     if (dhcpv6OperatingMode == "Disabled")
     {
-        ipv6StaticGatewayArray.emplace_back(std::move(ipv6GatewayStr));
+        nlohmann::json::object_t ipv6Gatewayobject;
+        ipv6Gatewayobject["Address"] = std::move(ipv6GatewayStr);
+
+        ipv6StaticGatewayArray.emplace_back(std::move(ipv6Gatewayobject));
         jsonResponse["IPv6StaticDefaultGateways"] =
             std::move(ipv6StaticGatewayArray);
     }

@@ -293,7 +293,7 @@ inline void getEventSeverity(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
             aResp->res.jsonValue["EventSeverity"] = "All";
         }
         else
-            aResp->res.jsonValue["EventSeverity"] = "NULL";
+            aResp->res.jsonValue["EventSeverity"] = nullptr;
     });
 }
 

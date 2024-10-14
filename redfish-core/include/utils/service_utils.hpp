@@ -48,8 +48,10 @@ void getSerialConsoleSshMasked(
             // messages::internalError(asyncResp->res);
             return;
         }
-        asyncResp->res.jsonValue[ObjectName][subObjectName][propertyName] =
-            eventValue;
+        asyncResp->res.jsonValue["Oem"]["OpenBmc"][ObjectName][subObjectName]
+                                [propertyName] = eventValue;
+        asyncResp->res.jsonValue["Oem"]["OpenBmc"][ObjectName][subObjectName]
+                                ["@odata.type"] = "#AMIMasked.v1_0_0.AMIMasked";
     });
 }
 
@@ -68,7 +70,19 @@ void getMasked(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             // messages::internalError(asyncResp->res);
             return;
         }
-        asyncResp->res.jsonValue[ObjectName][propertyName] = eventValue;
+        asyncResp->res.jsonValue["Oem"]["OpenBmc"][ObjectName][propertyName] =
+            eventValue;
+        if(ObjectName == "IPMB")
+        {
+            asyncResp->res.jsonValue["Oem"]["OpenBmc"][ObjectName]["@odata.type"] =
+            "#AMIMasked.v1_0_0.AMIIPMB";
+        }
+        else
+        {
+            asyncResp->res.jsonValue["Oem"]["OpenBmc"][ObjectName]["@odata.type"] =
+            "#AMIMasked.v1_0_0.AMIMasked";
+        }
+        
     });
 }
 void getEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,

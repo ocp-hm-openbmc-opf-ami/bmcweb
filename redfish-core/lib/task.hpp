@@ -551,10 +551,6 @@ inline void requestRoutesTask(App& app)
             asyncResp->res.jsonValue["Payload"]["JsonBody"] = p.jsonBody.dump(
                 -1, ' ', true, nlohmann::json::error_handler_t::replace);
         }
-        else
-        {
-            asyncResp->res.jsonValue["HidePayload"] = true;
-        }
         asyncResp->res.jsonValue["PercentComplete"] = ptr->percentComplete;
     });
 }

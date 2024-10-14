@@ -21,7 +21,6 @@
 #include "fru.hpp"
 #include "hypervisor_system.hpp"
 #include "license_control.hpp"
-#include "license_service.hpp"
 #include "log_services.hpp"
 #include "manager_diagnostic_data.hpp"
 #include "manager_logservices_journal.hpp"
@@ -29,7 +28,6 @@
 #include "memory.hpp"
 #include "message_registries.hpp"
 #include "metadata.hpp"
-#include "meterstatedata.hpp"
 #include "metric_report.hpp"
 #include "metric_report_definition.hpp"
 #include "network_protocol.hpp"
@@ -359,9 +357,6 @@ RedfishService::RedfishService(App& app)
     requestRoutesMetricReport(app);
     requestRoutesTriggerCollection(app);
     requestRoutesTrigger(app);
-
-    requestLicenseServiceRoutes(app);
-    requestRoutesMeterStateData(app);
 
     // FIPS Enablement
     requestFipsManagerRoutes(app);

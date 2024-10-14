@@ -22,7 +22,7 @@
 namespace redfish
 {
 constexpr std::array<std::string_view, 1> fanInterface = {
-    "xyz.openbmc_project.Inventory.Item.Fan"};
+    "xyz.openbmc_project.Sensor.Value"};
 
 inline void
     updateFanList(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -32,6 +32,10 @@ inline void
     nlohmann::json& fanList = asyncResp->res.jsonValue["Members"];
     for (const std::string& fanPath : fanPaths)
     {
+        if(!(fanPath.find("fan_tach")!=std::string::npos))
+        {
+            continue;
+        }
         std::string fanName =
             sdbusplus::message::object_path(fanPath).filename();
         if (fanName.empty())
@@ -56,7 +60,7 @@ inline void getFanPaths(
                                  fanPaths)>& callback)
 {
     sdbusplus::message::object_path endpointPath{validChassisPath};
-    endpointPath /= "cooled_by";
+     endpointPath /= "all_sensors";
 
     dbus::utility::getAssociatedSubTreePaths(
         endpointPath,

@@ -20,6 +20,34 @@
    <edmx:DataServices>
 
       <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AMIEventService">
+         <Action Name="PrimaryConfiguration" IsBound="true">
+            <Annotation Term="OData.Description"
+               String="This action sends SNMP trap alert from Pef Service." />
+            <Annotation Term="OData.LongDescription"
+               String="This action shall sends SNMP trap alert from Pef Service." />
+            <Annotation Term="Redfish.Revisions">
+               <Collection>
+                  <Record>
+                     <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added" />
+                     <PropertyValue Property="Version" String="v1_0_0" />
+                  </Record>
+               </Collection>
+            </Annotation>
+         </Action>
+         <Action Name="SecondaryConfiguration" IsBound="true">
+            <Annotation Term="OData.Description"
+               String="This action sends SNMP trap alert from Pef Service." />
+            <Annotation Term="OData.LongDescription"
+               String="This action shall sends SNMP trap alert from Pef Service." />
+            <Annotation Term="Redfish.Revisions">
+               <Collection>
+                  <Record>
+                     <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added" />
+                     <PropertyValue Property="Version" String="v1_0_0" />
+                  </Record>
+               </Collection>
+            </Annotation>
+         </Action>
          <ComplexType Name="Oem" BaseType="Resource.OemObject">
             <Annotation Term="OData.AdditionalProperties" Bool="true" />
             <Annotation Term="OData.Description" String="AMIEventService Oem properties." />
@@ -119,20 +147,10 @@
                <Annotation Term="OData.LongDescription"
                   String="The value of this property is used to indicate Server Key exist or not." />
             </Property>
-            <Action Name="PrimaryConfiguration" IsBound="true">
-               <Annotation Term="OData.Description"
-                  String="This action sends SNMP trap alert from Pef Service." />
-               <Annotation Term="OData.LongDescription"
-                  String="This action shall sends SNMP trap alert from Pef Service." />
-               <Annotation Term="Redfish.Revisions">
-                  <Collection>
-                     <Record>
-                        <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added" />
-                        <PropertyValue Property="Version" String="v1_0_0" />
-                     </Record>
-                  </Collection>
-               </Annotation>
-            </Action>
+            <Property Name="Actions" Type="AMIEventService.Actions" Nullable="false">
+               <Annotation Term="OData.Description" String="The available actions for this resource."/>
+               <Annotation Term="OData.LongDescription" String="This property shall contain the available actions for this resource."/>
+             </Property>  
          </ComplexType>
          <ComplexType Name="SecondaryConfiguration" BaseType="Resource.OemObject">
             <Annotation Term="OData.AdditionalProperties" Bool="false" />
@@ -211,23 +229,25 @@
                <Annotation Term="OData.LongDescription"
                   String="The value of this property is used to indicate Server Key exist or not." />
             </Property>
-            <Action Name="SecondaryConfiguration" IsBound="true">
-               <Annotation Term="OData.Description"
-                  String="This action sends SNMP trap alert from Pef Service." />
-               <Annotation Term="OData.LongDescription"
-                  String="This action shall sends SNMP trap alert from Pef Service." />
-               <Annotation Term="Redfish.Revisions">
-                  <Collection>
-                     <Record>
-                        <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added" />
-                        <PropertyValue Property="Version" String="v1_0_0" />
-                     </Record>
-                  </Collection>
-               </Annotation>
-            </Action>
+            <Property Name="Actions" Type="AMIEventService.Actions" Nullable="false">
+               <Annotation Term="OData.Description" String="The available actions for this resource."/>
+               <Annotation Term="OData.LongDescription" String="This property shall contain the available actions for this resource."/>
+             </Property>     
          </ComplexType>
-
-
+         <ComplexType Name="Actions">
+            <Annotation Term="OData.AdditionalProperties" Bool="true"/>
+            <Annotation Term="OData.Description" String="The available actions for this resource."/>
+            <Annotation Term="OData.LongDescription" String="This type shall contain the available actions for this resource."/>
+            <Property Name="Oem" Type="AMIEventService.OemActions" Nullable="false">
+              <Annotation Term="OData.Description" String="The available OEM-specific actions for this resource."/>
+              <Annotation Term="OData.LongDescription" String="This property shall contain the available OEM-specific actions for this resource."/>
+            </Property>
+          </ComplexType>
+          <ComplexType Name="OemActions">
+            <Annotation Term="OData.AdditionalProperties" Bool="true"/>
+            <Annotation Term="OData.Description" String="The available OEM-specific actions for this resource."/>
+            <Annotation Term="OData.LongDescription" String="This type shall contain the available OEM-specific actions for this resource."/>
+          </ComplexType>
       </Schema>
    </edmx:DataServices>
 </edmx:Edmx>

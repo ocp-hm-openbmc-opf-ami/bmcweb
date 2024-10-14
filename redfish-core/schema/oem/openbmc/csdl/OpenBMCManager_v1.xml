@@ -18,6 +18,9 @@
   <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Chassis_v1.xml">
     <edmx:Include Namespace="Chassis"/>
   </edmx:Reference>
+<edmx:Reference Uri="/redfish/v1/schema/NodeManager_v1.xml">
+  <edmx:Include Namespace="NodeManager"/>
+</edmx:Reference>
   <edmx:DataServices>
 
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="OpenBMCManager">
@@ -32,6 +35,17 @@
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="OpenBMCManager.v1_0_0">
       <Annotation Term="Redfish.OwningEntity" String="OpenBMC"/>
+      <ComplexType Name="Intel" BaseType="Resource.OemObject">
+        <Annotation Term="OData.AdditionalProperties" Bool="true"/>
+        <Annotation Term="OData.Description" String="Oem properties for Intel."/>
+        <Annotation Term="OData.AutoExpand"/>
+        <NavigationProperty Name="NodeManager" Type="NodeManager.NodeManager" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The NodeManager schema contains properties related to monitoring and control of the given power capping node."/>
+          <Annotation Term="OData.LongDescription" String="The NodeManager schema contains properties related to monitoring and control of the given power capping node."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
+      </ComplexType>  
       <ComplexType Name="Manager" BaseType="Resource.OemObject">
         <Annotation Term="OData.AdditionalProperties" Bool="false"/>
         <Annotation Term="OData.Description" String="OpenBMCManager Oem properties."/>
@@ -198,11 +212,11 @@
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="Contains the Zones that this PID contributes to."/>
           <Annotation Term="OData.LongDescription" String="Contains the Zones that this PID contributes to."/>
-          <Annotation Term="OData.AutoExpandReferences"/>
+          <Annotation Term="OData.NonReferenceableItems"/>
         </NavigationProperty>
       </ComplexType>
 
-      <ComplexType Name="FanZone">
+    <EntityType Name="FanZone">
         <Annotation Term="OData.AdditionalProperties" Bool="false" />
         <Annotation Term="OData.Description" String="Configuration data for Fan Controllers."/>
         <Annotation Term="OData.LongDescription" String="Configuration data for Fan Controllers."/>
@@ -222,7 +236,7 @@
           <Annotation Term="OData.LongDescription" String="The Chassis that enables this Zone."/>
           <Annotation Term="OData.AutoExpandReferences"/>
         </NavigationProperty>
-      </ComplexType>
+      </EntityType>
       <ComplexType Name="PidController">
         <Annotation Term="OData.AdditionalProperties" Bool="false" />
         <Annotation Term="OData.Description" String="Configuration data for Fan Controllers."/>
@@ -306,7 +320,7 @@
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="Contains the Zones that this PID contributes to."/>
           <Annotation Term="OData.LongDescription" String="Contains the Zones that this PID contributes to."/>
-          <Annotation Term="OData.AutoExpandReferences"/>
+          <Annotation Term="OData.NonReferenceableItems"/>
         </NavigationProperty>
       </ComplexType>
       <ComplexType Name="StepwiseController">
@@ -342,7 +356,7 @@
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="Contains the Zones that this controller contributes to."/>
           <Annotation Term="OData.LongDescription" String="Contains the Zones that this controller contributes to."/>
-          <Annotation Term="OData.AutoExpandReferences"/>
+          <Annotation Term="OData.NonReferenceableItems"/>
         </NavigationProperty>
       </ComplexType>
       <ComplexType Name="StepwiseSteps">

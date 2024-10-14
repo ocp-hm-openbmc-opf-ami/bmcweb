@@ -32,7 +32,7 @@
           <Annotation Term="OData.Description" String="Authorization Methods configuration."/>
           <Annotation Term="OData.LongDescription" String="Configuration describing which auth methods are enabled."/>
         </Property>
-	<Property Name="PasswordPolicyComplexity" Type="Edm.String">
+        <Property Name="PasswordPolicyComplexity" Type="Edm.String">
           <Annotation Term="OData.Description" String="It indicates complexity of the password" />
           <Annotation Term="OData.LongDescription" String="It indicates complexity of the password" />
         </Property>

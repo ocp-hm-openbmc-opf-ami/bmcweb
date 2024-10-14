@@ -898,30 +898,6 @@ const static auto& postLeakDetectorCollection = privilegeSetConfigureComponents;
 const static auto& putLeakDetectorCollection = privilegeSetConfigureComponents;
 const static auto& deleteLeakDetectorCollection = privilegeSetConfigureComponents;
 
-// License
-const static auto& getLicense = privilegeSetLogin;
-const static auto& headLicense = privilegeSetLogin;
-const static auto& patchLicense = privilegeSetConfigureManager;
-const static auto& putLicense = privilegeSetConfigureManager;
-const static auto& deleteLicense = privilegeSetConfigureManager;
-const static auto& postLicense = privilegeSetConfigureManager;
-
-// LicenseCollection
-const static auto& getLicenseCollection = privilegeSetLogin;
-const static auto& headLicenseCollection = privilegeSetLogin;
-const static auto& patchLicenseCollection = privilegeSetConfigureManager;
-const static auto& putLicenseCollection = privilegeSetConfigureManager;
-const static auto& deleteLicenseCollection = privilegeSetConfigureManager;
-const static auto& postLicenseCollection = privilegeSetConfigureManager;
-
-// LicenseService
-const static auto& getLicenseService = privilegeSetLogin;
-const static auto& headLicenseService = privilegeSetLogin;
-const static auto& patchLicenseService = privilegeSetConfigureManager;
-const static auto& putLicenseService = privilegeSetConfigureManager;
-const static auto& deleteLicenseService = privilegeSetConfigureManager;
-const static auto& postLicenseService = privilegeSetConfigureManager;
-
 // LogEntry
 const static auto& getLogEntry = privilegeSetLogin;
 const static auto& headLogEntry = privilegeSetLogin;

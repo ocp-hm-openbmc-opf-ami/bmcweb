@@ -535,7 +535,8 @@ inline void requestRoutesManagerResetToDefaultsAction(App& app)
             }
             if (task->state == "Pending")
             {
-                messages::factoryDefaultResetActionConflict(asyncResp->res, "FactoryDefaultReset", "FirmwareUpdate");
+                messages::factoryDefaultResetActionConflict(
+                    asyncResp->res, "FactoryDefaultReset", "FirmwareUpdate");
                 return;
             }
         }
@@ -762,7 +763,7 @@ inline void
                             .to_string());
                     zone["@odata.id"] = std::move(url);
                     zone["@odata.type"] =
-                        "#OpenBMCManager.v1_0_0.Manager.FanZone";
+                        "#OpenBMCManager.v1_0_0.FanZone";
                     config = &zone;
                 }
 
@@ -946,6 +947,7 @@ inline void
                                      itemCopy)
                                         .to_string());
                                 input["@odata.id"] = std::move(managerUrl);
+                                input["@odata.type"]="#OpenBMCManager.v1_0_0.FanZone";
                                 data.emplace_back(std::move(input));
                             }
                         }
@@ -2327,7 +2329,7 @@ inline void handleManagersInstanceGet(
     nlohmann::json& oem = asyncResp->res.jsonValue["Oem"];
     nlohmann::json& oemOpenbmc = oem["OpenBmc"];
     nlohmann::json& oemIntel = oem["Intel"];
-    oemIntel["@odata.type"] = "#OemManager.Intel";
+    oemIntel["@odata.type"] = "#OpenBMCManager.v1_0_0.Intel";
     oemIntel["@odata.id"] = "/redfish/v1/Managers/bmc#/Oem/Intel";
     oemIntel["NodeManager"] = {
         {"@odata.id", "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager"}};

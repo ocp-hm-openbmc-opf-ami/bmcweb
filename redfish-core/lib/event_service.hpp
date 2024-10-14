@@ -1663,13 +1663,12 @@ inline void handleSubmitTestEventActionGet(
 
     asyncResp->res.jsonValue["Id"] = "SubmitTestEventActionInfo";
     nlohmann::json::array_t parameters;
-    nlohmann::json::object_t parameter;
-    parameter["Required"] = false;
-    nlohmann::json::array_t allowed;
-    allowed.emplace_back("null");
-    parameter["AllowableValues"] = std::move(allowed);
-    parameters.emplace_back(std::move(parameter));
-
+    //nlohmann::json::object_t parameter;
+    //parameter["Required"] = false;
+    //nlohmann::json::array_t allowed;
+    //allowed.emplace_back(nullptr);
+   // parameter["AllowableValues"] = std::move(allowed);
+    //parameters.emplace_back(std::move(parameter));
     asyncResp->res.jsonValue["Parameters"] = std::move(parameters);
 }
 

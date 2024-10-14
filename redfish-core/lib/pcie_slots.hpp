@@ -169,11 +169,6 @@ inline void
         messages::internalError(asyncResp->res);
         return;
     }
-    if (subtree.empty())
-    {
-        messages::resourceNotFound(asyncResp->res, "Chassis", chassisID);
-        return;
-    }
 
     BMCWEB_LOG_DEBUG("Get properties for PCIeSlots associated to chassis = {}",
                      chassisID);
@@ -185,26 +180,35 @@ inline void
     asyncResp->res.jsonValue["Id"] = "1";
     asyncResp->res.jsonValue["Slots"] = nlohmann::json::array();
 
-    for (const auto& pathServicePair : subtree)
+    if (subtree.empty())
     {
-        const std::string& pcieSlotPath = pathServicePair.first;
-        for (const auto& connectionInterfacePair : pathServicePair.second)
+        // messages::resourceNotFound(asyncResp->res, "Chassis", chassisID);
+        return;
+    }
+    else
+    {
+        for (const auto& pathServicePair : subtree)
         {
-            const std::string& connectionName = connectionInterfacePair.first;
-            sdbusplus::message::object_path pcieSlotAssociationPath(
-                pcieSlotPath);
-            pcieSlotAssociationPath /= "chassis";
+            const std::string& pcieSlotPath = pathServicePair.first;
+            for (const auto& connectionInterfacePair : pathServicePair.second)
+            {
+                const std::string& connectionName =
+                    connectionInterfacePair.first;
+                sdbusplus::message::object_path pcieSlotAssociationPath(
+                    pcieSlotPath);
+                pcieSlotAssociationPath /= "chassis";
 
-            // The association of this PCIeSlot is used to determine whether
-            // it belongs to this ChassisID
-            dbus::utility::getAssociationEndPoints(
-                std::string{pcieSlotAssociationPath},
-                [asyncResp, chassisID, pcieSlotPath, connectionName](
-                    const boost::system::error_code& ec2,
-                    const dbus::utility::MapperEndPoints& endpoints) {
-                onMapperAssociationDone(asyncResp, chassisID, pcieSlotPath,
-                                        connectionName, ec2, endpoints);
-            });
+                // The association of this PCIeSlot is used to determine whether
+                // it belongs to this ChassisID
+                dbus::utility::getAssociationEndPoints(
+                    std::string{pcieSlotAssociationPath},
+                    [asyncResp, chassisID, pcieSlotPath, connectionName](
+                        const boost::system::error_code& ec2,
+                        const dbus::utility::MapperEndPoints& endpoints) {
+                    onMapperAssociationDone(asyncResp, chassisID, pcieSlotPath,
+                                            connectionName, ec2, endpoints);
+                });
+            }
         }
     }
 }

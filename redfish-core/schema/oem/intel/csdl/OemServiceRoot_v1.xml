@@ -14,7 +14,9 @@
     <edmx:Include Namespace="Resource"/>
     <edmx:Include Namespace="Resource.v1_0_0"/>
   </edmx:Reference>
-
+  <edmx:Reference Uri="/redfish/v1/schema/AmiLicenseControl_v1.xml">
+    <edmx:Include Namespace="AmiLicenseControl"/>
+  </edmx:Reference>
   <edmx:Reference Uri="/redfish/v1/schema/CupsService_v1.xml">
     <edmx:Include Namespace="CupsService"/>
   </edmx:Reference>
@@ -47,6 +49,19 @@
             <Annotation Term="OData.AutoExpandReferences"/>
           </NavigationProperty>
         </ComplexType>
+
+        <ComplexType Name="Ami" BaseType="Resource.OemObject">
+          <Annotation Term="OData.AdditionalProperties" Bool="true"/>
+          <Annotation Term="OData.Description" String="Oem properties for Intel."/>
+          <Annotation Term="OData.AutoExpand"/>
+          <NavigationProperty Name="LicenseControl" Type="AmiLicenseControl.AmiLicenseControl" Nullable="false">
+            <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+            <Annotation Term="OData.Description" String="The link to AMI License Control."/>
+            <Annotation Term="OData.LongDescription" String="This property shall contain the link to AMI License Control Service."/>
+            <Annotation Term="OData.AutoExpandReferences"/>
+          </NavigationProperty>
+        </ComplexType>
+
     </Schema>
 
   </edmx:DataServices>

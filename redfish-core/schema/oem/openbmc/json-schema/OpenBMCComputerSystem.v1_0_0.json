@@ -1,7 +1,7 @@
 {
-    "$id": "https://github.com/openbmc/bmcweb/tree/master/redfish-core/schema/oem/openbmc/json-schema/OpenBMCComputerSystem.v1_0_0.json",
+    "$id": "http://redfish.dmtf.org/schemas/v1/OpenBMCComputerSystem.v1_0_0.json",
     "$schema": "http://redfish.dmtf.org/schemas/v1/redfish-schema-v1.json",
-    "copyright": "Copyright 2024 OpenBMC.",
+    "copyright": "Copyright 2014-2019 DMTF. For the full DMTF copyright policy, see http://www.dmtf.org/about/policies/copyright",
     "definitions": {
         "FirmwareProvisioning": {
             "additionalProperties": false,
@@ -24,7 +24,7 @@
                 "ProvisioningStatus": {
                     "anyOf": [
                         {
-                            "$ref": "https://github.com/openbmc/bmcweb/tree/master/redfish-core/schema/oem/openbmc/json-schema/OpenBMCComputerSystem.json#/definitions/FirmwareProvisioningStatus"
+                            "$ref": "http://redfish.dmtf.org/schemas/v1/OpenBMCComputerSystem.json#/definitions/FirmwareProvisioningStatus"
                         },
                         {
                             "type": "null"
@@ -55,6 +55,45 @@
             },
             "type": "string"
         },
+        "Intel": {
+            "additionalProperties": true,
+            "description": "Oem properties for Intel.",
+            "patternProperties": {
+                "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
+                    "description": "This property shall specify a valid odata or Redfish property.",
+                    "type": [
+                        "array",
+                        "boolean",
+                        "integer",
+                        "number",
+                        "null",
+                        "object",
+                        "string"
+                    ]
+                }
+            },
+            "properties": {
+                "CpldErr": {
+                    "description": "CpldErr is the error source.",
+                    "longDescription": "CPLD Postcode displayed.",
+                    "readonly": true,
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
+                "CpldLastState": {
+                    "description": "CpldLastState is the Power state.",
+                    "longDescription": "Power state displayed.",
+                    "readonly": true,
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                }
+            },
+            "type": "object"
+        },
         "Oem": {
             "additionalProperties": true,
             "description": "OpenBMCComputerSystem Oem properties.",
@@ -73,10 +112,20 @@
                 }
             },
             "properties": {
+                "Intel": {
+                    "anyOf": [
+                        {
+                            "$ref": "http://redfish.dmtf.org/schemas/v1/OpenBMCComputerSystem.json#/definitions/Intel"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                },
                 "OpenBmc": {
                     "anyOf": [
                         {
-                            "$ref": "https://github.com/openbmc/bmcweb/tree/master/redfish-core/schema/oem/openbmc/json-schema/OpenBMCComputerSystem.json#/definitions/OpenBmc"
+                            "$ref": "http://redfish.dmtf.org/schemas/v1/OpenBMCComputerSystem.json#/definitions/OpenBmc"
                         },
                         {
                             "type": "null"
@@ -104,6 +153,42 @@
                 }
             },
             "properties": {},
+            "type": "object"
+        },
+        "PhysicalLED": {
+            "additionalProperties": false,
+            "description": "physical leds to display status of server.",
+            "patternProperties": {
+                "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
+                    "description": "This property shall specify a valid odata or Redfish property.",
+                    "type": [
+                        "array",
+                        "boolean",
+                        "integer",
+                        "number",
+                        "null",
+                        "object",
+                        "string"
+                    ]
+                }
+            },
+            "properties": {
+                "AmberLED": {
+                    "description": "physical leds to display status of server.",
+                    "longDescription": "physical leds to display status of server.",
+                    "type": "string"
+                },
+                "GreenLED": {
+                    "description": "physical leds to display status of server.",
+                    "longDescription": "physical leds to display status of server.",
+                    "type": "string"
+                },
+                "SusackLED": {
+                    "description": "physical leds to display status of server.",
+                    "longDescription": "physical leds to display status of server.",
+                    "type": "string"
+                }
+            },
             "type": "object"
         }
     },

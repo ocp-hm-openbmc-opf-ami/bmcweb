@@ -190,8 +190,29 @@ inline void handlePhysicalSecurityGetSubTree(
                 }
                 asyncResp->res
                     .jsonValue["PhysicalSecurity"]["IntrusionSensorNumber"] = 1;
-                asyncResp->res
-                    .jsonValue["PhysicalSecurity"]["IntrusionSensor"] = value;
+                if (value ==
+                    "xyz.openbmc_project.Chassis.Intrusion.Status.Normal")
+                {
+                    asyncResp->res.jsonValue["PhysicalSecurity"]
+                                            ["IntrusionSensor"] = "Normal";
+                }
+                else if (value ==
+                    "xyz.openbmc_project.Chassis.Intrusion.Status.HardwareIntrusion ")
+                {
+                    asyncResp->res.jsonValue["PhysicalSecurity"]
+                                            ["IntrusionSensor"] = "HardwareIntrusion";
+                }
+                else if (value ==
+                    "xyz.openbmc_project.Chassis.Intrusion.Status.TamperingDetected")
+                {
+                    asyncResp->res.jsonValue["PhysicalSecurity"]
+                                            ["IntrusionSensor"] = "TamperingDetected";
+                }
+                else
+                {
+                    asyncResp->res.jsonValue["PhysicalSecurity"]
+                                            ["IntrusionSensor"] = value;
+                }
             });
 
             return;
@@ -451,8 +472,7 @@ inline void handleDecoratorAssetProperties(
 
     // Power
     asyncResp->res.jsonValue["Power"]["@odata.id"] =
-            boost::urls::format("/redfish/v1/Chassis/{}/Power",
-                                chassisId);
+        boost::urls::format("/redfish/v1/Chassis/{}/Power", chassisId);
 
     // FRU Device
     asyncResp->res.jsonValue["Oem"]["AMI"]["FRU"]["@odata.id"] =
@@ -469,7 +489,8 @@ inline void handleDecoratorAssetProperties(
 
     // SensorThreshold Collection
     asyncResp->res.jsonValue["Oem"]["AMI"]["SensorThreshold"]["@odata.id"] =
-        boost::urls::format("/redfish/v1/Chassis/{}/Sensors/Oem/Threshold", chassisId);
+        boost::urls::format("/redfish/v1/Chassis/{}/Sensors/Oem/Threshold",
+                            chassisId);
     asyncResp->res.jsonValue["Oem"]["AMI"]["SensorThreshold"]["@odata.type"] =
         "OemAMISensor.v1_0.0.OemAMISensor";
 

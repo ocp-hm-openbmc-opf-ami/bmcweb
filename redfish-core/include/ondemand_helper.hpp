@@ -49,6 +49,8 @@ inline void fillOnDemandOemObject(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
             {
                 continue;
             }
+	    asyncResp->res.jsonValue["Name"] = processorId;
+	    asyncResp->res.jsonValue["Id"] = processorId;
             nlohmann::json& oem = asyncResp->res.jsonValue["Oem"];
             nlohmann::json& oemIntel = oem["Intel"];
             oemIntel["@odata.type"] = "#OemProcessor.v1_0_0.Processor";
