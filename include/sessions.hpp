@@ -40,6 +40,7 @@ struct UserSession
     std::string csrfToken;
     std::optional<std::string> clientId;
     std::string clientIp;
+    std::string AMIsessionType;
     std::chrono::time_point<std::chrono::steady_clock> lastUpdated;
     SessionType sessionType{SessionType::None};
     bool cookieAuth = false;
@@ -286,20 +287,23 @@ class SessionStore
         static int currentUserId = 1;
         int userId = currentUserId++;
 
-        auto session = std::make_shared<UserSession>(
-            UserSession{uniqueId,
-                        sessionToken,
-                        std::string(username),
-                        csrfToken,
-                        clientId,
-                        redfish::ip_util::toString(clientIp),
-                        std::chrono::steady_clock::now(),
-                        sessionType,
-                        false,
-                        isConfigureSelfOnly,
-                        "",
-                        {},
-                        userId});
+        std::string AMIsessionType = "WebUI";
+
+        auto session = std::make_shared<UserSession>(UserSession{
+            uniqueId,
+            sessionToken,
+            std::string(username),
+            csrfToken,
+            clientId,
+            redfish::ip_util::toString(clientIp),
+            AMIsessionType,
+            std::chrono::steady_clock::now(),
+            sessionType,
+            false,
+            isConfigureSelfOnly,
+            "",
+            {},
+            userId});
         auto it = authTokens.emplace(sessionToken, session);
         // Only need to write to disk if session isn't about to be destroyed.
         needWrite = sessionType != SessionType::Basic &&
