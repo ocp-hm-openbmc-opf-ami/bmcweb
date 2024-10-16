@@ -52,6 +52,77 @@ enum class VmMode
 static constexpr const char* legacyMode = "Legacy";
 static constexpr const char* proxyMode = "Proxy";
 
+inline bool validateImageUrl(const std::string& url)
+{
+
+    std::string::size_type start = url.find("://") + 3;
+    std::string::size_type colonPos = url.find(':', start);
+
+    std::string address, path;
+
+    if (url[start] == '[') // IPv6 address
+    {
+        std::string::size_type bracketEnd = url.find(']', start);
+        address = url.substr(start + 1, bracketEnd - start - 1);
+        path = url.substr(bracketEnd + 2); // Skip ']' and ':'
+    }
+    else // IPv4 or FQDN
+    {
+        address = url.substr(start, colonPos - start);
+        path = url.substr(colonPos + 1);
+    }
+
+    // Regular expression to match the allowed characters
+    const std::regex pathPattern(R"(^[a-zA-Z0-9/_\\.]+$)");
+
+    // Regular expression to validate FQDN
+    const std::regex fqdnPattern(R"(^([a-zA-Z0-9-]{1,63}\.)+[a-zA-Z]{2,6}$)");
+
+    boost::system::error_code ec;
+    boost::asio::ip::address addr = boost::asio::ip::make_address(address, ec);
+
+    if (ec)
+    {
+        if (!std::regex_match(address, fqdnPattern))
+	{
+            std::cerr << "Error: " << address << " is not a valid IP address or FQDN." << std::endl;
+            return false;
+	}
+    }
+
+    else
+    {
+
+        if (addr.is_v4() && !ip_util::isValidIPv4Addr(address,
+                            ip_util::Type::IP4_ADDRESS)) // checking the IPv4 Address
+        {
+            std::cerr << "Error: Address = " << address << " is not a valid IPv4 address." << std::endl;
+            return false;
+        }
+
+        else if (addr.is_v6() && !ip_util::validateIPv6address(address,
+                                 ip_util::Type::IP6_ADDRESS)) // checking the IPv6 Address
+        {
+            std::cerr << "Error: Address = " << address << " is not a valid IPv6 address." << std::endl;
+            return false;
+        }
+    }
+
+    if (path.length() > 256)
+    {
+        std::cerr << "Error: Path = "<< path << "exceeds 256 characters." << std::endl;
+        return false;
+    }
+
+    if (!std::regex_match(path, pathPattern))
+    {
+        std::cerr << "Error: Path = " << path << "contains invalid characters. Allowed characters are alpha-numeric, '/', '\\', '_', and '.'." << std::endl;
+        return false;
+    }
+
+    return true;
+}
+
 inline void powerSaveMode(int mode)
 {
     BMCWEB_LOG_DEBUG("USB Power Save Mode Set: %d", mode);
@@ -904,6 +975,15 @@ inline void validateParams(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             return;
         }
     }
+
+    if (actionParams.transferProtocolType == "NFS" && !validateImageUrl(*actionParams.imageUrl))
+    {
+        messages::actionParameterValueFormatError(
+            asyncResp->res, *actionParams.imageUrl, "Image", "InsertMedia");
+        return;
+
+    }
+
     // validation passed, add protocol to URI if needed
     if (!uriTransferProtocolType && paramTransferProtocolType)
     {
