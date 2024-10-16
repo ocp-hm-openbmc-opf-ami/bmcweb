@@ -104,12 +104,20 @@ inline void
     if (subValue != nullptr)
     {
         asyncResp->res.jsonValue["Context"] = subValue->customText;
+        asyncResp->res.jsonValue["MessageIds"] = subValue->registryMsgIds;
+        asyncResp->res.jsonValue["RegistryPrefixes"] = subValue->registryPrefixes;
+        asyncResp->res.jsonValue["ResourceTypes"] = subValue->resourceTypes;
+        asyncResp->res.jsonValue["DeliveryRetryPolicy"] = subValue->retryPolicy;
     }
     else
     {
         asyncResp->res.jsonValue["Context"] = "";
+        asyncResp->res.jsonValue["MessageIds"] = "";
+        asyncResp->res.jsonValue["RegistryPrefixes"] = "";
+        asyncResp->res.jsonValue["ResourceTypes"] = "";
+        asyncResp->res.jsonValue["DeliveryRetryPolicy"] = "";
     }
-
+  
     sdbusplus::asio::getAllProperties(
         *crow::connections::systemBus, "xyz.openbmc_project.Network.SNMP",
         objectPath, "xyz.openbmc_project.Network.Client",
