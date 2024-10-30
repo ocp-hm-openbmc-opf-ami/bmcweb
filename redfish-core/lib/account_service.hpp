@@ -1646,6 +1646,12 @@ inline void handleAccountServiceClientCertificatesGet(
     {
         return;
     }
+    asyncResp->res.jsonValue["@odata.id"] = "/redfish/v1/AccountService/MultiFactorAuth/ClientCertificate/Certificates";
+    asyncResp->res.jsonValue["@odata.type"] =
+        "#ClientCertificateCollection.ClientCertificateCollection";
+    asyncResp->res.jsonValue["Name"] = "Client Certificate Collection";
+    asyncResp->res.jsonValue["Description"] =
+        "A Collection of Client Certificate instances";
     getClientCertificates(asyncResp, "/Members"_json_pointer);
 }
 
