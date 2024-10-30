@@ -225,10 +225,6 @@ inline bool translateUserGroup(const std::vector<std::string>& userGroups,
         {
             accountTypes.emplace_back("SNMP");
         }
-        else if (userGroup == "redfish-hostiface")
-        {
-            accountTypes.emplace_back("HostInterfaces");
-        }
         else
         {
             // Invalid user group name. Caller throws an exception.
@@ -288,10 +284,6 @@ inline bool
         else if (accountType == "SNMP")
         {
             userGroups.emplace_back("snmp");
-        }
-        else if (accountType == "HostInterfaces")
-        {
-            userGroups.emplace_back("HostInterfaces");
         }
         else
         {
@@ -2314,11 +2306,7 @@ inline void handleAccountCollectionGet(
                 }
                 else
                 {
-                    BMCWEB_LOG_DEBUG(
-                        "Add the HostInterface User in Accounts Collection");
-                    memberArray.push_back(
-                        {{"@odata.id",
-                          "/redfish/v1/AccountService/Accounts/" + user}});
+			BMCWEB_LOG_DEBUG("Skip the HostInterface User");
                 }
                 asyncResp->res.jsonValue["Members@odata.count"] =
                     memberArray.size();
