@@ -967,6 +967,7 @@ inline void requestRoutesEventService(App& app)
         if (serviceEnabled)
         {
             eventServiceConfig.enabled = *serviceEnabled;
+            messages::success(asyncResp->res);
         }
 
         if (retryAttemps)
@@ -1644,7 +1645,6 @@ inline void requestRoutesEventService(App& app)
 
         EventServiceManager::getInstance().setEventServiceConfig(
             eventServiceConfig);
-        messages::success(asyncResp->res);
     });
 }
 
