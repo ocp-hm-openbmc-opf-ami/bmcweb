@@ -361,12 +361,31 @@ inline void handleNTPProtocolEnabled(
 // string, to set a value
 // null, to delete the value
 // object_t, empty json object, to ignore the value
-// using IpAddress =
-//    std::variant<std::string, nlohmann::json::object_t, std::nullptr_t>;
+using IpAddress =
+   std::variant<std::string, nlohmann::json::object_t, std::nullptr_t>;
+
+void storeNtpServers(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                     const std::vector<IpAddress>& NTPServers,
+                     std::vector<nlohmann::json>& input)
+{
+    for (size_t index = 0; index < NTPServers.size(); index++)
+    {
+        const IpAddress& ntpServer = NTPServers[index];
+        const std::string* ntpServerStr = std::get_if<std::string>(&ntpServer);
+            if (ntpServerStr == nullptr)
+            {
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            // If the variant holds a string, store it in the input vector as a JSON string
+            input.push_back(*ntpServerStr);
+    }
+}
 
 inline void
     handleNTPServersPatch(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                          const std::vector<nlohmann::json>& ntpServerObjects,
+                          //const std::vector<nlohmann::json>& ntpServerObjects,
+                          const std::vector<IpAddress>& ntpServerObjects,                          
                           std::vector<std::string> currentNtpServers)
 {
     std::vector<std::string>::iterator currentNtpServer =
@@ -374,10 +393,13 @@ inline void
 
     size_t limit = 3;
 
+    std::vector<nlohmann::json> ntpServerJsonObjects;
+    storeNtpServers(asyncResp, ntpServerObjects, ntpServerJsonObjects);
+
     if (ntpServerObjects.size() > limit)
     {
         BMCWEB_LOG_DEBUG("out of Limit");
-        messages::propertyValueOutOfRange(asyncResp->res, ntpServerObjects,
+        messages::propertyValueOutOfRange(asyncResp->res, ntpServerJsonObjects,
                                           "NTP/NTPServers");
         return;
     }
@@ -393,7 +415,7 @@ inline void
         return true; // All characters are valid
     };
 
-    for (const auto& ntpServerObject : ntpServerObjects)
+    /*for (const auto& ntpServerObject : ntpServerObjects)
     {
         // std::string ntpServerAddress = ntpServerObject.get<std::string>();
         //  const std::string* ntpServerAddress =
@@ -408,13 +430,14 @@ inline void
                                                "NTPServers");
             return;
         }
-    }
+    }*/
 
     for (size_t index = 0; index < ntpServerObjects.size(); index++)
     {
-        const nlohmann::json& ntpServer = ntpServerObjects[index];
-        // if (std::holds_alternative<std::nullptr_t>(ntpServer))
-        if (ntpServer.is_null())
+        const IpAddress& ntpServer = ntpServerObjects[index];
+        //const nlohmann::json& ntpServer = ntpServerObjects[index];
+        if (std::holds_alternative<std::nullptr_t>(ntpServer))
+        // (ntpServer.is_null())
         {
             // Can't delete an item that doesn't exist
             if (currentNtpServer == currentNtpServers.end())
@@ -429,8 +452,8 @@ inline void
             continue;
         }
         const nlohmann::json::object_t* ntpServerObject =
-            // std::get_if<nlohmann::json::object_t>(&ntpServer);
-            ntpServer.get_ptr<const nlohmann::json::object_t*>();
+            std::get_if<nlohmann::json::object_t>(&ntpServer);
+            //ntpServer.get_ptr<const nlohmann::json::object_t*>();
         if (ntpServerObject != nullptr)
         {
             if (!ntpServerObject->empty())
@@ -454,8 +477,8 @@ inline void
             continue;
         }
 
-        const std::string* ntpServerStr =
-            ntpServer.get_ptr<const std::string*>();
+        const std::string* ntpServerStr = std::get_if<std::string>(&ntpServer);
+            //ntpServer.get_ptr<const std::string*>();
         if (ntpServerStr == nullptr)
         {
             messages::internalError(asyncResp->res);
@@ -468,6 +491,15 @@ inline void
             currentNtpServer = currentNtpServers.end();
             continue;
         }
+
+        if (!isValidNtpServer(*ntpServerStr))
+        {
+            BMCWEB_LOG_DEBUG("Invalid character found in NTP server address.");
+            messages::propertyValueFormatError(asyncResp->res, *ntpServerStr,
+                                               "NTPServers");
+            return;
+        }
+
         *currentNtpServer = *ntpServerStr;
         currentNtpServer++;
     }
@@ -701,7 +733,9 @@ inline void handleManagersNetworkProtocolPatch(
     if (ntp)
     {
         std::optional<bool> ntpEnabled;
-        std::optional<std::vector<nlohmann::json>> ntpServerObjects;
+        //std::optional<std::vector<nlohmann::json>> ntpServerObjects;
+        std::optional<std::vector<IpAddress>> ntpServerObjects;
+
         std::size_t ntp_size = ntp.value().size();
         if (ntp_size == 0)
         {
