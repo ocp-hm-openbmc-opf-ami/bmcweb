@@ -1,4 +1,4 @@
-[200~{
+{
 	"$id": "/redfish/v1/JsonSchemas/AMIADDCConfiguration.v1_0_0.json",
 	"$ref": "#/definitions/AMIADDCConfiguration",
 	"$schema": "http://redfish.dmtf.org/schemas/v1/redfish-schema-v1.json",

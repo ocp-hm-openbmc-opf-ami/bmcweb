@@ -16,6 +16,36 @@
 namespace redfish
 {
 
+inline std::string toLowerCase(const std::string& str) {
+    std::string lowerStr = str;
+    std::transform(lowerStr.begin(), lowerStr.end(), lowerStr.begin(), ::tolower);
+    return lowerStr;
+}
+
+inline bool isStandardSchema(const std::string& input)
+{
+    std::vector<std::string> customSchemas = {"oem", "ami", "openbmc"};
+    for (const auto& schema : customSchemas)
+    {
+        std::string lowerInput = toLowerCase(input);
+        if (lowerInput.compare(0, schema.size(), schema) == 0)
+        {
+            return false;
+        }
+    }
+
+    std::vector<std::string> nonStandardSchemas = {"odata", "redfish-error",
+                                                   "redfish-payload-annotations","redfish-schema"};
+    for (const auto& value : nonStandardSchemas)
+    {
+        if (value == input) 
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
 inline void redfishGet(App& app, const crow::Request& req,
                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
@@ -205,8 +235,12 @@ inline void jsonSchemaGet(App& app, const crow::Request& req,
         nlohmann::json::object_t locationEntry;
         locationEntry["Language"] = "en";
 
-        locationEntry["PublicationUri"] = boost::urls::format(
-            "http://redfish.dmtf.org/schemas/v1/{}", filename);
+        if (isStandardSchema(schema))
+	{
+            locationEntry["PublicationUri"] = boost::urls::format(
+                "http://redfish.dmtf.org/schemas/v1/{}", filename);
+        }
+
         locationEntry["Uri"] = boost::urls::format(
             "/redfish/v1/JsonSchemas/{}/{}", schema, filename);
 
