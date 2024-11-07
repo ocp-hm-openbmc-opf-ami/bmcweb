@@ -1823,6 +1823,26 @@ inline bool
     return true;
 }
 
+// When any validation failes in handleIPv4StaticPatch function
+// then this function used to enable DHCP4 property in back-end.
+// so, we can restrict to disappear of IPv4 address
+// while update any invalid addr, gateway or subnetMask.
+inline void enableDHCP4(const std::string& ifaceId,
+                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus, "xyz.openbmc_project.Network",
+        "/xyz/openbmc_project/network/" + ifaceId,
+        "xyz.openbmc_project.Network.EthernetInterface", "DHCP4", true,
+        [asyncResp](const boost::system::error_code& ec) {
+            if (ec)
+            {
+                messages::internalError(asyncResp->res);
+                return;
+            }
+        });
+}
+
 inline void handleIPv4StaticPatch(
     const std::string& ifaceId,
     std::vector<std::variant<nlohmann::json::object_t, std::nullptr_t>>& input,
@@ -1845,7 +1865,7 @@ inline void handleIPv4StaticPatch(
         getNextStaticIpEntry(ipv4Data.cbegin(), ipv4Data.cend());
 
     bool dhcp4EnableFlag;
-    //bool gatewayValueAssigned{};
+    // bool gatewayValueAssigned{};
     bool preserveGateway{};
     /*std::string activePath{};
     std::string activeGateway{};
@@ -1905,6 +1925,7 @@ inline void handleIPv4StaticPatch(
                                            address, "SubnetMask", subnetMask,
                                            "Gateway", gateway))
             {
+                enableDHCP4(ifaceId, asyncResp);
                 messages::propertyValueFormatError(asyncResp->res, *obj,
                                                    pathString);
                 return;
@@ -1918,6 +1939,7 @@ inline void handleIPv4StaticPatch(
             {
                 if (*address == *defaultGatewayValue)
                 {
+                    enableDHCP4(ifaceId, asyncResp);
                     messages::propertyValueConflict(asyncResp->res, "Address",
                                                     "DefaultGateway");
                     return;
@@ -1925,6 +1947,7 @@ inline void handleIPv4StaticPatch(
 
                 if (!ip_util::ipv4VerifyIpAndGetBitcount(*address))
                 {
+                    enableDHCP4(ifaceId, asyncResp);
                     messages::propertyValueFormatError(asyncResp->res, *address,
                                                        pathString + "/Address");
                     return;
@@ -1936,6 +1959,7 @@ inline void handleIPv4StaticPatch(
             }
             else
             {
+                enableDHCP4(ifaceId, asyncResp);
                 messages::propertyMissing(asyncResp->res,
                                           pathString + "/Address");
                 return;
@@ -1947,6 +1971,7 @@ inline void handleIPv4StaticPatch(
                 if (!ip_util::ipv4VerifyIpAndGetBitcount(*subnetMask,
                                                          &prefixLength))
                 {
+                    enableDHCP4(ifaceId, asyncResp);
                     messages::propertyValueFormatError(
                         asyncResp->res, *subnetMask,
                         pathString + "/SubnetMask");
@@ -1958,6 +1983,7 @@ inline void handleIPv4StaticPatch(
                 if (!ip_util::ipv4VerifyIpAndGetBitcount(nicIpEntry->netmask,
                                                          &prefixLength))
                 {
+                    enableDHCP4(ifaceId, asyncResp);
                     messages::propertyValueFormatError(
                         asyncResp->res, nicIpEntry->netmask,
                         pathString + "/SubnetMask");
@@ -1966,6 +1992,7 @@ inline void handleIPv4StaticPatch(
             }
             else
             {
+                enableDHCP4(ifaceId, asyncResp);
                 messages::propertyMissing(asyncResp->res,
                                           pathString + "/SubnetMask");
                 return;
@@ -1975,12 +2002,14 @@ inline void handleIPv4StaticPatch(
             {
                 if (!ip_util::ipv4VerifyIpAndGetBitcount(*gateway))
                 {
+                    enableDHCP4(ifaceId, asyncResp);
                     messages::propertyValueFormatError(asyncResp->res, *gateway,
                                                        pathString + "/Gateway");
                     return;
                 }
                 if (*address == *gateway)
                 {
+                    enableDHCP4(ifaceId, asyncResp);
                     messages::propertyValueConflict(asyncResp->res, "Gateway",
                                                     "Address");
                     return;
@@ -1993,6 +2022,7 @@ inline void handleIPv4StaticPatch(
             }
             else
             {
+                enableDHCP4(ifaceId, asyncResp);
                 messages::propertyMissing(asyncResp->res,
                                           pathString + "/Gateway");
                 return;
@@ -2005,6 +2035,7 @@ inline void handleIPv4StaticPatch(
                     // A NIC can only have a single active gateway value.
                     // If any gateway in the array of static addresses
                     // mismatch the PATCH is in error.
+                    enableDHCP4(ifaceId, asyncResp);
                     std::string arg1 = pathString + "/Gateway";
                     std::string arg2 = activePath + "/Gateway";
                     messages::propertyValueConflict(asyncResp->res, arg1, arg2);
@@ -2068,12 +2099,6 @@ inline void handleIPv4StaticPatch(
                 return;
             }
         }
-    }
-    if (!v4dhcpParms.dhcpv4Enabled) // Invoke triggerDHCPDisable when DHCPv4 ->
-                                    // DHCPEnabled not present
-    {
-        triggerDHCPDisable(ifaceId, ethData, v4dhcpParms, v6dhcpParms,
-                           ipv6AcceptRA, asyncResp, true);
     }
 }
 
