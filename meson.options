@@ -78,6 +78,13 @@ option(
 )
 
 option(
+    'ast2600-evb',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable the AST2600EVB Build.'
+)
+
+option(
     'rest',
     type: 'feature',
     value: 'disabled',

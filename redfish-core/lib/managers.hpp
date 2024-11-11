@@ -273,7 +273,27 @@ inline void setTimer(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         "xyz.openbmc_project.State.BMC", "TimeOut",
         dbus::utility::DbusVariantType(timeOut));
 }
+#if (BMCWEB_AST2600_EVB_MACRO)
+inline void writeRestoreOptions(const std::string& resetType)
+{
+    constexpr const char* restoreOpFname = "/tmp/.rwfs/.restore_op";
+    int option = 0;
 
+    if (resetType == "ResetAll")
+    {
+        option = 2; // full restore
+    }
+    else if (resetType == "ResetToDefaultButKeepReservedSettings")
+    {
+        option = 5; // reset to factory defaults but reserve user and lan
+                    // configuration
+    }
+
+    std::ofstream restoreFile(restoreOpFname, std::ios::trunc);
+    restoreFile << option << "\n";
+    return;
+}
+#else
 inline void
     writeRestoreOptions(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         const std::string& resetType)
@@ -301,7 +321,7 @@ inline void
     }
     restoreFile << option << "\n";
 }
-
+#endif
 /**
  * ManagerResetAction class supports the POST method for the Reset (reboot)
  * action.
@@ -549,7 +569,11 @@ inline void requestRoutesManagerResetToDefaultsAction(App& app)
                 messages::internalError(asyncResp->res);
                 return;
             }
-            writeRestoreOptions(asyncResp, *resetType);
+             #if (BMCWEB_AST2600_EVB_MACRO)
+             writeRestoreOptions(*resetType);
+             #else
+             writeRestoreOptions(asyncResp, *resetType);
+             #endif
             // Factory Reset doesn't actually happen until a reboot
             // Can't erase what the BMC is running on
             doBMCGracefulRestart(asyncResp);
