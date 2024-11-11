@@ -690,6 +690,9 @@ static inline std::shared_ptr<MatchWrapper>
                     messages::resourceInUse(asyncResp->res);
                     break;
                 case 22:
+		    BMCWEB_LOG_ERROR("Signal received: {}",errorCode);
+		    messages::actionNotSupported(asyncResp->res, name);
+		    break;
                 case 111:
                     messages::actionParameterValueError(
                         asyncResp->res, "UserName/Password", "InsertMedia");
