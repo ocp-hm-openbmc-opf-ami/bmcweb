@@ -82,6 +82,26 @@ inline void setStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, const
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths", "/xyz/openbmc_project/software/", 0,
         interfaces);
+
+    // setting canceled task
+    // status("xyz.openbmc_project.Common.Task.OperationStatus.Cancelled")
+    //  for power operations
+
+    auto bus = sdbusplus::bus::new_default();
+    auto method = bus.new_method_call("xyz.openbmc_project.State.Host0",
+                                      "/xyz/openbmc_project/state/host0",
+                                      "org.freedesktop.DBus.Properties", "Set");
+
+    method.append("xyz.openbmc_project.Common.Task", "Status",
+                  dbus::utility::DbusVariantType(status));
+    try
+    {
+        auto reply = bus.call(method);
+    }
+    catch (const sdbusplus::exception::SdBusError& e)
+    {
+        BMCWEB_LOG_ERROR("D-Bus error:", e.what());
+    }
 }
 
 struct Payload
