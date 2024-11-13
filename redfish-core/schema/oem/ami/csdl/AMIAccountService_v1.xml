@@ -14,30 +14,30 @@
         <edmx:Include Namespace="Resource"/>
         <edmx:Include Namespace="Resource.v1_0_0"/>
     </edmx:Reference>
-
+ 
     <edmx:DataServices>
-        <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="OemAccountService">
+        <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AMIAccountService">
             <ComplexType Name="Oem" BaseType="Resource.OemObject">
                 <Annotation Term="OData.AdditionalProperties" Bool="true" />
                 <Annotation Term="OData.Description" String="OemAccountService Oem properties." />
                 <Annotation Term="OData.AutoExpand"/>
-                <Property Name="Ami" Type="OemAccountService.Ami"/>
+                <Property Name="Ami" Type="AMIAccountService.Ami"/>
             </ComplexType>
-
+ 
             <ComplexType Name="Ami" BaseType="Resource.OemObject">
                 <Annotation Term="OData.AdditionalProperties" Bool="true" />
                 <Annotation Term="OData.Description" String="Oem properties for Ami." />
                 <Annotation Term="Redfish.DynamicPropertyPatterns">
                     <Collection>
-                        <NavigationProperty Type="OemAccountService.Configuration">
+                        <NavigationProperty Type="AMIAccountService.Configuration">
                             <Annotation Term="OData.AutoExpand"/>
                             <PropertyValue Property="Pattern" String="[A-Za-z0-9_.:]+" />
-                            <PropertyValue Property="Type" String="OemAccountService.Configuration" />
+                            <PropertyValue Property="Type" String="AMIAccountService.Configuration" />
                         </NavigationProperty>
                     </Collection>
                 </Annotation>
             </ComplexType>
-
+ 
             <ComplexType Name="Configuration" BaseType="Resource.OemObject">
                 <Annotation Term="OData.AdditionalProperties" Bool="false" />
                 <Annotation Term="OData.Description" String="Configuration of  pamOrder." />
@@ -46,8 +46,8 @@
                     <Annotation Term="OData.LongDescription" String="PamOrder reorder the PAM modules." />
                 </Property>
             </ComplexType>
-
+ 
         </Schema>
     </edmx:DataServices>
 </edmx:Edmx>
-
+ 

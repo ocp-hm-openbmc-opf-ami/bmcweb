@@ -138,7 +138,7 @@ inline bool translatePamOrder(const std::vector<uint8_t>& values,
     res.jsonValue["Oem"]["Ami"]["Configuration"]["PamOrder"] =
         std::move(pamOrder);
     res.jsonValue["Oem"]["Ami"]["Configuration"]["@odata.type"] =
-        "#OemAccountService.Configuration";
+        "#AMIAccountService.Configuration";
     return true;
 }
 
