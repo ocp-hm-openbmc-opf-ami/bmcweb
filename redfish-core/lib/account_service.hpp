@@ -2919,7 +2919,8 @@ inline void
         updateUserProperties(asyncResp, username, password, enabled, roleId,
                              locked, accountTypes, userSelf, req.session,
                              passwordChangeRequired, oemAccountTypes);
-        return;
+        messages::success(asyncResp->res);
+	return;
     }
 
     std::string newPassword;

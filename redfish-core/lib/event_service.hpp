@@ -2021,6 +2021,11 @@ inline void requestRoutesEventDestinationCollection(App& app)
                   destIp = destIp.substr(0, lastColon);
               }
            }
+	   size_t slashPos = destIp.rfind('/');
+	   if (slashPos)
+           {
+                destIp = destIp.substr(0, slashPos);
+           }
 
           std::string ip = destIp;
            boost::system::error_code ec;
