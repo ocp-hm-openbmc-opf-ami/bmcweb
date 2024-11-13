@@ -3142,7 +3142,7 @@ inline void requestEthernetInterfacesRoutes(App& app)
             }
 
             if (v6dhcpParms.dhcpv6OperatingMode || v6dhcpParms.useDnsServers ||
-                v6dhcpParms.useDomainName || v4dhcpParms.useNtpServers)
+                v6dhcpParms.useDomainName || v6dhcpParms.useNtpServers)
             {
                 if (isIfaceIdusb0(ifaceId, asyncResp))
                 {
