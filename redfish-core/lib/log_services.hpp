@@ -60,16 +60,18 @@
 namespace redfish
 {
 
-constexpr const char* crashdumpObject = "com.amd.crashdump";
-constexpr const char* crashdumpPath = "/com/amd/crashdump";
+constexpr const char* crashdumpObject = "com.intel.crashdump";
+constexpr const char* crashdumpPath = "/com/intel/crashdump";
+constexpr const char* amdcrashdumpObject = "com.amd.crashdump";
+constexpr const char* amdcrashdumpPath = "/com/amd/crashdump";
 constexpr const char* crashdumpInterface = "com.amd.crashdump";
 constexpr const char* crashdumpconfigInterface =
     "com.amd.crashdump.Configuration";
 constexpr const char* deleteAllInterface =
     "xyz.openbmc_project.Collection.DeleteAll";
-constexpr const char* crashdumpOnDemandInterface = "com.amd.crashdump.OnDemand";
+    constexpr const char* crashdumpOnDemandInterface = "com.intel.crashdump.OnDemand";
 constexpr const char* crashdumpTelemetryInterface =
-    "com.amd.crashdump.Telemetry";
+    "com.intel.crashdump.Telemetry";
 static const char* acpiFilePath = "/var/lib/acpi/acpi2";
 static const char* acpiFileName = "acpi2";
 
@@ -2500,7 +2502,7 @@ inline void handleLogServicesDumpConfigGet(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, crashdumpObject, crashdumpPath,
+        *crow::connections::systemBus, amdcrashdumpObject, amdcrashdumpPath,
         crashdumpconfigInterface,
         [asyncResp](const boost::system::error_code& ec,
                     const dbus::utility::DBusPropertiesMap& propertiesList) {
@@ -2963,7 +2965,7 @@ inline void requestRoutesCrashdumpService(App& app)
 
         if (dramCeccPollingPeriod)
         {
-            auto value = getCrashdumpConfig(crashdumpObject, crashdumpPath,
+            auto value = getCrashdumpConfig(amdcrashdumpObject, amdcrashdumpPath,
                                             crashdumpconfigInterface,
                                             "DramCeccPollingEn");
             auto dramCeccEnable = std::get<bool>(value);
@@ -2993,7 +2995,7 @@ inline void requestRoutesCrashdumpService(App& app)
 
         if (mcaPollingPeriod)
         {
-            auto value = getCrashdumpConfig(crashdumpObject, crashdumpPath,
+            auto value = getCrashdumpConfig(amdcrashdumpObject, amdcrashdumpPath,
                                             crashdumpconfigInterface,
                                             "McaPollingEn");
             auto mcaPollEnable = std::get<bool>(value);
@@ -3023,7 +3025,7 @@ inline void requestRoutesCrashdumpService(App& app)
 
         if (pcieAerPollingPeriod)
         {
-            auto value = getCrashdumpConfig(crashdumpObject, crashdumpPath,
+            auto value = getCrashdumpConfig(amdcrashdumpObject, amdcrashdumpPath,
                                             crashdumpconfigInterface,
                                             "PcieAerPollingEn");
             auto pcieAerPollEnable = std::get<bool>(value);
