@@ -517,6 +517,18 @@ inline void handleRoleMapPatch(
                 continue;
             }
 
+	    // Check for duplicate RemoteGroup in roleMapObjData
+            for (const auto& [path, data] : roleMapObjData)
+            {
+                if (remoteGroup && *remoteGroup == data.groupName)
+                {
+                    BMCWEB_LOG_DEBUG("Duplicate RemoteGroup: {} found", *remoteGroup);
+                    messages::noOperation(asyncResp->res);
+                    return;
+                }
+            }
+
+
             // Update existing RoleMapping Object
             if (index < roleMapObjData.size())
             {
@@ -916,10 +928,10 @@ inline void
                                 ["Username"] = username;
         BMCWEB_LOG_DEBUG("Updated the username");
     });
-    setDbusProperty(asyncResp,
-                    ldapServerElementName + "/Authentication/Username",
-                    ldapDbusService, ldapConfigObject, ldapConfigInterface,
-                    "LDAPBindDN", username);
+    //setDbusProperty(asyncResp,
+      //              ldapServerElementName + "/Authentication/Username",
+        //            ldapDbusService, ldapConfigObject, ldapConfigInterface,
+          //          "LDAPBindDN", username);
 }
 
 /**

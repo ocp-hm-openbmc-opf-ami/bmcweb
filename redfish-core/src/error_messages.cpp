@@ -1416,7 +1416,7 @@ nlohmann::json noOperation()
 
 void noOperation(crow::Response& res)
 {
-    res.result(boost::beast::http::status::bad_request);
+    res.result(boost::beast::http::status::ok);
     addMessageToErrorJson(res.jsonValue, noOperation());
 }
 
