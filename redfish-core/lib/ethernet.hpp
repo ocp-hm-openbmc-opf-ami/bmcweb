@@ -1844,9 +1844,9 @@ inline void handleIPv4StaticPatch(
         getNextStaticIpEntry(ipv4Data.cbegin(), ipv4Data.cend());
 
     bool dhcp4EnableFlag;
-    bool gatewayValueAssigned{};
+    //bool gatewayValueAssigned{};
     bool preserveGateway{};
-    std::string activePath{};
+    /*std::string activePath{};
     std::string activeGateway{};
     if (!ethData.defaultGateway.empty() && ethData.defaultGateway != "0.0.0.0")
     {
@@ -1856,7 +1856,7 @@ inline void handleIPv4StaticPatch(
         activeGateway = ethData.defaultGateway;
         activePath = "IPv4StaticAddresses/1";
         gatewayValueAssigned = true;
-    }
+    }*/
     if (!v4dhcpParms.dhcpv4Enabled)
     {
         dhcp4EnableFlag = false;
@@ -1997,7 +1997,7 @@ inline void handleIPv4StaticPatch(
                 return;
             }
 
-            if (gatewayValueAssigned)
+            /*if (gatewayValueAssigned)
             {
                 if (activeGateway != gateway)
                 {
@@ -2018,7 +2018,7 @@ inline void handleIPv4StaticPatch(
                 activeGateway = *gateway;
                 activePath = pathString;
                 gatewayValueAssigned = true;
-            }
+            }*/
 
             if (nicIpEntry != ipv4Data.cend())
             {
