@@ -693,7 +693,7 @@ inline void
     // password, which will likely cause bmcweb to crash on startup
     // if this is not set on a post so not allowing the user to set
     // value
-    if (!optChallengePassword->empty())
+    if (!optChallengePassword.has_value())
     {
         messages::actionParameterNotSupported(asyncResp->res, "GenerateCSR",
                                               "ChallengePassword");
