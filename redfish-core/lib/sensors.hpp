@@ -76,6 +76,12 @@ constexpr auto getSensorPaths(){
         "/xyz/openbmc_project/sensors/energy",
         "/xyz/openbmc_project/sensors/utilization",
 	"/xyz/openbmc_project/sensors/cpu",
+        "/xyz/openbmc_project/sensors/bmcfirmwarehealth",
+        "/xyz/openbmc_project/sensors/acpidevice",
+        "/xyz/openbmc_project/sensors/acpisystem",
+        "/xyz/openbmc_project/sensors/battery",
+        "/xyz/openbmc_project/sensors/chassisstate",
+        "/xyz/openbmc_project/sensors/os",
         "/xyz/openbmc_project/sensors/watchdog"});
     } else {
       return  std::to_array<std::string_view>({"/xyz/openbmc_project/sensors/power",
