@@ -248,6 +248,7 @@ inline void handleManagersLogServiceJournalGet(
     asyncResp->res.jsonValue["Description"] = "BMC Journal Log Service";
     asyncResp->res.jsonValue["Id"] = "Journal";
     asyncResp->res.jsonValue["OverWritePolicy"] = "WrapsWhenFull";
+    asyncResp->res.jsonValue["MaxNumberOfRecords"] = 150;
 
     std::pair<std::string, std::string> redfishDateTimeOffset =
         redfish::time_utils::getDateTimeOffsetNow();

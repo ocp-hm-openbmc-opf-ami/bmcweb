@@ -1296,6 +1296,7 @@ inline void requestRoutesEventLogService(App& app)
         asyncResp->res.jsonValue["Id"] = "EventLog";
         asyncResp->res.jsonValue["OverWritePolicy"] =
             log_service::OverWritePolicy::WrapsWhenFull;
+        asyncResp->res.jsonValue["MaxNumberOfRecords"] = 150;
 
         std::pair<std::string, std::string> redfishDateTimeOffset =
             redfish::time_utils::getDateTimeOffsetNow();
@@ -2184,6 +2185,11 @@ inline void
     asyncResp->res.jsonValue["Id"] = std::filesystem::path(dumpPath).filename();
     asyncResp->res.jsonValue["OverWritePolicy"] = overWritePolicy;
 
+    if (overWritePolicy == log_service::OverWritePolicy::WrapsWhenFull)
+    {
+        asyncResp->res.jsonValue["MaxNumberOfRecords"] = 150;
+    }
+
     std::pair<std::string, std::string> redfishDateTimeOffset =
         redfish::time_utils::getDateTimeOffsetNow();
     asyncResp->res.jsonValue["DateTime"] = redfishDateTimeOffset.first;
@@ -2823,7 +2829,7 @@ inline void requestRoutesCrashdumpService(App& app)
         asyncResp->res.jsonValue["Id"] = "Crashdump";
         asyncResp->res.jsonValue["OverWritePolicy"] =
             log_service::OverWritePolicy::WrapsWhenFull;
-        asyncResp->res.jsonValue["MaxNumberOfRecords"] = 3;
+        asyncResp->res.jsonValue["MaxNumberOfRecords"] = 150;
 
         std::pair<std::string, std::string> redfishDateTimeOffset =
             redfish::time_utils::getDateTimeOffsetNow();
@@ -3642,7 +3648,7 @@ inline void requestRoutesAcpiService(App& app)
         asyncResp->res.jsonValue["Description"] = "Oem Acpi LogService";
         asyncResp->res.jsonValue["Id"] = "acpi";
         asyncResp->res.jsonValue["OverWritePolicy"] = "WrapsWhenFull";
-        asyncResp->res.jsonValue["MaxNumberOfRecords"] = 1;
+        asyncResp->res.jsonValue["MaxNumberOfRecords"] = 150;
 
         std::pair<std::string, std::string> redfishDateTimeOffset =
             redfish::time_utils::getDateTimeOffsetNow();

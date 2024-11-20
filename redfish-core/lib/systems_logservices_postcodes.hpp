@@ -46,6 +46,7 @@ inline void handleSystemsLogServicesPostCodesGet(
     asyncResp->res.jsonValue["Id"] = "PostCodes";
     asyncResp->res.jsonValue["OverWritePolicy"] =
         log_service::OverWritePolicy::WrapsWhenFull;
+    asyncResp->res.jsonValue["MaxNumberOfRecords"] = 150;
     asyncResp->res.jsonValue["Entries"]["@odata.id"] =
         std::format("/redfish/v1/Systems/{}/LogServices/PostCodes/Entries",
                     BMCWEB_REDFISH_SYSTEM_URI_NAME);
