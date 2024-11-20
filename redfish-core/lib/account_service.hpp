@@ -114,63 +114,6 @@ inline std::string getPrivilegeFromRoleId(std::string_view role)
     return "";
 }
 
-inline bool translatePamOrder(const std::vector<uint8_t>& values,
-                              crow::Response& res)
-{
-    std::vector<std::string> pamOrder;
-
-    for (const auto& value : values)
-    {
-        if (value == 1)
-        {
-            pamOrder.emplace_back("Internal Users");
-        }
-        else if (value == 2)
-        {
-            pamOrder.emplace_back("LDAP");
-        }
-        else
-        {
-            // Invalid data
-            return false;
-        }
-    }
-    res.jsonValue["Oem"]["Ami"]["Configuration"]["PamOrder"] =
-        std::move(pamOrder);
-    res.jsonValue["Oem"]["Ami"]["Configuration"]["@odata.type"] =
-        "#AMIAccountService.Configuration";
-    return true;
-}
-
-inline std::vector<uint8_t>
-    getpamOrderValue(const std::optional<std::vector<std::string>> values)
-{
-    std::vector<uint8_t> data;
-    if (values.has_value())
-    {
-        const std::vector<std::string>& seq = *values;
-
-        for (const auto& value : seq)
-        {
-            if (value == "LDAP")
-            {
-                data.emplace_back(2);
-            }
-            else if (value == "Internal Users")
-            {
-                data.emplace_back(1);
-            }
-            else
-            {
-                data.clear();
-                break;
-            }
-        }
-    }
-
-    return data;
-}
-
 /**
  * @brief Maps user group names retrieved from D-Bus object to
  * Account Types.
@@ -1880,25 +1823,6 @@ inline void
 
     getLDAPConfigData("LDAP", callback);
     getLDAPConfigData("ActiveDirectory", callback);
-
-    crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code ec,
-                    const std::vector<uint8_t>& value) {
-        if (ec)
-        {
-            BMCWEB_LOG_DEBUG("failed to get property Value  ", ec);
-            return;
-        }
-        const std::vector<uint8_t>* pamOrder = &value;
-
-        if (!translatePamOrder(*pamOrder, asyncResp->res))
-        {
-            messages::internalError(asyncResp->res);
-            return;
-        }
-    },
-        "xyz.openbmc_project.User.Manager", "/xyz/openbmc_project/user",
-        "xyz.openbmc_project.User.AccountPolicy", "GetPamOrder");
 }
 
 inline void
@@ -1972,7 +1896,6 @@ inline void handleAccountServicePatch(
     std::optional<std::string> passwordcomplexity;
     std::optional<uint8_t> RememberOldPasswordTimes;
     std::optional<std::string> vId;
-    std::optional<std::vector<std::string>> pamOrder;
     std::optional<bool> serviceEnable;
     // clang-format off
     if (!json_util::readJsonPatch(
@@ -2006,7 +1929,6 @@ inline void handleAccountServicePatch(
             "Oem/OpenBMC/AuthMethods/SessionToken", auth.sessionToken,
             "Oem/OpenBMC/AuthMethods/TLS", auth.tls,
             "Oem/OpenBMC/AuthMethods/XToken", auth.xToken,
-	    "Oem/Ami/Configuration/PamOrder",pamOrder,
             "HTTPBasicAuth", httpBasicAuth,
             "Oem/OpenBMC/PasswordPolicyComplexity",passwordcomplexity,
             "Oem/OpenBMC/RememberOldPasswordTimes",RememberOldPasswordTimes, "Id", vId,
@@ -2126,30 +2048,6 @@ inline void handleAccountServicePatch(
             "xyz.openbmc_project.User.AccountPolicy",
             "RememberOldPasswordTimes",
             std::variant<uint8_t>(*RememberOldPasswordTimes));
-    }
-
-    if (pamOrder)
-    {
-        std::vector<uint8_t> value = getpamOrderValue(pamOrder);
-        if (value.empty())
-        {
-            asyncResp->res.result(boost::beast::http::status::bad_request);
-            return;
-        }
-        crow::connections::systemBus->async_method_call(
-            [asyncResp](const boost::system::error_code ec, const bool& ret) {
-            if (ec)
-            {
-                BMCWEB_LOG_DEBUG("failed to set property Value");
-                return;
-            }
-            if (ret)
-            {
-                messages::success(asyncResp->res);
-                return;
-            }
-        }, "xyz.openbmc_project.User.Manager", "/xyz/openbmc_project/user",
-            "xyz.openbmc_project.User.AccountPolicy", "SetPamOrder", value);
     }
 
     handleLDAPPatch(std::move(activeDirectoryObject), asyncResp,
