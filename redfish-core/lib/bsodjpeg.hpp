@@ -75,20 +75,7 @@ inline void requestRoutesDeleteBsodjpeg(App& app)
         {
             if (fs::remove(inputImagePath))
             {
-                crow::connections::systemBus->async_method_call(
-                    [asyncResp](const boost::system::error_code ec) {
-                    if (ec)
-                    {
-                        BMCWEB_LOG_ERROR("DBUS response error {}", ec);
-                        messages::internalError(asyncResp->res);
-                        return;
-                    }
-                    messages::success(asyncResp->res);
-                }, "xyz.openbmc_project.OSSStatusSensor",
-                    "/xyz/openbmc_project/sensors/os/OS_Stop_Status",
-                    "org.freedesktop.DBus.Properties", "Set",
-                    "xyz.openbmc_project.Sensor.State", "State",
-                    dbus::utility::DbusVariantType(State));
+                messages::success(asyncResp->res);
             }
         }
         else
