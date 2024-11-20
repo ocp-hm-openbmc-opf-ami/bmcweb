@@ -33,7 +33,27 @@ std::vector<const char*> privilegeUsed = {"Login",
 
 std::vector<std::pair<std::string,
     std::vector<std::pair<std::string,
-    std::vector<std::string>>>>> OEMentities = {};
+    std::vector<std::string>>>>> OEMentities = {
+                                               {"AmiFirewallConfiguration",{
+                                                    {"GET", {"Login"}},
+                                                }},
+                                                {"InventoryCRC", {
+                                                   {"GET", {"Login"}},
+						                           {"POST", {"ConfigureComponents"}},
+						                           {"DELETE", {"ConfigureComponents"}}, 
+                                                }},
+                                                {"Jpeg", {
+				                                   {"GET", {"Login"}},
+						                           {"POST", {"ConfigureComponents"}},
+						                           {"DELETE", {"ConfigureComponents"}},
+                                                }},
+                                                  {"NodeManager",{
+                                                   {"GET", {"Login"}},
+                                                }},
+                                                 {"ThresholdSensorCollection",{
+                                                   {"GET", {"Login"}},
+                                                }},
+    };
 
 
 std::vector<std::pair<std::string, 
