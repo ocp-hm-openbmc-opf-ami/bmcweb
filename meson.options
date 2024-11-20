@@ -85,6 +85,20 @@ option(
 )
 
 option(
+    'ami-acd',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable the AMI ACD.'
+)
+
+option(
+    'ami-asd',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable the AMI ASD.'
+)
+
+option(
     'rest',
     type: 'feature',
     value: 'disabled',

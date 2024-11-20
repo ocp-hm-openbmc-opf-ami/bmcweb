@@ -46,6 +46,8 @@ feature_options = [
     'ami-raidbrcm',
     'ami-pciesw',
     'ast2600-evb',
+    'ami-acd',
+    'ami-asd'
 ]
 
 string_options = [
@@ -86,6 +88,10 @@ foreach option_key : feature_options + string_options + int_options
             'ami-pciesw',
         ) or option_key.contains(
             'ast2600-evb',
+        ) or option_key.contains(
+            'ami-acd',
+        ) or option_key.contains(
+            'ami-asd',
         )
             feature_options_string += '#define ' + option_macro_config + '  ' + opt.allowed().to_string() + '\n'
         endif

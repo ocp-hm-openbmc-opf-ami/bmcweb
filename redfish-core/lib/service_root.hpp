@@ -111,6 +111,16 @@ inline void handleServiceRootGetImpl(
     asyncResp->res.jsonValue["Oem"]["Ami"]["LicenseControl"] = {
         {"@odata.id", "/redfish/v1/Oem/Ami/LicenseControl"}};
 
+    #if BMCWEB_AMI_ACD_MACRO
+        asyncResp->res.jsonValue["Oem"]["Ami"]["AutonomousCrashDump"]["@odata.id"] =
+            "/redfish/v1/Oem/Ami/AutonomousCrashDump";
+    #endif
+
+    #if BMCWEB_AMI_ASD_MACRO
+        asyncResp->res.jsonValue["Oem"]["Ami"]["AtScaleDebug"]["@odata.id"] =
+            "/redfish/v1/Oem/Ami/AtScaleDebug";
+    #endif
+
     asyncResp->res.jsonValue["Links"]["ManagerProvidingService"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Managers/{}",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
