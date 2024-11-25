@@ -44,6 +44,7 @@
 #include <boost/url/format.hpp>
 #include <sdbusplus/asio/property.hpp>
 #include <sdbusplus/unpack_properties.hpp>
+#include <sdbusplus/asio/property.hpp>
 
 #include <array>
 #include <charconv>
@@ -771,16 +772,34 @@ inline void
         sdbusplus::message::object_path("/xyz/openbmc_project/logging/entry") /
         entryID;
 
-    auto downloadEventLogEntryHandler =
-        [asyncResp, entryID,
-         dumpType](const boost::system::error_code& ec,
-                   const sdbusplus::message::unix_fd& unixfd) {
-        downloadEntryCallback(asyncResp, entryID, dumpType, ec, unixfd);
-    };
-
-    crow::connections::systemBus->async_method_call(
-        std::move(downloadEventLogEntryHandler), "xyz.openbmc_project.Logging",
-        entryPath, "xyz.openbmc_project.Logging.Entry", "GetEntry");
+    sdbusplus::asio::getProperty<std::vector<std::string>>(
+        *crow::connections::systemBus, "xyz.openbmc_project.Logging",
+        entryPath, "xyz.openbmc_project.Logging.Entry", "AdditionalData",
+        [asyncResp, dumpType, entryID](const boost::system::error_code& ec,
+                    const std::vector<std::string>& additionalData) {
+        if (ec)
+        {
+            BMCWEB_LOG_DEBUG("Got DBUS response error while getting AdditionalData in {}", dumpType);
+            return;
+        }
+         nlohmann::json jsonData = nlohmann::json::object();
+        for (const auto& data : additionalData)
+        {
+            BMCWEB_LOG_DEBUG("AdditionalData: {}", data);
+            auto pos = data.find('=');
+            if (pos != std::string::npos)
+            {
+                std::string key = data.substr(0, pos);
+                std::string value = data.substr(pos + 1);
+                jsonData[key] = value;
+            }
+        }
+        asyncResp->res.addHeader(boost::beast::http::field::content_type,
+                                 "application/octet-stream");
+       asyncResp->res.addHeader(
+                boost::beast::http::field::content_disposition, "attachment");
+        asyncResp->res.jsonValue = jsonData;
+    });
 }
 
 inline DumpCreationProgress
@@ -2409,7 +2428,8 @@ inline void handleDBusEventLogEntryDownloadGet(
     std::string_view Accept = req.getHeaderValue("Accept");
     if (Accept.find("text/html, */*") == std::string::npos &&
         Accept.find("text/html, */*;q=0.8") == std::string::npos &&
-        Accept.find("*/*") == std::string::npos)
+        Accept.find("*/*") == std::string::npos &&
+        Accept.find("application/json") == std::string::npos)
     {
         asyncResp->res.result(boost::beast::http::status::bad_request);
         return;
