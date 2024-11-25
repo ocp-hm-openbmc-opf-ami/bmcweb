@@ -44,6 +44,14 @@ constexpr const char* ldapObjectPath = "/xyz/openbmc_project/certs/client/ldap";
 constexpr const char* authorityObjectPath =
     "/xyz/openbmc_project/certs/authority/truststore";
 constexpr std::string_view CertificateExistsError = "xyz.openbmc_project.Certs.Error.CertificateExists";
+constexpr std::string_view CertificateFileExpiredError = "xyz.openbmc_project.Certs.Error.CertificateFileExpired";
+constexpr std::string_view CertificateFileUntrustedError = "xyz.openbmc_project.Certs.Error.CertificateFileUntrusted";
+constexpr std::string_view PrivateKeyFileEncryptedError = "xyz.openbmc_project.Certs.Error.PrivateKeyFileEncrypted";
+constexpr std::string_view PrivateKeyCertificateFileNotMatchError = "xyz.openbmc_project.Certs.Error.PrivateKeyCertificateFileNotMatch";
+constexpr std::string_view VerifyCertificateFileFailedError = "xyz.openbmc_project.Certs.Error.VerifyCertificateFileFailed";
+constexpr std::string_view CertificateFileSizeExceededError = "xyz.openbmc_project.Certs.Error.CertificateFileSizeExceeded";
+constexpr std::string_view PrivateKeyFileSizeExceededError = "xyz.openbmc_project.Certs.Error.PrivateKeyFileSizeExceeded";
+constexpr std::string_view CertificateKeyLengthTooSmallError = "xyz.openbmc_project.Certs.Error.CertificateKeyLengthTooSmall";
 } // namespace certs
 
 /**
@@ -310,6 +318,8 @@ static void getCertificateProperties(
         }
 
         const std::string* certificateString = nullptr;
+        const std::string* certificateType = nullptr;
+        const std::string* chainCertString = nullptr;
         const std::vector<std::string>* keyUsage = nullptr;
         const std::string* issuer = nullptr;
         const std::string* subject = nullptr;
@@ -317,8 +327,9 @@ static void getCertificateProperties(
         const uint64_t* validNotBefore = nullptr;
 
         const bool success = sdbusplus::unpackPropertiesNoThrow(
-            dbus_utils::UnpackErrorPrinter(), properties, "CertificateString",
-            certificateString, "KeyUsage", keyUsage, "Issuer", issuer,
+            dbus_utils::UnpackErrorPrinter(), properties, "CertificateString", certificateString,
+            "CertificateType", certificateType, "ChainCertString", chainCertString,
+            "KeyUsage", keyUsage, "Issuer", issuer,
             "Subject", subject, "ValidNotAfter", validNotAfter,
             "ValidNotBefore", validNotBefore);
 
@@ -335,11 +346,29 @@ static void getCertificateProperties(
         asyncResp->res.jsonValue["Name"] = name;
         asyncResp->res.jsonValue["Description"] = name;
         asyncResp->res.jsonValue["CertificateString"] = "";
+        asyncResp->res.jsonValue["CertificateType"] = "";
         asyncResp->res.jsonValue["KeyUsage"] = nlohmann::json::array();
 
         if (certificateString != nullptr)
         {
-            asyncResp->res.jsonValue["CertificateString"] = *certificateString;
+            if (*certificateType == "xyz.openbmc_project.Certs.Certificate.Type.PEMchain")
+            {
+                asyncResp->res.jsonValue["CertificateString"] = *chainCertString;
+            }
+            else
+            {
+                asyncResp->res.jsonValue["CertificateString"] = *certificateString;
+            }
+        }
+
+        if (certificateType != nullptr)
+        {
+            // Get the certificateType last substr. e.g., xyz.openbmc_project.Certs.Certificate.Type.PEMchain -> PEMchain
+            std::string substrType = *certificateType;
+            size_t pos = substrType.find_last_of('.');
+            substrType = (pos == std::string::npos) ? substrType : substrType.substr(pos + 1);
+
+            asyncResp->res.jsonValue["CertificateType"] = substrType;
         }
 
         if (keyUsage != nullptr)
@@ -418,7 +447,32 @@ inline void
 
     if(e->name == certs::CertificateExistsError){
         messages::resourceCreationConflict(asyncResp->res, req.url());
-    }else {
+    }
+    else if(e->name == certs::CertificateFileExpiredError){
+        messages::certificateFileExpired(asyncResp->res);
+    }
+    else if(e->name == certs::CertificateFileUntrustedError){
+        messages::certificateFileUntrusted(asyncResp->res);
+    }
+    else if(e->name == certs::PrivateKeyFileEncryptedError){
+        messages::privateKeyFileEncrypted(asyncResp->res);
+    }
+    else if(e->name == certs::PrivateKeyCertificateFileNotMatchError){
+        messages::privateKeyCertificateFileNotMatch(asyncResp->res);
+    }
+    else if(e->name == certs::VerifyCertificateFileFailedError){
+        messages::verifyCertificateFileFailed(asyncResp->res);
+    }
+    else if(e->name == certs::CertificateFileSizeExceededError){
+        messages::certificateFileSizeExceeded(asyncResp->res);
+    }
+    else if(e->name == certs::PrivateKeyFileSizeExceededError){
+        messages::privateKeyFileSizeExceeded(asyncResp->res);
+    }
+    else if(e->name == certs::CertificateKeyLengthTooSmallError){
+        messages::certificateKeyLengthTooSmall(asyncResp->res);
+    }
+    else {
         messages::propertyValueIncorrect(asyncResp->res, "CertificateString", value);
     }
 }
@@ -462,6 +516,7 @@ inline void handleCertificateServiceGet(
         "/redfish/v1/CertificateService/Actions/CertificateService.ReplaceCertificate";
     nlohmann::json::array_t allowed;
     allowed.emplace_back("PEM");
+    allowed.emplace_back("PEMchain");
     replace["CertificateType@Redfish.AllowableValues"] = std::move(allowed);
     actions["#CertificateService.GenerateCSR"]["target"] =
         "/redfish/v1/CertificateService/Actions/CertificateService.GenerateCSR";
@@ -515,7 +570,17 @@ inline void handleReplaceCertificateAction(
         // should never happen, but it never hurts to be paranoid.
         return;
     }
-    if (certificateType != "PEM")
+
+
+    if (certificateType == "PEM")
+    {
+        certificateType = "xyz.openbmc_project.Certs.Certificate.Type.PEM";
+    }
+    else if (certificateType == "PEMchain")
+    {
+        certificateType = "xyz.openbmc_project.Certs.Certificate.Type.PEMchain";
+    }
+    else
     {
         messages::actionParameterNotSupported(asyncResp->res, "CertificateType",
                                               "ReplaceCertificate");
@@ -571,21 +636,63 @@ inline void handleReplaceCertificateAction(
         return;
     }
 
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus,
+        service,        // "xyz.openbmc_project.Certs.Manager.Server.Https",
+        objectPath,     // "/xyz/openbmc_project/certs/server/https/1",
+        "xyz.openbmc_project.Certs.Certificate",
+        "CertificateType",
+        *certificateType,
+        [asyncResp](
+            const boost::system::error_code& ec) {
+        if (ec)
+        {
+            BMCWEB_LOG_DEBUG(
+                "set property failed.",
+                "/xyz/openbmc_project/certs/server/https/1", ec);
+            if (ec.value() != EBADR)
+            {
+                messages::internalError(asyncResp->res);
+            }
+            return;
+        }
+    });
+
     std::shared_ptr<CertificateFile> certFile =
         std::make_shared<CertificateFile>(certificate);
     crow::connections::systemBus->async_method_call(
         [asyncResp, certFile, objectPath, service, url{*parsedUrl}, id, name,
-         certURI, certificate](const boost::system::error_code& ec) {
+         certURI, certificate](const boost::system::error_code& ec, const sdbusplus::message_t& msg) {
         if (ec)
         {
             BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
+            const sd_bus_error* dbusError = msg.get_error();
+
             if (ec.value() ==
                 boost::system::linux_error::bad_request_descriptor)
             {
                 messages::resourceNotFound(asyncResp->res, "Certificate", id);
                 return;
+            }else if (dbusError->name == certs::CertificateFileExpiredError) {
+                messages::certificateFileExpired(asyncResp->res);
+            }else if (dbusError->name == certs::CertificateFileUntrustedError) {
+                messages::certificateFileUntrusted(asyncResp->res);
+            }else if (dbusError->name == certs::PrivateKeyFileEncryptedError) {
+                messages::privateKeyFileEncrypted(asyncResp->res);
+            }else if (dbusError->name == certs::PrivateKeyCertificateFileNotMatchError) {
+                messages::privateKeyCertificateFileNotMatch(asyncResp->res);
+            }else if (dbusError->name == certs::VerifyCertificateFileFailedError) {
+                messages::verifyCertificateFileFailed(asyncResp->res);
+            }else if (dbusError->name == certs::CertificateFileSizeExceededError) {
+                messages::certificateFileSizeExceeded(asyncResp->res);
+            }else if (dbusError->name == certs::PrivateKeyFileSizeExceededError) {
+                messages::privateKeyFileSizeExceeded(asyncResp->res);
+            }else if (dbusError->name == certs::CertificateKeyLengthTooSmallError) {
+                messages::certificateKeyLengthTooSmall(asyncResp->res);
+            }else {
+	            messages::propertyValueIncorrect(asyncResp->res, certificate, "Certificate");
             }
-	    messages::propertyValueIncorrect(asyncResp->res, certificate, "Certificate");
+
             //messages::internalError(asyncResp->res);
             return;
         }

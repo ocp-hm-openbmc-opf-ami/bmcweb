@@ -19,6 +19,7 @@
 #include "logging.hpp"
 #include "registries.hpp"
 #include "registries/base_message_registry.hpp"
+#include "registries/certificate_service_message_registry.hpp"
 
 #include <boost/beast/http/field.hpp>
 #include <boost/beast/http/status.hpp>
@@ -185,6 +186,18 @@ static nlohmann::json getLog(redfish::registries::base::Index name,
     }
     return getLogFromRegistry(redfish::registries::base::header,
                               redfish::registries::base::registry, index, args);
+}
+
+static nlohmann::json getLog(redfish::registries::certificate::Index name,
+                                     std::span<const std::string_view> args)
+{
+    size_t index = static_cast<size_t>(name);
+    if (index >= redfish::registries::certificate::registry.size())
+    {
+        return {};
+    }
+    return getLogFromRegistry(redfish::registries::certificate::header,
+                                redfish::registries::certificate::registry, index, args);
 }
 
 /**
@@ -2121,7 +2134,6 @@ void factoryDefaultResetActionConflict(crow::Response& res, std::string_view arg
     addMessageToErrorJson(res.jsonValue, factoryDefaultResetActionConflict(arg1, arg2));
 }
 
-
 /**
  * @internal
  * @brief Formats HeaderInvalid message into JSON
@@ -2141,7 +2153,149 @@ void headerInvalid(crow::Response& res, std::string_view arg1)
     addMessageToErrorJson(res.jsonValue, headerInvalid(arg1));
 }
 
+/**
+ * @internal
+ * @brief Formats certificateFileExpired message into JSON
+ *
+ * See header file for more information
+ * @endinternal
+ */
+nlohmann::json certificateFileExpired(void)
+{
+    return getLog(redfish::registries::certificate::Index::certificateFileExpired, {});
+}
 
+void certificateFileExpired(crow::Response& res)
+{
+    res.result(boost::beast::http::status::bad_request);
+    addMessageToErrorJson(res.jsonValue, certificateFileExpired());
+}
+
+/**
+ * @internal
+ * @brief Formats certificateFileUntrusted message into JSON
+ *
+ * See header file for more information
+ * @endinternal
+ */
+nlohmann::json certificateFileUntrusted(void)
+{
+    return getLog(redfish::registries::certificate::Index::certificateFileUntrusted, {});
+}
+
+void certificateFileUntrusted(crow::Response& res)
+{
+    res.result(boost::beast::http::status::bad_request);
+    addMessageToErrorJson(res.jsonValue, certificateFileUntrusted());
+}
+
+/**
+ * @internal
+ * @brief Formats privateKeyFileEncrypted message into JSON
+ *
+ * See header file for more information
+ * @endinternal
+ */
+nlohmann::json privateKeyFileEncrypted(void)
+{
+    return getLog(redfish::registries::certificate::Index::privateKeyFileEncrypted, {});
+}
+
+void privateKeyFileEncrypted(crow::Response& res)
+{
+    res.result(boost::beast::http::status::bad_request);
+    addMessageToErrorJson(res.jsonValue, privateKeyFileEncrypted());
+}
+
+/**
+ * @internal
+ * @brief Formats privateKeyCertificateFileNotMatch message into JSON
+ *
+ * See header file for more information
+ * @endinternal
+ */
+nlohmann::json privateKeyCertificateFileNotMatch(void)
+{
+    return getLog(redfish::registries::certificate::Index::privateKeyCertificateFileNotMatch, {});
+}
+
+void privateKeyCertificateFileNotMatch(crow::Response& res)
+{
+    res.result(boost::beast::http::status::bad_request);
+    addMessageToErrorJson(res.jsonValue, privateKeyCertificateFileNotMatch());
+}
+
+/**
+ * @internal
+ * @brief Formats verifyCertificateFileFailed message into JSON
+ *
+ * See header file for more information
+ * @endinternal
+ */
+nlohmann::json verifyCertificateFileFailed(void)
+{
+    return getLog(redfish::registries::certificate::Index::verifyCertificateFileFailed, {});
+}
+
+void verifyCertificateFileFailed(crow::Response& res)
+{
+    res.result(boost::beast::http::status::bad_request);
+    addMessageToErrorJson(res.jsonValue, verifyCertificateFileFailed());
+}
+
+/**
+ * @internal
+ * @brief Formats certificateFileSizeExceeded message into JSON
+ *
+ * See header file for more information
+ * @endinternal
+ */
+nlohmann::json certificateFileSizeExceeded(void)
+{
+    return getLog(redfish::registries::certificate::Index::certificateFileSizeExceeded, {});
+}
+
+void certificateFileSizeExceeded(crow::Response& res)
+{
+    res.result(boost::beast::http::status::bad_request);
+    addMessageToErrorJson(res.jsonValue, certificateFileSizeExceeded());
+}
+
+/**
+ * @internal
+ * @brief Formats privateKeyFileSizeExceeded message into JSON
+ *
+ * See header file for more information
+ * @endinternal
+ */
+nlohmann::json privateKeyFileSizeExceeded(void)
+{
+    return getLog(redfish::registries::certificate::Index::privateKeyFileSizeExceeded, {});
+}
+
+void privateKeyFileSizeExceeded(crow::Response& res)
+{
+    res.result(boost::beast::http::status::bad_request);
+    addMessageToErrorJson(res.jsonValue, privateKeyFileSizeExceeded());
+}
+
+/**
+ * @internal
+ * @brief Formats certificateKeyLengthTooSmall message into JSON
+ *
+ * See header file for more information
+ * @endinternal
+ */
+nlohmann::json certificateKeyLengthTooSmall(void)
+{
+    return getLog(redfish::registries::certificate::Index::certificateKeyLengthTooSmall, {});
+}
+
+void certificateKeyLengthTooSmall(crow::Response& res)
+{
+    res.result(boost::beast::http::status::bad_request);
+    addMessageToErrorJson(res.jsonValue, certificateKeyLengthTooSmall());
+}
 
 } // namespace messages
 

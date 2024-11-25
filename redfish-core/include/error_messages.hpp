@@ -1228,9 +1228,6 @@ nlohmann::json FactoryDefaultResetActionConflict(std::string_view arg1,
 void factoryDefaultResetActionConflict(crow::Response& res, std::string_view arg1,
                            std::string_view arg2);
 
-
-
-
 /**
  * @internal
  * @brief Formats HeaderInvalid message into JSON
@@ -1243,7 +1240,96 @@ nlohmann::json headerInvalid(std::string_view arg1);
 
 void headerInvalid(crow::Response& res, std::string_view arg1);
 
+void factoryDefaultResetActionConflict(crow::Response& res, std::string_view arg1,
+                           std::string_view arg2);
 
+/**
+ * @internal
+ * @brief Formats certificateFileExpired message into JSON
+ *
+ * See header file for more information
+ * @endinternal
+ */
+nlohmann::json certificateFileExpired();
+
+void certificateFileExpired(crow::Response& res);
+
+/**
+ * @internal
+ * @brief Formats certificateFileUntrusted message into JSON
+ *
+ * See header file for more information
+ * @endinternal
+ */
+nlohmann::json certificateFileUntrusted();
+
+void certificateFileUntrusted(crow::Response& res);
+
+/**
+ * @internal
+ * @brief Formats privateKeyFileEncrypted message into JSON
+ *
+ * See header file for more information
+ * @endinternal
+ */
+nlohmann::json privateKeyFileEncrypted();
+
+void privateKeyFileEncrypted(crow::Response& res);
+
+/**
+ * @internal
+ * @brief Formats privateKeyCertificateFileNotMatch message into JSON
+ *
+ * See header file for more information
+ * @endinternal
+ */
+nlohmann::json privateKeyCertificateFileNotMatch();
+
+void privateKeyCertificateFileNotMatch(crow::Response& res);
+
+/**
+ * @internal
+ * @brief Formats verifyCertificateFileFailed message into JSON
+ *
+ * See header file for more information
+ * @endinternal
+ */
+nlohmann::json verifyCertificateFileFailed();
+
+void verifyCertificateFileFailed(crow::Response& res);
+
+/**
+ * @internal
+ * @brief Formats certificateFileSizeExceeded message into JSON
+ *
+ * See header file for more information
+ * @endinternal
+ */
+nlohmann::json certificateFileSizeExceeded();
+
+void certificateFileSizeExceeded(crow::Response& res);
+
+/**
+ * @internal
+ * @brief Formats privateKeyFileSizeExceeded message into JSON
+ *
+ * See header file for more information
+ * @endinternal
+ */
+nlohmann::json privateKeyFileSizeExceeded();
+
+void privateKeyFileSizeExceeded(crow::Response& res);
+
+/**
+ * @internal
+ * @brief Formats certificateKeyLengthTooSmall message into JSON
+ *
+ * See header file for more information
+ * @endinternal
+ */
+nlohmann::json certificateKeyLengthTooSmall();
+
+void certificateKeyLengthTooSmall(crow::Response& res);
 
 
 } // namespace messages
