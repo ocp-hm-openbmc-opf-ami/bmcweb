@@ -3426,13 +3426,15 @@ inline void requestRoutesCrashdumpCollect(App& app)
             return;
         }
 
+        bool reqValid = true;
         if (diagnosticDataType != "OEM")
         {
             BMCWEB_LOG_ERROR(
                 "Only OEM DiagnosticDataType supported for Crashdump");
-            messages::actionParameterValueFormatError(
+            messages::actionParameterValueNotInList(
                 asyncResp->res, diagnosticDataType, "DiagnosticDataType",
                 "CollectDiagnosticData");
+            reqValid = false;
         }
 
         OEMDiagnosticType oemDiagType =
@@ -3463,9 +3465,13 @@ inline void requestRoutesCrashdumpCollect(App& app)
         {
             BMCWEB_LOG_ERROR("Unsupported OEMDiagnosticDataType: {}",
                              oemDiagnosticDataType);
-            messages::actionParameterValueFormatError(
+            messages::actionParameterValueNotInList(
                 asyncResp->res, oemDiagnosticDataType, "OEMDiagnosticDataType",
                 "CollectDiagnosticData");
+            reqValid = false;
+        }
+        
+        if (!reqValid){
             return;
         }
 
