@@ -236,15 +236,26 @@ inline void getNetworkData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     // defaults to ensure something is always returned.
     for (const auto& nwkProtocol : networkProtocolToDbus)
     {
-        if(nwkProtocol.first != std::string("IPMB"))
+        if (nwkProtocol.first != std::string("IPMB"))
         {
-        asyncResp->res.jsonValue[nwkProtocol.first]["Port"] = nullptr;
-        asyncResp->res.jsonValue[nwkProtocol.first]["ProtocolEnabled"] = false;
+            asyncResp->res.jsonValue[nwkProtocol.first]["Port"] = nullptr;
+            asyncResp->res.jsonValue[nwkProtocol.first]["ProtocolEnabled"] =
+                false;
         }
         else
         {
-         asyncResp->res.jsonValue["Oem"]["OpenBmc"][nwkProtocol.first]["Port"] = nullptr;
-         asyncResp->res.jsonValue["Oem"]["OpenBmc"][nwkProtocol.first]["ProtocolEnabled"] = false;
+            asyncResp->res
+                .jsonValue["Oem"]["OpenBmc"][nwkProtocol.first]["Port"] =
+                nullptr;
+            asyncResp->res.jsonValue["Oem"]["OpenBmc"][nwkProtocol.first]
+                                    ["ProtocolEnabled"] = false;
+        }
+
+        if (nwkProtocol.first == std::string("IPMI"))
+        {
+            asyncResp->res.jsonValue[nwkProtocol.first]["Port"] = 623;
+            asyncResp->res.jsonValue[nwkProtocol.first]["ProtocolEnabled"] =
+                false;
         }
     }
 
@@ -303,29 +314,30 @@ inline void getNetworkData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
         std::cerr << "protocolName " << protocolName << "\n";
         std::cerr << "serviceName " << serviceName << "\n";
-        if(ipmbServiceName == serviceName)
-        {
-            service_util::getEnabled(
-                asyncResp, serviceName,
-                nlohmann::json::json_pointer("/Oem/OpenBmc/" + protocolName + "/ProtocolEnabled"));
-             service_util::getPortNumber(
-            asyncResp, serviceName,
-            nlohmann::json::json_pointer("/Oem/OpenBmc/" + protocolName +
-                                         "/Port"));
-        }
-        else
-        {
-        if (ipmiServiceName != serviceName)
+        if (ipmbServiceName == serviceName)
         {
             service_util::getEnabled(
                 asyncResp, serviceName,
                 nlohmann::json::json_pointer(
-                    std::string("/") + protocolName + "/ProtocolEnabled"));
+                    "/Oem/OpenBmc/" + protocolName + "/ProtocolEnabled"));
+            service_util::getPortNumber(
+                asyncResp, serviceName,
+                nlohmann::json::json_pointer(
+                    "/Oem/OpenBmc/" + protocolName + "/Port"));
         }
-        service_util::getPortNumber(
-            asyncResp, serviceName,
-            nlohmann::json::json_pointer(
-                std::string("/") + protocolName + "/Port"));
+        else
+        {
+            if (ipmiServiceName != serviceName)
+            {
+                service_util::getEnabled(
+                    asyncResp, serviceName,
+                    nlohmann::json::json_pointer(
+                        std::string("/") + protocolName + "/ProtocolEnabled"));
+            }
+            service_util::getPortNumber(
+                asyncResp, serviceName,
+                nlohmann::json::json_pointer(
+                    std::string("/") + protocolName + "/Port"));
         }
     }
 
@@ -362,7 +374,7 @@ inline void handleNTPProtocolEnabled(
 // null, to delete the value
 // object_t, empty json object, to ignore the value
 using IpAddress =
-   std::variant<std::string, nlohmann::json::object_t, std::nullptr_t>;
+    std::variant<std::string, nlohmann::json::object_t, std::nullptr_t>;
 
 void storeNtpServers(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                      const std::vector<IpAddress>& NTPServers,
@@ -372,21 +384,22 @@ void storeNtpServers(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     {
         const IpAddress& ntpServer = NTPServers[index];
         const std::string* ntpServerStr = std::get_if<std::string>(&ntpServer);
-            if (ntpServerStr == nullptr)
-            {
-                messages::internalError(asyncResp->res);
-                return;
-            }
-            // If the variant holds a string, store it in the input vector as a JSON string
-            input.push_back(*ntpServerStr);
+        if (ntpServerStr == nullptr)
+        {
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        // If the variant holds a string, store it in the input vector as a JSON
+        // string
+        input.push_back(*ntpServerStr);
     }
 }
 
-inline void
-    handleNTPServersPatch(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                          //const std::vector<nlohmann::json>& ntpServerObjects,
-                          const std::vector<IpAddress>& ntpServerObjects,                          
-                          std::vector<std::string> currentNtpServers)
+inline void handleNTPServersPatch(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    // const std::vector<nlohmann::json>& ntpServerObjects,
+    const std::vector<IpAddress>& ntpServerObjects,
+    std::vector<std::string> currentNtpServers)
 {
     std::vector<std::string>::iterator currentNtpServer =
         currentNtpServers.begin();
@@ -435,7 +448,7 @@ inline void
     for (size_t index = 0; index < ntpServerObjects.size(); index++)
     {
         const IpAddress& ntpServer = ntpServerObjects[index];
-        //const nlohmann::json& ntpServer = ntpServerObjects[index];
+        // const nlohmann::json& ntpServer = ntpServerObjects[index];
         if (std::holds_alternative<std::nullptr_t>(ntpServer))
         // (ntpServer.is_null())
         {
@@ -453,7 +466,7 @@ inline void
         }
         const nlohmann::json::object_t* ntpServerObject =
             std::get_if<nlohmann::json::object_t>(&ntpServer);
-            //ntpServer.get_ptr<const nlohmann::json::object_t*>();
+        // ntpServer.get_ptr<const nlohmann::json::object_t*>();
         if (ntpServerObject != nullptr)
         {
             if (!ntpServerObject->empty())
@@ -478,7 +491,7 @@ inline void
         }
 
         const std::string* ntpServerStr = std::get_if<std::string>(&ntpServer);
-            //ntpServer.get_ptr<const std::string*>();
+        // ntpServer.get_ptr<const std::string*>();
         if (ntpServerStr == nullptr)
         {
             messages::internalError(asyncResp->res);
@@ -733,7 +746,7 @@ inline void handleManagersNetworkProtocolPatch(
     if (ntp)
     {
         std::optional<bool> ntpEnabled;
-        //std::optional<std::vector<nlohmann::json>> ntpServerObjects;
+        // std::optional<std::vector<nlohmann::json>> ntpServerObjects;
         std::optional<std::vector<IpAddress>> ntpServerObjects;
 
         std::size_t ntp_size = ntp.value().size();
@@ -881,8 +894,9 @@ inline void handleManagersNetworkProtocolPatch(
     }
     if (ipmbEnabled)
     {
-        handleProtocolEnabled(*ipmbEnabled, asyncResp,
-                            encodeServiceObjectPath(std::string(ipmbServiceName)));
+        handleProtocolEnabled(
+            *ipmbEnabled, asyncResp,
+            encodeServiceObjectPath(std::string(ipmbServiceName)));
     }
 }
 
