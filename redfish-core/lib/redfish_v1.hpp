@@ -89,6 +89,12 @@ inline void redfish405(App& app, const crow::Request& req,
         return;
     }
 
+    if (req.method() == boost::beast::http::verb::head)
+    {
+            asyncResp->res.result(boost::beast::http::status::method_not_allowed);
+            return;
+    }
+
     std::size_t lastSlashPos = path.rfind('/');
     std::string accountName;
     std::string uri;
