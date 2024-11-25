@@ -13,7 +13,7 @@ namespace crow
 namespace obmc_kvm
 {
 
-static constexpr const uint maxSessions = 1;
+static constexpr const uint maxSessions = 2;
 int kvmActiveStatus = 0;
 using PropertyValue = std::variant<uint8_t, uint16_t, std::string,
                                    std::vector<std::string>, bool>;
