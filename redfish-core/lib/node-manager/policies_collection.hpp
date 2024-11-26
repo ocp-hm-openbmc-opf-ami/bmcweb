@@ -217,6 +217,13 @@ inline void getAttributes(const std::shared_ptr<bmcweb::AsyncResp>& response,
                                           [&response](uint16_t triggerLimit) {
             response->res.jsonValue["Trigger"]["TriggerLimit"] = triggerLimit;
         });
+        parsePropertyToResponse<int32_t>(response, properties, "Owner",
+                                         [&response](int32_t defaultPolicy) {
+            if (defaultPolicy)
+                response->res.jsonValue["DefaultPolicy"] = true;
+            else
+                response->res.jsonValue["DefaultPolicy"] = false;
+        });
         });
 }
 
