@@ -671,7 +671,8 @@ inline void handleReplaceCertificateAction(
             if (ec.value() ==
                 boost::system::linux_error::bad_request_descriptor)
             {
-                messages::resourceNotFound(asyncResp->res, "Certificate", id);
+                messages::actionParameterNotSupported(
+                    asyncResp->res, "CertificateUri", "ReplaceCertificate");
                 return;
             }else if (dbusError->name == certs::CertificateFileExpiredError) {
                 messages::certificateFileExpired(asyncResp->res);
