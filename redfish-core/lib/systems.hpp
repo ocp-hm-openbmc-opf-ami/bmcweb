@@ -3957,6 +3957,13 @@ inline void handleComputerSystemResetActionPost(
             return;
         }
     }
+    else
+	{
+           BMCWEB_LOG_ERROR("Missing Property OperationApplyTime");
+           messages::actionParameterNotSupported(asyncResp->res,  *operationApplyTime,
+                                                     "OperationApplyTime");
+           return;
+	}
 }
 
 inline void handleComputerSystemHead(
