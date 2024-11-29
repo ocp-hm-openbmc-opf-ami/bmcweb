@@ -1512,6 +1512,7 @@ inline void setEthernetInterfaceBoolProperty(
                 messages::internalError(asyncResp->res);
                 return;
             }
+            messages::success(asyncResp->res);
         });
 }
 
@@ -3086,47 +3087,40 @@ inline void requestEthernetInterfacesRoutes(App& app)
 
                 if (interfaceEnabled.has_value() && (!hasMixedAttributes))
                 {
-                    if (*interfaceEnabled)
-                    {
-                        messages::success(asyncResp->res);
-                    }
-                    else
-                    {
-                        sdbusplus::asio::getProperty<uint8_t>(
-                            *crow::connections::systemBus,
-                            "xyz.openbmc_project.Network",
-                            "/xyz/openbmc_project/network/config",
-                            "xyz.openbmc_project.Network.SystemConfiguration",
-                            "InterfaceCount",
-                            [asyncResp{std::move(asyncResp)}, &isNicEnabled,
-                             ifaceId, interfaceEnabled](
-                                const boost::system::error_code& ec,
-                                const uint8_t& Interface_Count) {
-                                if (ec)
-                                {
-                                    BMCWEB_LOG_DEBUG("DBUS response error");
-                                    messages::internalError(asyncResp->res);
-                                    return;
-                                }
+                    sdbusplus::asio::getProperty<uint8_t>(
+                        *crow::connections::systemBus,
+                        "xyz.openbmc_project.Network",
+                        "/xyz/openbmc_project/network/config",
+                        "xyz.openbmc_project.Network.SystemConfiguration",
+                        "InterfaceCount",
+                        [asyncResp{std::move(asyncResp)}, &isNicEnabled,
+                         ifaceId, &interfaceEnabled](
+                            const boost::system::error_code& ec,
+                            const uint8_t& Interface_Count) {
+                            if (ec)
+                            {
+                                BMCWEB_LOG_DEBUG("DBUS response error");
+                                messages::internalError(asyncResp->res);
+                                return;
+                            }
 
-                                BMCWEB_LOG_DEBUG("InterfaceCount: {}",
-                                                 Interface_Count);
-                                if (Interface_Count <= 1)
-                                {
-                                    messages::propertyValueExternalConflict(
-                                        asyncResp->res, "InterfaceEnabled",
-                                        *interfaceEnabled);
-                                    return;
-                                }
-                                else
-                                {
-                                    isNicEnabled = *interfaceEnabled;
-                                    setEthernetInterfaceBoolProperty(
-                                        ifaceId, "NICEnabled",
-                                        *interfaceEnabled, asyncResp);
-                                }
-                            });
-                    }
+                            BMCWEB_LOG_DEBUG("InterfaceCount: {}",
+                                             Interface_Count);
+                            if (Interface_Count <= 1)
+                            {
+                                messages::propertyValueExternalConflict(
+                                    asyncResp->res, "InterfaceEnabled",
+                                    *interfaceEnabled);
+                                return;
+                            }
+                            else
+                            {
+                                isNicEnabled = *interfaceEnabled;
+                                setEthernetInterfaceBoolProperty(
+                                    ifaceId, "NICEnabled",
+                                    *interfaceEnabled, asyncResp);
+                            }
+                        });
                 }
                 if (!isNicEnabled)
                 {
