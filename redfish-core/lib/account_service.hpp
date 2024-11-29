@@ -1938,6 +1938,12 @@ inline void handleAccountServicePatch(
     }
     // clang-format on
 
+    if(!ldapObject.userName || !ldapObject.password)
+    {
+        messages::propertyMissing(asyncResp->res, "Username and Password");
+        return;
+    }
+
     if (httpBasicAuth)
     {
         if (*httpBasicAuth == "Enabled")
