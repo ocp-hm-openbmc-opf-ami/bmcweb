@@ -1191,10 +1191,19 @@ inline void handleManagersVirtualMediaActionEject(
             return;
         }
     }
-
-    std::string objectPathStr =
-         std::string("/xyz/openbmc_project/VirtualMedia/Legacy/") +
-         std::string(resName);
+    std::string objectPathStr;
+    if (resName == "Slot_2" || resName == "Slot_3")
+    {
+        objectPathStr =
+            std::string("/xyz/openbmc_project/VirtualMedia/Legacy/") +
+            std::string(resName);
+    }
+    else
+    {
+        objectPathStr =
+            std::string("/xyz/openbmc_project/VirtualMedia/Proxy/") +
+            std::string(resName);
+    }
     const char* objectPath = objectPathStr.c_str();
 
     sdbusplus::asio::getProperty<bool>(
