@@ -59,6 +59,8 @@ namespace redfish
 constexpr const char* MANAGER_DBUS_PROPERTY_IFACE =
     "org.freedesktop.DBus.Properties";
 
+bool ishandleManagersInstanceGet=false;  
+
 using namespace std;
 using managerPropertyValue = std::variant<uint8_t, uint16_t, std::string,
                                           std::vector<std::string>, bool>;
@@ -2316,6 +2318,8 @@ inline void handleManagersInstanceGet(
         messages::resourceNotFound(asyncResp->res, "Manager", managerId);
         return;
     }
+
+    ishandleManagersInstanceGet=true;
 
     asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
         "/redfish/v1/Managers/{}", BMCWEB_REDFISH_MANAGER_URI_NAME);

@@ -391,12 +391,48 @@ inline void requestRoutesPefService(App& app)
         {
             return;
         }
-        asyncResp->res.jsonValue = {
-            {"@odata.type", "#PefEntry.v1_0_0.PefEntry"},
-            {"@odata.id", "/redfish/v1/PefService/" + entryId},
-            {"Id", entryId},
-            {"Name", "Pef Service Entry"}};
-        getEventSeverity(asyncResp, entryId);
+       crow::connections::systemBus->async_method_call(
+            [asyncResp, entryId](const boost::system::error_code ec,
+                         const std::vector<std::string>& storageList) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("D-Bus call error while validating event entry");
+                asyncResp->res.result(boost::beast::http::status::internal_server_error);
+                return;
+            }
+
+            // Loop through the event entries and check if the requested entryId is valid
+            bool isValid = false;
+            for (const std::string& objpath : storageList)
+            {
+                std::size_t lastPos = objpath.rfind('/');
+                if (lastPos != std::string::npos && objpath.substr(lastPos + 1) == entryId)
+                {
+                    isValid = true;
+                    break;
+                }
+            }
+
+            if (!isValid)
+            {
+                messages::resourceNotFound(asyncResp->res, "PefService", entryId);
+                return;
+            }
+            else
+            {
+                    asyncResp->res.jsonValue = {
+                    {"@odata.type", "#PefEntry.v1_0_0.PefEntry"},
+                    {"@odata.id", "/redfish/v1/PefService/" + entryId},
+                    {"Id", entryId},
+                    {"Name", "Pef Service Entry"}};
+                   getEventSeverity(asyncResp, entryId);
+            }
+        },
+        "xyz.openbmc_project.ObjectMapper",
+        "/xyz/openbmc_project/object_mapper",
+        "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
+        "/xyz/openbmc_project/PefAlertManager/EventFilterTable/", 0,
+        std::array<const char*, 1>{"xyz.openbmc_project.pef.EventFilterTable"});
     });
 
     BMCWEB_ROUTE(app, "/redfish/v1/PefService/<str>")

@@ -53,6 +53,7 @@ constexpr const char* dbusPropertyInterface = "org.freedesktop.DBus.Properties";
 
 using PropertyValue = std::variant<uint8_t, uint16_t, uint64_t, std::string,
                                    std::vector<std::string>, bool>;
+bool ishandleChassisGetSubTree = false;                                   
 
 /**
  * @brief Retrieves resources over dbus to link to the chassis
@@ -547,6 +548,8 @@ inline void handleChassisGetSubTree(
             continue;
         }
 
+        ishandleChassisGetSubTree =true;
+
         asyncResp->res.jsonValue["@odata.type"] = "#Chassis.v1_22_0.Chassis";
         asyncResp->res.jsonValue["@odata.id"] =
             boost::urls::format("/redfish/v1/Chassis/{}", chassisId);
@@ -703,10 +706,14 @@ inline void
 
     constexpr std::array<std::string_view, 1> interfaces2 = {
         "xyz.openbmc_project.Chassis.Intrusion"};
-
-    dbus::utility::getSubTree(
-        "/xyz/openbmc_project", 0, interfaces2,
-        std::bind_front(handlePhysicalSecurityGetSubTree, asyncResp));
+    
+     if (ishandleChassisGetSubTree)
+    {
+            dbus::utility::getSubTree(
+                "/xyz/openbmc_project", 0, interfaces2,
+                std::bind_front(handlePhysicalSecurityGetSubTree, asyncResp));
+    }
+    
 }
 
 inline void

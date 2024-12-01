@@ -3303,44 +3303,83 @@ inline void handleSensorGet(App& app, const crow::Request& req,
     {
         return;
     }
-    std::pair<std::string, std::string> nameType =
-        redfish::sensor_utils::splitSensorNameAndType(sensorId);
-    std::string sensorPath = "/xyz/openbmc_project/sensors/" + nameType.first +
-                             '/' + nameType.second;
-    if (nameType.first.empty() || nameType.second.empty())
-    {
-        messages::resourceNotFound(asyncResp->res, sensorId, "Sensor");
-        return;
-    }
-    if (valideSensorWithConfFile(sensorId))
-    {
-        getSensorReading(sensorPath, [asyncResp, chassisId,
-                                      sensorId](const std::string& reading) {
-            if (reading != "nan")
-            {
-                asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.id"] =
-                    boost::urls::format(
-                        "/redfish/v1/Chassis/{}/Sensors/{}/Oem/SensorHistory",
-                        chassisId, sensorId);
-            }
-        });
-    }
-    filterThresholdSensors(asyncResp, chassisId, sensorId);
-    asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
-        "/redfish/v1/Chassis/{}/Sensors/{}", chassisId, sensorId);
+    // Validate chassis ID via D-Bus call
+    crow::connections::systemBus->async_method_call(
+        [asyncResp, chassisId, sensorId](const boost::system::error_code ec_,
+                                         const std::vector<std::string>& chassisPaths) {
+            if (ec_)
 
-    BMCWEB_LOG_DEBUG("Sensor doGet enter");
-    constexpr std::array<std::string_view, 3> interfaces = {
-        "xyz.openbmc_project.Sensor.Value", "xyz.openbmc_project.Sensor.State",
-        "xyz.openbmc_project.Association.Definitions"};
-    // Get a list of all of the sensors that implement Sensor.Value
-    // and get the path and service name associated with the sensor
-    ::dbus::utility::getDbusObject(
-        sensorPath, interfaces,
-        [asyncResp, sensorId,
-         sensorPath](const boost::system::error_code& ec,
+            {
+                BMCWEB_LOG_ERROR("D-Bus call error while validating chassis ID");
+                asyncResp->res.result(boost::beast::http::status::internal_server_error);
+                return;
+            }
+
+       // Extract valid chassis IDs from the D-Bus paths
+            bool isValid = false;
+            for (const std::string& objpath : chassisPaths)
+            {
+                std::size_t lastPos = objpath.rfind('/');
+                if (lastPos != std::string::npos)
+                {
+                    std::string extractedChassisId = objpath.substr(lastPos + 1);
+                    std::cerr << "extractedChassisId: " << extractedChassisId << "\n";
+                    std::cerr << "chassisId: " << chassisId << "\n";
+
+                    if (extractedChassisId == chassisId)
+                    {
+                        isValid = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!isValid)
+            {
+                messages::resourceNotFound(asyncResp->res, chassisId, "chassisId");
+                return;
+            }
+
+            // Proceed with sensor retrieval after chassis validation
+            BMCWEB_LOG_DEBUG("Chassis ID is valid. Proceeding with sensor retrieval.");
+            std::pair<std::string, std::string> nameType =
+            redfish::sensor_utils::splitSensorNameAndType(sensorId);
+            std::string sensorPath = "/xyz/openbmc_project/sensors/" + nameType.first +
+                             '/' + nameType.second;
+            if (nameType.first.empty() || nameType.second.empty())
+            {
+                messages::resourceNotFound(asyncResp->res, sensorId, "Sensor");
+                return;
+            }
+            if (valideSensorWithConfFile(sensorId))
+            {
+                getSensorReading(sensorPath, [asyncResp, chassisId,
+                                      sensorId](const std::string& reading) {
+                if (reading != "nan")
+                {
+                     asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.id"] =
+                        boost::urls::format(
+                           "/redfish/v1/Chassis/{}/Sensors/{}/Oem/SensorHistory",
+                           chassisId, sensorId);
+               }
+               });
+            }
+            filterThresholdSensors(asyncResp, chassisId, sensorId);
+            asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
+            "/redfish/v1/Chassis/{}/Sensors/{}", chassisId, sensorId);
+
+            BMCWEB_LOG_DEBUG("Sensor doGet enter");
+            constexpr std::array<std::string_view, 3> interfaces = {
+            "xyz.openbmc_project.Sensor.Value", "xyz.openbmc_project.Sensor.State",
+            "xyz.openbmc_project.Association.Definitions"};
+            // Get a list of all of the sensors that implement Sensor.Value
+            // and get the path and service name associated with the sensor
+            ::dbus::utility::getDbusObject(
+            sensorPath, interfaces,
+            [asyncResp, sensorId,
+                sensorPath](const boost::system::error_code& ec,
                      const ::dbus::utility::MapperGetObject& subtree) {
-            BMCWEB_LOG_DEBUG("respHandler1 enter");
+                     BMCWEB_LOG_DEBUG("respHandler1 enter");
             if (ec == boost::system::errc::io_error)
             {
                 BMCWEB_LOG_WARNING("Sensor not found from getSensorPaths");
@@ -3357,6 +3396,14 @@ inline void handleSensorGet(App& app, const crow::Request& req,
             getSensorFromDbus(asyncResp, sensorPath, subtree);
             BMCWEB_LOG_DEBUG("respHandler1 exit");
         });
+        },
+        "xyz.openbmc_project.ObjectMapper",
+        "/xyz/openbmc_project/object_mapper",
+        "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
+        "/xyz/openbmc_project/inventory", 0,
+        std::array<const char*, 2>{
+        "xyz.openbmc_project.Inventory.Item.Board",
+        "xyz.openbmc_project.Inventory.Item.Chassis"});
 }
 
 inline void handleSensorHistoryGet(
