@@ -417,14 +417,13 @@ void getChassis(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 Callback&& callback)
 {
     BMCWEB_LOG_DEBUG("getChassis enter");
-    constexpr std::array<std::string_view, 3> interfaces = {
-        "xyz.openbmc_project.Sensor.Value",
+    constexpr std::array<std::string_view, 2> interfaces = {
         "xyz.openbmc_project.Inventory.Item.Board",
         "xyz.openbmc_project.Inventory.Item.Chassis"};
 
     // Get the Chassis Collection
     dbus::utility::getSubTreePaths(
-        "/", 0, interfaces,
+        "/xyz/openbmc_project/inventory", 0, interfaces,
         [callback = std::forward<Callback>(callback), asyncResp,
          chassisIdStr{std::string(chassisId)},
          chassisSubNode{std::string(chassisSubNode)}, sensorTypes](
@@ -471,7 +470,7 @@ void getChassis(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             std::string sensorPath = *chassisPath + "/all_sensors";
             dbus::utility::getAssociationEndPoints(
                 sensorPath,
-                [asyncResp, chassisPaths, chassisSubNode, sensorTypes,
+                [asyncResp, chassisSubNode, sensorTypes,
                  callback = std::forward<const Callback>(callback)](
                     const boost::system::error_code& ec2,
                     const dbus::utility::MapperEndPoints& nodeSensorList) {
@@ -483,19 +482,11 @@ void getChassis(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                             return;
                         }
                     }
-                    dbus::utility::MapperEndPoints SensorList = nodeSensorList;
-                    for(const std::string& objpath : chassisPaths)
-                    {
-                        if(std::find(SensorList.begin(), SensorList.end(), objpath) == SensorList.end())
-                        {
-                            SensorList.emplace_back(objpath);
-                       }
-                   }
                     const std::shared_ptr<std::set<std::string>>
                         culledSensorList =
                             std::make_shared<std::set<std::string>>();
                     reduceSensorList(asyncResp->res, chassisSubNode,
-                                     sensorTypes, &SensorList,
+                                     sensorTypes, &nodeSensorList,
                                      culledSensorList);
                     BMCWEB_LOG_DEBUG("Finishing with {}",
                                      culledSensorList->size());
