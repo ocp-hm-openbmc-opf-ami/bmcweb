@@ -817,6 +817,26 @@ inline void deleteIPAddress(const std::string& ifaceId,
         "xyz.openbmc_project.Object.Delete", "Delete");
 }
 
+// When any validation failes in handleIPv4StaticPatch function
+// then this function used to enable DHCP4 property in back-end.
+// so, we can restrict to disappear of IPv4 address
+// while update any invalid addr, gateway or subnetMask.
+inline void enableDHCP4(const std::string& ifaceId,
+                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus, "xyz.openbmc_project.Network",
+        "/xyz/openbmc_project/network/" + ifaceId,
+        "xyz.openbmc_project.Network.EthernetInterface", "DHCP4", true,
+        [asyncResp](const boost::system::error_code& ec) {
+            if (ec)
+            {
+                messages::internalError(asyncResp->res);
+                return;
+            }
+        });
+}
+
 /**
  * @brief Creates a static IPv4 entry
  *
@@ -879,9 +899,11 @@ inline void deleteAndCreateIPAddress(
             std::string protocol = "xyz.openbmc_project.Network.IP.Protocol.";
             protocol += version == IpVersion::IpV4 ? "IPv4" : "IPv6";
             crow::connections::systemBus->async_method_call(
-                [asyncResp, address](const boost::system::error_code& ec2) {
+                [asyncResp, address,
+                 ifaceId](const boost::system::error_code& ec2) {
                     if (ec2)
                     {
+                        enableDHCP4(ifaceId, asyncResp);
                         messages::invalidip(asyncResp->res, "Address", address);
                     }
                 },
@@ -1821,26 +1843,6 @@ inline bool
         entryIdx++;
     }
     return true;
-}
-
-// When any validation failes in handleIPv4StaticPatch function
-// then this function used to enable DHCP4 property in back-end.
-// so, we can restrict to disappear of IPv4 address
-// while update any invalid addr, gateway or subnetMask.
-inline void enableDHCP4(const std::string& ifaceId,
-                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
-{
-    sdbusplus::asio::setProperty(
-        *crow::connections::systemBus, "xyz.openbmc_project.Network",
-        "/xyz/openbmc_project/network/" + ifaceId,
-        "xyz.openbmc_project.Network.EthernetInterface", "DHCP4", true,
-        [asyncResp](const boost::system::error_code& ec) {
-            if (ec)
-            {
-                messages::internalError(asyncResp->res);
-                return;
-            }
-        });
 }
 
 inline void handleIPv4StaticPatch(
