@@ -86,6 +86,27 @@ std::string sslSecondaryServerKeyFile(secodaryServerKeyFilePath);
 std::string SSLFileName("");
 const char* commandLine("systemctl restart mail-alert-manager.service");
 
+constexpr const char* snmpProtocolSevrice = "xyz.openbmc_project.Snmp";
+constexpr const char* snmpProtocolObject = "/xyz/openbmc_project/Snmp";
+constexpr const char* snmpProtocolInterface =
+    "xyz.openbmc_project.Snmp.SnmpUtils";
+constexpr const char* snmpProtocolProp = "SnmpTrapStatus";
+
+using PropertyValue = std::variant<uint8_t, uint16_t, uint64_t, std::string,
+                                   std::vector<std::string>, bool>;
+
+const PropertyValue getSnmpProtocol()
+{
+    PropertyValue value;
+    auto b = sdbusplus::bus::new_default_system();
+    auto method = b.new_method_call(snmpProtocolSevrice, snmpProtocolObject,
+                                    "org.freedesktop.DBus.Properties", "Get");
+    method.append(snmpProtocolInterface, snmpProtocolProp);
+    auto reply = b.call(method);
+    reply.read(value);
+    return value;
+}
+
 /**
  * @brief Retrieves SMTP configuration params
  *
@@ -2421,8 +2442,13 @@ inline void requestRoutesEventDestinationCollection(App& app)
         if (protocol == "SNMPv2c" || protocol == "SNMPv3" ||
             protocol == "SNMPv1")
         {
-            // Default Enabled SNMPTrap before creating snmp client
-            setprotocolEnable(asyncResp);
+            auto value = getSnmpProtocol();
+            auto protocolStatus = std::get<bool>(value);
+            if (!protocolStatus)
+            {
+                messages::serviceDisabled(asyncResp->res, "SNMP");
+                return;
+            }
 
             if (protocol == "SNMPv3" && url->has_userinfo() == false)
             {

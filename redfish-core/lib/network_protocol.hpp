@@ -198,6 +198,55 @@ inline void
         });
 }
 
+inline void
+    getSNMPVersionEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    sdbusplus::asio::getProperty<bool>(
+        *crow::connections::systemBus, "xyz.openbmc_project.Snmp",
+        "/xyz/openbmc_project/Snmp", "xyz.openbmc_project.Snmp.SnmpConf",
+        "disableSNMPv1",
+        [asyncResp](const boost::system::error_code& ec, bool enableSNMPv1) {
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR("D-BUS response error on SnmpTrapStatus Get{}",
+                             ec);
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        asyncResp->res.jsonValue["SNMP"]["EnableSNMPv1"] = !enableSNMPv1;
+        });
+
+    sdbusplus::asio::getProperty<bool>(
+        *crow::connections::systemBus, "xyz.openbmc_project.Snmp",
+        "/xyz/openbmc_project/Snmp", "xyz.openbmc_project.Snmp.SnmpConf",
+        "disableSNMPv2c",
+        [asyncResp](const boost::system::error_code& ec, bool enableSNMPv2c) {
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR("D-BUS response error on SnmpTrapStatus Get{}",
+                             ec);
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        asyncResp->res.jsonValue["SNMP"]["EnableSNMPv2c"] = !enableSNMPv2c;
+        });
+
+    sdbusplus::asio::getProperty<bool>(
+        *crow::connections::systemBus, "xyz.openbmc_project.Snmp",
+        "/xyz/openbmc_project/Snmp", "xyz.openbmc_project.Snmp.SnmpConf",
+        "disableSNMPv3",
+        [asyncResp](const boost::system::error_code& ec, bool enableSNMPv3) {
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR("D-BUS response error on SnmpTrapStatus Get{}",
+                             ec);
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        asyncResp->res.jsonValue["SNMP"]["EnableSNMPv3"] = !enableSNMPv3;
+        });
+}
+
 inline void getNetworkData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                            const crow::Request& req)
 {
@@ -265,6 +314,7 @@ inline void getNetworkData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
     getNTPProtocolEnabled(asyncResp);
     getSNMPProtocolEnabled(asyncResp);
+    getSNMPVersionEnabled(asyncResp);
 
     getEthernetIfaceData([hostName, asyncResp](
                              const bool& success,
@@ -848,6 +898,9 @@ inline void handleManagersNetworkProtocolPatch(
     }
     if (snmp)
     {
+        std::optional<bool> enableSNMPv1;
+        std::optional<bool> enableSNMPv2c;
+        std::optional<bool> enableSNMPv3;
         std::optional<bool> snmpEnabled;
         std::size_t snmp_size = snmp.value().size();
         if (snmp_size == 0)
@@ -855,11 +908,64 @@ inline void handleManagersNetworkProtocolPatch(
             messages::propertyValueTypeError(asyncResp->res, snmp.value(),
                                              "SNMP");
         }
+
         if (!json_util::readJson(*snmp, asyncResp->res, "ProtocolEnabled",
-                                 snmpEnabled))
+                                 snmpEnabled, "EnableSNMPv1", enableSNMPv1,
+                                 "EnableSNMPv2c", enableSNMPv2c, "EnableSNMPv3",
+                                 enableSNMPv3))
         {
             return;
         }
+
+        if (enableSNMPv1)
+        {
+            sdbusplus::asio::setProperty(
+                *crow::connections::systemBus, "xyz.openbmc_project.Snmp",
+                "/xyz/openbmc_project/Snmp",
+                "xyz.openbmc_project.Snmp.SnmpConf", "disableSNMPv1",
+                !(*enableSNMPv1),
+                [asyncResp](const boost::system::error_code& ec) {
+                if (ec)
+                {
+                    BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+                });
+        }
+        if (enableSNMPv2c)
+        {
+            sdbusplus::asio::setProperty(
+                *crow::connections::systemBus, "xyz.openbmc_project.Snmp",
+                "/xyz/openbmc_project/Snmp",
+                "xyz.openbmc_project.Snmp.SnmpConf", "disableSNMPv2c",
+                !(*enableSNMPv2c),
+                [asyncResp](const boost::system::error_code& ec) {
+                if (ec)
+                {
+                    BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+                });
+        }
+        if (enableSNMPv3)
+        {
+            sdbusplus::asio::setProperty(
+                *crow::connections::systemBus, "xyz.openbmc_project.Snmp",
+                "/xyz/openbmc_project/Snmp",
+                "xyz.openbmc_project.Snmp.SnmpConf", "disableSNMPv3",
+                !(*enableSNMPv3),
+                [asyncResp](const boost::system::error_code& ec) {
+                if (ec)
+                {
+                    BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+                });
+        }
+
         if (snmpEnabled)
         {
             sdbusplus::asio::setProperty(
