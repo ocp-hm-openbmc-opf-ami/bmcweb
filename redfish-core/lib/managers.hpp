@@ -275,7 +275,7 @@ inline void setTimer(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         "xyz.openbmc_project.State.BMC", "TimeOut",
         dbus::utility::DbusVariantType(timeOut));
 }
-#if (BMCWEB_AST2600_EVB_MACRO)
+#if (BMCWEB_AST2600_EVB_MACRO) || (BMCWEB_ARBEL_NUVOTON_MACRO)
 inline void writeRestoreOptions(const std::string& resetType)
 {
     constexpr const char* restoreOpFname = "/tmp/.rwfs/.restore_op";
@@ -571,7 +571,7 @@ inline void requestRoutesManagerResetToDefaultsAction(App& app)
                 messages::internalError(asyncResp->res);
                 return;
             }
-             #if (BMCWEB_AST2600_EVB_MACRO)
+             #if (BMCWEB_AST2600_EVB_MACRO) || (BMCWEB_ARBEL_NUVOTON_MACRO)
              writeRestoreOptions(*resetType);
              #else
              writeRestoreOptions(asyncResp, *resetType);

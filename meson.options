@@ -85,6 +85,13 @@ option(
 )
 
 option(
+    'arbel-nuvoton',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable the ARBEL_NUVOTON Build.'
+)
+
+option(
     'ami-acd',
     type: 'feature',
     value: 'disabled',

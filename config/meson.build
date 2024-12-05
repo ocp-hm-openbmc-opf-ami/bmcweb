@@ -47,7 +47,8 @@ feature_options = [
     'ami-pciesw',
     'ast2600-evb',
     'ami-acd',
-    'ami-asd'
+    'ami-asd',
+    'arbel-nuvoton'
 ]
 
 string_options = [
@@ -92,6 +93,8 @@ foreach option_key : feature_options + string_options + int_options
             'ami-acd',
         ) or option_key.contains(
             'ami-asd',
+        ) or option_key.contains(
+            'arbel-nuvoton',
         )
             feature_options_string += '#define ' + option_macro_config + '  ' + opt.allowed().to_string() + '\n'
         endif
