@@ -19,7 +19,6 @@
 #include "query.hpp"
 #include "registries.hpp"
 #include "registries/base_message_registry.hpp"
-#include "registries/bios_registry.hpp"
 #include "registries/nm_message_registry.hpp"
 #include "registries/openbmc_message_registry.hpp"
 #include "registries/privilege_registry.hpp"
@@ -53,18 +52,17 @@ inline void handleMessageRegistryFileCollectionGet(
     asyncResp->res.jsonValue["Name"] = "MessageRegistryFile Collection";
     asyncResp->res.jsonValue["Description"] =
         "Collection of MessageRegistryFiles";
-    asyncResp->res.jsonValue["Members@odata.count"] = 8;
 
     nlohmann::json& members = asyncResp->res.jsonValue["Members"];
     for (const char* memberName :
-         std::to_array({"Base", "TaskEvent", "NodeManager", "ResourceEvent",
-                        "BiosAttributeRegistry", "OpenBMC", "Telemetry", "PrivilegeRegistry"}))
+         std::to_array({"Base", "TaskEvent", "NodeManager", "ResourceEvent", "OpenBMC", "Telemetry", "PrivilegeRegistry"}))
     {
         nlohmann::json::object_t member;
         member["@odata.id"] = boost::urls::format("/redfish/v1/Registries/{}",
                                                   memberName);
         members.emplace_back(std::move(member));
     }
+    asyncResp->res.jsonValue["Members@odata.count"] = (asyncResp->res.jsonValue["Members"]).size();
 }
 
 inline void requestRoutesMessageRegistryFileCollection(App& app)
@@ -165,7 +163,6 @@ inline void handleMessageRoutesMessageRegistryFileGet(
     }
     const registries::Header* header = nullptr;
     std::string dmtf = "DMTF ";
-    const char* url = nullptr;
     std::vector<const registries::MessageEntry*> registryEntries;
     int registryVal = 0;
 
@@ -179,7 +176,6 @@ inline void handleMessageRoutesMessageRegistryFileGet(
     if (registry == "Base" || registryName == "Base")
     {
         header = &registries::base::header;
-        url = registries::base::url;
         Val= header->id;
         if(registry == "Base"){
                 registryVal = 0;
@@ -192,11 +188,16 @@ inline void handleMessageRoutesMessageRegistryFileGet(
                 }
                 registryVal = 1;
         }
+        else
+        {
+            messages::resourceNotFound(asyncResp->res, "MessageRegistryFile",
+                                    registry);
+            return;
+        }
     }
     else if (registry == "TaskEvent" || registryName == "TaskEvent")
     {
         header = &registries::task_event::header;
-        url = registries::task_event::url;
         Val= header->id;
         if(registry == "TaskEvent"){
                 registryVal = 0;
@@ -208,6 +209,12 @@ inline void handleMessageRoutesMessageRegistryFileGet(
                         registryEntries.emplace_back(&entry);
                 }
                 registryVal = 1;
+        }
+        else
+        {
+            messages::resourceNotFound(asyncResp->res, "MessageRegistryFile",
+                                    registry);
+            return;
         }
     }
     else if (registry == "OpenBMC" || registryName == "OpenBMC")
@@ -226,6 +233,12 @@ inline void handleMessageRoutesMessageRegistryFileGet(
                 }
                 registryVal = 1;
         }
+        else
+        {
+            messages::resourceNotFound(asyncResp->res, "MessageRegistryFile",
+                                    registry);
+            return;
+        }
     }
     else if (registry == "NodeManager" || registryName == "NodeManager")
     {
@@ -243,11 +256,16 @@ inline void handleMessageRoutesMessageRegistryFileGet(
                 }
                 registryVal = 1;
         }
+        else
+        {
+            messages::resourceNotFound(asyncResp->res, "MessageRegistryFile",
+                                    registry);
+            return;
+        }
     }
     else if (registry == "ResourceEvent" || registryName == "ResourceEvent")
     {
         header = &registries::resource_event::header;
-        url = registries::resource_event::url;
         Val= header->id;
         if(registry == "ResourceEvent"){
                 registryVal = 0;
@@ -260,28 +278,16 @@ inline void handleMessageRoutesMessageRegistryFileGet(
                 }
                 registryVal = 1;
         }
-    }
-    else if (registry == "BiosAttributeRegistry" || registryName == "BiosAttributeRegistry")
-    {
-        header = &registries::bios::header;
-        url = registries::bios::url;
-        Val= header->id;
-        if(registry == "BiosAttributeRegistry"){
-                registryVal = 0;
-        }
-        else if (registry == Val + ".json")
+        else
         {
-                for (const registries::MessageEntry& entry : registries::bios::registry)
-                {
-                        registryEntries.emplace_back(&entry);
-                }
-                registryVal = 1;
+            messages::resourceNotFound(asyncResp->res, "MessageRegistryFile",
+                                    registry);
+            return;
         }
     }
     else if (registry == "Telemetry" || registryName == "Telemetry")
     {
         header = &registries::telemetry::header;
-        url = registries::telemetry::url;
          Val= header->id;
         if(registry == "Telemetry"){
                 registryVal = 0;
@@ -294,11 +300,16 @@ inline void handleMessageRoutesMessageRegistryFileGet(
                 }
                 registryVal = 1;
         }
+        else
+        {
+            messages::resourceNotFound(asyncResp->res, "MessageRegistryFile",
+                                    registry);
+            return;
+        }
     }
-    else if (registry == "PrivilegeRegistry" || registry.find("PrivilegeRegistry"))
+    else if (registry == "PrivilegeRegistry" || registry.find("PrivilegeRegistry") != std::string::npos)
     {
         header = &registries::PrivilegeRegistry::header;
-        url = registries::PrivilegeRegistry::url;
         Val= header->id;
         if(registry == "PrivilegeRegistry"){
                 registryVal = 0;
@@ -309,6 +320,12 @@ inline void handleMessageRoutesMessageRegistryFileGet(
            fillPrivilegeRegistry(asyncResp ,header);
            return;
 
+        }
+        else
+        {
+            messages::resourceNotFound(asyncResp->res, "MessageRegistryFile",
+                                    registry);
+            return;
         }
     }
     else
@@ -337,10 +354,6 @@ inline void handleMessageRoutesMessageRegistryFileGet(
         location["Language"] = header->language;
     location["Uri"] = "/redfish/v1/Registries/" + Val + ".json";
 
-        if (url != nullptr)
-        {
-            location["PublicationUri"] = url;
-        }
         locationMembers.emplace_back(std::move(location));
         asyncResp->res.jsonValue["Location@odata.count"] = locationMembers.size();
         asyncResp->res.jsonValue["Location"] = std::move(locationMembers);
