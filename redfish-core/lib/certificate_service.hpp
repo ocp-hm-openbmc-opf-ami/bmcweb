@@ -37,6 +37,10 @@ constexpr const char* ldapServiceName =
     "xyz.openbmc_project.Certs.Manager.Client.Ldap";
 constexpr const char* authorityServiceName =
     "xyz.openbmc_project.Certs.Manager.Authority.Truststore";
+#if BMCWEB_AMI_ASD_MACRO
+constexpr const char* ASDServiceName = "xyz.openbmc_project.Certs.Manager.Server.Asd";
+constexpr const char* ASDobjectPath = "/xyz/openbmc_project/certs/server/asd";
+#endif
 constexpr const char* baseObjectPath = "/xyz/openbmc_project/certs";
 constexpr const char* httpsObjectPath =
     "/xyz/openbmc_project/certs/server/https";
@@ -555,7 +559,7 @@ inline void handleReplaceCertificateAction(
     }
     std::string certificate;
     std::string certURI;
-    std::optional<std::string> certificateType = "PEM";
+    std::optional<std::string> certificateType;
 
     if (!json_util::readJsonAction(req, asyncResp->res, "CertificateString",
                                    certificate, "CertificateUri/@odata.id",
@@ -567,23 +571,8 @@ inline void handleReplaceCertificateAction(
 
     if (!certificateType)
     {
-        // should never happen, but it never hurts to be paranoid.
-        return;
-    }
-
-
-    if (certificateType == "PEM")
-    {
-        certificateType = "xyz.openbmc_project.Certs.Certificate.Type.PEM";
-    }
-    else if (certificateType == "PEMchain")
-    {
-        certificateType = "xyz.openbmc_project.Certs.Certificate.Type.PEMchain";
-    }
-    else
-    {
-        messages::actionParameterNotSupported(asyncResp->res, "CertificateType",
-                                              "ReplaceCertificate");
+        messages::actionParameterMissing(asyncResp->res, "ReplaceCertificate",
+                                         "CertificateType");
         return;
     }
 
@@ -629,10 +618,43 @@ inline void handleReplaceCertificateAction(
         name = "TrustStore certificate";
         service = certs::authorityServiceName;
     }
+#if BMCWEB_AMI_ASD_MACRO
+    else if (crow::utility::readUrlSegments(*parsedUrl, "redfish", "v1",
+                                            "Managers", "bmc", "Certificates", std::ref(id)))
+    {
+        objectPath =
+            sdbusplus::message::object_path(certs::ASDobjectPath) / id;
+        name = "ASD certificate";
+        service = certs::ASDServiceName;
+    }
+#endif
     else
     {
         messages::actionParameterNotSupported(asyncResp->res, "CertificateUri",
                                               "ReplaceCertificate");
+        return;
+    }
+
+    if (certificateType == "PEM" )
+    {
+        certificateType = "xyz.openbmc_project.Certs.Certificate.Type.PEM";
+    }
+    else if (certificateType == "PEMchain")
+    {
+        // PEMchin only supports HTTPS certificates.
+        if (name != "HTTPS certificate")
+        {
+            messages::actionParameterNotSupported(asyncResp->res, "CertificateType",
+                                            "ReplaceCertificate");
+            return;
+        }
+
+        certificateType = "xyz.openbmc_project.Certs.Certificate.Type.PEMchain";
+    }
+    else
+    {
+        messages::actionParameterNotSupported(asyncResp->res, "CertificateType",
+                                            "ReplaceCertificate");
         return;
     }
 
@@ -989,6 +1011,50 @@ inline void
         *optUnstructuredName);
 }
 
+inline void handleCertificateReplaceCertificateActionInfo(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    asyncResp->res.jsonValue["@odata.id"] =
+        "/redfish/v1/CertificateService/CertificateService.ReplaceCertificateActionInfo";
+    asyncResp->res.jsonValue["@odata.type"] =
+        "#ActionInfo.v1_1_2.ActionInfo";
+    asyncResp->res.jsonValue["Name"] = "CertificateService.ReplaceCertificate";
+    asyncResp->res.jsonValue["Id"] = "CertificateService.ReplaceCertificate";
+    asyncResp->res.jsonValue["Description"] =
+        "This action shall replace a certificate. The Location header in the response shall contain the URI of the new Certificate Resource.";
+
+    nlohmann::json::object_t CertificateStringParameter;
+    CertificateStringParameter["Name"] = "CertificateString";
+    CertificateStringParameter["Required"] = true;
+    CertificateStringParameter["DataType"] = "String";
+
+    nlohmann::json::object_t CertificateType;
+    CertificateType["Name"] = "CertificateType";
+    CertificateType["Required"] = true;
+    CertificateType["DataType"] = "String";
+    nlohmann::json::array_t CertificateTypeAllowableValues;
+    CertificateTypeAllowableValues.push_back("PEM");
+    CertificateTypeAllowableValues.push_back("PEMchain");
+    CertificateType["AllowableValues"] = std::move(CertificateTypeAllowableValues);
+
+    nlohmann::json::object_t CertificateUriParameter;
+    CertificateUriParameter["Name"] = "CertificateUri";
+    CertificateUriParameter["Required"] = true;
+    CertificateUriParameter["DataType"] = "Object";
+    CertificateUriParameter["ObjectDataType"] = "String";
+
+    nlohmann::json::array_t parameters;
+    parameters.push_back(std::move(CertificateStringParameter));
+    parameters.push_back(std::move(CertificateType));
+    parameters.push_back(std::move(CertificateUriParameter));
+    asyncResp->res.jsonValue["Parameters"] = std::move(parameters);
+}
+
 inline void requestRoutesCertificateService(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/CertificateService/")
@@ -1000,6 +1066,13 @@ inline void requestRoutesCertificateService(App& app)
         .privileges(redfish::privileges::getCertificateLocations)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleCertificateLocationsGet, std::ref(app)));
+
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/CertificateService/CertificateService.ReplaceCertificateActionInfo/")
+        .privileges(redfish::privileges::getActionInfo)
+        .methods(boost::beast::http::verb::get)(
+            std::bind_front(handleCertificateReplaceCertificateActionInfo, std::ref(app)));
 
     BMCWEB_ROUTE(
         app,
