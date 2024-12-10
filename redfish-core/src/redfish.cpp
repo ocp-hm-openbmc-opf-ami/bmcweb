@@ -145,6 +145,7 @@ RedfishService::RedfishService(App& app)
     }
     requestRoutesManagerCollection(app);
     requestRoutesManager(app);
+    requestRoutesManagerSerialInterface(app);
     requestRoutesManagerResetAction(app);
     requestRoutesManagerResetActionInfo(app);
     requestRoutesManagerResetToDefaultsAction(app);
