@@ -1152,7 +1152,7 @@ nlohmann::json propertyNotWritable(std::string_view arg1)
 void propertyNotWritable(crow::Response& res, std::string_view arg1)
 {
     res.result(boost::beast::http::status::bad_request);
-    addMessageToJson(res.jsonValue, propertyNotWritable(arg1), arg1);
+    addMessageToErrorJson(res.jsonValue, propertyNotWritable(arg1));
 }
 
 /**
