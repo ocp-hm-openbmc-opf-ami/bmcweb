@@ -379,6 +379,7 @@ inline void requestRoutesPefService(App& app)
         {
             setPefConfParam(aResp, pefActionGblControl);
         }
+	messages::success(aResp->res);
     });
 
     BMCWEB_ROUTE(app, "/redfish/v1/PefService/<str>")
@@ -476,6 +477,7 @@ inline void requestRoutesPefService(App& app)
                     asyncResp->res, "EventSeverity", *eventSeverity);
             }
         }
+	messages::success(asyncResp->res);
     });
 
     BMCWEB_ROUTE(app,
