@@ -6,6 +6,8 @@
 // clang-format off
 // NOLINTBEGIN(readability-identifier-naming)
 
+constexpr const char *redfishAggregationPrefix = @REDFISH_AGGREGATION_PREFIX@;
+
 @BMCWEB_OPTIONS@
 
 // NOLINTEND(readability-identifier-naming)

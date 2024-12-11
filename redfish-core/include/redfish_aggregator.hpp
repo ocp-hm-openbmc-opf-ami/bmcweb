@@ -225,7 +225,12 @@ static inline void addPrefixToStringItem(std::string& strValue,
                                url.buffer()))
         {
             std::string collectionItem(prefix);
-            collectionItem += "_" + (*it);
+	    if ( ! collectionItem.starts_with("")) {
+	         collectionItem += "_" + (*it);
+	    } else {
+    	         collectionItem += (*it);
+	    }
+
             url.segments().push_back(collectionItem);
             it++;
             addedPrefix = true;
@@ -430,7 +435,9 @@ class RedfishAggregator
 
                     // For now assume there will only be one satellite config.
                     // Assign it the name/prefix "5B247A"
-                    addSatelliteConfig("5B247A", interface.second,
+                    //addSatelliteConfig("5B247A", interface.second,
+                    
+		    addSatelliteConfig(redfishAggregationPrefix, interface.second,
                                        satelliteInfo);
                 }
             }
@@ -590,7 +597,10 @@ class RedfishAggregator
         for (const auto& satellite : satelliteInfo)
         {
             std::string targetPrefix = satellite.first;
-            targetPrefix += "_";
+            if (!targetPrefix.starts_with("")) {
+	    	targetPrefix += "_";
+	    }
+
             if (memberName.starts_with(targetPrefix))
             {
                 BMCWEB_LOG_DEBUG("\"{}\" is a known prefix", satellite.first);
@@ -719,16 +729,19 @@ class RedfishAggregator
         // We need to strip the prefix from the request's path
         boost::urls::url targetURI(thisReq.target());
         std::string path = thisReq.url().path();
-        size_t pos = path.find(prefix + "_");
-        if (pos == std::string::npos)
-        {
-            // If this fails then something went wrong
-            BMCWEB_LOG_ERROR("Error removing prefix \"{}_\" from request URI",
+       
+       	if ( ! path.starts_with("") ) {
+      		size_t pos = path.find(prefix + "_");
+        	if (pos == std::string::npos)
+        	{
+            		// If this fails then something went wrong
+            		BMCWEB_LOG_ERROR("Error removing prefix \"{}_\" from request URI",
                              prefix);
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        path.erase(pos, prefix.size() + 1);
+            		messages::internalError(asyncResp->res);
+            		return;
+        	}
+        	path.erase(pos, prefix.size() + 1); 
+	}
 
         std::function<void(crow::Response&)> cb =
             std::bind_front(processResponse, prefix, asyncResp);
@@ -1219,6 +1232,7 @@ class RedfishAggregator
         // /redfish/v1/UpdateService/FirmwareInventory
         const boost::urls::segments_view urlSegments = url.segments();
         boost::urls::url currentUrl("/");
+	const std::string prefix(redfishAggregationPrefix);
         boost::urls::segments_view::const_iterator it = urlSegments.begin();
         boost::urls::segments_view::const_iterator end = urlSegments.end();
 
@@ -1237,7 +1251,9 @@ class RedfishAggregator
                 // satellites due to
                 // /redfish/v1/AggregationService/AggregationSources/5B247A
                 // being a local resource describing the satellite
-                if (collectionItem.starts_with("5B247A_"))
+                //if (collectionItem.starts_with("5B247A_"))
+                //if (collectionItem.starts_with(prefix))
+                if (collectionItem.starts_with("HGX_"))
                 {
                     BMCWEB_LOG_DEBUG("Need to forward a request");
 

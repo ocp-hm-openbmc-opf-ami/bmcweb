@@ -191,6 +191,20 @@ option(
 )
 
 option(
+    'redfish-aggregation-prefix',
+    type: 'string',
+    value: '',
+    description: 'Prefix for HMC based URIs.',
+)
+ 
+option(
+    'rfa-bmc-host-url',
+    type: 'string',
+    value: 'http:172.31.13.241:8080',
+    description: 'URL to communicate with HMC.',
+)
+
+option(
     'redfish-manager-uri-name',
     type: 'string',
     value: 'bmc',

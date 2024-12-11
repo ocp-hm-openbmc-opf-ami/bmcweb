@@ -116,6 +116,8 @@ string_options_string += 'constexpr std::string_view  BMCWEB_LOGGING_LEVEL' + ' 
 opt = get_option('vm-nbdproxy')
 feature_options_string += 'constexpr const bool        BMCWEB_VM_NBDPROXY = ' + opt.allowed().to_string() + ';\n'
 
+conf_data.set_quoted('REDFISH_AGGREGATION_PREFIX', get_option('redfish-aggregation-prefix'))
+
 conf_data.set(
     'BMCWEB_OPTIONS',
     string_options_string + int_options_string + feature_options_string,
