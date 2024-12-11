@@ -938,9 +938,6 @@ inline void handleSessionServicePatch(
 
         if (*sessionTimeout <= 86400 && *sessionTimeout >= 30)
         {
-            std::chrono::seconds sessionTimeoutInseconds(*sessionTimeout);
-            persistent_data::SessionStore::getInstance().updateSessionTimeout(
-                sessionTimeoutInseconds);
 
             crow::connections::systemBus->async_method_call(
                 [asyncResp,

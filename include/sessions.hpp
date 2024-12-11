@@ -6,6 +6,9 @@
 #include "utils/ip_utils.hpp"
 
 #include <nlohmann/json.hpp>
+#include <sdbusplus/bus.hpp>
+#include <sdbusplus/bus/match.hpp>
+#include <sdbusplus/message.hpp>
 
 #include <algorithm>
 #include <csignal>
@@ -488,6 +491,40 @@ class SessionStore
         }
     }
 
+    void initializeDbus()
+    {
+        auto bus = sdbusplus::bus::new_default();
+        // Create the matcher to listen for property changes on the session
+        // timeout
+        sessionTimeoutMatcher = std::make_unique<sdbusplus::bus::match_t>(
+            bus,
+            "interface='org.freedesktop.DBus.Properties',type='signal',"
+            "member='PropertiesChanged',"
+            "path='/xyz/openbmc_project/control/service/bmcweb'",
+            [this](sdbusplus::message_t& msg) {
+            handleSessionTimeoutPropertyChanged(msg);
+            });
+    }
+
+    // Handle session timeout property change
+    void handleSessionTimeoutPropertyChanged(sdbusplus::message_t& msg)
+    {
+        std::string interfaceName;
+        std::map<std::string, std::variant<bool, uint16_t, uint64_t>>
+            properties;
+
+        msg.read(interfaceName, properties);
+        auto it = properties.find("SessionTimeOut");
+        if (it != properties.end())
+        {
+            auto timeoutValue = std::get_if<uint64_t>(&it->second);
+            if (*timeoutValue > 0)
+            {
+                updateSessionTimeout(std::chrono::seconds(*timeoutValue));
+            }
+        }
+    }
+
     SessionStore(const SessionStore&) = delete;
     SessionStore& operator=(const SessionStore&) = delete;
     SessionStore(SessionStore&&) = delete;
@@ -505,7 +542,12 @@ class SessionStore
     AuthConfigMethods authMethodsConfig;
 
   private:
-    SessionStore() : timeoutInSeconds(1800) {}
+    SessionStore() : timeoutInSeconds(1800)
+    {
+
+        initializeDbus(); // Initialize D-Bus matchers
+    }
+    std::unique_ptr<sdbusplus::bus::match_t> sessionTimeoutMatcher;
 };
 
 } // namespace persistent_data
