@@ -400,8 +400,9 @@ inline void handleRoleMapPatch(
                 if (std::get<nlohmann::json::object_t>(input[i]) ==
                     std::get<nlohmann::json::object_t>(input[j]))
                 {
-                    asyncResp->res.result(
-                        boost::beast::http::status::bad_request);
+		    messages::propertyValueConflict(asyncResp->res,
+                                                        "RemoteRoleMapping",
+                                                        "RemoteGroupRemoteGroup");
                     return; // Indicating a bad request
                 }
             }
