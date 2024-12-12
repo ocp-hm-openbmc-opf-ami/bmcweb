@@ -48,7 +48,8 @@ feature_options = [
     'ast2600-evb',
     'ami-acd',
     'ami-asd',
-    'arbel-nuvoton'
+    'arbel-nuvoton',
+    'ami-redebug'
 ]
 
 string_options = [
@@ -95,6 +96,8 @@ foreach option_key : feature_options + string_options + int_options
             'ami-asd',
         ) or option_key.contains(
             'arbel-nuvoton',
+        ) or option_key.contains(
+            'ami-redebug',
         )
             feature_options_string += '#define ' + option_macro_config + '  ' + opt.allowed().to_string() + '\n'
         endif

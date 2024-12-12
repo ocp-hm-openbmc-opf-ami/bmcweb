@@ -85,6 +85,7 @@
 #include "redfish-core/lib/ext/pciesw/oem_pcie_switch.hpp"
 #endif
 
+
 #if BMCWEB_AMI_ACD_MACRO
     #include "redfish-core/lib/ext/acd/acd_service.hpp"
 #endif
@@ -93,11 +94,16 @@
     #include "redfish-core/lib/ext/asd/asd_service.hpp"
 #endif
 
+#if BMCWEB_AMI_REDEBUG_MACRO
+    #include "redfish-core/lib/ext/redebugserv/redebugserv.hpp"
+#endif
+
 namespace redfish
 {
 
 RedfishService::RedfishService(App& app)
 {
+
     #if BMCWEB_AMI_ACD_MACRO
         redfish::ami::core::resource::requestRoutesACDService(app);
     #endif
@@ -105,6 +111,11 @@ RedfishService::RedfishService(App& app)
     #if BMCWEB_AMI_ASD_MACRO
         redfish::ami::core::resource::requestRoutesASDService(app);
     #endif
+
+    #if BMCWEB_AMI_REDEBUG_MACRO
+        redfish::ami::core::resource::requestRoutesReDebugService(app);
+    #endif
+
     requestRoutesMetadata(app);
     requestRoutesOdata(app);
 

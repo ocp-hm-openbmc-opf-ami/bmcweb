@@ -106,6 +106,14 @@ option(
 )
 
 option(
+    'ami-redebug',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable the AMI redebug.'
+)
+
+
+option(
     'rest',
     type: 'feature',
     value: 'disabled',
