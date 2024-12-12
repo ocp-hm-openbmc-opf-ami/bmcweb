@@ -779,7 +779,6 @@ inline void doMountVmLegacy(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string objectPath = "/xyz/openbmc_project/VirtualMedia/Legacy/" +
                                    name;
     const std::string action = "VirtualMedia.InsertMedia";
-    powerSaveMode(POWER_SAVE_MODE_DISABLE);
     auto wrapper = doListenForCompletion(name, objectPath, action, true,
                                          asyncResp);
 
@@ -1061,7 +1060,6 @@ inline void doEjectAction(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         }
     },
         service, objectPath, ifaceName, "Unmount");
-    powerSaveMode(POWER_SAVE_MODE_ENABLE);
 }
 
 inline void handleManagersVirtualMediaActionInsertPost(
