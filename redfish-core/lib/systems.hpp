@@ -720,14 +720,6 @@ inline std::string dbusToRfBootMode(const std::string& dbusMode)
     {
         return "None";
     }
-    if (dbusMode == "xyz.openbmc_project.Control.Boot.Mode.Modes.Diag")
-    {
-        return "Diags";
-    }
-    if (dbusMode == "xyz.openbmc_project.Control.Boot.Mode.Modes.Safe")
-    {
-        return "Safe";
-    }
     if (dbusMode == "xyz.openbmc_project.Control.Boot.Mode.Modes.Setup")
     {
         return "BiosSetup";
@@ -841,14 +833,6 @@ inline int assignBootParameters(const std::string& rfSource,
     else if (rfSource == "Hdd")
     {
         bootSource = "xyz.openbmc_project.Control.Boot.Source.Sources.Disk";
-    }
-    else if (rfSource == "Safe")
-    {
-        bootMode = "xyz.openbmc_project.Control.Boot.Mode.Modes.Safe";
-    }
-    else if (rfSource == "Diags")
-    {
-        bootMode = "xyz.openbmc_project.Control.Boot.Mode.Modes.Diag";
     }
     else if (rfSource == "Cd")
     {
@@ -1068,8 +1052,6 @@ inline void
         allowed.emplace_back("Pxe");
         allowed.emplace_back("Hdd");
         allowed.emplace_back("Cd");
-        allowed.emplace_back("Safe");
-        allowed.emplace_back("Diags");
         allowed.emplace_back("BiosSetup");
         allowed.emplace_back("Usb");
 
