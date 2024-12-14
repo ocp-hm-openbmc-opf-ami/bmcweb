@@ -1962,7 +1962,6 @@ inline void requestRoutesEventDestinationCollection(App& app)
         std::optional<std::string> password;
         std::optional<std::string> algorithm;
         std::optional<std::string> encryption;
-        std::optional<bool> readOnlyPermission;
 
         if (!json_util::readJsonPatch(
                 req, asyncResp->res, "Destination", destUrl, "Context", context,
@@ -1971,8 +1970,9 @@ inline void requestRoutesEventDestinationCollection(App& app)
                 "RegistryPrefixes", regPrefixes, "MessageIds", msgIds, "Id",
                 vId, "DeliveryRetryPolicy", retryPolicy,
                 "MetricReportDefinitions", mrdJsonArray, "ResourceTypes",
-                resTypes, "ReadOnlyPermission", readOnlyPermission, "Password",
-                password, "Algorithm", algorithm, "Encryption", encryption, "VerifyCertificate", verifyCertificate,"Oem", oemObj))
+                resTypes, "Password", password, "SNMP/AuthenticationProtocol",
+                algorithm, "SNMP/EncryptionProtocol", encryption,
+                "VerifyCertificate", verifyCertificate, "Oem", oemObj))
         {
             return;
         }
@@ -2151,6 +2151,7 @@ inline void requestRoutesEventDestinationCollection(App& app)
         std::shared_ptr<Subscription> subValue =
             std::make_shared<Subscription>(*url, app.ioContext());
 
+        bool readOnlyPermission;
         subValue->destinationUrl = *url;
         subValue->owner = req.session->username;
 
@@ -2425,11 +2426,6 @@ inline void requestRoutesEventDestinationCollection(App& app)
            messages::propertyMissing(asyncResp->res, "Encryption");
            return;
         }
-       if (!readOnlyPermission && protocol == "SNMPv3")
-        {
-           messages::propertyMissing(asyncResp->res, "ReadOnlyPermission");
-           return;
-        }
 
         if (protocol != "SNMPv3")
         {
@@ -2437,6 +2433,10 @@ inline void requestRoutesEventDestinationCollection(App& app)
             *algorithm = " ";
             *encryption = " ";
             readOnlyPermission = false;
+        }
+        else
+        {
+            readOnlyPermission = true;
         }
 
         if (protocol == "SNMPv2c" || protocol == "SNMPv3" ||
@@ -2512,8 +2512,8 @@ bool isConfigureManagerOrSelf(const crow::Request& req,
 
 inline bool validAuthProtocol(std::optional<std::string> authProtocol)
 {
-    if (authProtocol == "SHA256" || authProtocol == "SHA384" ||
-        authProtocol == "SHA512")
+    if (authProtocol == "SHA-256" || authProtocol == "SHA-384" ||
+        authProtocol == "SHA-512" || authProtocol == "SHA")
         return true;
     else
         return false;
@@ -2613,20 +2613,13 @@ inline void requestRoutesEventDestination(App& app)
         std::optional<bool> verifyCertificate;
         std::optional<std::vector<nlohmann::json::object_t>> headers;
         std::optional<std::string> authenticationProtocol;
-        std::optional<std::string> protocol;
-        std::optional<std::string> destUrl;
-        std::optional<std::string> password;
-        std::optional<std::string> algorithm;
         std::optional<std::string> encryption;
-        std::optional<bool> readOnlyPermission;
 
         if (!json_util::readJsonPatch(
                 req, asyncResp->res, "Context", context, "DeliveryRetryPolicy",
                 retryPolicy, "HttpHeaders", headers,
                 "SNMP/AuthenticationProtocol", authenticationProtocol,
-                "Protocol", protocol, "Destination", destUrl, "ReadOnlyPermission",
-                readOnlyPermission, "Password", password, "Algorithm",
-                algorithm, "Encryption", encryption,"VerifyCertificate",
+                "SNMP/EncryptionProtocol", encryption, "VerifyCertificate",
                 verifyCertificate))
         {
             return;
@@ -2680,76 +2673,11 @@ inline void requestRoutesEventDestination(App& app)
             subValue->verifyCertificate = *verifyCertificate;
         }
 
-        if (protocol)
-        {
-            if ((protocol != "Redfish") && (protocol != "SNMPv2c") &&
-                (protocol != "SNMPv3") && (protocol != "SNMPv1"))
-            {
-                messages::propertyValueNotInList(asyncResp->res, *protocol,
-                                                 "Protocol");
-                return;
-            }
-
-            if (protocol == "Redfish")
-            {
-                subValue->protocol = *protocol;
-            }
-            else if (protocol == "SNMPv1" || protocol == "SNMPv2c" ||
-                     protocol == "snmpv3")
-            {
-                if (protocol == "SNMPv3" && !destUrl)
-                {
-                    BMCWEB_LOG_DEBUG("Missing UserName in Destination");
-                    messages::propertyMissing(asyncResp->res, "Destination");
-                    return;
-                }
-                handleSetProptocol(asyncResp, param, protocol);
-                subValue->protocol = *protocol;
-            }
-        }
-        if (destUrl)
-        {
-            boost::system::result<boost::urls::url> url =
-                boost::urls::parse_absolute_uri(*destUrl);
-            if (!url)
-            {
-                BMCWEB_LOG_WARNING(
-                    "Failed to validate and split destination url");
-                messages::propertyValueFormatError(asyncResp->res, *destUrl,
-                                                   "Destination");
-                return;
-            }
-
-            url->normalize();
-            crow::utility::setProtocolDefaults(*url, subValue->protocol);
-            crow::utility::setPortDefaults(*url);
-            if ((protocol == "SNMPv3" || subValue->protocol == "SNMPv3") &&
-                url->has_userinfo() == false)
-            {
-                BMCWEB_LOG_DEBUG("Missing UserName in Destination");
-                messages::propertyValueFormatError(asyncResp->res, *destUrl,
-                                                   "Destination");
-                return;
-            }
-
-            if (protocol == "Redfish")
-            {
-                subValue->destinationUrl = *url;
-            }
-            else
-            {
-                handleDestUriPatch(asyncResp, param, url->host_address(),
-                                   url->user());
-                subValue->destinationUrl = *url;
-            }
-        }
-
         if (authenticationProtocol)
         {
             if (validAuthProtocol(authenticationProtocol))
             {
                 setSnmpTrapClient(asyncResp, param, authenticationProtocol);
-                return;
             }
             else
             {
@@ -2777,65 +2705,6 @@ inline void requestRoutesEventDestination(App& app)
               {
                   BMCWEB_LOG_DEBUG(
                       "Error occurred in Encryption");
-                  messages::internalError(asyncResp->res);
-                  return;
-              }
-            });
-        }
-
-        if (algorithm)
-        {
-            if (*algorithm != "SHA" && *algorithm != "SHA-256" && *algorithm != "SHA-512" && *algorithm != "SHA-384")
-            {
-                messages::propertyValueNotInList(asyncResp->res, *algorithm, "Algorithm");
-                return;
-            }
-            sdbusplus::asio::setProperty(
-              *crow::connections::systemBus, "xyz.openbmc_project.Network.SNMP",
-              static_cast<std::string>(snmpPath),
-              "xyz.openbmc_project.Network.Client", "Algorithm",
-              *algorithm,
-              [asyncResp](const boost::system::error_code& ec) {
-              if (ec)
-              {
-                  BMCWEB_LOG_DEBUG(
-                      "Error occurred in updating the Algorithm");
-                  messages::internalError(asyncResp->res);
-                  return;
-              }
-            });
-        }
-
-        if (readOnlyPermission)
-        {
-            sdbusplus::asio::setProperty(
-              *crow::connections::systemBus, "xyz.openbmc_project.Network.SNMP",
-              static_cast<std::string>(snmpPath),
-              "xyz.openbmc_project.Network.Client", "Readonlypermission",
-              *readOnlyPermission,
-              [asyncResp](const boost::system::error_code& ec) {
-              if (ec)
-              {
-                  BMCWEB_LOG_DEBUG(
-                      "Error occurred in updating the ReadOnlyPermission");
-                  messages::internalError(asyncResp->res);
-                  return;
-              }
-            });
-        }
-
-        if (password)
-        {
-            sdbusplus::asio::setProperty(
-              *crow::connections::systemBus, "xyz.openbmc_project.Network.SNMP",
-              static_cast<std::string>(snmpPath),
-              "xyz.openbmc_project.Network.Client", "Password",
-              *password,
-              [asyncResp](const boost::system::error_code& ec) {
-              if (ec)
-              {
-                  BMCWEB_LOG_DEBUG(
-                      "Error occurred in updating the Password");
                   messages::internalError(asyncResp->res);
                   return;
               }

@@ -51,15 +51,13 @@ inline void afterGetSnmpTrapClientdata(
     std::string version;
     std::string algorithm;
     uint16_t port = 0;
-    std::string password;
     std::string encryption;
-    bool readOnlyPermission;
     std::string user;
 
     bool success = sdbusplus::unpackPropertiesNoThrow(
         dbus_utils::UnpackErrorPrinter(), propertiesList, "Address", address,
         "Port", port, "Version", version, "Algorithm", algorithm, "Encryption",
-        encryption, "Readonlypermission", readOnlyPermission, "User", user);
+        encryption, "User", user);
 
     if (!success)
     {
@@ -70,18 +68,18 @@ inline void afterGetSnmpTrapClientdata(
     if (version == "v3" && !algorithm.empty())
     {
         asyncResp->res.jsonValue["SNMP"]["AuthenticationProtocol"] = algorithm;
+        asyncResp->res.jsonValue["SNMP"]["EncryptionProtocol"] = encryption;
+        asyncResp->res.jsonValue["Destination"] =
+            "snmp://" + user + "@" + address;
     }
-    else if (version == "v3" && algorithm.empty())
+    else 
     {
-        asyncResp->res.jsonValue["SNMP"]["AuthenticationProtocol"] = "None";
+        asyncResp->res.jsonValue["SNMP"]["AuthenticationProtocol"] = nullptr;
+        asyncResp->res.jsonValue["SNMP"]["EncryptionProtocol"] = nullptr;
+        asyncResp->res.jsonValue["Destination"] =
+            "snmp://" + address;
     }
     asyncResp->res.jsonValue["Protocol"] = "SNMP" + version;
-    asyncResp->res.jsonValue["Destination"] =
-        "snmp://" + address + ":" + std::to_string(port);
-    asyncResp->res.jsonValue["Readonlypermission"] = readOnlyPermission;
-    asyncResp->res.jsonValue["Encryption"] =  encryption;
-    asyncResp->res.jsonValue["Password"] = nullptr;
-    asyncResp->res.jsonValue["User"] = user;
 }
 
 inline void
@@ -199,7 +197,6 @@ inline void
             messages::internalError(asyncResp->res);
             return;
         }
-        messages::success(asyncResp->res);
         });
 }
 
@@ -218,83 +215,6 @@ inline void
             return;
         }
         });
-}
-
-inline void
-    handleSetProptocol(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                       const std::string& id,
-                       std::optional<std::string>& protocol)
-{
-    std::string_view snmpTrapId = id;
-    snmpTrapId.remove_prefix(4);
-
-    sdbusplus::message::object_path snmpPath =
-        sdbusplus::message::object_path(
-            "/xyz/openbmc_project/network/snmp/manager") /
-        std::string(snmpTrapId);
-    std::string snmpProp = *protocol;
-    if (protocol.has_value())
-    {
-        sdbusplus::asio::setProperty(
-            *crow::connections::systemBus, "xyz.openbmc_project.Network.SNMP",
-            static_cast<std::string>(snmpPath),
-            "xyz.openbmc_project.Network.Client", "Version",
-            getProtocol(snmpProp),
-            [asyncResp, &protocol](const boost::system::error_code& ec) {
-            if (ec)
-            {
-                BMCWEB_LOG_DEBUG("Error occurred in updating the Protocol");
-                messages::internalError(asyncResp->res);
-                return;
-            }
-            });
-    }
-}
-
-inline void
-    handleDestUriPatch(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                       const std::string& id, const std::string& destUri,
-                       const std::string& username)
-
-{
-    std::string_view snmpTrapId = id;
-    snmpTrapId.remove_prefix(4);
-
-    sdbusplus::message::object_path snmpPath =
-        sdbusplus::message::object_path(
-            "/xyz/openbmc_project/network/snmp/manager") /
-        std::string(snmpTrapId);
-    if (!destUri.empty())
-    {
-        sdbusplus::asio::setProperty(
-            *crow::connections::systemBus, "xyz.openbmc_project.Network.SNMP",
-            static_cast<std::string>(snmpPath),
-            "xyz.openbmc_project.Network.Client", "Address", destUri,
-            [asyncResp](const boost::system::error_code& ec) {
-            if (ec)
-            {
-                BMCWEB_LOG_DEBUG(
-                    "Error occurred in updating Destination address");
-                messages::internalError(asyncResp->res);
-                return;
-            }
-            });
-    }
-    if (!username.empty())
-    {
-        sdbusplus::asio::setProperty(
-            *crow::connections::systemBus, "xyz.openbmc_project.Network.SNMP",
-            static_cast<std::string>(snmpPath),
-            "xyz.openbmc_project.Network.Client", "User", username,
-            [asyncResp](const boost::system::error_code& ec) {
-            if (ec)
-            {
-                BMCWEB_LOG_DEBUG("Error occurred in updating the User");
-                messages::internalError(asyncResp->res);
-                return;
-            }
-            });
-    }
 }
 
 inline void afterSnmpClientCreate(
