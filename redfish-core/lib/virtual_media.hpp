@@ -51,6 +51,12 @@ enum class VmMode
 
 static constexpr const char* legacyMode = "Legacy";
 static constexpr const char* proxyMode = "Proxy";
+static constexpr const char* rmediaServiceName =
+    "xyz.openbmc_project.VirtualMedia";
+static constexpr const char* rmediaInterfaceName =
+    "xyz.openbmc_project.VirtualMedia.Reconnect";
+static constexpr const char* rmediaObjPath =
+    "/xyz/openbmc_project/VirtualMedia";
 
 inline bool validateImageUrl(const std::string& url)
 {
@@ -315,6 +321,27 @@ inline std::string getTransferProtocolTypeFromUri(const std::string& imageUri)
     return "None";
 }
 
+inline void getRmediareconnectValues(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+
+    crow::connections::systemBus->async_method_call(
+        [asyncResp](const boost::system::error_code& ec,
+                    const std::tuple<uint32_t, uint32_t>& result) {
+        if (ec)
+        {
+            BMCWEB_LOG_DEBUG("DBUS response error");
+            return;
+        }
+        asyncResp->res.jsonValue["Oem"]["OpenBMC"]["RetryCount"] =
+            std::get<0>(result);
+
+        asyncResp->res.jsonValue["Oem"]["OpenBMC"]["RetryInterval"] =
+            std::get<1>(result);
+        },
+        rmediaServiceName, rmediaObjPath, rmediaInterfaceName, "GetAll");
+}
+
 /**
  * @brief Read all known properties from VM object interfaces
  */
@@ -497,6 +524,7 @@ inline void
                                 ["target"] = boost::urls::format(
             "/redfish/v1/Managers/{}/VirtualMedia/{}/Actions/VirtualMedia.InsertMedia",
             name, resName);
+	getRmediareconnectValues(asyncResp);
     }
 
     vmParseInterfaceObject(item.second, asyncResp);
@@ -1394,6 +1422,95 @@ inline void handleVirtualMediaValueGet(
     }
 }
 
+inline void
+    handleVirtualmediaPatch(crow::App& app, const crow::Request& req,
+                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                            const std::string& name, const std::string& resName)
+{
+
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    if (name != "bmc")
+    {
+        messages::resourceNotFound(asyncResp->res, "VirtualMedia", name);
+        return;
+    }
+    if (resName.empty())
+    {
+        messages::resourceNotFound(asyncResp->res, "Virtual Media", resName);
+        return;
+    }
+
+    if (resName == "Slot_0" || resName == "Slot_1")
+    {
+        asyncResp->res.result(boost::beast::http::status::method_not_allowed);
+        messages::operationNotAllowed(asyncResp->res);
+        return;
+    }
+
+    std::optional<nlohmann::json> oem;
+    if (!json_util::readJsonPatch(req, asyncResp->res, "Oem", oem))
+    {
+        return;
+    }
+    if (oem)
+    {
+        std::optional<nlohmann::json> openBMC;
+
+        if (!json_util::readJson(*oem, asyncResp->res, "OpenBMC", openBMC))
+        {
+            return;
+        }
+        if (openBMC)
+        {
+            std::optional<uint32_t> retryCount;
+            std::optional<uint32_t> retryInterval;
+	    bool retryFlag = true;
+
+            if (!json_util::readJson(*openBMC, asyncResp->res, "RetryCount",
+                                     retryCount, "RetryInterval",
+                                     retryInterval))
+            {
+                return;
+            }
+            if (retryCount < 3 || retryCount > 6)
+            {
+		retryFlag = false;
+                messages::propertyValueOutOfRange(
+                    asyncResp->res, std::to_string(*retryCount), "RetryCount");
+            }
+            if (retryInterval < 15 || retryInterval > 30)
+            {
+		retryFlag = false;
+                messages::propertyValueOutOfRange(
+                    asyncResp->res, std::to_string(*retryInterval),
+                    "RetryInterval");
+            }
+            if (retryFlag)
+            {
+                crow::connections::systemBus->async_method_call(
+                    [asyncResp](const boost::system::error_code ec,
+                                std::string& ret) {
+                    if (ec)
+                    {
+                        BMCWEB_LOG_ERROR("Error patching {}", ec);
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    if (ret == "Success")
+                    {
+                        messages::success(asyncResp->res);
+                    }
+                    },
+                    rmediaServiceName, rmediaObjPath, rmediaInterfaceName,
+                    "SetAll", *retryCount, *retryInterval);
+            }
+        }
+    }
+}
+
 inline void insertMediaCheckMode(
     [[maybe_unused]] const std::string& service,
     [[maybe_unused]] const std::string& resName,
@@ -1500,6 +1617,11 @@ inline void requestNBDVirtualMediaRoutes(App& app)
         .privileges(redfish::privileges::getVirtualMedia)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleVirtualMediaGet, std::ref(app)));
+
+    BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/VirtualMedia/<str>/")
+        .privileges(redfish::privileges::patchVirtualMedia)
+        .methods(boost::beast::http::verb::patch)(
+            std::bind_front(handleVirtualmediaPatch, std::ref(app)));
 }
 
 } // namespace redfish

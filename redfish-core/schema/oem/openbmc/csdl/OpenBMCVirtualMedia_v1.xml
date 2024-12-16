@@ -33,6 +33,16 @@
             <Annotation Term="OData.Description" String="Indicates endpoint socket name and location."/>
             <Annotation Term="OData.LongDescription" String="The value of this property shall be a structure ring indicating location and name of the socket used to communicate with nbd server."/>
           </Property>
+	        <Property Name="RetryCount" Type="Edm.Decimal">
+            <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+            <Annotation Term="OData.Description" String="Indicates RetryCount for Rmedia Reconnect."/>
+            <Annotation Term="OData.LongDescription" String="The value of the property range should be allowed between 3 to 6."/>
+          </Property>
+          <Property Name="RetryInterval" Type="Edm.Decimal">
+            <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+            <Annotation Term="OData.Description" String="Indicates RetryInterval for Rmedia reconnect."/>
+            <Annotation Term="OData.LongDescription" String="The value of the property range should be allowed between 15 to 30."/>
+          </Property>
         </EntityType>
     </Schema>
   </edmx:DataServices>
