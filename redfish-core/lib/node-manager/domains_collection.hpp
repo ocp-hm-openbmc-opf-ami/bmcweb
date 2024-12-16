@@ -406,7 +406,7 @@ void getDomainObjectPath(const crow::Request& req,
         std::vector<const char*>{kDomainAttributesInterface});
 }
 
-static void getDomain(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+[[maybe_unused]] static void getDomain(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                       const std::string& domainName,
                       const std::string& domainDbusPath)
 {
@@ -465,8 +465,9 @@ static void getDomain(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     };
 }
 
-inline void requestRoutesNodeManagerDomains(App& app)
+inline void requestRoutesNodeManagerDomains([[maybe_unused]] App& app)
 {
+    #if (BMCWEB_AMI_NM_MACRO)
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Domains/")
         .privileges(redfish::privileges::privilegeSetLogin)
         .methods(boost::beast::http::verb::get)(
@@ -587,6 +588,7 @@ inline void requestRoutesNodeManagerDomains(App& app)
             });
         return;
         });
+    #endif    
 }
 
 } // namespace redfish

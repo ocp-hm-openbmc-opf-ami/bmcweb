@@ -45,6 +45,7 @@ feature_options = [
     'ami-raidmscc',
     'ami-raidbrcm',
     'ami-pciesw',
+    'ami-nm',
     'ast2600-evb',
     'ami-acd',
     'ami-asd',
@@ -98,7 +99,9 @@ foreach option_key : feature_options + string_options + int_options
             'arbel-nuvoton',
         ) or option_key.contains(
             'ami-redebug',
-        )
+        ) or option_key.contains(
+            'ami-nm',
+        )    
             feature_options_string += '#define ' + option_macro_config + '  ' + opt.allowed().to_string() + '\n'
         endif
         opt = opt.allowed().to_string()

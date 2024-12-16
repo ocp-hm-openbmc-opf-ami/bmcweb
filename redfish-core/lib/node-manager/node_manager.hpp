@@ -24,8 +24,9 @@
 
 namespace redfish
 {
-inline void requestRoutesNodeManagerService(App& app)
+inline void requestRoutesNodeManagerService([[maybe_unused]] App& app)
 {
+    #if (BMCWEB_AMI_NM_MACRO)
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/")
         .privileges(redfish::privileges::privilegeSetLogin)
         .methods(boost::beast::http::verb::get)(
@@ -188,6 +189,7 @@ inline void requestRoutesNodeManagerService(App& app)
             "xyz.openbmc_project.NodeManager.Status", "DumpToJson");
         return;
         });
+    #endif    
 }
 
 } // namespace redfish

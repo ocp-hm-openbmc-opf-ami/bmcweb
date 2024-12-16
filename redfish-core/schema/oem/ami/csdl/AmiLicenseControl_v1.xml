@@ -51,16 +51,14 @@
 
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AmiLicenseControl.v1_0_0">
       <Annotation Term="Redfish.OwningEntity" String="Ami"/>
+
       <EntityType Name="AmiLicenseControl" BaseType="AmiLicenseControl.AmiLicenseControl">
-        <Property Name="Oem" Type="AmiLicenseControl.v1_0_0.Oem" Nullable="false"></Property>
-      </EntityType>
-      <ComplexType Name="Oem">
-        <Property Name="AlertMessage" Type="Edm.String" Nullable="false">
+       <Property Name="AlertMessage" Type="Edm.String" Nullable="false">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="The property indicates the Alert Message."/>
           <Annotation Term="OData.LongDescription" String="The property indicates the Alert Message."/>
         </Property>
-             <Property Name="GlobalLicenseValidity" Type="Edm.Int64" Nullable="false">
+        <Property Name="GlobalLicenseValidity" Type="Edm.Int64" Nullable="false">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="The property indicates the Global License Validity."/>
           <Annotation Term="OData.LongDescription" String="The property indicates the Global License Validity."/>
@@ -80,7 +78,8 @@
           <Annotation Term="OData.Description" String="The property indicates the Alert day count."/>
           <Annotation Term="OData.LongDescription" String="The property indicates the Alert day count."/>
         </Property>
-      </ComplexType>
+      </EntityType>
     </Schema>
+    
   </edmx:DataServices>
 </edmx:Edmx>

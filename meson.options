@@ -112,6 +112,13 @@ option(
     description: 'Enable the AMI redebug.'
 )
 
+option(
+    'ami-nm',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable the AMI NM.'
+)
+
 
 option(
     'rest',

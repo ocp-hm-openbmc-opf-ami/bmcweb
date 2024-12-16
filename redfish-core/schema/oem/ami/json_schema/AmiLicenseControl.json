@@ -1,5 +1,5 @@
 {
-    "$id": "http://redfish.dmtf.org/schemas/v1/AmiLicenseControl.json",
+    "$id": "http://redfish.dmtf.org/schemas/v1/AmiLicenseControl.v1_0_0.json",
     "$ref": "#/definitions/AmiLicenseControl",
     "$schema": "http://redfish.dmtf.org/schemas/v1/redfish-schema-v1.json",
     "copyright": "Copyright 2014-2019 DMTF. For the full DMTF copyright policy, see http://www.dmtf.org/about/policies/copyright",
@@ -35,6 +35,12 @@
                 "@odata.type": {
                     "$ref": "http://redfish.dmtf.org/schemas/v1/odata-v4.json#/definitions/type"
                 },
+                "AlertMessage": {
+                    "description": "The property indicates the Alert Message.",
+                    "longDescription": "The property indicates the Alert Message.",
+                    "readonly": true,
+                    "type": "string"
+                },
                 "Description": {
                     "anyOf": [
                         {
@@ -46,9 +52,21 @@
                     ],
                     "readonly": true
                 },
+                "GlobalLicenseValidity": {
+                    "description": "The property indicates the Global License Validity.",
+                    "longDescription": "The property indicates the Global License Validity.",
+                    "readonly": true,
+                    "type": "integer"
+                },
                 "Id": {
                     "$ref": "http://redfish.dmtf.org/schemas/v1/Resource.json#/definitions/Id",
                     "readonly": true
+                },
+                "LicenseKey": {
+                    "description": "The property indicates the License Key.",
+                    "longDescription": "The property indicates the License Key.",
+                    "readonly": true,
+                    "type": "string"
                 },
                 "Name": {
                     "$ref": "http://redfish.dmtf.org/schemas/v1/Resource.json#/definitions/Name",
@@ -58,50 +76,6 @@
                     "$ref": "http://redfish.dmtf.org/schemas/v1/Resource.json#/definitions/Oem",
                     "description": "The OEM extension property.",
                     "longDescription": "This property shall contain the OEM extensions.  All values for properties that this object contains shall conform to the Redfish Specification-described requirements."
-                }
-            },
-            "required": [
-                "@odata.id",
-                "@odata.type",
-                "Id",
-                "Name"
-            ],
-            "type": "object"
-        },
-        "Oem": {
-            "additionalProperties": false,
-            "patternProperties": {
-                "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
-                    "description": "This property shall specify a valid odata or Redfish property.",
-                    "type": [
-                        "array",
-                        "boolean",
-                        "integer",
-                        "number",
-                        "null",
-                        "object",
-                        "string"
-                    ]
-                }
-            },
-            "properties": {
-                "AlertMessage": {
-                    "description": "The property indicates the Alert Message.",
-                    "longDescription": "The property indicates the Alert Message.",
-                    "readonly": true,
-                    "type": "string"
-                },
-                "GlobalLicenseValidity": {
-                    "description": "The property indicates the Global License Validity.",
-                    "longDescription": "The property indicates the Global License Validity.",
-                    "readonly": true,
-                    "type": "integer"
-                },
-                "LicenseKey": {
-                    "description": "The property indicates the License Key.",
-                    "longDescription": "The property indicates the License Key.",
-                    "readonly": true,
-                    "type": "string"
                 },
                 "ServicesUpCountDays": {
                     "description": "The property indicates the count of services up days.",
@@ -116,6 +90,12 @@
                     "type": "integer"
                 }
             },
+            "required": [
+                "@odata.id",
+                "@odata.type",
+                "Id",
+                "Name"
+            ],
             "type": "object"
         }
     },

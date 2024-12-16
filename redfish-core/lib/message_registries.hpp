@@ -80,20 +80,20 @@ inline void fillPrivilegeRegistry(
     const registries::Header* header
     )
 {
-    asyncResp->res.jsonValue["@Redfish.Copyright"] = header->copyright;
+    //asyncResp->res.jsonValue["@Redfish.Copyright"] = header->copyright;
     asyncResp->res.jsonValue["@odata.type"] = header->type;
     asyncResp->res.jsonValue["Id"] = header->id;
     asyncResp->res.jsonValue["Name"] = header->name;
-    asyncResp->res.jsonValue["Language"] = header->language;
-    asyncResp->res.jsonValue["Description"] = header->description;
-    asyncResp->res.jsonValue["RegistryPrefix"] = header->registryPrefix;
-    asyncResp->res.jsonValue["RegistryVersion"] = header->registryVersion;
-    asyncResp->res.jsonValue["OwningEntity"] = header->owningEntity;
+    //asyncResp->res.jsonValue["Language"] = header->language;
+    //asyncResp->res.jsonValue["Description"] = header->description;
+    //asyncResp->res.jsonValue["RegistryPrefix"] = header->registryPrefix;
+    //asyncResp->res.jsonValue["RegistryVersion"] = header->registryVersion;
+    //asyncResp->res.jsonValue["OwningEntity"] = header->owningEntity;
 
-    nlohmann::json& privilegeObj = asyncResp->res.jsonValue["privilegeUsed"];
+    nlohmann::json& privilegeObj = asyncResp->res.jsonValue["PrivilegesUsed"];
     privilegeObj = nlohmann::json::array();
 
-    for (const char* privilegeItem : registries::PrivilegeRegistry::privilegeUsed) {
+    for (const char* privilegeItem : registries::PrivilegeRegistry::PrivilegesUsed) {
         if (privilegeItem == nullptr) {
             break;
         }
@@ -101,30 +101,14 @@ inline void fillPrivilegeRegistry(
     }
 
     nlohmann::json& oemPrivileges = asyncResp->res.jsonValue["OEMPrivilegesUsed"];
+    oemPrivileges = nlohmann::json::array();
 
-    for (const auto& entity : registries::PrivilegeRegistry::OEMentities) {
-        std::string entityName = entity.first;
-        const auto& operationMaps = entity.second;
-
-        nlohmann::json oemPrivilegesObj = nlohmann::json::object();
-        oemPrivilegesObj["Entity"] = entityName;
-        oemPrivilegesObj["OperationMap"] = nlohmann::json::object();
-
-        for (const auto& operation : operationMaps) {
-
-            const std::string& method = operation.first;
-            const auto& privileges = operation.second;
-            oemPrivilegesObj["OperationMap"][method] = nlohmann::json::array();
-
-            for (const auto& privilege : privileges) {
-                oemPrivilegesObj["OperationMap"][method].push_back({
-                     {"Privilege", nlohmann::json::array({privilege})}
-                     });
-            }
+    for(const char* OemprivilegeItem : registries::PrivilegeRegistry::OEMprivilegesUsed) {
+		    if (OemprivilegeItem == nullptr) {
+            break;
         }
-
-        oemPrivileges.push_back(oemPrivilegesObj);
-    }
+        oemPrivileges.push_back(OemprivilegeItem);
+     }
 
     nlohmann::json& mappings = asyncResp->res.jsonValue["Mappings"];
     for (const auto& entity : registries::PrivilegeRegistry::entities) {
@@ -149,6 +133,30 @@ inline void fillPrivilegeRegistry(
         }
 
         mappings.push_back(mappingObj);
+    }
+
+    for (const auto& entity : registries::PrivilegeRegistry::OEMentities) {
+        std::string entityName = entity.first;
+        const auto& operationMaps = entity.second;
+
+        nlohmann::json oemPrivilegesObj = nlohmann::json::object();
+        oemPrivilegesObj["Entity"] = entityName;
+        oemPrivilegesObj["OperationMap"] = nlohmann::json::object();
+
+        for (const auto& operation : operationMaps) {
+
+            const std::string& method = operation.first;
+            const auto& privileges = operation.second;
+            oemPrivilegesObj["OperationMap"][method] = nlohmann::json::array();
+
+            for (const auto& privilege : privileges) {
+                oemPrivilegesObj["OperationMap"][method].push_back({
+                     {"Privilege", nlohmann::json::array({privilege})}
+                     });
+            }
+        }
+
+        mappings.push_back(oemPrivilegesObj);
     }
 }
 

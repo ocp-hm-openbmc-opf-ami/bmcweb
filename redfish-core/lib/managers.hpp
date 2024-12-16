@@ -2405,9 +2405,10 @@ inline void handleManagersInstanceGet(
     nlohmann::json& oemIntel = oem["Intel"];
     oemIntel["@odata.type"] = "#OpenBMCManager.v1_0_0.Intel";
     oemIntel["@odata.id"] = "/redfish/v1/Managers/bmc#/Oem/Intel";
+    #if (BMCWEB_AMI_NM_MACRO)
     oemIntel["NodeManager"] = {
         {"@odata.id", "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager"}};
-
+    #endif    
     oem["@odata.id"] = boost::urls::format("/redfish/v1/Managers/{}#/Oem",
                                            BMCWEB_REDFISH_MANAGER_URI_NAME);
     oemOpenbmc["@odata.type"] = "#OpenBMCManager.v1_0_0.Manager";
@@ -2860,8 +2861,8 @@ inline void requestRoutesManagerSerialInterface(App& app)
                     BMCWEB_REDFISH_MANAGER_URI_NAME);
                 asyncResp->res.jsonValue["@odata.type"] =
                     "#SerialInterfaceCollection.SerialInterfaceCollection";
-                asyncResp->res.jsonValue["Id"] =
-                    BMCWEB_REDFISH_MANAGER_URI_NAME;
+                //asyncResp->res.jsonValue["Id"] =
+                  //  BMCWEB_REDFISH_MANAGER_URI_NAME;
                 asyncResp->res.jsonValue["Name"] =
                     "Serial Interface Collection";
                 asyncResp->res.jsonValue["Description"] =

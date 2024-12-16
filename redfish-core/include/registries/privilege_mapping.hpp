@@ -9,7 +9,7 @@ namespace redfish::registries::PrivilegeRegistry
 {
 const Header header = {
     "Copyright 2015-2022 DMTF. All rights reserved.",
-    "#PrivilegeRegistry.v1_1_4.PrivilegeRegistry",
+    "#PrivilegeRegistry.v1_1_5.PrivilegeRegistry",
     "Redfish_1.5.0_PrivilegeRegistry",
     "Privilege Mapping array collection",
     "en",
@@ -23,12 +23,17 @@ const Header header = {
 constexpr const char* url =
     "https://redfish.dmtf.org/registries/Redfish_1.5.0_PrivilegeRegistry.json";
 
-std::vector<const char*> privilegeUsed = {"Login",
+std::vector<const char*> PrivilegesUsed = {"Login",
 	
                                             "ConfigureManager",
                                             "ConfigureUsers",
                                             "ConfigureComponents",
                                             "ConfigureSelf"};
+std::vector<const char*> OEMprivilegesUsed = {"Login",
+                                              "ConfigureManager",
+                                              "ConfigureUsers",
+                                              "ConfigureComponents",
+                                              "ConfigureSelf"};                                            
 
 
 std::vector<std::pair<std::string,

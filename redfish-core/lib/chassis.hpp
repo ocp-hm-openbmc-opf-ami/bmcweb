@@ -198,7 +198,7 @@ inline void handlePhysicalSecurityGetSubTree(
                                             ["IntrusionSensor"] = "Normal";
                 }
                 else if (value ==
-                    "xyz.openbmc_project.Chassis.Intrusion.Status.HardwareIntrusion ")
+                    "xyz.openbmc_project.Chassis.Intrusion.Status.HardwareIntrusion")
                 {
                     asyncResp->res.jsonValue["PhysicalSecurity"]
                                             ["IntrusionSensor"] = "HardwareIntrusion";

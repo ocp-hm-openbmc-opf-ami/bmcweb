@@ -29,7 +29,7 @@ inline void getLicenseKey(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
             BMCWEB_LOG_ERROR("Get License Key DBUS response error: {}", ec);
             return;
         }
-        asyncResp->res.jsonValue["Oem"]["Ami"]["LicenseKey"] = licenseKey;
+        asyncResp->res.jsonValue["LicenseKey"] = licenseKey;
         },
         "xyz.openbmc_project.License", "/xyz/openbmc_project/License",
         "xyz.openbmc_project.License.LicenseControl", "GetLicenseKey");
@@ -47,7 +47,7 @@ inline void getGlobalLicenseValidity(
                 "Get GlobalLicense Validity DBUS response error: {}", ec);
             return;
         }
-        asyncResp->res.jsonValue["Oem"]["Ami"]["GlobalLicenseValidity"] =
+        asyncResp->res.jsonValue["GlobalLicenseValidity"] =
             globalLicenseValidity;
         },
         "xyz.openbmc_project.License", "/xyz/openbmc_project/License",
@@ -66,7 +66,7 @@ inline void
                 "Get Services UpCount Days DBUS response error: {}", ec);
             return;
         }
-        asyncResp->res.jsonValue["Oem"]["Ami"]["ServicesUpCountDays"] =
+        asyncResp->res.jsonValue["ServicesUpCountDays"] =
             servicesUpCountDays;
         },
         "xyz.openbmc_project.License", "/xyz/openbmc_project/License",
@@ -89,7 +89,7 @@ inline void getAlertMessage(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 
         BMCWEB_LOG_DEBUG("Alert Message: {}", alertMessage);
 
-        asyncResp->res.jsonValue["Oem"]["Ami"]["AlertMessage"] = alertMessage;
+        asyncResp->res.jsonValue["AlertMessage"] = alertMessage;
         });
 }
 
@@ -110,7 +110,7 @@ inline void
 
         BMCWEB_LOG_DEBUG("User Alert Count {}", userAlertCount);
 
-        asyncResp->res.jsonValue["Oem"]["Ami"]["UserAlertCount"] =
+        asyncResp->res.jsonValue["UserAlertCount"] =
             userAlertCount;
         });
 }
