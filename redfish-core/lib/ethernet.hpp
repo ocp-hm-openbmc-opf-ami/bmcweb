@@ -3357,7 +3357,7 @@ inline void requestEthernetInterfacesRoutes(App& app)
 
                 if (staticNameServers)
                 {
-                    if (staticNameServers->size() > 2)
+                    if (staticNameServers->size() > 3)
                     {
                         messages::propertyValueOutOfRange(
                             asyncResp->res, staticNameServers.value(),
