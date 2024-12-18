@@ -2837,7 +2837,6 @@ inline void
         updateUserProperties(asyncResp, username, password, enabled, roleId,
                              locked, accountTypes, userSelf, req.session,
                              passwordChangeRequired, oemAccountTypes);
-        messages::success(asyncResp->res);
 	return;
     }
 
