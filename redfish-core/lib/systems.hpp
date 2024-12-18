@@ -3817,7 +3817,7 @@ inline void handleComputerSystemResetActionPost(
         if (reqHostState == "xyz.openbmc_project.State.Host.HostState.Running")
         {
             BMCWEB_LOG_ERROR(" Host is in Standby state");
-            NoOperation(asyncResp);
+            messages::noOperation(asyncResp->res);
             return;
         }
     }
@@ -3828,7 +3828,7 @@ inline void handleComputerSystemResetActionPost(
     {
         if (reqHostState != "xyz.openbmc_project.State.Host.HostState.Running")
         {
-            NoOperation(asyncResp);
+            messages::noOperation(asyncResp->res);
             return;
         }
     }
