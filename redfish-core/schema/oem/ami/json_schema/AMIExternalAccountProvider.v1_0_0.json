@@ -1,0 +1,135 @@
+{
+    "$id": "http://redfish.dmtf.org/schemas/v1/AMIExternalAccountProvider.v1_0_0.json",
+    "$schema": "http://redfish.dmtf.org/schemas/v1/redfish-schema-v1.json",
+    "copyright": "Copyright 2014-2019 DMTF. For the full DMTF copyright policy, see http://www.dmtf.org/about/policies/copyright",
+    "definitions": {
+        "Ami": {
+            "additionalProperties": false,
+            "description": "This is the schema definition for the Update Service. It represents the properties for the service itself and has links to collections of firmware and software inventory.",
+            "longDescription": "This resource shall be used to represent an Update Service for a Redfish implementation. It represents the properties that affect the service itself.",
+            "patternProperties": {
+                "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
+                    "description": "This property shall specify a valid odata or Redfish property.",
+                    "type": [
+                        "array",
+                        "boolean",
+                        "integer",
+                        "number",
+                        "null",
+                        "object",
+                        "string"
+                    ]
+                }
+            },
+            "properties": {
+                "RADIUS": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/definitions/RADIUS"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "description": "The configuration need to be preserved when doing firmware update or restore factory defaults."
+                }
+            },
+            "type": "object"
+        },
+        "RADIUS": {
+            "additionalProperties": false,
+            "description": "The configuration need to be preserved when doing firmware update or restore factory defaults.",
+            "patternProperties": {
+                "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
+                    "description": "This property shall specify a valid odata or Redfish property.",
+                    "type": [
+                        "array",
+                        "boolean",
+                        "integer",
+                        "number",
+                        "null",
+                        "object",
+                        "string"
+                    ]
+                }
+            },
+            "properties": {
+                "GroupName1": {
+                    "description": "The name of the remote group, or the remote role in the case of a Redfish Service, that maps to the local Redfish Role to which this entity links.",
+                    "readonly": false,
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
+                "GroupName2": {
+                    "description": "The name of the remote group, or the remote role in the case of a Redfish Service, that maps to the local Redfish Role to which this entity links.",
+                    "readonly": false,
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
+                "GroupName3": {
+                    "description": "The name of the remote group, or the remote role in the case of a Redfish Service, that maps to the local Redfish Role to which this entity links.",
+                    "readonly": false,
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
+                "Privilege1": {
+                    "description": "This property is used to indicate if the Role is one of the Redfish Predefined Roles.",
+                    "readonly": false,
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
+                "Privilege2": {
+                    "description": "This property is used to indicate if the Role is one of the Redfish Predefined Roles.",
+                    "readonly": false,
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
+                "Privilege3": {
+                    "description": "This property is used to indicate if the Role is one of the Redfish Predefined Roles.",
+                    "readonly": false,
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
+                "Secret": {
+                    "description": "The Secret for this Service. A PATCH request writes the password. This property is `null` in responses.",
+                    "readonly": false,
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
+                "ServiceAddress": {
+                    "description": "This property specifies the host ServiceAddress in the range to the firewall rule",
+                    "readonly": false,
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
+                "ServicePort": {
+                    "description": "Property contains the Destination ServicePort number for the RADIUS service.",
+                    "readonly": false,
+                    "type": [
+                        "number",
+                        "null"
+                    ]
+                }
+            },
+            "type": "object"
+        }
+    },
+    "owningEntity": "AMI",
+    "title": "#AMIExternalAccountProvider.v1_0_0"
+}
