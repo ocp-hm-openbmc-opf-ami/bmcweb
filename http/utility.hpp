@@ -61,8 +61,8 @@ constexpr uint64_t getParameterTag(std::string_view url)
             {
                 return 0;
             }
-            std::string_view tag = url.substr(urlSegmentIndex,
-                                              urlIndex + 1 - urlSegmentIndex);
+            std::string_view tag =
+                url.substr(urlSegmentIndex, urlIndex + 1 - urlSegmentIndex);
 
             if (tag == "<str>" || tag == "<string>")
             {
@@ -248,8 +248,8 @@ inline bool base64Decode(std::string_view input, std::string& output)
     auto getCodeValue = [](char c) {
         auto code = static_cast<unsigned char>(c);
         // Ensure we cannot index outside the bounds of the decoding array
-        static_assert(std::numeric_limits<decltype(code)>::max() <
-                      decodingData.size());
+        static_assert(
+            std::numeric_limits<decltype(code)>::max() < decodingData.size());
         return decodingData[code];
     };
 
@@ -293,8 +293,8 @@ inline bool base64Decode(std::string_view input, std::string& output)
             { // non base64 character
                 return false;
             }
-            output += static_cast<char>(((base64code1 << 4) & 0xf0) |
-                                        ((base64code2 >> 2) & 0x0f));
+            output += static_cast<char>(
+                ((base64code1 << 4) & 0xf0) | ((base64code2 >> 2) & 0x0f));
         }
 
         if (++i < inputLength)
@@ -367,6 +367,27 @@ inline std::string getTimeZone(std::string filePath)
     in >> temp;
     in.close();
     return temp;
+}
+
+inline std::string getDateTimeValue(const std::time_t& time)
+{
+    std::array<char, 128> dateTime;
+
+    // Format the time as ISO 8601 without any custom suffix
+    if (std::strftime(dateTime.begin(), dateTime.size(), "%Y-%m-%dT%H:%M:%S",
+                      std::localtime(&time)))
+    {
+        return std::string(dateTime.data());
+    }
+
+    // Default fallback if formatting fails
+    return "0000-00-00T00:00:00";
+}
+
+inline std::string getDateTimeCurrentValue()
+{
+    std::time_t time = std::time(nullptr);
+    return getDateTimeValue(time);
 }
 
 inline void saveTimeZone(std::string filePath, std::string timeZone)
@@ -478,9 +499,8 @@ inline std::time_t getTimestamp(uint64_t millisTimeStamp)
 
 namespace details
 {
-inline boost::urls::url
-    appendUrlPieces(boost::urls::url& url,
-                    const std::initializer_list<std::string_view> args)
+inline boost::urls::url appendUrlPieces(
+    boost::urls::url& url, const std::initializer_list<std::string_view> args)
 {
     for (std::string_view arg : args)
     {
@@ -647,7 +667,8 @@ inline void setProtocolDefaults(boost::urls::url& url,
             }
         }
     }
-    else if (protocol == "SNMPv2c" || protocol == "SNMPv1" || protocol == "SNMPv3")
+    else if (protocol == "SNMPv2c" || protocol == "SNMPv1" ||
+             protocol == "SNMPv3")
     {
         url.set_scheme("snmp");
     }

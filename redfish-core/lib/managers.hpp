@@ -2277,20 +2277,18 @@ inline void afterSetDateTime(
     asyncResp->res.result(boost::beast::http::status::no_content);
 }
 
-inline void setTimeZone(std::shared_ptr<bmcweb::AsyncResp> aResp,
-                        std::string timeZone)
+inline void setTimeZoneName(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                            const std::string& timeZoneName)
 {
-    std::regex tz_regex("[-+][0-1][0-9]:[0-5][0-9]");
-    auto reg = std::regex_match(timeZone, tz_regex);
-    if (reg)
-    {
-        crow::utility::saveTimeZone(crow::utility::localTimeZone, timeZone);
-    }
-    else
-    {
-        messages::propertyValueFormatError(aResp->res, timeZone,
-                                           "DateTimeLocalOffset");
-    }
+    BMCWEB_LOG_DEBUG("Set Time Zone Name: {}", timeZoneName);
+
+    crow::connections::systemBus->async_method_call(
+        [asyncResp](const boost::system::error_code& ec,
+                    const sdbusplus::message_t& msg) {
+            afterSetDateTime(asyncResp, ec, msg);
+        },
+        "org.freedesktop.timedate1", "/org/freedesktop/timedate1",
+        "org.freedesktop.timedate1", "SetTimezone", timeZoneName, true);
 }
 
 inline void setDateTime(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -2447,12 +2445,24 @@ inline void handleManagersInstanceGet(
         nlohmann::json::array_t(
             {"ResetAll", "ResetToDefaultButKeepReservedSettings"});
 
-    std::pair<std::string, std::string> redfishDateTimeOffset =
-        crow::utility::getDateTimeOffsetNow();
+    std::string redfishDateTime = crow::utility::getDateTimeCurrentValue();
+    asyncResp->res.jsonValue["DateTime"] = redfishDateTime;
 
-    asyncResp->res.jsonValue["DateTime"] = redfishDateTimeOffset.first;
-    asyncResp->res.jsonValue["DateTimeLocalOffset"] =
-        redfishDateTimeOffset.second;
+    sdbusplus::asio::getProperty<std::string>(
+        *crow::connections::systemBus, "org.freedesktop.timedate1",
+        "/org/freedesktop/timedate1", "org.freedesktop.timedate1", "Timezone",
+        [asyncResp](const boost::system::error_code& ec,
+                    const std::string& property) {
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG("DBUS response error for "
+                                 "TimeZoneName");
+                messages::internalError(asyncResp->res);
+                return;
+            }
+
+            asyncResp->res.jsonValue["TimeZoneName"] = property;
+        });
 
     // TODO (Gunnar): Remove these one day since moved to ComputerSystem
     // Still used by OCP profiles
@@ -2676,8 +2686,8 @@ inline void requestRoutesManager(App& app)
 
             std::optional<std::string> activeSoftwareImageOdataId;
             std::optional<std::string> datetime;
+            std::optional<std::string> timeZoneName;
             std::optional<bool> locationIndicatorActive;
-            std::optional<std::string> timeZone;
             std::optional<std::string> vId;
             std::optional<nlohmann::json::object_t> pidControllers;
             std::optional<nlohmann::json::object_t> fanControllers;
@@ -2694,7 +2704,7 @@ inline void requestRoutesManager(App& app)
               "Oem/OpenBmc/Fan/PidControllers", pidControllers,
               "Oem/OpenBmc/Fan/Profile", profile,
               "Oem/OpenBmc/Fan/StepwiseControllers", stepwiseControllers,*/
-              "Id", vId, "DateTimeLocalOffset", timeZone
+              "Id", vId, "TimeZoneName", timeZoneName
         ))
         {
             return;
@@ -2753,30 +2763,11 @@ inline void requestRoutesManager(App& app)
 
             if (datetime)
             {
-                if (datetime && timeZone)
-                {
-                    std::regex offset_regex(R"((\+)(\d{2}:\d{2}))");
-                    std::smatch match;
-                    std::string offset_value;
-
-                    if (std::regex_search(*datetime, match, offset_regex))
-                    {
-                        offset_value = match[2];
-                    }
-                    std::string timeZone_offset = *timeZone;
-                    timeZone_offset.erase(0, 1);
-                    if (offset_value != timeZone_offset)
-                    {
-                        messages::propertyValueConflict(asyncResp->res,
-                                                        "datetime", "timeZone");
-                        return;
-                    }
-                }
                 setDateTime(asyncResp, *datetime);
             }
-            if (timeZone)
+            if (timeZoneName.has_value())
             {
-                setTimeZone(asyncResp, std::move(*timeZone));
+                setTimeZoneName(asyncResp, *timeZoneName);
             }
             if (locationIndicatorActive)
             {
