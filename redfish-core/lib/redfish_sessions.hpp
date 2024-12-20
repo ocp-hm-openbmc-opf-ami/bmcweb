@@ -54,21 +54,39 @@ using propertyValue = std::variant<std::vector<sessionInfo>>;
 using privPropertyValue = std::variant<uint8_t, uint16_t, uint64_t, std::string,
                                        std::vector<std::string>, bool>;
 
-const privPropertyValue getRolePrivilege(
-    const std::string& processName, const std::string& objectPath,
-    const std::string& interfaceName, const std::string& propertyName)
+inline std::string getRolePrivilege(std::string user)
 {
-    privPropertyValue value{};
+    using VariantType =
+        std::variant<bool, std::string, std::vector<std::string>>;
 
-    auto b = sdbusplus::bus::new_default_system();
-    auto method = b.new_method_call(processName.c_str(), objectPath.c_str(),
-                                    dbusPropertyInterface, "Get");
+    auto bus = sdbusplus::bus::new_default();
+    auto getuser_info_path = bus.new_method_call(
+        "xyz.openbmc_project.User.Manager", "/xyz/openbmc_project/user",
+        "xyz.openbmc_project.User.Manager", "GetUserInfo");
+    getuser_info_path.append(user);
 
-    method.append(interfaceName, propertyName);
-    auto reply = b.call(method);
-    reply.read(value);
-    return value;
+    auto user_info = bus.call(getuser_info_path);
+    std::map<std::string, VariantType> infoDetailes;
+    user_info.read(infoDetailes);
+
+    auto it = infoDetailes.find("UserPrivilege");
+    if (it != infoDetailes.end())
+    {
+        // Use std::get_if to check and get the value if it is a string
+        if (auto value = std::get_if<std::string>(&it->second))
+        {
+            std::string privileage_value = *value;
+            return privileage_value;
+        }
+        
+    }
+    else
+    {
+        std::cout << "UserPrivilege not found" << std::endl;
+    }
+    return "";
 }
+
 
 std::string getRole(std::string role)
 {
@@ -94,7 +112,6 @@ const propertyValue getSessiondata(const std::string& interface,
     reply.read(value);
     return value;
 }
-
 uint16_t getBmcwebPort()
 {
     PropertyValue property;
@@ -144,18 +161,10 @@ inline void fillSessionObject(crow::Response& res,
     res.jsonValue["Oem"]["AMI_WebSession"]["UserId"] = session.userId;
     nlohmann::json::array_t roles;
 
-    const char* processName = "xyz.openbmc_project.User.Manager";
-    const char* interfaceName = "xyz.openbmc_project.User.Attributes";
-    const char* propName = "UserPrivilege";
-    std::string objectPathStr = std::string("/xyz/openbmc_project/user/") +
-                                std::string(session.username);
-    const char* objectPath = objectPathStr.c_str();
-
     auto value =
-        getRolePrivilege(processName, objectPath, interfaceName, propName);
-    auto prive = std::get<std::string>(value);
+        getRolePrivilege(session.username);
 
-    roles.emplace_back(redfish::getRoleIdFromPrivilege(prive));
+    roles.emplace_back(getRole(value));
 
     res.jsonValue["Roles"] = std::move(roles);
     res.jsonValue["@odata.id"] = boost::urls::format(
