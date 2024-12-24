@@ -604,15 +604,14 @@ inline void handleNTPServersPatch(
             }
         });
 }
-
-void setEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                const bool enabled)
+void setRunning(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                const bool running)
 {
     sdbusplus::asio::setProperty(
         *crow::connections::systemBus,
         "xyz.openbmc_project.Control.Service.Manager",
         "/xyz/openbmc_project/control/service/phosphor_2dipmi_2dnet_40eth0",
-        "xyz.openbmc_project.Control.Service.Attributes", "Running", enabled,
+        "xyz.openbmc_project.Control.Service.Attributes", "Running", running,
         [asyncResp](const boost::system::error_code& ec) {
             if (ec)
             {
@@ -621,7 +620,41 @@ void setEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 return;
             }
         });
+}
+inline void
+    handleProtocolRunning(const bool protocolRunning,
+                          const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                          const std::string& netBasePath)
+{
+    constexpr std::array<std::string_view, 1> interfaces = {
+        "xyz.openbmc_project.Control.Service.Attributes"};
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/control/service", 0, interfaces,
+        [protocolRunning, asyncResp,
+         netBasePath](const boost::system::error_code& ec,
+                      const dbus::utility::MapperGetSubTreeResponse& subtree) {
+            if (ec)
+            {
+                messages::internalError(asyncResp->res);
+                return;
+            }
 
+            for (const auto& entry : subtree)
+            {
+                if (entry.first.starts_with(netBasePath))
+                {
+                    setDbusProperty(
+                        asyncResp, "IPMI/ProtocolEnabled",
+                        entry.second.begin()->first, entry.first,
+                        "xyz.openbmc_project.Control.Service.Attributes",
+                        "Running", protocolRunning);
+                }
+            }
+        });
+}
+void setEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                const bool enabled)
+{
     sdbusplus::asio::setProperty(
         *crow::connections::systemBus,
         "xyz.openbmc_project.Control.Service.Manager",
@@ -668,17 +701,11 @@ inline void
                         asyncResp, "IPMI/ProtocolEnabled",
                         entry.second.begin()->first, entry.first,
                         "xyz.openbmc_project.Control.Service.Attributes",
-                        "Running", protocolEnabled);
-                    setDbusProperty(
-                        asyncResp, "IPMI/ProtocolEnabled",
-                        entry.second.begin()->first, entry.first,
-                        "xyz.openbmc_project.Control.Service.Attributes",
                         "Enabled", protocolEnabled);
                 }
             }
         });
 }
-
 inline std::string getHostName()
 {
     std::string hostName;
@@ -758,6 +785,10 @@ inline void handleManagersNetworkProtocolPatch(
     std::optional<bool> ipmbEnabled;
     std::optional<bool> ipmiMasked;
     std::optional<bool> sshMasked;
+    std::optional<bool> ipmiRunning;
+    std::optional<bool> bmcwebRunning;
+    std::optional<bool> sshRunning;
+    std::optional<bool> ipmbRunning;
 
     // clang-format off
         if (!json_util::readJsonPatch(
@@ -773,7 +804,11 @@ inline void handleManagersNetworkProtocolPatch(
                 "Oem/OpenBmc/IPMB/Masked",ipmbMasked,
                 "Oem/OpenBmc/IPMB/ProtocolEnabled",ipmbEnabled,
                 "Oem/OpenBmc/IPMI/Masked",ipmiMasked,
-                "Oem/OpenBmc/SSH/Masked",sshMasked))
+                "Oem/OpenBmc/SSH/Masked",sshMasked,
+                "Oem/OpenBmc/IPMI/Running",ipmiRunning,
+                "Oem/OpenBmc/HTTPS/Running",bmcwebRunning,
+                "Oem/OpenBmc/SSH/Running",sshRunning,
+                "Oem/OpenBmc/IPMB/Running",ipmbRunning))
         {
             return;
         }
@@ -1004,6 +1039,26 @@ inline void handleManagersNetworkProtocolPatch(
             *ipmbEnabled, asyncResp,
             encodeServiceObjectPath(std::string(ipmbServiceName)));
     }
+    if (ipmiRunning)
+    {
+        setRunning(asyncResp, *ipmiRunning);
+    }
+    if (bmcwebRunning)
+    {
+        handleProtocolRunning(
+            *bmcwebRunning, asyncResp,
+            encodeServiceObjectPath(std::string(httpsServiceName)));
+    }
+    if (sshRunning)
+    {
+        handleProtocolRunning(*sshRunning, asyncResp,
+                              encodeServiceObjectPath(sshServiceName));
+    }
+    if (ipmbRunning)
+    {
+        handleProtocolRunning(*ipmbRunning, asyncResp,
+                              encodeServiceObjectPath(ipmbServiceName));
+    }
 }
 
 inline void handleManagersNetworkProtocolHead(
@@ -1048,6 +1103,7 @@ void getEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 inline void getIpmiMasked(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     service_util::getMasked(asyncResp, ipmiServiceName, "IPMI", "Masked");
+    service_util::getMasked(asyncResp, ipmiServiceName, "IPMI", "Running");
 }
 
 inline void getIpmiEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
@@ -1058,15 +1114,18 @@ inline void getIpmiEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 inline void getSSHMasked(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     service_util::getMasked(asyncResp, sshServiceName, "SSH", "Masked");
+    service_util::getMasked(asyncResp, sshServiceName, "SSH", "Running");
 }
 
 inline void getBMCWEBMasked(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     service_util::getMasked(asyncResp, httpsServiceName, "HTTPS", "Masked");
+    service_util::getMasked(asyncResp, httpsServiceName, "HTTPS", "Running");
 }
 inline void getIpmbMasked(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     service_util::getMasked(asyncResp, ipmbServiceName, "IPMB", "Masked");
+    service_util::getMasked(asyncResp, ipmbServiceName, "IPMB", "Running");
 }
 
 inline void handleManagersNetworkProtocolGet(

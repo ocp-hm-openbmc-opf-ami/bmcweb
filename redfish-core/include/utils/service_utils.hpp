@@ -51,7 +51,7 @@ void getSerialConsoleSshMasked(
         asyncResp->res.jsonValue["Oem"]["OpenBmc"][ObjectName][subObjectName]
                                 [propertyName] = eventValue;
         asyncResp->res.jsonValue["Oem"]["OpenBmc"][ObjectName][subObjectName]
-                                ["@odata.type"] = "#AMIMasked.v1_0_0.AMIMasked";
+                                ["@odata.type"] = "#AMIManagerNetworkProtocol.v1_0_0.AMIManagerNetworkProtocol";
     });
 }
 
@@ -61,7 +61,7 @@ void getMasked(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 {
     sdbusplus::asio::getProperty<bool>(
         *crow::connections::systemBus, serviceManagerService,
-        serviceManagerPath + serviceName, serviceConfigInterface, "Masked",
+        serviceManagerPath + serviceName, serviceConfigInterface, propertyName,
         [asyncResp, ObjectName,
          propertyName](const boost::system::error_code& ec, bool eventValue) {
         if (ec)
@@ -75,15 +75,73 @@ void getMasked(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         if(ObjectName == "IPMB")
         {
             asyncResp->res.jsonValue["Oem"]["OpenBmc"][ObjectName]["@odata.type"] =
-            "#AMIMasked.v1_0_0.AMIIPMB";
+            "#AMIManagerNetworkProtocol.v1_0_0.AMIIPMB";
         }
         else
         {
             asyncResp->res.jsonValue["Oem"]["OpenBmc"][ObjectName]["@odata.type"] =
-            "#AMIMasked.v1_0_0.AMIMasked";
+            "#AMIManagerNetworkProtocol.v1_0_0.AMIManagerNetworkProtocol";
         }
         
     });
+}
+void getRunning(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                const std::string& serviceName,
+                const nlohmann::json::json_pointer& valueJsonPtr)
+{
+    crow::connections::systemBus->async_method_call(
+        [asyncResp, serviceName,
+         valueJsonPtr](const boost::system::error_code ec,
+                       const dbus::utility::ManagedObjectType& objects) {
+        if (ec)
+        {
+            messages::internalError(asyncResp->res);
+            return;
+        }
+
+        bool serviceFound = false;
+        for (const auto& [path, interfaces] : objects)
+        {
+            if (matchService(path, serviceName))
+            {
+                serviceFound = true;
+                for (const auto& [interface, properties] : interfaces)
+                {
+                    if (interface != serviceConfigInterface)
+                    {
+                        continue;
+                    }
+
+                    for (const auto& [key, val] : properties)
+                    {
+                        // Service is enabled if one instance is running or
+                        // enabled
+                        if (key == "Running")
+                        {
+                            const auto* runningStatus = std::get_if<bool>(&val);
+                            if (runningStatus == nullptr)
+                            {
+                                messages::internalError(asyncResp->res);
+                                return;
+                            }
+                            if (*runningStatus)
+                            {
+                                asyncResp->res.jsonValue[valueJsonPtr] = true;
+                                return;
+                            } 
+                        }
+                    }
+                }
+            }
+        }
+        // Not populating the property when service is not found
+        if (serviceFound)
+        {
+            asyncResp->res.jsonValue[valueJsonPtr] = false;
+        }
+    },
+        serviceManagerService, "/xyz/openbmc_project/control/service",
+        "org.freedesktop.DBus.ObjectManager", "GetManagedObjects");
 }
 void getEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 const std::string& serviceName,
@@ -116,7 +174,7 @@ void getEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                     {
                         // Service is enabled if one instance is running or
                         // enabled
-                        if (key == "Enabled" || key == "Running")
+                        if (key == "Enabled")
                         {
                             const auto* enabled = std::get_if<bool>(&val);
                             if (enabled == nullptr)

@@ -18,39 +18,39 @@
     </edmx:Reference>
     <edmx:DataServices>
 
-        <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AMIMasked">
+        <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AMIManagerNetworkProtocol">
             <Annotation Term="Redfish.OwningEntity" String="Ami" />
         </Schema>
 
-        <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AMIMasked.v1_0_0">
+        <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AMIManagerNetworkProtocol.v1_0_0">
             <Annotation Term="Redfish.OwningEntity" String="Ami" />
             <Annotation Term="Redfish.Release" String="1.0" />
 
             <EntityType Name="OpenBmc" BaseType="Resource.OemObject" Abstract="true">
                 <Annotation Term="OData.Description" String="AMI OEM Extension for Web Session" />
                 <Annotation Term="OData.LongDescription" String="AMI OEM Extension for Web Session" />
-                <Property Name="HTTPS" Type="AMIMasked.v1_0_0.AMIMasked"
+                <Property Name="HTTPS" Type="AMIManagerNetworkProtocol.v1_0_0.AMIManagerNetworkProtocol"
                     Nullable="false">
                     <Annotation Term="OData.Description"
                         String="The settings for this manager's HTTPS protocol support." />
                     <Annotation Term="OData.LongDescription"
                         String="This object shall contain the HTTPS/SSL protocol settings for this manager.  The default Port property value should be `443` for compatibility with established client implementations." />
                 </Property>
-                <Property Name="SSH" Type="AMIMasked.v1_0_0.AMIMasked"
+                <Property Name="SSH" Type="AMIManagerNetworkProtocol.v1_0_0.AMIManagerNetworkProtocol"
                     Nullable="false">
                     <Annotation Term="OData.Description"
                         String="The settings for this manager's HTTPS protocol support." />
                     <Annotation Term="OData.LongDescription"
                         String="This object shall contain the HTTPS/SSL protocol settings for this manager.  The default Port property value should be `443` for compatibility with established client implementations." />
                 </Property>
-                <Property Name="IPMI" Type="AMIMasked.v1_0_0.AMIMasked"
+                <Property Name="IPMI" Type="AMIManagerNetworkProtocol.v1_0_0.AMIManagerNetworkProtocol"
                     Nullable="false">
                     <Annotation Term="OData.Description"
                         String="The settings for this manager's HTTPS protocol support." />
                     <Annotation Term="OData.LongDescription"
                         String="This object shall contain the HTTPS/SSL protocol settings for this manager.  The default Port property value should be `443` for compatibility with established client implementations." />
                 </Property>
-                <Property Name="IPMB" Type="AMIMasked.v1_0_0.AMIIPMB"
+                <Property Name="IPMB" Type="AMIManagerNetworkProtocol.v1_0_0.AMIIPMB"
                     Nullable="false">
                     <Annotation Term="OData.Description"
                         String="The settings for this manager's HTTPS protocol support." />
@@ -59,13 +59,20 @@
                 </Property>
             </EntityType>
 
-            <ComplexType Name="AMIMasked">
+            <ComplexType Name="AMIManagerNetworkProtocol">
                 <Property Name="Masked" Type="Edm.Boolean">
                     <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite" />
                     <Annotation Term="OData.Description"
                         String="An indicates whether the service is masked." />
                     <Annotation Term="OData.LongDescription"
                         String="This property shall indicate whether the service is masked." />
+                </Property>
+                <Property Name="Running" Type="Edm.Boolean">
+                    <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite" />
+                    <Annotation Term="OData.Description"
+                        String="An indicates whether the service is Running." />
+                    <Annotation Term="OData.LongDescription"
+                        String="This property shall indicate whether the service is Running." />
                 </Property>
             </ComplexType>
             <ComplexType Name="AMIIPMB">
@@ -86,6 +93,13 @@
                         String="An indicates whether the service is masked." />
                     <Annotation Term="OData.LongDescription"
                         String="This property shall indicate whether the service is masked." />
+                </Property>
+                <Property Name="Running" Type="Edm.Boolean">
+                    <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite" />
+                    <Annotation Term="OData.Description"
+                        String="An indicates whether the service is Running." />
+                    <Annotation Term="OData.LongDescription"
+                        String="This property shall indicate whether the service is Running." />
                 </Property>
             </ComplexType>
             
