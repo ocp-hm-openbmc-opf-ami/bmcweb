@@ -26,6 +26,7 @@
 #include "registries/task_event_message_registry.hpp"
 #include "registries/telemetry_message_registry.hpp"
 #include "registries/privilege_mapping.hpp"
+#include "registries/certificate_service_message_registry.hpp"
 
 
 #include <boost/url/format.hpp>
@@ -55,7 +56,8 @@ inline void handleMessageRegistryFileCollectionGet(
 
     nlohmann::json& members = asyncResp->res.jsonValue["Members"];
     for (const char* memberName :
-         std::to_array({"Base", "TaskEvent", "NodeManager", "ResourceEvent", "OpenBMC", "Telemetry", "PrivilegeRegistry"}))
+         std::to_array({"Base", "TaskEvent", "NodeManager", "ResourceEvent", "OpenBMC",
+                        "Telemetry", "PrivilegeRegistry", "CertificateService"}))
     {
         nlohmann::json::object_t member;
         member["@odata.id"] = boost::urls::format("/redfish/v1/Registries/{}",
@@ -296,7 +298,7 @@ inline void handleMessageRoutesMessageRegistryFileGet(
     else if (registry == "Telemetry" || registryName == "Telemetry")
     {
         header = &registries::telemetry::header;
-         Val= header->id;
+        Val= header->id;
         if(registry == "Telemetry"){
                 registryVal = 0;
         }
@@ -328,6 +330,28 @@ inline void handleMessageRoutesMessageRegistryFileGet(
            fillPrivilegeRegistry(asyncResp ,header);
            return;
 
+        }
+        else
+        {
+            messages::resourceNotFound(asyncResp->res, "MessageRegistryFile",
+                                    registry);
+            return;
+        }
+    }
+    else if (registry == "CertificateService" || registryName == "CertificateService")
+    {
+        header = &registries::certificate::header;
+        Val= header->id;
+        if(registry == "CertificateService"){
+                registryVal = 0;
+        }
+        else if (registry == Val + ".json")
+        {
+                for (const registries::MessageEntry& entry : registries::certificate::registry)
+                {
+                        registryEntries.emplace_back(&entry);
+                }
+                registryVal = 1;
         }
         else
         {
