@@ -549,6 +549,35 @@ inline void handleCertificateLocationsGet(
                        "/Links/Certificates@odata.count"_json_pointer);
 }
 
+inline std::string detectCertificateType(
+        const std::string& str) {
+
+    if (str.empty()) {
+        return "Invalid";
+    }
+
+    int count = 0;
+    size_t pos = 0;
+    std::string sub = "-----BEGIN CERTIFICATE";
+
+    // Determine the certificateType based on the count of occurrences of the string"-----BEGIN CERTIFICATE"
+    while ((pos = str.find(sub, pos)) != std::string::npos) {
+        count++;
+        pos += sub.length();
+    }
+
+    if (count == 1)
+    {
+        return "PEM";
+    }
+    else if (count > 1)
+    {
+        return "PEMchain";
+    }
+
+    return "None";
+}
+
 inline void handleReplaceCertificateAction(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
@@ -635,6 +664,14 @@ inline void handleReplaceCertificateAction(
         return;
     }
 
+    if (detectCertificateType(certificate) != certificateType)
+    {
+        // If the CertificateString does not match the certificateType
+        messages::invalidTypeForCertificateString(asyncResp->res, *certificateType);
+        BMCWEB_LOG_ERROR("invalidTypeForCertificateString");
+        return;
+    }
+
     if (certificateType == "PEM" )
     {
         certificateType = "xyz.openbmc_project.Certs.Certificate.Type.PEM";
@@ -713,10 +750,10 @@ inline void handleReplaceCertificateAction(
             }else if (dbusError->name == certs::CertificateKeyLengthTooSmallError) {
                 messages::certificateKeyLengthTooSmall(asyncResp->res);
             }else {
-	            messages::propertyValueIncorrect(asyncResp->res, certificate, "Certificate");
+                messages::internalError(asyncResp->res);
+	            // messages::propertyValueIncorrect(asyncResp->res, certificate, "Certificate");
             }
 
-            //messages::internalError(asyncResp->res);
             return;
         }
         BMCWEB_LOG_DEBUG("HTTPS certificate install file={}",

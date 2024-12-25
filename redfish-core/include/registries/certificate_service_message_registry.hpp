@@ -19,89 +19,100 @@ constexpr std::array registry = {
     MessageEntry{
         "CertificateFileExpired",
         {
-            "Certificate file is expired.",
-            "Certificate file is expired.",
+            "Indicates that the certificate file expired.",
+            "The certificate file expired.",
             "Critical",
             0,
             {},
-            "Please check certificate file is expired or not."
+            "Please make sure the certificate is correct for SSL server usage and it should not expire or be encrypted."
         }
     },
     MessageEntry{
         "CertificateFileUntrusted",
         {
-            "Certificate File Untrusted.",
-            "Certificate File Untrusted.",
+            "Indicates that the certificate file is untrusted.",
+            "The certificate file is untrusted, it can not used for the server certificate.",
             "Critical",
             0,
             {},
-            "Please check Certificate File Untrusted."
+            "Please make sure the certificate is correct for SSL server usage and it should not expire or be encrypted."
         }
     },
     MessageEntry{
         "PrivateKeyFileEncrypted",
         {
-            "Private key is encrypted/failed to read the private key.",
-            "Private key is encrypted/failed to read the private key.",
+            "Indicates that the private key file is encrypted.",
+            "The private key file is encrypted. PEM pass phrase encrypted certificates are not supported.",
             "Critical",
             0,
             {},
-            "If privatekey file is encrypted."
+            "Please make sure the certificate is correct for SSL server usage and it should not expire or be encrypted."
         }
     },
     MessageEntry{
         "PrivateKeyCertificateFileNotMatch",
         {
-            "Publickey/PrivateKey Certificate File Not Match.",
-            "Publickey/PrivateKey Certificate File Not Match.",
+            "Indicates that the certificate file and private key file are not matched.",
+            "The certificate file and private key file are not matched.",
             "Critical",
             0,
             {},
-            "Publickey/PrivateKey Certificate File is not Match."
+            "Please make sure the certificate file and private key file are correct and resubmit the request."
         }
     },
     MessageEntry{
         "VerifyCertificateFileFailed",
         {
-            "Verify Certificate File Failed.",
-            "Verify Certificate File Failed.",
+            "Indicates that the certificate file validate asn1 failed.",
+            "The certificate file validate asn1 failed.",
             "Critical",
             0,
             {},
-            "ASN1_VALIDATION_FAILS"
+            "Please make sure the certificate is correct for SSL server usage and it should not expire or be encrypted."
         }
     },
     MessageEntry{
         "CertificateFileSizeExceeded",
         {
-            "Private/public key file size (should be < 4096 bytes).",
-            "Private/public key file size (should be < 4096 bytes).",
+            "Indicates that the size of the certificate file exceeded the maximum allowable size.",
+            "The size of certificate file has exceeded the maximum allowable size 4096 bytes.",
             "Critical",
             0,
             {},
-            "Please check certificate key file size (should be < 10240 bytes)."
+            "Reduce the size of the certificate file or increase the size of default allowable size and resubmit the request."
         }
     },
     MessageEntry{
         "PrivateKeyFileSizeExceeded",
         {
-            "Private key file size (should be < 4096 bytes).",
-            "Private key file size (should be < 4096 bytes).",
+            "Indicates that the size of the private key file exceeded the maximum allowable size.",
+            "The size of private key file has exceeded the maximum allowable size 4096 bytes.",
             "Critical",
             0,
             {},
-            "Please check private key file size (should be < 10240 bytes)"
+            "Reduce the size of the private key file or increase the size of default allowable size and resubmit the request."
         }
     },
     MessageEntry{
         "CertificateKeyLengthTooSmall",
         {
-            "Certificate file is less than minimum allowable size (2048) for https.",
-            "Certificate file is less than minimum allowable size (2048) for https.",
+            "Indicates that the key length of the certificate file is less than minimum allowable size.",
+            "The key length of the certificate file is less than minimum allowable size 2048 bit.",
             "Critical",
             0,
             {},
-            "Please check certifcate key length of the certificate file is less than minimum allowable size (2048) for https."
+            "Increase the key length of the certificate file or reduce the key length of default allowable size and resubmit the request."
+        }
+    },
+    MessageEntry{
+        "InvalidTypeForCertificateString",
+        {
+            "Indicates that the validation of CertificateType for the given CertificateString failed.",
+            "The CertificateType %1 didn't match to the CertificateString in request body.",
+            "Critical",
+            1,
+            {"string"},
+            "Please make sure the CertificateType is correct and match to the given CertificateString."
         }
     },
 };
@@ -115,5 +126,6 @@ enum class Index {
     certificateFileSizeExceeded         = 5,
     privateKeyFileSizeExceeded          = 6,
     certificateKeyLengthTooSmall        = 7,
+    invalidTypeForCertificateString     = 8,
 };
 } // namespace redfish::registries::certificate

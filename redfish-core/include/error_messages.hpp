@@ -1331,6 +1331,17 @@ nlohmann::json certificateKeyLengthTooSmall();
 
 void certificateKeyLengthTooSmall(crow::Response& res);
 
+/**
+ * @internal
+ * @brief Formats invalidTypeForCertificateString message into JSON
+ *
+ * See header file for more information
+ * @endinternal
+ */
+nlohmann::json invalidTypeForCertificateString(std::string_view arg1);
+
+void invalidTypeForCertificateString(crow::Response& res, std::string_view arg1);
+
 
 } // namespace messages
 

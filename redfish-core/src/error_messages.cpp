@@ -2297,6 +2297,25 @@ void certificateKeyLengthTooSmall(crow::Response& res)
     addMessageToErrorJson(res.jsonValue, certificateKeyLengthTooSmall());
 }
 
+/**
+ * @internal
+ * @brief Formats invalidTypeForCertificateString message into JSON
+ *
+ * See header file for more information
+ * @endinternal
+ */
+nlohmann::json invalidTypeForCertificateString(std::string_view arg1)
+{
+    return getLog(redfish::registries::certificate::Index::invalidTypeForCertificateString,
+                    std::to_array({arg1}));
+}
+
+void invalidTypeForCertificateString(crow::Response& res, std::string_view arg1)
+{
+    res.result(boost::beast::http::status::bad_request);
+    addMessageToErrorJson(res.jsonValue, invalidTypeForCertificateString(arg1));
+}
+
 } // namespace messages
 
 } // namespace redfish
