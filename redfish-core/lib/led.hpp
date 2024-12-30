@@ -272,7 +272,7 @@ inline void getPhysicalLedState(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
 
     sdbusplus::asio::getProperty<std::string>(
         *crow::connections::systemBus,
-        "xyz.openbmc_project.LED.Controller.status_amber",
+        "xyz.openbmc_project.LED.Controller",
         "/xyz/openbmc_project/led/physical/status_amber",
         "xyz.openbmc_project.Led.Physical", "State",
         [aResp](const boost::system::error_code ec,
@@ -288,7 +288,7 @@ inline void getPhysicalLedState(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
 
     sdbusplus::asio::getProperty<std::string>(
         *crow::connections::systemBus,
-        "xyz.openbmc_project.LED.Controller.status_green",
+        "xyz.openbmc_project.LED.Controller",
         "/xyz/openbmc_project/led/physical/status_green",
         "xyz.openbmc_project.Led.Physical", "State",
         [aResp](const boost::system::error_code ec,
@@ -304,7 +304,7 @@ inline void getPhysicalLedState(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
 
     sdbusplus::asio::getProperty<std::string>(
         *crow::connections::systemBus,
-        "xyz.openbmc_project.LED.Controller.status_susack",
+        "xyz.openbmc_project.LED.Controller",
         "/xyz/openbmc_project/led/physical/status_susack",
         "xyz.openbmc_project.Led.Physical", "State",
         [aResp](const boost::system::error_code ec,
