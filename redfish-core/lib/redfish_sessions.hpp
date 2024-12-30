@@ -40,9 +40,10 @@ constexpr const char* SessionManagerObj = "/xyz/openbmc_project/SessionManager";
 std::vector<std::string> SessionInterfaces = {
     "xyz.openbmc_project.SessionManager.Kvm",
     "xyz.openbmc_project.SessionManager.Vmedia",
-    "xyz.openbmc_project.SessionManager.Web"};
+    "xyz.openbmc_project.SessionManager.Web",
+    "xyz.openbmc_project.SessionManager.Ssh"};
 std::vector<std::string> SessionProperties = {
-    "KvmSessionInfo", "VmediaSessionInfo", "WebSessionInfo"};
+    "KvmSessionInfo", "VmediaSessionInfo", "WebSessionInfo", "SshSessionInfo"};
 constexpr const char* DBUS_PROPERTY_IFACE = "org.freedesktop.DBus.Properties";
 
 using sessionInfo = std::tuple<uint8_t, std::string, std::string, uint8_t,
@@ -209,6 +210,8 @@ inline std::string getSessionType(int sessionType)
         return "WEB";
     else if (sessionType == 2)
         return "VMEDIA";
+    else if (sessionType == 3)
+        return "SSH";
     else
         return "";
 }
@@ -275,8 +278,14 @@ inline void getSessionInfo(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
                 asyncResp->res.jsonValue["Description"] =
                     "Manager User Session";
                 asyncResp->res.jsonValue["ClientOriginIPAddress"] = IpAddess;
-                asyncResp->res.jsonValue["Oem"]["AMI_WebSession"]["MountType"] =
+                if(SessionType == 2)
+                {
+                    asyncResp->res.jsonValue["Oem"]["AMI_WebSession"]["MountType"] =
                     additionalConfigValue;
+                }
+                else {
+                    asyncResp->res.jsonValue["Oem"]["AMI_WebSession"]["MountType"] = "";
+                }
                 asyncResp->res.jsonValue["SessionType"] =
                     getSessionType(SessionType);
                 nlohmann::json::array_t roles;
