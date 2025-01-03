@@ -496,7 +496,13 @@ inline void
                 }
             }
             if (found)
+            {
                 break;
+            }
+            else
+            {
+                messages::resourceNotFound(asyncResp->res, "Session", sessionId);
+            }
         }
         // Unregister session
         crow::connections::systemBus->async_method_call(
@@ -1086,6 +1092,47 @@ inline void requestRoutesSession(App& app)
         .privileges(redfish::privileges::deleteSession)
         .methods(boost::beast::http::verb::delete_)(
             std::bind_front(handleSessionDelete, std::ref(app)));
+
+    BMCWEB_ROUTE(app, "/redfish/v1/SessionService/Sessions/<str>/")
+    .methods(boost::beast::http::verb::post,boost::beast::http::verb::patch)(
+        [](const crow::Request&, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, const std::string& sessionId) {
+           
+        if (sessionId.find('_') != std::string::npos)
+        {
+            size_t Pos = sessionId.find('_');
+            std::string num = sessionId.substr(Pos + 1);
+            int SessId = std::stoi(num);
+            bool found = false;
+
+            // Fetching sessionType with sessionId
+            for (size_t i = 0; i < SessionInterfaces.size(); ++i)
+            {
+                propertyValue data =
+                    getSessiondata(SessionInterfaces[i], SessionProperties[i]);
+                if (std::holds_alternative<sessionRet>(data))
+                {
+                    sessionRet& vec = std::get<sessionRet>(data);
+                    for (const auto& tuple : vec)
+                    {
+		                uint8_t id = std::get<0>(tuple);
+                       	
+                        if (SessId == id)
+                        {
+                       
+                            found = true;
+                            break;
+                        }
+                    }
+                }
+                if (found)
+                {
+                    messages::operationNotAllowed(asyncResp->res);
+                    return; 
+                }
+            }
+        }    
+            messages::resourceNotFound(asyncResp->res, "Session", sessionId);
+    });        
 
     BMCWEB_ROUTE(app, "/redfish/v1/SessionService/Sessions/")
         .privileges(redfish::privileges::headSessionCollection)
