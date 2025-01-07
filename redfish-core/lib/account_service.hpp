@@ -1614,6 +1614,34 @@ inline void handleLDAPPatch(LdapPatchParams&& input,
             messages::internalError(asyncResp->res);
             return;
         }
+	if (dbusObjectPath == ldapConfigObjectName)
+        {
+            if (input.userName && input.password)
+            {
+                handleUserNamePatch(*input.userName, asyncResp, serverT,
+                                    dbusObjectPath);
+                handlePasswordPatch(*input.password, asyncResp, serverT,
+                                    dbusObjectPath);
+            }
+            else
+            {
+            	messages::propertyMissing(asyncResp->res, "Username and Password");
+        	return;
+            }
+        }
+        else
+        {
+            if (input.userName)
+            {
+                handleUserNamePatch(*input.userName, asyncResp, serverT,
+                                    dbusObjectPath);
+            }
+            if (input.password)
+            {
+                handlePasswordPatch(*input.password, asyncResp, serverT,
+                                    dbusObjectPath);
+            }
+        }
         parseLDAPConfigData(asyncResp->res.jsonValue, confData, serverT);
         if (confData.serviceEnabled)
         {
@@ -1626,16 +1654,6 @@ inline void handleLDAPPatch(LdapPatchParams&& input,
         {
             handleServiceAddressPatch(*input.serviceAddressList, asyncResp,
                                       serverT, dbusObjectPath);
-        }
-        if (input.userName)
-        {
-            handleUserNamePatch(*input.userName, asyncResp, serverT,
-                                dbusObjectPath);
-        }
-        if (input.password)
-        {
-            handlePasswordPatch(*input.password, asyncResp, serverT,
-                                dbusObjectPath);
         }
 
         if (input.baseDNList)
