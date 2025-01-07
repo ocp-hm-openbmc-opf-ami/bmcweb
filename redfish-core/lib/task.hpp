@@ -561,6 +561,7 @@ inline void requestRoutesTask(App& app)
 
         asyncResp->res.jsonValue["HidePayload"] = !ptr->payload;
 
+        std::string uri;
         if (ptr->payload)
         {
             const task::Payload& p = *(ptr->payload);
@@ -570,6 +571,33 @@ inline void requestRoutesTask(App& app)
             asyncResp->res.jsonValue["Payload"]["HttpHeaders"] = p.httpHeaders;
             asyncResp->res.jsonValue["Payload"]["JsonBody"] = p.jsonBody.dump(
                 -1, ' ', true, nlohmann::json::error_handler_t::replace);
+            uri = p.targetUri;
+        }
+        if (ptr->state == "Pending")
+        {
+            if (uri == "/redfish/v1/UpdateService/update")
+            {
+                    sdbusplus::asio::getProperty<uint64_t>(
+                        *crow::connections::systemBus,
+                        "xyz.openbmc_project.Settings",
+                        "/xyz/openbmc_project/software/apply_time",
+                        "xyz.openbmc_project.Software.ApplyTime",
+                        "MaintenanceWindowStartTime",
+                        [asyncResp](const boost::system::error_code& ec, const uint64_t& maintenanceWindowStartTime) {
+                            if (ec)
+                            {
+                                BMCWEB_LOG_ERROR("D-Bus responses error: {}",
+                                                 ec);
+                                messages::internalError(asyncResp->res);
+                                return;                                                                                                                          }
+                            const auto current_time = std::chrono::system_clock::to_time_t(
+                                std::chrono::system_clock::now());
+                            if (static_cast<uint64_t>(current_time) > maintenanceWindowStartTime)
+                            {
+                                  asyncResp->res.jsonValue["TaskState"] = "Stopping";
+                            }
+                        });
+            }
         }
         asyncResp->res.jsonValue["PercentComplete"] = ptr->percentComplete;
     });
