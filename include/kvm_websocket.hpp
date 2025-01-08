@@ -14,9 +14,11 @@ namespace obmc_kvm
 {
 
 static constexpr const uint maxSessions = 2;
-int kvmActiveStatus = 0;
 using PropertyValue = std::variant<uint8_t, uint16_t, std::string,
                                    std::vector<std::string>, bool>;
+
+using KvmSessionInfoEntry = std::tuple<uint8_t, std::string, std::string, uint8_t, uint8_t, uint8_t, std::string>;
+using KvmSessionInfoType = std::vector<KvmSessionInfoEntry>;
 
 uint16_t getPortNumberFromDBus()
 {
@@ -58,6 +60,38 @@ uint16_t getPortNumberFromDBus()
     }
 
     return portNumber;
+}
+
+uint16_t getActiveKVMSessionsFromDBus()
+{
+    KvmSessionInfoType sessionCounts;
+    try
+    {
+        auto bus = sdbusplus::bus::new_default_system();
+
+        // Prepare the D-Bus method call
+        auto method =
+            bus.new_method_call("xyz.openbmc_project.SessionManager",
+                                "/xyz/openbmc_project/SessionManager",
+                                "org.freedesktop.DBus.Properties", "Get");
+
+        // Append interface and property name to the method call
+        method.append("xyz.openbmc_project.SessionManager.Kvm",
+                      "KvmSessionInfo");
+
+        auto reply = bus.call(method);
+
+        std::variant<KvmSessionInfoType> result;
+        reply.read(result);
+
+        sessionCounts = std::get<KvmSessionInfoType>(result);
+    }
+    catch (const std::exception& e)
+    {
+        std::cerr << "Error retrieving Active KVM sessions from D-Bus: "
+                  << e.what() << std::endl;
+    }
+    return static_cast<uint16_t>(sessionCounts.size());
 }
 
 class KvmSession : public std::enable_shared_from_this<KvmSession>
@@ -314,20 +348,19 @@ inline void requestRoutes(App& app)
         .onopen([](crow::websocket::Connection& conn) {
         BMCWEB_LOG_DEBUG("Connection {} opened", logPtr(&conn));
 
-        if (sessions.size() == maxSessions)
+        sessions[&conn] = std::make_shared<KvmSession>(conn);
+        conn.session->kvmConnections++;
+
+        if (getActiveKVMSessionsFromDBus() >= maxSessions)
         {
             conn.close("Max sessions are already connected");
             return;
         }
 
-        sessions[&conn] = std::make_shared<KvmSession>(conn);
-        conn.session->kvmConnections++;
-        kvmActiveStatus = 1;
     })
         .onclose([](crow::websocket::Connection& conn, const std::string&) {
         sessions.erase(&conn);
         conn.session->kvmConnections--;
-        kvmActiveStatus = 0;
     })
         .onmessage([](crow::websocket::Connection& conn,
                       const std::string& data, bool) {
@@ -335,18 +368,6 @@ inline void requestRoutes(App& app)
         {
             sessions[&conn]->onMessage(data);
         }
-    });
-    BMCWEB_ROUTE(app, "/kvm/kvmActiveStatus")
-        .privileges({{"ConfigureComponents", "ConfigureManager"}})
-        .methods(boost::beast::http::verb::get)(
-            [](const crow::Request& req,
-               const std::shared_ptr<bmcweb::AsyncResp>& ares) {
-        if (req.session == nullptr)
-        {
-            BMCWEB_LOG_DEBUG("Internal Server Error");
-            return;
-        }
-        ares->res.jsonValue["kvmActiveStatus"] = kvmActiveStatus;
     });
 }
 
