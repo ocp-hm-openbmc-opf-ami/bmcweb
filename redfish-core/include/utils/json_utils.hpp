@@ -483,7 +483,7 @@ using UnpackVariant = std::variant<
     std::optional<std::variant<bool, std::nullptr_t>>*,
     std::optional<std::vector<std::variant<nlohmann::json::object_t, std::nullptr_t>>>*,
     std::optional<std::vector<std::variant<std::string, nlohmann::json::object_t, std::nullptr_t>>>*,
-
+    std::optional<std::variant<int, bool, double, std::string, nlohmann::json>>*,
     // Note, these types are kept for historical completeness, but should not be used,
     // As they do not provide object type safety.  Instead, rely on nlohmann::json::object_t
     // Will be removed Q2 2025
