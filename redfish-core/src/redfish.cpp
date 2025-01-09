@@ -141,8 +141,8 @@ RedfishService::RedfishService(App& app)
     if constexpr (BMCWEB_REDFISH_ALLOW_DEPRECATED_POWER_THERMAL)
     {
         requestRoutesThermal(app);
+	requestRoutesPower(app);
     }
-    requestRoutesPower(app);
     if constexpr (BMCWEB_REDFISH_NEW_POWERSUBSYSTEM_THERMALSUBSYSTEM)
     {
         requestRoutesEnvironmentMetrics(app);

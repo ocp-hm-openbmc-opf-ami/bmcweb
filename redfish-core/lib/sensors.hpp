@@ -2035,9 +2035,9 @@ inline nlohmann::json& getPowerSupply(nlohmann::json& powerSupplyArray,
     powerSupplyArray.push_back({});
     nlohmann::json railValues, inputRanges, efficiencyRatings;
     nlohmann::json& powerSupply = powerSupplyArray.back();
-    boost::urls::url url =
-        boost::urls::format("/redfish/v1/Chassis/{}/Power", chassisId);
-    url.set_fragment(("/PowerSupplies"_json_pointer).to_string());
+    //boost::urls::url url =
+      //  boost::urls::format("/redfish/v1/Chassis/{}/Power", chassisId);
+    //url.set_fragment(("/PowerSupplies"_json_pointer).to_string());
     powerSupply["@odata.id"] =
         "/redfish/v1/Chassis/" + chassisId + "/PowerSubsystem/PowerSupplies/" +
         inventoryItem.name;

@@ -472,8 +472,8 @@ inline void handleDecoratorAssetProperties(
     }
 
     // Power
-    asyncResp->res.jsonValue["Power"]["@odata.id"] =
-        boost::urls::format("/redfish/v1/Chassis/{}/Power", chassisId);
+    //asyncResp->res.jsonValue["Power"]["@odata.id"] =
+      //  boost::urls::format("/redfish/v1/Chassis/{}/Power", chassisId);
 
     // FRU Device
     asyncResp->res.jsonValue["Oem"]["AMI"]["FRU"]["@odata.id"] =
