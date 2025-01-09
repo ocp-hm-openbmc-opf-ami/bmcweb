@@ -344,11 +344,11 @@ inline void requestRoutesPefService(App& app)
             {"Description", "Pef Service Collections"}};
         aResp->res.jsonValue["Actions"]["#PefService.SendAlertMail"]["target"] =
             "/redfish/v1/PefService/Actions/"
-            "PefService.SendAlertMail/";
+            "PefService.SendAlertMail";
         aResp->res
             .jsonValue["Actions"]["#PefService.SendAlertSNMPTrap"]["target"] =
             "/redfish/v1/PefService/Actions/"
-            "PefService.SendAlertSNMPTrap/";
+            "PefService.SendAlertSNMPTrap";
         nlohmann::json& entriesntrollerArray = aResp->res.jsonValue["Members"];
         entriesntrollerArray = nlohmann::json::array();
 
