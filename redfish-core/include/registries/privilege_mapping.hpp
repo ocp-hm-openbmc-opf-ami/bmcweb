@@ -52,12 +52,87 @@ std::vector<std::pair<std::string,
 						                           {"POST", {"ConfigureComponents"}},
 						                           {"DELETE", {"ConfigureComponents"}},
                                                 }},
-                                                  {"NodeManager",{
-                                                   {"GET", {"Login"}},
+                                                {"NodeManager",{
+                                                  {"GET", {"Login"}},
                                                 }},
+						{"NmTriggerCollection", {
+                                                  {"GET", {"Login"}},
+                                                }},
+						{"NmTrigger", {
+		                                  {"GET", {"Login"}},
+                                                }},
+                                                {"NmDomainCollection", {
+			                          {"GET", {"Login"}},
+                                                }},
+                                                {"NmDomain", {
+		                                  {"GET", {"Login"}},
+                                                  {"PATCH", {"ConfigureManager"}},
+                                                  {"POST", {"ConfigureManager"}},
+                                                }},
+                                                {"NmPolicyCollection", {
+			                          {"GET", {"Login"}},
+                                                  {"POST", {"ConfigureManager"}},						                                         }},
+					        {"NmPolicy", {
+					          {"GET", {"Login"}},
+                                                  {"PATCH", {"ConfigureManager"}},
+                                                  {"DELETE", {"ConfigureManager"}},
+                                                  {"POST", {"ConfigureManager"}},
+                                                }},
+				                {"NmThrottlingStatus", {
+					          {"GET", {"Login"}},
+	                                        }},					  
                                                  {"ThresholdSensorCollection",{
                                                    {"GET", {"Login"}},
                                                 }},
+						 {"AMIChassisFRUCollection", {
+						   {"GET", {"Login"}},
+				                }},
+			                         {"AMIChassisFRU", {
+						   {"GET", {"Login"}},
+			                        }},			   
+						 {"SensorHistory", {
+						   {"GET", {"Login"}},
+                                                   {"PATCH", {"ConfigureComponents"}},
+                                                }}, 
+						 {"AMIAtScaleDebug", {
+	                                           {"GET", {"Login"}},
+                                                   {"HEAD", {"Login"}},
+                                                   {"PATCH", {"ConfigureComponents"}},
+                                                   {"PUT", {"ConfigureComponents"}},
+                                                   {"DELETE", {"ConfigureComponents"}},
+                                                   {"POST", {"ConfigureComponents"}},
+						}},
+					          {"AMIAutonomousCrashDump", {
+		                                   {"GET", {"Login"}},
+                                                   {"HEAD", {"Login"}},
+                                                   {"PATCH", {"ConfigureComponents"}},
+                                                   {"PUT", {"ConfigureComponents"}},
+                                                   {"DELETE", {"ConfigureComponents"}},
+                                                   {"POST", {"ConfigureComponents"}},
+						}},
+						  {"AmiLicenseControl", {
+						    {"GET", {"Login"}},
+                                                    {"PATCH", {"ConfigureComponents"}},
+                                                    {"POST", {"ConfigureComponents"}},
+					        }},
+						  {"AMIInventoryStatus", {
+						    {"GET", {"Login"}},
+						}},
+						  {"CupsSensorCollection", {
+						    {"GET", {"Login"}},
+						}},
+						  {"CupsService", {
+						    {"GET", {"Login"}},
+                                                    {"PATCH", {"ConfigureComponents"}},
+						}},
+						  {"PefService", {
+						    {"GET", {"Login"}},
+                                                    {"PATCH", {"ConfigureComponents"}},
+						}},
+						  {"PefEntry", {
+						    {"GET", {"Login"}},
+                                                    {"PATCH", {"ConfigureComponents"}},
+						}},
     };
 
 

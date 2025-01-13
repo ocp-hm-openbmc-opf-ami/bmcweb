@@ -54,7 +54,7 @@ inline void requestRoutesBsodjpeg(App& app)
         }
         asyncResp->res.jsonValue["@odata.id"] =
             "/redfish/v1/Managers/bmc/Oem/OpenBmc/Jpeg";
-        asyncResp->res.jsonValue["@odata.type"] = "#Jpeg_v1_0_0.Jpeg";
+        asyncResp->res.jsonValue["@odata.type"] = "#Jpeg.v1_0_0.Jpeg";
         getBsodjpeg(asyncResp);
     });
 }
