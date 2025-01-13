@@ -3378,15 +3378,13 @@ inline void
         return;
     }
 
-    std::string newPassword;
     if (password)
     {
-        newPassword = *password;
-    }
-    if (pamUpdatePassword(username, newPassword) != PAM_SUCCESS)
-    {
-        messages::propertyValueFormatError(asyncResp->res, nullptr, "Password");
-        return;
+        if (pamUpdatePassword(username, *password) != PAM_SUCCESS)
+        {
+            messages::propertyValueFormatError(asyncResp->res, nullptr, "Password");
+            return;
+        }
     }
 
     crow::connections::systemBus->async_method_call(
