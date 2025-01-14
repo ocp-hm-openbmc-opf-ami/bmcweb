@@ -831,11 +831,7 @@ inline void doMountVmLegacy(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             }
             else if (ec == boost::system::errc::permission_denied)
             {
-                messages::accessDenied(
-                    asyncResp->res,
-                    boost::urls::format(
-                        "/redfish/v1/Managers/bmc/VirtualMedia/{}/Actions/{}",
-                        name, action));
+	        messages::resourceInUse(asyncResp->res);
             }
             else
             {
