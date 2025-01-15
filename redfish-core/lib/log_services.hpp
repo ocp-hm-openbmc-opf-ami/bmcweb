@@ -51,6 +51,7 @@ namespace redfish
 
 constexpr const char* crashdumpObject = "com.intel.crashdump";
 constexpr const char* crashdumpPath = "/com/intel/crashdump";
+constexpr const char* intelcrashdumpInterface = "com.intel.crashdump";
 constexpr const char* amdcrashdumpObject = "com.amd.crashdump";
 constexpr const char* amdcrashdumpPath = "/com/amd/crashdump";
 constexpr const char* crashdumpInterface = "com.amd.crashdump";
@@ -3203,7 +3204,7 @@ inline void
         };
     dbus::utility::getAllProperties(
         crashdumpObject, crashdumpPath + std::string("/") + logID,
-        crashdumpInterface, std::move(getStoredLogCallback));
+        intelcrashdumpInterface, std::move(getStoredLogCallback));
 }
 
 inline void requestRoutesCrashdumpEntryCollection(App& app)
@@ -3242,7 +3243,7 @@ inline void requestRoutesCrashdumpEntryCollection(App& app)
             }
 
             constexpr std::array<std::string_view, 1> interfaces = {
-                crashdumpInterface};
+                intelcrashdumpInterface};
             dbus::utility::getSubTreePaths(
                 "/", 0, interfaces,
                 [asyncResp](const boost::system::error_code& ec,
@@ -3408,7 +3409,7 @@ inline void requestRoutesCrashdumpFile(App& app)
                     };
                 dbus::utility::getAllProperties(
                     crashdumpObject, crashdumpPath + std::string("/") + logID,
-                    crashdumpInterface, std::move(getStoredLogCallback));
+                    intelcrashdumpInterface, std::move(getStoredLogCallback));
             });
 }
 
