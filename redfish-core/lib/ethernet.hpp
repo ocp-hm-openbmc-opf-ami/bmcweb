@@ -3074,7 +3074,7 @@ inline void requestEthernetInterfacesRoutes(App& app)
                         "xyz.openbmc_project.Network.SystemConfiguration",
                         "InterfaceCount",
                         [asyncResp{std::move(asyncResp)}, &isNicEnabled,
-                         ifaceId, &interfaceEnabled](
+                         ifaceId, interfaceEnabled](
                             const boost::system::error_code& ec,
                             const uint8_t& Interface_Count) {
                             if (ec)
