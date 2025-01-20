@@ -105,9 +105,10 @@ inline void handleServiceRootGetImpl(
         "#OemServiceRoot.v1_0_0.Ami";
     asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.id"] =
         "/redfish/v1/#Oem/Ami";
+    #if BMCWEB_AST2600_EVB_MACRO
     asyncResp->res.jsonValue["Oem"]["Ami"]["PcieSwitch"] = {
         {"@odata.id", "/redfish/v1/Oem/Ami/PcieSwitch"}};
-
+    #endif
     asyncResp->res.jsonValue["Oem"]["Ami"]["LicenseControl"] = {
         {"@odata.id", "/redfish/v1/Oem/Ami/LicenseControl"}};
 
