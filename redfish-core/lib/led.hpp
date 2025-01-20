@@ -246,15 +246,15 @@ inline void setPhysicalLedState(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                                 const std::string& led,
                                 const std::string& state)
 {
-    if (boost::ends_with(state, "On"))
+    if (!state.compare("On"))
     {
         aResp->res.jsonValue["Oem"]["OpenBmc"]["PhysicalLED"][led] = "On";
     }
-    else if (boost::ends_with(state, "Blink"))
+    else if (!state.compare("Blink"))
     {
         aResp->res.jsonValue["Oem"]["OpenBmc"]["PhysicalLED"][led] = "Blinking";
     }
-    else if (boost::ends_with(state, "Off"))
+    else if (!state.compare("Off"))
     {
         aResp->res.jsonValue["Oem"]["OpenBmc"]["PhysicalLED"][led] = "Off";
     }
@@ -270,52 +270,91 @@ inline void getPhysicalLedState(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
     aResp->res.jsonValue["Oem"]["OpenBmc"]["PhysicalLED"]["@odata.type"] =
         "#OpenBMCComputerSystem.v1_0_0.PhysicalLED";
 
-    sdbusplus::asio::getProperty<std::string>(
-        *crow::connections::systemBus,
-        "xyz.openbmc_project.LED.Controller",
-        "/xyz/openbmc_project/led/physical/status_amber",
-        "xyz.openbmc_project.Led.Physical", "State",
-        [aResp](const boost::system::error_code ec,
-                const std::string& amberLedState) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("Get Physical State Amber Led: DBus Error", ec);
-            // messages::internalError(aResp->res);
-            return;
-        }
-        setPhysicalLedState(aResp, "AmberLED", amberLedState);
-    });
+    sdbusplus::asio::getProperty<bool>(
+        *crow::connections::systemBus, "xyz.openbmc_project.LED.GroupManager",
+        "/xyz/openbmc_project/led/groups/status_critical",
+        "xyz.openbmc_project.Led.Group", "Asserted",
+        [aResp](const boost::system::error_code ec, const bool amberLedState) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("Get Physical State Amber Led: DBus Error",
+                                 ec);
+                return;
+            }
+            if (!amberLedState)
+            {
+                sdbusplus::asio::getProperty<bool>(
+                    *crow::connections::systemBus,
+                    "xyz.openbmc_project.LED.GroupManager",
+                    "/xyz/openbmc_project/led/groups/status_non_critical",
+                    "xyz.openbmc_project.Led.Group", "Asserted",
+                    [aResp](const boost::system::error_code ec1,
+                            const bool amberLedState1) {
+                        if (ec1)
+                        {
+                            BMCWEB_LOG_ERROR(
+                                "Get Physical State Amber Led: DBus Error",
+                                ec1);
+                            return;
+                        }
+                        std::string amberLed = amberLedState1 ? "Blink" : "Off";
+                        setPhysicalLedState(aResp, "AmberLED", amberLed);
+                    });
+            }
+            else
+            {
+                setPhysicalLedState(aResp, "AmberLED", "On");
+            }
+        });
+    sdbusplus::asio::getProperty<bool>(
+        *crow::connections::systemBus, "xyz.openbmc_project.LED.GroupManager",
+        "/xyz/openbmc_project/led/groups/status_degraded",
+        "xyz.openbmc_project.Led.Group", "Asserted",
+        [aResp](const boost::system::error_code ec, const bool greenLedState) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("Get Physical State Green Led: DBus Error",
+                                 ec);
+                return;
+            }
+            if (!greenLedState)
+            {
+                sdbusplus::asio::getProperty<bool>(
+                    *crow::connections::systemBus,
+                    "xyz.openbmc_project.LED.GroupManager",
+                    "/xyz/openbmc_project/led/groups/status_ok",
+                    "xyz.openbmc_project.Led.Group", "Asserted",
+                    [aResp](const boost::system::error_code ec1,
+                            const bool greenLedState1) {
+                        if (ec1)
+                        {
+                            BMCWEB_LOG_ERROR(
+                                "Get Physical State Green Led: DBus Error",
+                                ec1);
+                            return;
+                        }
+                        std::string greenLed = greenLedState1 ? "Blink" : "Off";
+                        setPhysicalLedState(aResp, "GreenLED", greenLed);
+                    });
+            }
+            else
+            {
+                setPhysicalLedState(aResp, "GreenLED", "On");
+            }
+        });
 
-    sdbusplus::asio::getProperty<std::string>(
-        *crow::connections::systemBus,
-        "xyz.openbmc_project.LED.Controller",
-        "/xyz/openbmc_project/led/physical/status_green",
-        "xyz.openbmc_project.Led.Physical", "State",
-        [aResp](const boost::system::error_code ec,
-                const std::string& greenLedState) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("Get Physical State Green Led: DBus Error", ec);
-            // messages::internalError(aResp->res);
-            return;
-        }
-        setPhysicalLedState(aResp, "GreenLED", greenLedState);
-    });
-
-    sdbusplus::asio::getProperty<std::string>(
-        *crow::connections::systemBus,
-        "xyz.openbmc_project.LED.Controller",
-        "/xyz/openbmc_project/led/physical/status_susack",
-        "xyz.openbmc_project.Led.Physical", "State",
-        [aResp](const boost::system::error_code ec,
-                const std::string& susackLedState) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("Get Physical State Susack Led: DBus Error", ec);
-            // messages::internalError(aResp->res);
-            return;
-        }
-        setPhysicalLedState(aResp, "SusackLED", susackLedState);
-    });
+    sdbusplus::asio::getProperty<bool>(
+        *crow::connections::systemBus, "xyz.openbmc_project.LED.GroupManager",
+        "/xyz/openbmc_project/led/groups/enclosure_identify_blink",
+        "xyz.openbmc_project.Led.Group", "Asserted",
+        [aResp](const boost::system::error_code& ec, const bool blueLedState) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("Get Physical State Blue Led: DBus Error", ec);
+                return;
+            }
+            std::string SolidblueLed = blueLedState ? "Blink" : "Off";
+            setPhysicalLedState(aResp, "BlueLED", SolidblueLed);
+        });
 }
 } // namespace redfish
