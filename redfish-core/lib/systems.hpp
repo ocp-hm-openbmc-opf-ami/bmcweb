@@ -4314,10 +4314,6 @@ inline void handleComputerSystemPatch(
         {
             service_util::setEnabled(asyncResp, kvmServiceName,
                                      *kvmServiceEnabled);
-            asyncResp->res.jsonValue["GraphicalConsole"] = {
-                {"MaxConcurrentSessions", *kvmServiceEnabled ? 4 : 0},
-                {"ConnectTypesSupported", {"KVMIP"}},
-            };
         }
       
     }

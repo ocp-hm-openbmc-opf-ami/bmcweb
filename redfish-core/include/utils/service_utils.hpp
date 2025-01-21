@@ -283,6 +283,7 @@ static inline void
             messages::internalError(asyncResp->res);
             return;
         }
+	asyncResp->res.result(boost::beast::http::status::no_content);
     }, serviceManagerService, path, "org.freedesktop.DBus.Properties", "Set",
         interface, property, dbus::utility::DbusVariantType{value});
 }
