@@ -2174,7 +2174,6 @@ inline void
     getRADIUSConfigData(asyncResp);
     getRADIUSRoleMap(asyncResp);
 }
-
 inline void handleAccountRadiusPatch(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
@@ -2187,230 +2186,264 @@ inline void handleAccountRadiusPatch(
     RadiusPatchParams radiusObject;
 
     // clang-format off
+    std::optional<nlohmann::json> oem;
+
     if (!json_util::readJsonPatch(
-            req, asyncResp->res,            
-            "ServiceEnabled", radiusObject.enabled,
-            "Oem/Ami/RADIUS/ServiceAddress", radiusObject.host,
-            "Oem/Ami/RADIUS/Secret", radiusObject.password,
-            "Oem/Ami/RADIUS/ServicePort", radiusObject.port,
-            "Oem/Ami/RADIUS/GroupName1", radiusObject.groupName1,
-            "Oem/Ami/RADIUS/GroupName2", radiusObject.groupName2,
-            "Oem/Ami/RADIUS/GroupName3", radiusObject.groupName3,
-            "Oem/Ami/RADIUS/Privilege1", radiusObject.privilege1,
-            "Oem/Ami/RADIUS/Privilege2", radiusObject.privilege2,
-            "Oem/Ami/RADIUS/Privilege3", radiusObject.privilege3))
+            req, asyncResp->res, "Oem", oem, "ServiceEnabled", radiusObject.enabled))
     {
+        BMCWEB_LOG_DEBUG("Radius Service doPatch: Invalid request body");
         return;
     }
-    // clang-format on
-    if (!radiusObject.enabled)
+    
+    if (oem)
     {
-        if (radiusObject.host && radiusObject.password)
+        std::optional<nlohmann::json> ami;
+        std::size_t oem_size = oem.value().size();
+        if (oem_size == 0)
         {
-            if (radiusObject.host == "" && radiusObject.password == "")
-            {
-                messages::propertyValueEmpty(asyncResp->res, *radiusObject.host,
-                                             "Host Address and Password");
-                return;
-            }
-            else if (radiusObject.host == "")
-            {
-                messages::propertyValueEmpty(asyncResp->res, *radiusObject.host,
-                                             "Host Address");
-                return;
-            }
-            else if (radiusObject.password == "")
-            {
-                messages::propertyValueEmpty(
-                    asyncResp->res, *radiusObject.password, "password");
-                return;
-            }
-            else
-            {
-                setRadiusEnable(asyncResp, *radiusObject.enabled);
-            }
+            messages::propertyNotWritable(asyncResp->res, "Oem");
+            return;
         }
-        else
-        {
-            setRadiusEnable(asyncResp, *radiusObject.enabled);
-        }
-    }
-    else
-    {
-        setRadiusEnable(asyncResp, *radiusObject.enabled);
-    }
 
-    if (radiusObject.host)
-    {
-        if (radiusObject.host != "")
+        if (!json_util::readJson(*oem, asyncResp->res, "Ami", ami))
         {
-            const std::string& ipAddress = *radiusObject.host;
-            if (!ip_util::isValidIPv4Addr(
-                    *radiusObject.host,
-                    ip_util::Type::IP4_ADDRESS)) // checking the IPv4
-                                                 // Address
+            return;
+        }
+
+        if(ami)
+        {
+            std::optional<nlohmann::json> radius;
+            std::size_t ami_size = ami.value().size();
+            if (ami_size == 0)
             {
-                messages::invalidip(asyncResp->res, "ServiceAddress",
-                                    ipAddress);
+                messages::propertyNotWritable(asyncResp->res, "Ami");
                 return;
             }
-            else
+    
+            if (!json_util::readJson(*ami, asyncResp->res, "RADIUS", radius))
             {
-                handleRadiusConfigRolemMapPatch(
-                    asyncResp, radiusConfigObjectPath, radiusConfigInterface,
-                    "IP", *radiusObject.host);
+                return;
             }
-        }
-        else
-        {
-            messages::propertyValueEmpty(asyncResp->res, *radiusObject.host,
-                                         "ServiceAddress");
-            return;
-        }
-    }
-    if (radiusObject.password)
-    {
-        if (radiusObject.password != "")
-        {
-            handleRadiusConfigRolemMapPatch(asyncResp, radiusConfigObjectPath,
-                                            radiusConfigInterface, "Password",
-                                            *radiusObject.password);
-        }
-        else
-        {
-            messages::propertyValueEmpty(asyncResp->res, *radiusObject.password,
-                                         "Secret");
-            return;
-        }
-    }
-    if (radiusObject.port && *radiusObject.port >= 0 &&
-        *radiusObject.port <= 65535)
-    {
-        sdbusplus::asio::setProperty(
-            *crow::connections::systemBus, radisuDBusService,
-            radiusConfigObjectPath, radiusConfigInterface, "PortNumber",
-            *radiusObject.port,
-            [asyncResp](const boost::system::error_code& ec) {
-                if (ec)
+
+            if(radius)
+            {
+                std::size_t radius_size = radius.value().size();
+                if (radius_size == 0)
                 {
-                    BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
-                    messages::internalError(asyncResp->res);
+                    messages::propertyNotWritable(asyncResp->res, "RADIUS");
                     return;
                 }
-                messages::success(asyncResp->res);
-                BMCWEB_LOG_DEBUG("Patch port Success");
-            });
-    }
-    if (radiusObject.groupName1)
-    {
-        handleRadiusConfigRolemMapPatch(asyncResp, radiusRoleMapObjectPath,
-                                        radiusRoleMapInterface, "GroupName1",
-                                        *radiusObject.groupName1);
-    }
-    if (radiusObject.groupName2)
-    {
-        handleRadiusConfigRolemMapPatch(asyncResp, radiusRoleMapObjectPath,
-                                        radiusRoleMapInterface, "GroupName2",
-                                        *radiusObject.groupName2);
-    }
-    if (radiusObject.groupName3)
-    {
-        handleRadiusConfigRolemMapPatch(asyncResp, radiusRoleMapObjectPath,
-                                        radiusRoleMapInterface, "GroupName3",
-                                        *radiusObject.groupName3);
-    }
-    if (radiusObject.privilege1)
-    {
-        if (!radiusObject.privilege1->empty())
-        {
-            // Map privilege to a role ID
-            std::string roleId =
-                getPrivilegeFromRoleId(*radiusObject.privilege1);
 
-            if (!roleId.empty())
-            {
-                // Process valid privilege
-                handleRadiusConfigRolemMapPatch(
-                    asyncResp, radiusRoleMapObjectPath, radiusRoleMapInterface,
-                    "Privilege1", roleId);
+                if (!json_util::readJson(
+                *radius, asyncResp->res,                            
+                "ServiceAddress", radiusObject.host,
+                "Secret", radiusObject.password,
+                "ServicePort", radiusObject.port,
+                "GroupName1", radiusObject.groupName1,
+                "GroupName2", radiusObject.groupName2,
+                "GroupName3", radiusObject.groupName3,
+                "Privilege1", radiusObject.privilege1,
+                "Privilege2", radiusObject.privilege2,
+                "Privilege3", radiusObject.privilege3))
+                {
+                    return;
+                }
+                // clang-format on
+
+                if (radiusObject.host)
+                {
+                    if (radiusObject.host != "")
+                    {
+                        const std::string& ipAddress = *radiusObject.host;
+                        if (!ip_util::isValidIPv4Addr(
+                                *radiusObject.host,
+                                ip_util::Type::IP4_ADDRESS)) // checking the
+                                                             // IPv4 Address
+                        {
+                            messages::invalidip(asyncResp->res,
+                                                "ServiceAddress", ipAddress);
+                            return;
+                        }
+                        else
+                        {
+                            handleRadiusConfigRolemMapPatch(
+                                asyncResp, radiusConfigObjectPath,
+                                radiusConfigInterface, "IP",
+                                *radiusObject.host);
+                        }
+                    }
+                    else
+                    {
+                        messages::propertyValueEmpty(asyncResp->res,
+                                                     *radiusObject.host,
+                                                     "ServiceAddress");
+                        return;
+                    }
+                }
+                if (radiusObject.password)
+                {
+                    if (radiusObject.password != "")
+                    {
+                        handleRadiusConfigRolemMapPatch(
+                            asyncResp, radiusConfigObjectPath,
+                            radiusConfigInterface, "Password",
+                            *radiusObject.password);
+                    }
+                    else
+                    {
+                        messages::propertyValueEmpty(
+                            asyncResp->res, *radiusObject.password, "Secret");
+                        return;
+                    }
+                }
+                if (radiusObject.port && *radiusObject.port >= 0 &&
+                    *radiusObject.port <= 65535)
+                {
+                    sdbusplus::asio::setProperty(
+                        *crow::connections::systemBus, radisuDBusService,
+                        radiusConfigObjectPath, radiusConfigInterface,
+                        "PortNumber", *radiusObject.port,
+                        [asyncResp](const boost::system::error_code& ec) {
+                            if (ec)
+                            {
+                                BMCWEB_LOG_ERROR("D-Bus responses error: {}",
+                                                 ec);
+                                messages::internalError(asyncResp->res);
+                                return;
+                            }
+                            messages::success(asyncResp->res);
+                            BMCWEB_LOG_DEBUG("Patch port Success");
+                        });
+                }
+                if (radiusObject.groupName1)
+                {
+                    handleRadiusConfigRolemMapPatch(
+                        asyncResp, radiusRoleMapObjectPath,
+                        radiusRoleMapInterface, "GroupName1",
+                        *radiusObject.groupName1);
+                }
+                if (radiusObject.groupName2)
+                {
+                    handleRadiusConfigRolemMapPatch(
+                        asyncResp, radiusRoleMapObjectPath,
+                        radiusRoleMapInterface, "GroupName2",
+                        *radiusObject.groupName2);
+                }
+                if (radiusObject.groupName3)
+                {
+                    handleRadiusConfigRolemMapPatch(
+                        asyncResp, radiusRoleMapObjectPath,
+                        radiusRoleMapInterface, "GroupName3",
+                        *radiusObject.groupName3);
+                }
+                if (radiusObject.privilege1)
+                {
+                    if (!radiusObject.privilege1->empty())
+                    {
+                        // Map privilege to a role ID
+                        std::string roleId =
+                            getPrivilegeFromRoleId(*radiusObject.privilege1);
+
+                        if (!roleId.empty())
+                        {
+                            // Process valid privilege
+                            handleRadiusConfigRolemMapPatch(
+                                asyncResp, radiusRoleMapObjectPath,
+                                radiusRoleMapInterface, "Privilege1", roleId);
+                        }
+                        else
+                        {
+                            // Handle invalid privilege
+                            messages::propertyValueNotInList(
+                                asyncResp->res, *radiusObject.privilege1,
+                                "Privilege1");
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        // Handle empty privilege
+                        messages::propertyValueEmpty(asyncResp->res,
+                                                     *radiusObject.privilege1,
+                                                     "Privilege1");
+                        return;
+                    }
+                }
+
+                if (radiusObject.privilege2)
+                {
+                    if (!radiusObject.privilege2->empty())
+                    {
+                        // Map privilege to a role ID
+                        std::string roleId =
+                            getPrivilegeFromRoleId(*radiusObject.privilege2);
+
+                        if (!roleId.empty())
+                        {
+                            // Process valid privilege
+                            handleRadiusConfigRolemMapPatch(
+                                asyncResp, radiusRoleMapObjectPath,
+                                radiusRoleMapInterface, "Privilege2", roleId);
+                        }
+                        else
+                        {
+                            // Handle invalid privilege
+                            messages::propertyValueNotInList(
+                                asyncResp->res, *radiusObject.privilege2,
+                                "Privilege2");
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        // Handle empty privilege
+                        messages::propertyValueEmpty(asyncResp->res,
+                                                     *radiusObject.privilege2,
+                                                     "Privilege2");
+                        return;
+                    }
+                }
+                if (radiusObject.privilege3)
+                {
+                    if (!radiusObject.privilege3->empty())
+                    {
+                        // Map privilege to a role ID
+                        std::string roleId =
+                            getPrivilegeFromRoleId(*radiusObject.privilege3);
+
+                        if (!roleId.empty())
+                        {
+                            // Process valid privilege
+                            handleRadiusConfigRolemMapPatch(
+                                asyncResp, radiusRoleMapObjectPath,
+                                radiusRoleMapInterface, "Privilege3", roleId);
+                        }
+                        else
+                        {
+                            // Handle invalid privilege
+                            messages::propertyValueNotInList(
+                                asyncResp->res, *radiusObject.privilege3,
+                                "Privilege3");
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        // Handle empty privilege
+                        messages::propertyValueEmpty(asyncResp->res,
+                                                     *radiusObject.privilege3,
+                                                     "Privilege3");
+                        return;
+                    }
+                }
             }
-            else
-            {
-                // Handle invalid privilege
-                messages::propertyValueNotInList(
-                    asyncResp->res, *radiusObject.privilege1, "Privilege1");
-                return;
-            }
-        }
-        else
-        {
-            // Handle empty privilege
-            messages::propertyValueEmpty(
-                asyncResp->res, *radiusObject.privilege1, "Privilege1");
-            return;
         }
     }
-
-    if (radiusObject.privilege2)
+    if (radiusObject.enabled.has_value())
     {
-        if (!radiusObject.privilege2->empty())
+        if (!radiusObject.enabled)
         {
-            // Map privilege to a role ID
-            std::string roleId =
-                getPrivilegeFromRoleId(*radiusObject.privilege2);
-
-            if (!roleId.empty())
-            {
-                // Process valid privilege
-                handleRadiusConfigRolemMapPatch(
-                    asyncResp, radiusRoleMapObjectPath, radiusRoleMapInterface,
-                    "Privilege2", roleId);
-            }
-            else
-            {
-                // Handle invalid privilege
-                messages::propertyValueNotInList(
-                    asyncResp->res, *radiusObject.privilege2, "Privilege2");
-                return;
-            }
-        }
-        else
-        {
-            // Handle empty privilege
-            messages::propertyValueEmpty(
-                asyncResp->res, *radiusObject.privilege2, "Privilege2");
-            return;
-        }
-    }
-    if (radiusObject.privilege3)
-    {
-        if (!radiusObject.privilege3->empty())
-        {
-            // Map privilege to a role ID
-            std::string roleId =
-                getPrivilegeFromRoleId(*radiusObject.privilege3);
-
-            if (!roleId.empty())
-            {
-                // Process valid privilege
-                handleRadiusConfigRolemMapPatch(
-                    asyncResp, radiusRoleMapObjectPath, radiusRoleMapInterface,
-                    "Privilege3", roleId);
-            }
-            else
-            {
-                // Handle invalid privilege
-                messages::propertyValueNotInList(
-                    asyncResp->res, *radiusObject.privilege3, "Privilege3");
-                return;
-            }
-        }
-        else
-        {
-            // Handle empty privilege
-            messages::propertyValueEmpty(
-                asyncResp->res, *radiusObject.privilege3, "Privilege3");
-            return;
+            setRadiusEnable(asyncResp, *radiusObject.enabled);
         }
     }
 }
