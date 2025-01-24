@@ -489,7 +489,7 @@ inline void handleRoleMapPatch(
             }
 
             // Check for duplicate RemoteGroup in roleMapObjData
-            for (const auto& [path, data] : roleMapObjData)
+            /*for (const auto& [path, data] : roleMapObjData)
             {
                 if (remoteGroup && *remoteGroup == data.groupName)
                 {
@@ -498,7 +498,7 @@ inline void handleRoleMapPatch(
                     messages::noOperation(asyncResp->res);
                     return;
                 }
-            }
+            }*/
 
             // Update existing RoleMapping Object
             if (index < roleMapObjData.size())
@@ -555,7 +555,7 @@ inline void handleRoleMapPatch(
                         *crow::connections::systemBus, ldapDbusService,
                         roleMapObjData[index].first,
                         "xyz.openbmc_project.User.PrivilegeMapperEntry",
-                        "Privilege", *localRole,
+                        "Privilege", priv,
                         [asyncResp, roleMapObjData, serverType, index,
                          localRole](const boost::system::error_code& ec,
                                     const sdbusplus::message_t& msg) {
