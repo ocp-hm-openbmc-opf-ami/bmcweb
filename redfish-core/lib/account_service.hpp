@@ -1384,6 +1384,14 @@ struct LdapPatchParams
     std::optional<
         std::vector<std::variant<nlohmann::json::object_t, std::nullptr_t>>>
         remoteRoleMapData;
+    bool hasValue() const
+    {
+        return authType.has_value() || serviceAddressList.has_value() ||
+               serviceEnabled.has_value() || baseDNList.has_value() ||
+               userNameAttribute.has_value() || groupsAttribute.has_value() ||
+               userName.has_value() || password.has_value() ||
+               remoteRoleMapData.has_value();
+    }
 };
 
 inline void handleLDAPPatch(LdapPatchParams&& input,
@@ -1398,6 +1406,11 @@ inline void handleLDAPPatch(LdapPatchParams&& input,
     else if (serverType == "LDAP")
     {
         dbusObjectPath = ldapConfigObjectName;
+        if((input.baseDNList.has_value() || input.userNameAttribute.has_value()|| input.serviceAddressList.has_value())&& (!input.userName || !input.password))
+        {
+             messages::propertyMissing(asyncResp->res, "Username and Password");
+             return;
+        }
     }
     else
     {
@@ -2464,12 +2477,6 @@ inline void handleAccountServicePatch(
     }
     // clang-format on
 
-    if (!ldapObject.userName || !ldapObject.password)
-    {
-        messages::propertyMissing(asyncResp->res, "Username and Password");
-        return;
-    }
-
     if (httpBasicAuth)
     {
         if (*httpBasicAuth == "Enabled")
@@ -2583,9 +2590,16 @@ inline void handleAccountServicePatch(
             std::variant<uint8_t>(*RememberOldPasswordTimes));
     }
 
-    handleLDAPPatch(std::move(activeDirectoryObject), asyncResp,
-                    "ActiveDirectory");
-    handleLDAPPatch(std::move(ldapObject), asyncResp, "LDAP");
+    if (activeDirectoryObject.hasValue())
+    {
+        handleLDAPPatch(std::move(activeDirectoryObject), asyncResp,
+                        "ActiveDirectory");
+    }
+
+    if (ldapObject.hasValue())
+    {
+            handleLDAPPatch(std::move(ldapObject), asyncResp, "LDAP");
+    }
 
     handleAuthMethodsPatch(asyncResp, auth);
 
