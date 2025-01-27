@@ -479,22 +479,22 @@ inline void handleRoleMapPatch(
                 continue;
             }
 
-            // Check for duplicate RemoteGroup in roleMapObjData
-            /*for (const auto& [path, data] : roleMapObjData)
-            {
-                if (remoteGroup && *remoteGroup == data.groupName)
-                {
-                    BMCWEB_LOG_DEBUG("Duplicate RemoteGroup: {} found",
-                                     *remoteGroup);
-                    messages::noOperation(asyncResp->res);
-                    return;
-                }
-            }*/
-
             // Update existing RoleMapping Object
             if (index < roleMapObjData.size())
             {
                 BMCWEB_LOG_DEBUG("Update Role Map Object");
+		
+		// Check for duplicate RemoteGroup in roleMapObjData
+            	for (const auto& [path, data] : roleMapObjData)
+            	{	
+                	if (remoteGroup && *remoteGroup == data.groupName)
+                	{
+                    		BMCWEB_LOG_DEBUG("Duplicate RemoteGroup: {} found",
+                                     *remoteGroup);
+                    		messages::noOperation(asyncResp->res);
+               		 }
+            	}	
+
                 // If "RemoteGroup" info is provided
                 if (remoteGroup)
                 {
