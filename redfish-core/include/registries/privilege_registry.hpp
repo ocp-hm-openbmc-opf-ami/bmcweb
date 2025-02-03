@@ -1909,7 +1909,7 @@ const static auto& postTrustedComponentCollection = privilegeSetConfigureManager
 const static auto& getUpdateService = privilegeSetLogin;
 const static auto& headUpdateService = privilegeSetLogin;
 const static auto& patchUpdateService = privilegeSetConfigureComponents;
-const static auto& postUpdateService = privilegeSetConfigureComponents;
+const static auto& postUpdateService = privilegeSetConfigureManager;
 const static auto& putUpdateService = privilegeSetConfigureComponents;
 const static auto& deleteUpdateService = privilegeSetConfigureComponents;
 
