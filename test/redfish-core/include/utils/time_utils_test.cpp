@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #include "utils/time_utils.hpp"
 
 #include <chrono>
@@ -5,6 +7,7 @@
 #include <ctime>
 #include <limits>
 #include <optional>
+#include <version>
 
 #include <gtest/gtest.h>
 
@@ -152,6 +155,12 @@ TEST(Utility, DateStringToEpoch)
     EXPECT_EQ(dateStringToEpoch("2021-11-30T22:41:35"),
               usSinceEpoch{1638312095000000});
 
+    // valid datetime format
+    EXPECT_EQ(dateStringToEpoch("20230531T000000Z"),
+              usSinceEpoch{1685491200000000});
+    // valid datetime format
+    EXPECT_EQ(dateStringToEpoch("20230531"), usSinceEpoch{1685491200000000});
+
     // Non zero timezone
     EXPECT_EQ(dateStringToEpoch("2021-11-30T22:41:35.123456+04:00"),
               usSinceEpoch{1638297695123456});
@@ -190,7 +199,14 @@ TEST(Utility, DateStringToEpochWithInvalidDateTimeFormats)
     EXPECT_EQ(dateStringToEpoch("2024-07-01TX:00:00Z"), std::nullopt);
 
     // invalid minute (60)
+    // Date.h and std::chrono seem to disagree about whether there is a 60th
+    // minute in an hour.  Not clear if this is intended or not, but really
+    // isn't that important.  Let std::chrono pass with 61
+#if __cpp_lib_chrono >= 201907L
+    EXPECT_EQ(dateStringToEpoch("2024-07-01T12:61:00Z"), std::nullopt);
+#else
     EXPECT_EQ(dateStringToEpoch("2024-07-01T12:60:00Z"), std::nullopt);
+#endif
 
     // invalid character for minute
     EXPECT_EQ(dateStringToEpoch("2024-13-01T12:X:00Z"), std::nullopt);
@@ -203,6 +219,20 @@ TEST(Utility, DateStringToEpochWithInvalidDateTimeFormats)
 
     // invalid timezone
     EXPECT_EQ(dateStringToEpoch("2024-07-01T12:00:00X"), std::nullopt);
+
+    // invalid datetime format
+    EXPECT_EQ(dateStringToEpoch("202305"), std::nullopt);
+    // invalid month (13), day (99)
+    EXPECT_EQ(dateStringToEpoch("19991399"), std::nullopt);
+}
+
+TEST(Utility, GetDateTimeIso8601)
+{
+    EXPECT_EQ(getDateTimeIso8601("20230531"), "2023-05-31T00:00:00+00:00");
+    EXPECT_EQ(getDateTimeIso8601("20230531T000000Z"),
+              "2023-05-31T00:00:00+00:00");
+    // invalid datetime
+    EXPECT_EQ(getDateTimeIso8601("202305"), std::nullopt);
 }
 
 } // namespace

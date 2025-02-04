@@ -64,6 +64,10 @@ incdir = include_directories(
     'redfish-core/lib',
     'http',
 )
+incdir_cli = include_directories(
+  'http',
+  'include'
+)
 
 if (get_option('tests').allowed())
     summary('unittest', 'NA', section: 'Features')
@@ -80,6 +84,7 @@ if (cxx.get_id() == 'clang')
         '-Wformat=2',
         '-Wno-c++98-compat-pedantic',
         '-Wno-c++98-compat',
+        '-Wno-c++20-extensions',
         '-Wno-documentation-unknown-command',
         '-Wno-documentation',
         '-Wno-exit-time-destructors',
@@ -92,6 +97,9 @@ if (cxx.get_id() == 'clang')
         '-Wno-switch-enum',
         '-Wno-unused-macros',
         '-Wno-covered-switch-default',
+        '-Wno-disabled-macro-expansion',
+        '-Wno-unneeded-internal-declaration',
+        '-Wno-unsafe-buffer-usage-in-container',
         language: 'cpp',
     )
 endif
@@ -169,7 +177,6 @@ endif
 add_project_arguments(
     cxx.get_supported_arguments(
         [
-            '-DBOOST_ASIO_DISABLE_CONCEPTS',
             '-DBOOST_ALL_NO_LIB',
             '-DBOOST_ALLOW_DEPRECATED_HEADERS',
             '-DBOOST_ASIO_DISABLE_THREADS',
@@ -181,6 +188,7 @@ add_project_arguments(
             '-DBOOST_EXCEPTION_DISABLE',
             '-DBOOST_NO_EXCEPTIONS',
             '-DBOOST_URL_NO_SOURCE_LOCATION',
+            '-DBOOST_SPIRIT_X3_NO_RTTI',
             '-DJSON_NOEXCEPTION',
             '-DOPENSSL_NO_FILENAMES',
             '-DSDBUSPLUS_DISABLE_BOOST_COROUTINES',
@@ -192,6 +200,7 @@ add_project_arguments(
 # Find the dependency modules, if not found use meson wrap to get them
 # automatically during the configure step
 bmcweb_dependencies = []
+bmcweb_cli_dependencies = []
 
 pam = cxx.find_library('pam', required: true)
 atomic = cxx.find_library('atomic', required: true)
@@ -229,6 +238,15 @@ if not sdbusplus.found()
     sdbusplus = sdbusplus.as_system('system')
 endif
 bmcweb_dependencies += sdbusplus
+bmcweb_cli_dependencies += sdbusplus
+
+cli11 = dependency('CLI11', required : false, include_type: 'system')
+if not cli11.found()
+  cli11_proj = subproject('cli11', required: true)
+  cli11 = cli11_proj.get_variable('CLI11_dep')
+  cli11 = cli11.as_system('system')
+endif
+bmcweb_cli_dependencies += cli11
 
 tinyxml = dependency(
     'tinyxml2',
@@ -245,14 +263,17 @@ bmcweb_dependencies += tinyxml
 
 systemd = dependency('systemd')
 libsystemd = dependency('libsystemd')
-add_project_arguments('-DLIBSYSTEMD_VERSION=' + libsystemd.version(), language: 'cpp')
+add_project_arguments(
+    '-DLIBSYSTEMD_VERSION=' + libsystemd.version(),
+    language: 'cpp',
+)
 
 zlib = dependency('zlib')
 bmcweb_dependencies += [libsystemd, zlib]
 
 nlohmann_json_dep = dependency(
     'nlohmann_json',
-    version: '>=3.11.2',
+    version: '>=3.11.3',
     include_type: 'system',
 )
 bmcweb_dependencies += nlohmann_json_dep
@@ -264,62 +285,57 @@ boost = dependency(
     required: false,
     include_type: 'system',
 )
+
+# Boost version is 1.86 or higher to include the 'process' module
+if boost.version().version_compare('>=1.86.0')
+    boost = dependency(
+        'boost',
+        modules: ['url', 'process'],
+        version: '>=1.86.0',
+        required: false,
+        include_type: 'system',
+    )
+endif
+
 if boost.found()
     bmcweb_dependencies += [boost]
+    bmcweb_cli_dependencies += [boost]
 else
     cmake = import('cmake')
     opt = cmake.subproject_options()
+    boost_libs = [
+        'asio',
+        'beast',
+        'circular_buffer',
+        'callable_traits',
+        'headers',
+        'process',
+        'type_index',
+        'url',
+        'uuid',
+        'spirit',
+    ]
     opt.add_cmake_defines(
         {
 # 1.86.0 fails this.  Hopefully fixed in 1.86.1
             'CMAKE_CXX_FLAGS': '-Wno-unused-parameter',
-            'BOOST_INCLUDE_LIBRARIES': 'asio;beast;callable_traits;headers;process;type_index;url;uuid',
+            'BOOST_INCLUDE_LIBRARIES': ';'.join(boost_libs),
             'BUILD_SHARED_LIBS': 'OFF',
         },
     )
 
     boost = cmake.subproject('boost', required: true, options: opt)
-    boost_asio = boost.dependency('boost_asio').as_system()
-    boost_beast = boost.dependency('boost_beast').as_system()
-    boost_callable_traits = boost.dependency('boost_callable_traits').as_system()
-    boost_headers = boost.dependency('boost_headers').as_system()
-    boost_process = boost.dependency('boost_process').as_system()
-    boost_type_index = boost.dependency('boost_type_index').as_system()
-    boost_url = boost.dependency('boost_url').as_system()
-    boost_uuid = boost.dependency('boost_uuid').as_system()
-    bmcweb_dependencies += [
-        boost_asio,
-        boost_beast,
-        boost_callable_traits,
-        boost_headers,
-        boost_process,
-        boost_type_index,
-        boost_url,
-        boost_uuid,
-    ]
-endif
-
-if get_option('tests').allowed()
-    gtest = dependency(
-        'gtest',
-        main: true,
-        version: '>=1.14.0',
-        disabler: true,
-        required: false,
-    )
-    gmock = dependency('gmock', required: false)
-    if not gtest.found() and get_option('tests').allowed()
-        gtest_proj = subproject('gtest', required: true)
-        gtest = gtest_proj.get_variable('gtest_main_dep')
-        gmock = gtest_proj.get_variable('gmock_dep')
-    endif
-    gtest = gtest.as_system('system')
-    gmock = gmock.as_system('system')
+     foreach boost_lib : boost_libs
+        boost_lib_instance = boost.dependency('boost_' + boost_lib).as_system()
+        bmcweb_dependencies += [boost_lib_instance]
+        bmcweb_cli_dependencies += [boost_lib_instance]
+    endforeach
 endif
 
 systemd_system_unit_dir = systemd.get_variable('systemdsystemunitdir')
 
-bindir = get_option('prefix') + '/' + get_option('bindir')
+bindir = get_option('prefix') + '/' +get_option('bindir')
+libexec = get_option('prefix') + '/' + get_option('libexecdir')
 
 summary(
     {
@@ -336,17 +352,26 @@ subdir('redfish-core')
 # Config subdirectory
 subdir('config')
 bmcweb_dependencies += conf_h_dep
+bmcweb_cli_dependencies += conf_h_dep
 
 # Source files
 fs = import('fs')
 
 srcfiles_bmcweb = files(
-# end large files
-
+    'http/mutual_tls.cpp',
+    'redfish-core/src/dbus_log_watcher.cpp',
     'redfish-core/src/error_messages.cpp',
-    # Begin large files, should be at the beginning
+    'redfish-core/src/error_message_utils.cpp',
+    'redfish-core/src/event_log.cpp',
+    'redfish-core/src/filesystem_log_watcher.cpp',
+    'redfish-core/src/filter_expr_executor.cpp',
+    'redfish-core/src/filter_expr_printer.cpp',
+    'redfish-core/src/heartbeat_messages.cpp',
     'redfish-core/src/redfish.cpp',
     'redfish-core/src/registries.cpp',
+    'redfish-core/src/resource_messages.cpp',
+    'redfish-core/src/subscription.cpp',
+    'redfish-core/src/task_messages.cpp',
     'redfish-core/src/utils/dbus_utils.cpp',
     'redfish-core/src/utils/json_utils.cpp',
     'redfish-core/src/utils/time_utils.cpp',
@@ -356,6 +381,7 @@ srcfiles_bmcweb = files(
     'src/dbus_singleton.cpp',
     'src/json_html_serializer.cpp',
     'src/ossl_random.cpp',
+    'src/ssl_key_handler.cpp',
     'src/webserver_run.cpp',
 )
 
@@ -366,17 +392,26 @@ bmcweblib = static_library(
     dependencies: bmcweb_dependencies,
 )
 
-# Generate the bmcweb executable
+# Generate the bmcwebd daemon
 executable(
-    'bmcweb',
-    srcfiles_bmcweb + ['src/webserver_main.cpp'],
-    include_directories: incdir,
-    dependencies: bmcweb_dependencies,
-    link_with: bmcweblib,
-    link_args: '-Wl,--gc-sections',
-    install: true,
-    install_dir: bindir,
-    export_dynamic: true,
+  'bmcwebd',
+  srcfiles_bmcweb + ['src/webserver_main.cpp'],
+  include_directories : incdir,
+  dependencies: bmcweb_dependencies,
+  link_with: bmcweblib,
+  link_args: '-Wl,--gc-sections',
+  install: true,
+  install_dir:libexec,
+  export_dynamic: true,
+)
+# Generate the bmcweb CLI application
+executable(
+  'bmcweb',
+  ['src/webserver_cli.cpp','src/boost_asio.cpp'],
+  include_directories : incdir_cli,
+  dependencies: bmcweb_cli_dependencies,
+  install: true,
+  install_dir:bindir
 )
 
 srcfiles_unittest = files(
@@ -405,13 +440,20 @@ srcfiles_unittest = files(
     'test/include/ossl_random.cpp',
     'test/include/ssl_key_handler_test.cpp',
     'test/include/str_utility_test.cpp',
+    'test/redfish-core/include/dbus_log_watcher_test.cpp',
+    'test/redfish-core/include/event_log_test.cpp',
+    'test/redfish-core/include/event_matches_filter_test.cpp',
     'test/redfish-core/include/privileges_test.cpp',
+    'test/redfish-core/include/filter_expr_executor_test.cpp',
+    'test/redfish-core/include/filter_expr_parser_test.cpp',
     'test/redfish-core/include/redfish_aggregator_test.cpp',
     'test/redfish-core/include/registries_test.cpp',
+    'test/redfish-core/include/submit_test_event_test.cpp',
     'test/redfish-core/include/utils/dbus_utils.cpp',
     'test/redfish-core/include/utils/hex_utils_test.cpp',
     'test/redfish-core/include/utils/ip_utils_test.cpp',
     'test/redfish-core/include/utils/json_utils_test.cpp',
+    'test/redfish-core/include/redfish_test.cpp',
     'test/redfish-core/include/utils/query_param_test.cpp',
     'test/redfish-core/include/utils/sensor_utils_test.cpp',
     'test/redfish-core/include/utils/stl_utils_test.cpp',
@@ -419,7 +461,6 @@ srcfiles_unittest = files(
     'test/redfish-core/lib/chassis_test.cpp',
     'test/redfish-core/lib/log_services_dump_test.cpp',
     'test/redfish-core/lib/manager_diagnostic_data_test.cpp',
-    'test/redfish-core/lib/manager_logservices_journal_test.cpp',
     'test/redfish-core/lib/metadata_test.cpp',
     'test/redfish-core/lib/power_subsystem_test.cpp',
     'test/redfish-core/lib/service_root_test.cpp',
@@ -430,6 +471,21 @@ srcfiles_unittest = files(
 )
 
 if (get_option('tests').allowed())
+     gtest = dependency(
+        'gtest_main',
+        main: true,
+        version: '>=1.15.0',
+        required: true,
+    )
+    gmock = dependency('gmock', required: true)
+    gtestlib = static_library('gtestlib', dependencies: [gtest, gmock])
+    gtestdep = declare_dependency(
+        link_with: gtestlib,
+        dependencies: [
+            gtest.partial_dependency(includes: true),
+            gmock.partial_dependency(includes: true),
+        ],
+    )
 # generate the test executable
     foreach test_src : srcfiles_unittest
         test_bin = executable(
@@ -438,8 +494,8 @@ if (get_option('tests').allowed())
             link_with: bmcweblib,
             include_directories: incdir,
             install_dir: bindir,
-            dependencies: bmcweb_dependencies + [gtest, gmock],
+            dependencies: bmcweb_dependencies + [gtestdep],
         )
-        test(fs.stem(test_src), test_bin)
+        test(fs.stem(test_src), test_bin, protocol: 'gtest')
     endforeach
 endif

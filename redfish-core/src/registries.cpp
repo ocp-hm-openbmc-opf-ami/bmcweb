@@ -1,9 +1,8 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #include "registries.hpp"
 
-#include "registries/base_message_registry.hpp"
-#include "registries/nm_message_registry.hpp"
-#include "registries/openbmc_message_registry.hpp"
-#include "registries/telemetry_message_registry.hpp"
+#include "registries_selector.hpp"
 #include "str_utility.hpp"
 
 #include <algorithm>
@@ -22,8 +21,8 @@ const Message* getMessageFromRegistry(const std::string& messageKey,
 {
     std::span<const MessageEntry>::iterator messageIt = std::ranges::find_if(
         registry, [&messageKey](const MessageEntry& messageEntry) {
-        return std::strcmp(messageEntry.first, messageKey.c_str()) == 0;
-    });
+            return std::strcmp(messageEntry.first, messageKey.c_str()) == 0;
+        });
     if (messageIt != registry.end())
     {
         return &messageIt->second;
@@ -39,32 +38,30 @@ const Message* getMessage(std::string_view messageID)
     // the right Message
     std::vector<std::string> fields;
     fields.reserve(4);
+
+    if (fields.size() != 4)
+    {
+        return nullptr;
+    }
+
     bmcweb::split(fields, messageID, '.');
+
     const std::string& registryName = fields[0];
     const std::string& messageKey = fields[3];
 
     // Find the right registry and check it for the MessageKey
-    if (std::string(base::header.registryPrefix) == registryName)
-    {
-        return getMessageFromRegistry(
-            messageKey, std::span<const MessageEntry>(base::registry));
-    }
-    if (std::string(openbmc::header.registryPrefix) == registryName)
-    {
-        return getMessageFromRegistry(
-            messageKey, std::span<const MessageEntry>(openbmc::registry));
-    }
-    if (std::string(nm::header.registryPrefix) == registryName)
-    {
-        return getMessageFromRegistry(
-            messageKey, std::span<const MessageEntry>(nm::registry));
-    }
-    if (std::string(telemetry::header.registryPrefix) == registryName)
-    {
-        return getMessageFromRegistry(
-            messageKey, std::span<const MessageEntry>(telemetry::registry));
-    }
-    return nullptr;
+    return getMessageFromRegistry(messageKey,
+                                  getRegistryFromPrefix(registryName));
+}
+
+const Message* formatMessage(std::string messageID)
+{
+    // Find the right registry and check it for the MessageKey
+    const std::string& registryName = "OpenBMC";
+    std::string messageKey = messageID;
+    messageKey.erase(std::remove(messageKey.begin(), messageKey.end(), ' '),
+                     messageKey.end());
+    return getMessageFromRegistry(messageKey, getRegistryFromPrefix(registryName));
 }
 
 } // namespace redfish::registries

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
 #include "async_resp.hpp"
@@ -97,32 +99,13 @@ inline void
     asyncResp->res.jsonValue["SubscriptionType"] = event_destination::SubscriptionType::SNMPTrap;
     asyncResp->res.jsonValue["EventFormatType"] = event_destination::EventFormatType::Event;
 
-    std::shared_ptr<Subscription> subValue =
-        EventServiceManager::getInstance().getSubscription(id);
-    if (subValue != nullptr)
-    {
-        asyncResp->res.jsonValue["Context"] = subValue->customText;
-        asyncResp->res.jsonValue["MessageIds"] = subValue->registryMsgIds;
-        asyncResp->res.jsonValue["RegistryPrefixes"] = subValue->registryPrefixes;
-        asyncResp->res.jsonValue["ResourceTypes"] = subValue->resourceTypes;
-        asyncResp->res.jsonValue["DeliveryRetryPolicy"] = subValue->retryPolicy;
-    }
-    else
-    {
-        asyncResp->res.jsonValue["Context"] = "";
-        asyncResp->res.jsonValue["MessageIds"] = "";
-        asyncResp->res.jsonValue["RegistryPrefixes"] = "";
-        asyncResp->res.jsonValue["ResourceTypes"] = "";
-        asyncResp->res.jsonValue["DeliveryRetryPolicy"] = "";
-    }
-  
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, "xyz.openbmc_project.Network.SNMP",
-        objectPath, "xyz.openbmc_project.Network.Client",
+    dbus::utility::getAllProperties(
+        "xyz.openbmc_project.Network.SNMP", objectPath,
+        "xyz.openbmc_project.Network.Client",
         [asyncResp](const boost::system::error_code& ec,
                     const dbus::utility::DBusPropertiesMap& properties) {
-        afterGetSnmpTrapClientdata(asyncResp, ec, properties);
-    });
+            afterGetSnmpTrapClientdata(asyncResp, ec, properties);
+        });
 }
 
 inline void
@@ -241,7 +224,7 @@ inline void afterSnmpClientCreate(
             {
                 // SNMP not installed
                 messages::propertyValueOutOfRange(
-                    asyncResp->res, subValue->protocol, "Protocol");
+                    asyncResp->res, subValue->userSub->protocol, "Protocol");
                 return;
             }
         }
@@ -258,7 +241,7 @@ inline void afterSnmpClientCreate(
 
     std::string subscriptionId = "snmp" + snmpId;
 
-    EventServiceManager::getInstance().addSubscription(subValue,
+    EventServiceManager::getInstance().addPushSubscription(subValue,
                                                        subscriptionId);
     boost::urls::url uri = boost::urls::format(
         "/redfish/v1/EventService/Subscriptions/{}", subscriptionId);

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
 #include "dbus_utility.hpp"
@@ -532,7 +534,6 @@ inline void objectPropertiesToJson(
     std::vector<
         std::tuple<const char*, const char*, nlohmann::json::json_pointer>>
         properties;
-    properties.reserve(7);
 
     properties.emplace_back("xyz.openbmc_project.Sensor.Value", "Value", unit);
 
@@ -550,6 +551,13 @@ inline void objectPropertiesToJson(
         properties.emplace_back(
             "xyz.openbmc_project.Sensor.Threshold.Critical", "CriticalLow",
             "/Thresholds/LowerCritical/Reading"_json_pointer);
+        
+        /* Add additional properties specific to sensorType */
+        if (sensorType == "fan_tach")
+        {
+            properties.emplace_back("xyz.openbmc_project.Sensor.Value", "Value",
+                                    "/SpeedRPM"_json_pointer);
+        }
     }
     else if (sensorType != "power")
     {

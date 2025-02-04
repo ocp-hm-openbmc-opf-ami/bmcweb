@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #include "webserver_run.hpp"
 
 #include "bmcweb_config.h"
@@ -17,9 +19,9 @@
 #include "openbmc_dbus_rest.hpp"
 #include "redfish.hpp"
 #if (BMCWEB_AMI_REP_MACRO) || (BMCWEB_AMI_NIC_MACRO)
+#include <boost/dll/import.hpp>
 #include <redfish/ami/extension/service.hpp>
 #include <redfish_v1.hpp>
-#include <boost/dll/import.hpp>
 #endif
 #include "redfish_aggregator.hpp"
 #include "user_monitor.hpp"
@@ -28,8 +30,24 @@
 
 #include <boost/asio/io_context.hpp>
 #include <sdbusplus/asio/connection.hpp>
+// commented below Header to compilation error
+// #include <sdbusplus/asio/object_server.hpp>
 
 #include <memory>
+
+// commented below code due to compilation error
+/*static void setLogLevel(const std::string& logLevel)
+{
+    const std::basic_string_view<char>* iter =
+        std::ranges::find(crow::mapLogLevelFromName, logLevel);
+    if (iter == crow::mapLogLevelFromName.end())
+    {
+        BMCWEB_LOG_ERROR("log-level {} not found", logLevel);
+        return;
+    }
+    crow::getBmcwebCurrentLoggingLevel() = crow::getLogLevelFromName(logLevel);
+    BMCWEB_LOG_INFO("Requested log-level change to: {}", logLevel);
+}*/
 
 int run()
 {
@@ -39,8 +57,19 @@ int run()
     sdbusplus::asio::connection systemBus(*io);
     crow::connections::systemBus = &systemBus;
 
-    // Static assets need to be initialized before Authorization, because auth
-    // needs to build the whitelist from the static routes
+    // commented below code due to compilation error
+    /*  std::shared_ptr<sdbusplus::asio::connection> systemBus =
+         std::make_shared<sdbusplus::asio::connection>(*io);
+     crow::connections::systemBus = systemBus.get();
+     auto server = sdbusplus::asio::object_server(systemBus);
+     std::shared_ptr<sdbusplus::asio::dbus_interface> iface =
+         server.add_interface("/xyz/openbmc_project/bmcweb",
+                              "xyz.openbmc_project.bmcweb");
+     iface->register_method("SetLogLevel", setLogLevel);
+     iface->initialize();
+     // Static assets need to be initialized before Authorization, because auth
+     // needs to build the whitelist from the static routes
+     */
 
     if constexpr (BMCWEB_STATIC_HOSTING)
     {
@@ -55,15 +84,17 @@ int run()
     if constexpr (BMCWEB_REDFISH)
     {
         redfish::RedfishService redfish(app);
-        
-#if (BMCWEB_AMI_NIC_MACRO) 
+
+#if (BMCWEB_AMI_NIC_MACRO)
         try
         {
-              // Create AMI Redfish extension service and initialize Config
-               boost::dll::import_symbol<redfish::ami::extension::Service<crow::App>>(
-                   "/usr/lib/redfish/core/libnic.so.1", "service",
-                   boost::dll::load_mode::rtld_lazy | boost::dll::load_mode::rtld_global)
-                   ->requestRoutes(app);
+            // Create AMI Redfish extension service and initialize Config
+            boost::dll::import_symbol<
+                redfish::ami::extension::Service<crow::App>>(
+                "/usr/lib/redfish/core/libnic.so.1", "service",
+                boost::dll::load_mode::rtld_lazy |
+                    boost::dll::load_mode::rtld_global)
+                ->requestRoutes(app);
         }
         catch (const std::system_error& e)
         {
@@ -71,14 +102,16 @@ int run()
         }
 #endif
 #if (BMCWEB_AMI_REP_MACRO)
-      try
+        try
         {
-	      BMCWEB_LOG_ERROR("Inside BMCWEB_ENABLE_AMI_REP");
-              // Create AMI Redfish extension service and initialize Config
-               boost::dll::import_symbol<redfish::ami::extension::Service<crow::App>>(
-                   "/usr/lib/redfish/core/libami.so.1", "service",
-                   boost::dll::load_mode::rtld_lazy | boost::dll::load_mode::rtld_global)
-                   ->requestRoutes(app);
+            BMCWEB_LOG_ERROR("Inside BMCWEB_ENABLE_AMI_REP");
+            // Create AMI Redfish extension service and initialize Config
+            boost::dll::import_symbol<
+                redfish::ami::extension::Service<crow::App>>(
+                "/usr/lib/redfish/core/libami.so.1", "service",
+                boost::dll::load_mode::rtld_lazy |
+                    boost::dll::load_mode::rtld_global)
+                ->requestRoutes(app);
         }
         catch (const std::system_error& e)
         {
@@ -89,14 +122,15 @@ int run()
 #if (BMCWEB_AMI_REP_MACRO) || (BMCWEB_AMI_NIC_MACRO)
 
         // Note, this must be the last route registered
-        redfish::requestRoutesRedfish(app); 
+        redfish::requestRoutesRedfish(app);
 
         // Create EventServiceManager instance and initialize Config
         redfish::EventServiceManager::getInstance(&*io);
 
-        //Initialize config JSON file for SSDP service , /home/root/bmcweb_persistent_data.json
+        // Initialize config JSON file for SSDP service ,
+        // /home/root/bmcweb_persistent_data.json
         persistent_data::getConfig().readData();
-#endif        
+#endif
 
         if constexpr (BMCWEB_REDFISH_AGGREGATION)
         {
@@ -133,8 +167,9 @@ int run()
 
     if constexpr (BMCWEB_REDFISH_DBUS_LOG)
     {
-        auto eventServiceManager = std::make_unique<redfish::EventServiceManager>(*io);
-        eventServiceManager->startEventLogMonitor();
+        auto eventServiceManager =
+            std::make_unique<redfish::EventServiceManager>(*io);
+        eventServiceManager->startdbusEventLogMonitor();
     }
 
     if constexpr (!BMCWEB_INSECURE_DISABLE_SSL)
@@ -146,6 +181,9 @@ int run()
     bmcweb::registerUserRemovedSignal();
 
     app.run();
+    // commented below code due to compilation error
+    //  systemBus->request_name("xyz.openbmc_project.bmcweb");
+
     io->run();
 
     crow::connections::systemBus = nullptr;

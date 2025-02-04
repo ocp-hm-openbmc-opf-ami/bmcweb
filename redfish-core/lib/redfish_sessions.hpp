@@ -1,18 +1,6 @@
-/*
-// Copyright (c) 2018 Intel Corporation
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-*/
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
+// SPDX-FileCopyrightText: Copyright 2018 Intel Corporation
 #pragma once
 
 #include "account_service.hpp"
@@ -79,7 +67,6 @@ inline std::string getRolePrivilege(std::string user)
             std::string privileage_value = *value;
             return privileage_value;
         }
-        
     }
     else
     {
@@ -87,7 +74,6 @@ inline std::string getRolePrivilege(std::string user)
     }
     return "";
 }
-
 
 std::string getRole(std::string role)
 {
@@ -162,8 +148,7 @@ inline void fillSessionObject(crow::Response& res,
     res.jsonValue["Oem"]["AMI_WebSession"]["UserId"] = session.userId;
     nlohmann::json::array_t roles;
 
-    auto value =
-        getRolePrivilege(session.username);
+    auto value = getRolePrivilege(session.username);
 
     roles.emplace_back(getRole(value));
 
@@ -549,7 +534,8 @@ inline void
             }
         }
 
-        if (session->cookieAuth)
+        if (req.session != nullptr && req.session->uniqueId == sessionId &&
+            session->cookieAuth)
         {
             bmcweb::clearSessionCookies(asyncResp->res);
         }
@@ -624,7 +610,7 @@ inline void getSessions(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
                         std::string interface, std::string Property,
                         nlohmann::json& members)
 {
-    sdbusplus::asio::getProperty<std::vector<sessionInfo>>(
+    dbus::utility::getProperty<std::vector<sessionInfo>>(
         *crow::connections::systemBus, SessionManagerService, SessionManagerObj,
         interface, Property,
         [asyncResp, &members](const boost::system::error_code ec,
@@ -743,6 +729,43 @@ inline void handleSessionCollectionMembersGet(
     asyncResp->res.jsonValue = getSessionCollectionMembers();
 }
 
+inline void processAfterSessionCreation(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const crow::Request& req, const std::string& username,
+    std::shared_ptr<persistent_data::UserSession>& session)
+{
+    asyncResp->res.addHeader("X-XSS-Protection", "1; mode=block");
+    // When session is created by webui-vue give it session cookies as a
+    // non-standard Redfish extension. This is needed for authentication for
+    // WebSockets-based functionality.
+    if (!req.getHeaderValue("X-Requested-With").empty())
+    {
+        bmcweb::setSessionCookies(asyncResp->res, *session);
+    }
+    else
+    {
+        asyncResp->res.addHeader("X-Auth-Token", session->sessionToken);
+    }
+    asyncResp->res.addHeader(
+        "Location", "/redfish/v1/SessionService/Sessions/" + session->uniqueId);
+    if (session->isConfigureSelfOnly)
+    {
+        asyncResp->res.result(boost::beast::http::status::forbidden);
+        messages::passwordChangeRequired(
+            asyncResp->res,
+            boost::urls::format("/redfish/v1/AccountService/Accounts/{}",
+                                session->username));
+    }
+    else
+    {
+        asyncResp->res.result(boost::beast::http::status::created);
+        session->AMIsessionType = "Redfish";
+        crow::getUserInfo(asyncResp, username, session, [asyncResp, session]() {
+            fillSessionObject(asyncResp->res, *session);
+        });
+    }
+}
+
 inline void handleSessionCollectionPost(
     crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
@@ -755,9 +778,13 @@ inline void handleSessionCollectionPost(
     std::string password;
     std::optional<std::string> clientId;
     std::optional<std::string> token;
-    if (!json_util::readJsonPatch(req, asyncResp->res, "UserName", username,
-                                  "Password", password, "Token", token,
-                                  "Context", clientId))
+    if (!json_util::readJsonPatch( //
+            req, asyncResp->res, //
+            "UserName", username, //
+            "Password", password, //
+            "Token", token, //
+            "Context", clientId //
+            ))
     {
         return;
     }
@@ -798,38 +825,9 @@ inline void handleSessionCollectionPost(
         messages::internalError(asyncResp->res);
         return;
     }
-
-    asyncResp->res.addHeader("X-XSS-Protection", "1; mode=block");
-    // When session is created by webui-vue give it session cookies as a
-    // non-standard Redfish extension. This is needed for authentication for
-    // WebSockets-based functionality.
-    if (!req.getHeaderValue("X-Requested-With").empty())
-    {
-        bmcweb::setSessionCookies(asyncResp->res, *session);
-    }
-    else
-    {
-        asyncResp->res.addHeader("X-Auth-Token", session->sessionToken);
-    }
-    asyncResp->res.addHeader(
-        "Location", "/redfish/v1/SessionService/Sessions/" + session->uniqueId);
-    if (session->isConfigureSelfOnly)
-    {
-        asyncResp->res.result(boost::beast::http::status::forbidden);
-        messages::passwordChangeRequired(
-            asyncResp->res,
-            boost::urls::format("/redfish/v1/AccountService/Accounts/{}",
-                                session->username));
-    }
-    else
-    {
-        asyncResp->res.result(boost::beast::http::status::created);
-        session->AMIsessionType = "Redfish";
-        crow::getUserInfo(asyncResp, username, session, [asyncResp, session]() {
-            fillSessionObject(asyncResp->res, *session);
-        });
-    }
+    processAfterSessionCreation(asyncResp, req, username, session);
 }
+
 inline void handleSessionServiceHead(
     crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
@@ -947,8 +945,11 @@ inline void handleSessionServicePatch(
     }
     std::optional<uint64_t> sessionTimeout;
     std::optional<nlohmann::json> oem;
-    if (!json_util::readJsonPatch(req, asyncResp->res, "SessionTimeout",
-                                  sessionTimeout, "Oem", oem))
+    if (!json_util::readJsonPatch( //
+            req, asyncResp->res, //
+            "SessionTimeout", sessionTimeout, //
+            "Oem", oem //
+            ))
     {
         return;
     }
@@ -962,7 +963,6 @@ inline void handleSessionServicePatch(
 
         if (*sessionTimeout <= 86400 && *sessionTimeout >= 30)
         {
-
             crow::connections::systemBus->async_method_call(
                 [asyncResp,
                  sessionTimeout](const boost::system::error_code ec) {
@@ -990,7 +990,10 @@ inline void handleSessionServicePatch(
     {
         std::optional<nlohmann::json> ami;
 
-        if (!json_util::readJson(*oem, asyncResp->res, "Ami", ami))
+        if (!json_util::readJson( //
+                *oem, asyncResp->res, //
+                "Ami", ami //
+                ))
         {
             return;
         }
@@ -999,9 +1002,12 @@ inline void handleSessionServicePatch(
             std::optional<uint64_t> kvmSessionTimeout;
             std::optional<uint16_t> bmcwebPort;
             std::optional<uint16_t> kvmPort;
-            if (!json_util::readJson(*ami, asyncResp->res, "KVMSessionTimeout",
-                                     kvmSessionTimeout, "BMCwebPort",
-                                     bmcwebPort, "KVMPort", kvmPort))
+            if (!json_util::readJson( //
+                    *ami, asyncResp->res, //
+                    "KVMSessionTimeout", kvmSessionTimeout, //
+                    "BMCwebPort", bmcwebPort, //
+                    "KVMPort", kvmPort //
+                    ))
             {
                 return;
             }

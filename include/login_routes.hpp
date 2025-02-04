@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
 #include "app.hpp"
@@ -180,8 +182,7 @@ inline void handleLogin(const crow::Request& req,
             if (std::filesystem::exists("/usr/lib/redfish/core/libami.so.1"))
             {
             std::string user(username);
-            sdbusplus::asio::getProperty<bool>(
-                *crow::connections::systemBus,
+            dbus::utility::getProperty<bool>(
                 "xyz.openbmc_project.User.Manager",
                 "/xyz/openbmc_project/user/" + user,
                 "xyz.openbmc_project.User.Attributes", "TwoFacEnableStatus",

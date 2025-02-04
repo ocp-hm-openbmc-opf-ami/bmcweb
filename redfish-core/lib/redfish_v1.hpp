@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
 #include "app.hpp"
@@ -16,9 +18,11 @@
 namespace redfish
 {
 
-inline std::string toLowerCase(const std::string& str) {
+inline std::string toLowerCase(const std::string& str)
+{
     std::string lowerStr = str;
-    std::transform(lowerStr.begin(), lowerStr.end(), lowerStr.begin(), ::tolower);
+    std::transform(lowerStr.begin(), lowerStr.end(), lowerStr.begin(),
+                   ::tolower);
     return lowerStr;
 }
 
@@ -34,11 +38,12 @@ inline bool isStandardSchema(const std::string& input)
         }
     }
 
-    std::vector<std::string> nonStandardSchemas = {"odata", "redfish-error",
-                                                   "redfish-payload-annotations","redfish-schema"};
+    std::vector<std::string> nonStandardSchemas = {
+        "odata", "redfish-error", "redfish-payload-annotations",
+        "redfish-schema"};
     for (const auto& value : nonStandardSchemas)
     {
-        if (value == input) 
+        if (value == input)
         {
             return false;
         }
@@ -98,7 +103,8 @@ inline void redfish405(App& app, const crow::Request& req,
     std::size_t lastSlashPos = path.rfind('/');
     std::string accountName;
     std::string uri;
-    if (lastSlashPos != std::string::npos) {
+    if (lastSlashPos != std::string::npos)
+    {
         accountName = path.substr(lastSlashPos + 1);
         uri = "v1/AccountService/Accounts/" + accountName;
     }
@@ -110,33 +116,36 @@ inline void redfish405(App& app, const crow::Request& req,
             [asyncResp,
              accountName](const boost::system::error_code& ec,
                           const dbus::utility::ManagedObjectType& users) {
-            if (ec)
-            {
-                messages::internalError(asyncResp->res);
-                return;
-            }
-            const auto userIt = std::ranges::find_if(
-                users,
-                [accountName](
-                    const std::pair<sdbusplus::message::object_path,
-                                    dbus::utility::DBusInterfacesMap>& user) {
-                return accountName == user.first.filename();
-            });
+                if (ec)
+                {
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+                const auto userIt = std::ranges::find_if(
+                    users,
+                    [accountName](
+                        const std::pair<sdbusplus::message::object_path,
+                                        dbus::utility::DBusInterfacesMap>&
+                            user) {
+                        return accountName == user.first.filename();
+                    });
 
-            if (userIt == users.end())
-            {
-                messages::resourceNotFound(asyncResp->res, "ManagerAccount",
-                                           accountName);
-                return;
-            }
-            else {
-               messages::operationNotAllowed(asyncResp->res);
-               return;
-            }
-        });
+                if (userIt == users.end())
+                {
+                    messages::resourceNotFound(asyncResp->res, "ManagerAccount",
+                                               accountName);
+                    return;
+                }
+                else
+                {
+                    messages::operationNotAllowed(asyncResp->res);
+                    return;
+                }
+            });
     }
 
-    else {
+    else
+    {
         BMCWEB_LOG_WARNING("405 on path {}", path);
         asyncResp->res.result(boost::beast::http::status::method_not_allowed);
         if (req.method() == boost::beast::http::verb::delete_)
@@ -183,8 +192,8 @@ inline void
             continue;
         }
         nlohmann::json::object_t member;
-        member["@odata.id"] = boost::urls::format("/redfish/v1/JsonSchemas/{}",
-                                                  split[0]);
+        member["@odata.id"] =
+            boost::urls::format("/redfish/v1/JsonSchemas/{}", split[0]);
         members.emplace_back(std::move(member));
     }
 
@@ -225,8 +234,8 @@ inline void jsonSchemaGet(App& app, const crow::Request& req,
         }
 
         nlohmann::json& json = asyncResp->res.jsonValue;
-        json["@odata.id"] = boost::urls::format("/redfish/v1/JsonSchemas/{}",
-                                                schema);
+        json["@odata.id"] =
+            boost::urls::format("/redfish/v1/JsonSchemas/{}", schema);
         json["@odata.type"] = "#JsonSchemaFile.v1_0_2.JsonSchemaFile";
         json["Name"] = schema + " Schema File";
         json["Description"] = schema + " Schema File Location";
@@ -242,7 +251,7 @@ inline void jsonSchemaGet(App& app, const crow::Request& req,
         locationEntry["Language"] = "en";
 
         if (isStandardSchema(schema))
-	{
+        {
             locationEntry["PublicationUri"] = boost::urls::format(
                 "http://redfish.dmtf.org/schemas/v1/{}", filename);
         }
@@ -287,15 +296,18 @@ inline void
         return;
     }
 
-    if (!asyncResp->res.openFile(filepath))
+    crow::OpenCode ec = asyncResp->res.openFile(filepath);
+    if (ec == crow::OpenCode::FileDoesNotExist)
     {
-        BMCWEB_LOG_DEBUG("failed to read file");
-        asyncResp->res.result(
-            boost::beast::http::status::internal_server_error);
+        messages::resourceNotFound(asyncResp->res, "JsonSchemaFile", schema);
         return;
     }
-
-    //messages::resourceNotFound(asyncResp->res, "JsonSchemaFile", schema);
+    if (ec == crow::OpenCode::InternalError)
+    {
+        BMCWEB_LOG_DEBUG("failed to read file");
+        messages::internalError(asyncResp->res);
+        return;
+    }
 }
 
 inline void requestRoutesRedfish(App& app)

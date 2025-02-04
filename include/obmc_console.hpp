@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 #include "app.hpp"
 #include "async_resp.hpp"
@@ -200,8 +202,7 @@ inline void connectConsoleSocket(crow::websocket::Connection& conn,
     int fd = dup(unixfd);
     if (fd == -1)
     {
-        BMCWEB_LOG_ERROR("Failed to dup the DBUS unixfd error: {}",
-                         strerror(errno));
+        BMCWEB_LOG_ERROR("Failed to dup the DBUS unixfd error");
         conn.close("Internal error");
         return;
     }

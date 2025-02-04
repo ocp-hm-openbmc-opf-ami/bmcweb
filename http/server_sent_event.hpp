@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 #include "http_body.hpp"
 #include "http_request.hpp"
@@ -34,7 +36,7 @@ struct Connection : public std::enable_shared_from_this<Connection>
     virtual void sendSSEHeader() = 0;
     virtual void completeRequest(crow::Response& thisRes) = 0;
     virtual void close(std::string_view msg = "quit") = 0;
-    virtual void sendEvent(std::string_view id, std::string_view msg) = 0;
+    virtual void sendSseEvent(std::string_view id, std::string_view msg) = 0;
 
     crow::Request req;
 };
@@ -257,7 +259,7 @@ class ConnectionImpl : public Connection
         asyncResp->res.releaseCompleteRequestHandler();
     }
 
-    void sendEvent(std::string_view id, std::string_view msg) override
+    void sendSseEvent(std::string_view id, std::string_view msg) override
     {
         if (msg.empty())
         {

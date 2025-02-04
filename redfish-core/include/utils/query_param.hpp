@@ -1,9 +1,14 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 #include "bmcweb_config.h"
 
 #include "app.hpp"
 #include "async_resp.hpp"
+#include "error_message_utils.hpp"
 #include "error_messages.hpp"
+#include "filter_expr_executor.hpp"
+#include "filter_expr_printer.hpp"
 #include "http_request.hpp"
 #include "http_response.hpp"
 #include "json_formatters.hpp"
@@ -172,6 +177,9 @@ struct Query
     // Top
     static constexpr size_t maxTop = 1000; // Max entries a response contain
     std::optional<size_t> top = std::nullopt;
+
+    // Filter
+    std::optional<filter_ast::LogicalAnd> filter = std::nullopt;
 
     // Select
     // Unclear how to make this use structured initialization without this.
@@ -367,6 +375,13 @@ inline bool getSelectParam(std::string_view value, Query& query)
     return true;
 }
 
+// Parses and validates the $filter parameter.
+inline bool getFilterParam(std::string_view value, Query& query)
+{
+    query.filter = parseFilter(value);
+    return query.filter.has_value();
+}
+
 inline std::optional<Query> parseParameters(boost::urls::params_view urlParams,
                                             crow::Response& res)
 {
@@ -425,6 +440,14 @@ inline std::optional<Query> parseParameters(boost::urls::params_view urlParams,
         else if (it.key == "$select")
         {
             if (!getSelectParam(it.value, ret))
+            {
+                messages::queryParameterValueFormatError(res, it.value, it.key);
+                return std::nullopt;
+            }
+        }
+        else if (it.key == "$filter" && BMCWEB_INSECURE_ENABLE_REDFISH_QUERY)
+        {
+            if (!getFilterParam(it.value, ret))
             {
                 messages::queryParameterValueFormatError(res, it.value, it.key);
                 return std::nullopt;
@@ -1042,6 +1065,12 @@ inline void
         multi->startQuery(query, delegated);
         return;
     }
+    //Commented below if Condition due to rep Crash
+    if (query.filter)
+    {
+     applyFilterToCollection(intermediateResponse.jsonValue, *query.filter);
+    }
+
     // According to Redfish Spec Section 7.3.1, $select is the last parameter to
     // to process
     if (!query.selectTrie.root.empty())

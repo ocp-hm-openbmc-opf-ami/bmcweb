@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
 #include "logging.hpp"
@@ -38,5 +40,11 @@ struct OpenSSLGenerator
 std::string getRandomUUID();
 
 std::string getRandomIdOfLength(size_t length);
+
+bool constantTimeStringCompare(std::string_view a, std::string_view b);
+struct ConstantTimeCompare
+{
+    bool operator()(std::string_view a, std::string_view b) const;
+};
 
 } // namespace bmcweb

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
 #include "aggregation_utils.hpp"
@@ -165,8 +167,8 @@ inline bool isPropertyUri(std::string_view propertyName)
                               propertyName);
 }
 
-static inline void addPrefixToStringItem(std::string& strValue,
-                                         std::string_view prefix)
+inline void addPrefixToStringItem(std::string& strValue,
+                                  std::string_view prefix)
 {
     // Make sure the value is a properly formatted URI
     auto parsed = boost::urls::parse_relative_ref(strValue);
@@ -179,7 +181,7 @@ static inline void addPrefixToStringItem(std::string& strValue,
         return;
     }
 
-    boost::urls::url_view thisUrl = *parsed;
+    const boost::urls::url_view& thisUrl = *parsed;
 
     // We don't need to aggregate JsonSchemas due to potential issues such as
     // version mismatches between aggregator and satellite BMCs.  For now
@@ -253,8 +255,7 @@ static inline void addPrefixToStringItem(std::string& strValue,
     }
 }
 
-static inline void addPrefixToItem(nlohmann::json& item,
-                                   std::string_view prefix)
+inline void addPrefixToItem(nlohmann::json& item, std::string_view prefix)
 {
     std::string* strValue = item.get_ptr<std::string*>();
     if (strValue == nullptr)
@@ -269,9 +270,9 @@ static inline void addPrefixToItem(nlohmann::json& item,
     item = *strValue;
 }
 
-static inline void addAggregatedHeaders(crow::Response& asyncResp,
-                                        const crow::Response& resp,
-                                        std::string_view prefix)
+inline void addAggregatedHeaders(crow::Response& asyncResp,
+                                 const crow::Response& resp,
+                                 std::string_view prefix)
 {
     if (!resp.getHeaderValue("Content-Type").empty())
     {
@@ -299,8 +300,8 @@ static inline void addAggregatedHeaders(crow::Response& asyncResp,
 }
 
 // Fix HTTP headers which appear in responses from Task resources among others
-static inline void addPrefixToHeadersInResp(nlohmann::json& json,
-                                            std::string_view prefix)
+inline void addPrefixToHeadersInResp(nlohmann::json& json,
+                                     std::string_view prefix)
 {
     // The passed in "HttpHeaders" should be an array of headers
     nlohmann::json::array_t* array = json.get_ptr<nlohmann::json::array_t*>();
@@ -332,7 +333,7 @@ static inline void addPrefixToHeadersInResp(nlohmann::json& json,
 
 // Search the json for all URIs and add the supplied prefix if the URI is for
 // an aggregated resource.
-static inline void addPrefixes(nlohmann::json& json, std::string_view prefix)
+inline void addPrefixes(nlohmann::json& json, std::string_view prefix)
 {
     nlohmann::json::object_t* object =
         json.get_ptr<nlohmann::json::object_t*>();
@@ -581,6 +582,35 @@ class RedfishAggregator
                 messages::internalError(asyncResp->res);
             }
             return;
+        }
+        
+        if (aggType == AggregationType::Collection)
+        {
+            boost::urls::url& urlNew = localReq->url();
+            auto paramsIt = urlNew.params().begin();
+            while (paramsIt != urlNew.params().end())
+            {
+                const boost::urls::param& param = *paramsIt;
+                // only and $skip, params can't be passed to satellite
+                // as applying these filters twice results in different results.
+                // Removing them will cause them to only be processed in the
+                // aggregator. Note, this still doesn't work for collections
+                // that might return less than the complete collection by
+                // default, but hopefully those are rare/nonexistent in top
+                // collections.  bmcweb doesn't implement any of these.
+                if (param.key == "only" || param.key == "$skip")
+                {
+                    BMCWEB_LOG_DEBUG(
+                        "Erasing \"{}\" param from request to top level collection",
+                        param.key);
+                    
+                    paramsIt = urlNew.params().erase(paramsIt);
+                    continue;
+                }
+                // Pass all other parameters
+                paramsIt++;
+            }
+            localReq->target(urlNew.buffer());
         }
 
         getSatelliteConfigs(

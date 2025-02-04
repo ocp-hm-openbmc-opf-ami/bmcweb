@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #include "bmcweb_config.h"
 
 #include "async_resp.hpp"
@@ -95,7 +97,8 @@ void assertServiceRootGet(crow::Response& res)
     {
         EXPECT_EQ(json["ProtocolFeaturesSupported"]["ExpandQuery"].size(), 4);
     }
-    EXPECT_FALSE(json["ProtocolFeaturesSupported"]["FilterQuery"]);
+    EXPECT_EQ(json["ProtocolFeaturesSupported"]["FilterQuery"],
+              BMCWEB_INSECURE_ENABLE_REDFISH_QUERY);
     EXPECT_TRUE(json["ProtocolFeaturesSupported"]["OnlyMemberQuery"]);
     EXPECT_TRUE(json["ProtocolFeaturesSupported"]["SelectQuery"]);
     EXPECT_FALSE(

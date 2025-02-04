@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #include "http_utility.hpp"
 
 #include <array>
@@ -60,6 +62,18 @@ TEST(getPreferredContentType, PositiveTest)
     EXPECT_EQ(getPreferredContentType("text/html, application/json", htmlJson),
               ContentType::HTML);
 
+    // String the chrome gives
+    EXPECT_EQ(getPreferredContentType(
+                  "text/html,"
+                  "application/xhtml+xml,"
+                  "application/xml;q=0.9,"
+                  "image/avif,"
+                  "image/webp,"
+                  "image/apng,*/*;q=0.8,"
+                  "application/signed-exchange;v=b3;q=0.7",
+                  htmlJson),
+              ContentType::HTML);
+
     std::array<ContentType, 2> jsonHtml{ContentType::JSON, ContentType::HTML};
     EXPECT_EQ(getPreferredContentType("text/html, application/json", jsonHtml),
               ContentType::HTML);
@@ -68,10 +82,38 @@ TEST(getPreferredContentType, PositiveTest)
     EXPECT_EQ(getPreferredContentType("application/cbor, application::json",
                                       cborJson),
               ContentType::CBOR);
+    
+    EXPECT_EQ(
+        getPreferredContentType("application/json;charset=UTF-8", htmlJson),
+        ContentType::JSON);
+    std::array<ContentType, 1> eventStream{ContentType::EventStream};
+    
+    EXPECT_EQ(
+        getPreferredContentType("text/event-stream;charset=UTF-8", eventStream),
+        ContentType::EventStream);
 
     EXPECT_EQ(getPreferredContentType("application/json", cborJson),
               ContentType::JSON);
     EXPECT_EQ(getPreferredContentType("*/*", cborJson), ContentType::ANY);
+
+    // Application types with odd characters
+    EXPECT_EQ(getPreferredContentType(
+                  "application/prs.nprend, application/json", cborJson),
+              ContentType::JSON);
+    EXPECT_EQ(getPreferredContentType("application/rdf+xml, application/json",
+                                      cborJson),
+              ContentType::JSON);
+    // Q values are ignored, but should parse
+    EXPECT_EQ(getPreferredContentType(
+                  "application/rdf+xml;q=0.9, application/json", cborJson),
+              ContentType::JSON);
+    EXPECT_EQ(getPreferredContentType(
+                  "application/rdf+xml;q=1, application/json", cborJson),
+              ContentType::JSON);
+    EXPECT_EQ(getPreferredContentType("application/json;q=0.9", cborJson),
+              ContentType::JSON);
+    EXPECT_EQ(getPreferredContentType("application/json;q=1", cborJson),
+              ContentType::JSON);
 }
 
 TEST(getPreferredContentType, NegativeTest)
@@ -81,5 +123,32 @@ TEST(getPreferredContentType, NegativeTest)
         getPreferredContentType("text/html, application/json", contentType),
         ContentType::NoMatch);
 }
+
+TEST(getPreferredEncoding, PositiveTest)
+{
+    std::array<Encoding, 1> encodingsGzip{Encoding::GZIP};
+    EXPECT_EQ(getPreferredEncoding("gzip", encodingsGzip), Encoding::GZIP);
+
+    std::array<Encoding, 2> encodingsGzipZstd{Encoding::GZIP, Encoding::ZSTD};
+    EXPECT_EQ(getPreferredEncoding("gzip", encodingsGzipZstd), Encoding::GZIP);
+    EXPECT_EQ(getPreferredEncoding("zstd", encodingsGzipZstd), Encoding::ZSTD);
+
+    EXPECT_EQ(getPreferredEncoding("*", encodingsGzipZstd), Encoding::GZIP);
+
+    EXPECT_EQ(getPreferredEncoding("zstd, gzip;q=1.0", encodingsGzipZstd),
+              Encoding::ZSTD);
+}
+
+TEST(getPreferredEncoding, NegativeTest)
+{
+    std::array<Encoding, 2> contentType{Encoding::GZIP,
+                                        Encoding::UnencodedBytes};
+    EXPECT_EQ(getPreferredEncoding("noexist", contentType),
+              Encoding::UnencodedBytes);
+
+    std::array<Encoding, 1> contentType2{Encoding::GZIP};
+    EXPECT_EQ(getPreferredEncoding("zstd", contentType2), Encoding::NoMatch);
+}
+
 } // namespace
 } // namespace http_helpers

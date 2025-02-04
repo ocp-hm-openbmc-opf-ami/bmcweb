@@ -7,6 +7,7 @@ feature_options = [
     'cookie-auth',
     'experimental-http2',
     'experimental-redfish-multi-computer-system',
+    'experimental-redfish-dbus-log-subscription',
     'google-api',
     'host-serial-socket',
     'hypervisor-computer-system',
@@ -22,6 +23,8 @@ feature_options = [
     'mutual-tls-auth',
     'redfish-aggregation',
     'redfish-allow-deprecated-power-thermal',
+    'redfish-use-3-digit-messageid',
+    'redfish-allow-simple-update',
     'redfish-bmc-journal',
     'redfish-cpu-log',
     'redfish-dbus-log',
@@ -50,7 +53,8 @@ feature_options = [
     'ami-acd',
     'ami-asd',
     'arbel-nuvoton',
-    'ami-redebug'
+    'ami-redebug',
+    'intel-pfr'
 ]
 
 string_options = [
@@ -101,6 +105,8 @@ foreach option_key : feature_options + string_options + int_options
             'ami-redebug',
         ) or option_key.contains(
             'ami-nm',
+        ) or option_key.contains(
+            'intel-pfr',
         )    
             feature_options_string += '#define ' + option_macro_config + '  ' + opt.allowed().to_string() + '\n'
         endif

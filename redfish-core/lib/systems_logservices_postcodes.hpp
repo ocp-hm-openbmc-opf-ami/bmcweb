@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
 #include "app.hpp"
@@ -401,8 +403,7 @@ inline void
                          size_t skip, size_t top)
 {
     uint64_t entryCount = 0;
-    sdbusplus::asio::getProperty<uint16_t>(
-        *crow::connections::systemBus,
+    dbus::utility::getProperty<uint16_t>(
         "xyz.openbmc_project.State.Boot.PostCode0",
         "/xyz/openbmc_project/State/Boot/PostCode0",
         "xyz.openbmc_project.State.Boot.PostCode", "CurrentBootCycleCount",

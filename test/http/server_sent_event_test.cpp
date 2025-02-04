@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #include "boost_formatters.hpp"
 #include "http/server_sent_event.hpp"
 
@@ -28,15 +30,20 @@ TEST(ServerSentEvent, SseWorks)
     boost::beast::test::stream out(io);
     stream.connect(out);
 
+    Request req;
+
     bool openCalled = false;
-    auto openHandler = [&openCalled](Connection&) { openCalled = true; };
+    auto openHandler = [&openCalled](Connection&,
+                                     const Request& /*handedReq*/) {
+        openCalled = true;
+    };
     bool closeCalled = false;
     auto closeHandler = [&closeCalled](Connection&) { closeCalled = true; };
 
     std::shared_ptr<ConnectionImpl<boost::beast::test::stream>> conn =
         std::make_shared<ConnectionImpl<boost::beast::test::stream>>(
             std::move(stream), openHandler, closeHandler);
-    conn->start();
+    conn->start(req);
     // Connect
     {
         constexpr std::string_view expected =
@@ -60,7 +67,7 @@ TEST(ServerSentEvent, SseWorks)
     }
     // Send one event
     {
-        conn->sendEvent("TestEventId", "TestEventContent");
+        conn->sendSseEvent("TestEventId", "TestEventContent");
         std::string_view expected = "id: TestEventId\n"
                                     "data: TestEventContent\n"
                                     "\n";
@@ -80,7 +87,7 @@ TEST(ServerSentEvent, SseWorks)
     }
     // Send second event
     {
-        conn->sendEvent("TestEventId2", "TestEvent\nContent2");
+        conn->sendSseEvent("TestEventId2", "TestEvent\nContent2");
         constexpr std::string_view expected = "id: TestEventId2\n"
                                               "data: TestEvent\n"
                                               "data: Content2\n"

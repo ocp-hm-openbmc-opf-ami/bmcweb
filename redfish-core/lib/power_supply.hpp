@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
 #include "app.hpp"
@@ -8,6 +10,7 @@
 #include "utils/chassis_utils.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/json_utils.hpp"
+#include "utils/time_utils.hpp"
 
 #include <boost/system/error_code.hpp>
 #include <boost/url/format.hpp>
@@ -220,8 +223,8 @@ inline void
     getPowerSupplyState(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         const std::string& service, const std::string& path)
 {
-    sdbusplus::asio::getProperty<bool>(
-        *crow::connections::systemBus, service, path,
+    dbus::utility::getProperty<bool>(
+        service, path,
         "xyz.openbmc_project.Inventory.Item", "Present",
         [asyncResp](const boost::system::error_code& ec, const bool value) {
             if (ec)
@@ -247,8 +250,8 @@ inline void
     getPowerSupplyHealth(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                          const std::string& service, const std::string& path)
 {
-    sdbusplus::asio::getProperty<bool>(
-        *crow::connections::systemBus, service, path,
+    dbus::utility::getProperty<bool>(
+        service, path,
         "xyz.openbmc_project.State.Decorator.OperationalStatus", "Functional",
         [asyncResp](const boost::system::error_code& ec, const bool value) {
             if (ec)
@@ -274,8 +277,8 @@ inline void
     getPowerSupplyAsset(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         const std::string& service, const std::string& path)
 {
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, service, path,
+    dbus::utility::getAllProperties(
+        service, path,
         "xyz.openbmc_project.Inventory.Decorator.Asset",
         [asyncResp](const boost::system::error_code& ec,
                     const dbus::utility::DBusPropertiesMap& propertiesList) {
@@ -295,12 +298,13 @@ inline void
             const std::string* manufacturer = nullptr;
             const std::string* model = nullptr;
             const std::string* sparePartNumber = nullptr;
+            const std::string* buildDate = nullptr;
 
             const bool success = sdbusplus::unpackPropertiesNoThrow(
                 dbus_utils::UnpackErrorPrinter(), propertiesList, "PartNumber",
                 partNumber, "SerialNumber", serialNumber, "Manufacturer",
                 manufacturer, "Model", model, "SparePartNumber",
-                sparePartNumber);
+                sparePartNumber, "BuildDate", buildDate);
 
             if (!success)
             {
@@ -333,6 +337,11 @@ inline void
             {
                 asyncResp->res.jsonValue["SparePartNumber"] = *sparePartNumber;
             }
+
+            if (buildDate != nullptr)
+            {
+                time_utils::productionDateReport(asyncResp->res, *buildDate);
+            }
         });
 }
 
@@ -340,8 +349,8 @@ inline void getPowerSupplyFirmwareVersion(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& service, const std::string& path)
 {
-    sdbusplus::asio::getProperty<std::string>(
-        *crow::connections::systemBus, service, path,
+    dbus::utility::getProperty<std::string>(
+        service, path,
         "xyz.openbmc_project.Software.Version", "Version",
         [asyncResp](const boost::system::error_code& ec,
                     const std::string& value) {
@@ -364,8 +373,8 @@ inline void
     getPowerSupplyLocation(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                            const std::string& service, const std::string& path)
 {
-    sdbusplus::asio::getProperty<std::string>(
-        *crow::connections::systemBus, service, path,
+    dbus::utility::getProperty<std::string>(
+        service, path,
         "xyz.openbmc_project.Inventory.Decorator.LocationCode", "LocationCode",
         [asyncResp](const boost::system::error_code& ec,
                     const std::string& value) {
@@ -445,8 +454,8 @@ inline void handlePowerSupplyAttributesSubTreeResponse(
 
     const auto& [path, serviceMap] = *subtree.begin();
     const auto& [service, interfaces] = *serviceMap.begin();
-    sdbusplus::asio::getProperty<uint32_t>(
-        *crow::connections::systemBus, service, path,
+    dbus::utility::getProperty<uint32_t>(
+        service, path,
         "xyz.openbmc_project.Control.PowerSupplyAttributes", "DeratingFactor",
         [asyncResp](const boost::system::error_code& ec1, uint32_t value) {
             handleGetEfficiencyResponse(asyncResp, ec1, value);

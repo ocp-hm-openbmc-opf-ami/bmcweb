@@ -6,12 +6,13 @@ namespace redfish::registries::certificate  {
 const Header header = {
     "Copyright 2023 AMI. All rights reserved",
     "#MessageRegistry.v1_5_0.MessageRegistry",
-    "CertificateService.1.0.0",
+    1,
+    0,
+    0,
     "CertificateService Message Registry",
     "en",
     "This registry defines the certificate service messages for Redfish",
     "CertificateService",
-    "0.0.1",
     "Ami",
 };
 

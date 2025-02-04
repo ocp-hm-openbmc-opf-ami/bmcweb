@@ -7,12 +7,12 @@
 #include "task.hpp"
 
 #include <app.hpp>
+#include <boost/algorithm/string.hpp>
 #include <boost/convert.hpp>
 #include <boost/convert/strtol.hpp>
 #include <boost/url/format.hpp>
 #include <boost/url/parse_path.hpp>
 #include <dbus_utility.hpp>
-#include <boost/algorithm/string.hpp>
 
 #include <regex>
 
@@ -47,25 +47,27 @@ inline void fillCPULicenseCollection(
     const std::string& cpuInstance, const std::string& service)
 {
     crow::connections::systemBus->async_method_call(
-        [asyncResp, cpuInstance, method](const boost::system::error_code ec,
-                                         bool feature_enable) {
-        if (ec)
-        {
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        if (feature_enable)
-        {
-            nlohmann::json::object_t member;
-            member["@odata.id"] = boost::urls::format(
-                "/redfish/v1/LicenseService/Licenses/{}",
-                std::string(getLicenseTypeFromMethod(method)) + cpuInstance);
+        [asyncResp, cpuInstance,
+         method](const boost::system::error_code ec, bool feature_enable) {
+            if (ec)
+            {
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            if (feature_enable)
+            {
+                nlohmann::json::object_t member;
+                member["@odata.id"] = boost::urls::format(
+                    "/redfish/v1/LicenseService/Licenses/{}",
+                    std::string(getLicenseTypeFromMethod(method)) +
+                        cpuInstance);
 
-            (asyncResp->res.jsonValue["Members"]).push_back(std::move(member));
-            asyncResp->res.jsonValue["Members@odata.count"] =
-                (asyncResp->res.jsonValue["Members"]).size();
-        }
-    },
+                (asyncResp->res.jsonValue["Members"])
+                    .push_back(std::move(member));
+                asyncResp->res.jsonValue["Members@odata.count"] =
+                    (asyncResp->res.jsonValue["Members"]).size();
+            }
+        },
         service, objectPath, featureEnableInterfaceName, method);
 }
 inline void fillCPULicenseInstance(
@@ -77,49 +79,51 @@ inline void fillCPULicenseInstance(
     crow::connections::systemBus->async_method_call(
         [asyncResp, processorId,
          licenseType](const boost::system::error_code ec, bool feature_enable) {
-        if (ec)
-        {
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        if (!feature_enable)
-        {
-            messages::resourceNotFound(asyncResp->res, "Licenses",
-                                       licenseType + processorId);
-            return;
-        }
-        asyncResp->res.jsonValue["@odata.id"] =
-            "/redfish/v1/LicenseService/Licenses/" + licenseType + processorId;
-        asyncResp->res.jsonValue["@odata.type"] = "#License.v1_0_0.License";
-        asyncResp->res.jsonValue["Id"] = licenseType + processorId;
-        asyncResp->res.jsonValue["Name"] = licenseType + " for " + processorId;
-        asyncResp->res.jsonValue["AuthorizationScope"] = "Device";
-        nlohmann::json::array_t authorizedeDevices;
-        nlohmann::json::object_t authDevice;
-        authDevice["@odata.id"] = "/redfish/v1/Systems/system/Processors/" +
-                                  processorId;
-        authorizedeDevices.push_back(std::move(authDevice));
+            if (ec)
+            {
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            if (!feature_enable)
+            {
+                messages::resourceNotFound(asyncResp->res, "Licenses",
+                                           licenseType + processorId);
+                return;
+            }
+            asyncResp->res.jsonValue["@odata.id"] =
+                "/redfish/v1/LicenseService/Licenses/" + licenseType +
+                processorId;
+            asyncResp->res.jsonValue["@odata.type"] = "#License.v1_0_0.License";
+            asyncResp->res.jsonValue["Id"] = licenseType + processorId;
+            asyncResp->res.jsonValue["Name"] =
+                licenseType + " for " + processorId;
+            asyncResp->res.jsonValue["AuthorizationScope"] = "Device";
+            nlohmann::json::array_t authorizedeDevices;
+            nlohmann::json::object_t authDevice;
+            authDevice["@odata.id"] =
+                "/redfish/v1/Systems/system/Processors/" + processorId;
+            authorizedeDevices.push_back(std::move(authDevice));
 
-        asyncResp->res.jsonValue["Links"]["AuthorizedDevices"] =
-            std::move(authorizedeDevices);
+            asyncResp->res.jsonValue["Links"]["AuthorizedDevices"] =
+                std::move(authorizedeDevices);
 
-        if (licenseType == "ProvisionLicense")
-        {
-            asyncResp->res.jsonValue["Oem"]["Intel"]["Links"]
-                                    ["AuthorizedFeature"]["@odata.id"] =
-                "/redfish/v1/Systems/system/Processors/" + processorId +
-                "/Oem/Intel/ProvisionFeature";
-        }
-        else
-        {
-            asyncResp->res.jsonValue["Oem"]["Intel"]["Links"]
-                                    ["AuthorizedFeature"]["@odata.id"] =
-                "/redfish/v1/Systems/system/Processors/" + processorId +
-                "/Oem/Intel/DynamicFeature";
-        }
-        asyncResp->res.jsonValue["Oem"]["Intel"]["@odata.type"] =
-            "#OemLicense.v1_0_0.License";
-    },
+            if (licenseType == "ProvisionLicense")
+            {
+                asyncResp->res.jsonValue["Oem"]["Intel"]["Links"]
+                                        ["AuthorizedFeature"]["@odata.id"] =
+                    "/redfish/v1/Systems/system/Processors/" + processorId +
+                    "/Oem/Intel/ProvisionFeature";
+            }
+            else
+            {
+                asyncResp->res.jsonValue["Oem"]["Intel"]["Links"]
+                                        ["AuthorizedFeature"]["@odata.id"] =
+                    "/redfish/v1/Systems/system/Processors/" + processorId +
+                    "/Oem/Intel/DynamicFeature";
+            }
+            asyncResp->res.jsonValue["Oem"]["Intel"]["@odata.type"] =
+                "#OemLicense.v1_0_0.License";
+        },
         service, objectPath, featureEnableInterfaceName, method);
 }
 
@@ -156,9 +160,9 @@ inline void createCPULicense(
         method = "EnableFeatures";
     }
 
-    auto createCPULicenseTaskCallback =
-        [asyncResp, signalMatchStr, payload](const boost::system::error_code ec,
-                                             int ondemandresponsecode) {
+    auto createCPULicenseTaskCallback = [asyncResp, signalMatchStr, payload](
+                                            const boost::system::error_code ec,
+                                            int ondemandresponsecode) {
         if (ec)
         {
             messages::internalError(asyncResp->res);
@@ -171,14 +175,15 @@ inline void createCPULicense(
             std::shared_ptr<task::TaskData> task = task::TaskData::createTask(
                 [](boost::system::error_code err, sdbusplus::message::message&,
                    const std::shared_ptr<task::TaskData>& taskData) {
-                if (!err)
-                {
-                    taskData->messages.emplace_back(messages::taskCompletedOK(
-                        std::to_string(taskData->index)));
-                    taskData->state = "Completed";
-                }
-                return task::completed;
-            },
+                    if (!err)
+                    {
+                        taskData->messages.emplace_back(
+                            messages::taskCompletedOK(
+                                std::to_string(taskData->index)));
+                        taskData->state = "Completed";
+                    }
+                    return task::completed;
+                },
                 signalMatchStr);
             task->startTimer(std::chrono::minutes(5));
             task->populateResp(asyncResp->res);
@@ -202,10 +207,9 @@ inline void createCPULicense(
         featureEnableInterfaceName, method, licenseString);
 }
 
-inline bool getLicenseTypeAndProcessorId(const std::string& reqFeature,
-                                         std::string& getMethod,
-                                         std::string& licenseType,
-                                         std::string& processorId)
+inline bool getLicenseTypeAndProcessorId(
+    const std::string& reqFeature, std::string& getMethod,
+    std::string& licenseType, std::string& processorId)
 {
     const std::regex provisionLicenseExpr("ProvisionLicensecpu([^/]+)");
     const std::regex dynamicLicenseExpr("DynamicLicensecpu([^/]+)");
@@ -235,51 +239,54 @@ inline void addProcessorFeatureLicenses(
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code ec,
                     const dbus::utility::MapperGetObject& getObjectType) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("ObjectMapper::GetObject call failed: {}", ec);
-            messages::internalError(asyncResp->res);
-
-            return;
-        }
-        std::string service = getObjectType.begin()->first;
-        BMCWEB_LOG_DEBUG("GetObjectType: {}", service);
-        crow::connections::systemBus->async_method_call(
-            [asyncResp,
-             service](boost::system::error_code ec2,
-                      const dbus::utility::MapperGetSubTreeResponse& subtree) {
-            if (ec2)
+            if (ec)
             {
+                BMCWEB_LOG_ERROR("ObjectMapper::GetObject call failed: {}", ec);
                 messages::internalError(asyncResp->res);
+
                 return;
             }
-            nlohmann::json& members = asyncResp->res.jsonValue["Members"];
-            members = nlohmann::json::array();
-            std::string cpuinstance;
-            for (const auto& [objectPath, serviceMap] : subtree)
-            {
-                // Ignore any configs without ending with desired cpu name
-                if (objectPath.empty() || serviceMap.empty())
-                {
-                    continue;
-                }
-                cpuinstance = std::string(
-                    (boost::urls::parse_path(objectPath).value()).back());
-                fillCPULicenseCollection(asyncResp, objectPath,
-                                         "GetProvisionState", cpuinstance,
-                                         service);
-                fillCPULicenseCollection(asyncResp, objectPath,
-                                         "GetFeatureState", cpuinstance,
-                                         service);
-            }
+            std::string service = getObjectType.begin()->first;
+            BMCWEB_LOG_DEBUG("GetObjectType: {}", service);
+            crow::connections::systemBus->async_method_call(
+                [asyncResp, service](
+                    boost::system::error_code ec2,
+                    const dbus::utility::MapperGetSubTreeResponse& subtree) {
+                    if (ec2)
+                    {
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    nlohmann::json& members =
+                        asyncResp->res.jsonValue["Members"];
+                    members = nlohmann::json::array();
+                    std::string cpuinstance;
+                    for (const auto& [objectPath, serviceMap] : subtree)
+                    {
+                        // Ignore any configs without ending with desired cpu
+                        // name
+                        if (objectPath.empty() || serviceMap.empty())
+                        {
+                            continue;
+                        }
+                        cpuinstance = std::string(
+                            (boost::urls::parse_path(objectPath).value())
+                                .back());
+                        fillCPULicenseCollection(asyncResp, objectPath,
+                                                 "GetProvisionState",
+                                                 cpuinstance, service);
+                        fillCPULicenseCollection(asyncResp, objectPath,
+                                                 "GetFeatureState", cpuinstance,
+                                                 service);
+                    }
+                },
+                "xyz.openbmc_project.ObjectMapper",
+                "/xyz/openbmc_project/object_mapper",
+                "xyz.openbmc_project.ObjectMapper", "GetSubTree",
+                ondemandObjectPath, 0,
+                std::array<const char*, 1>{
+                    "xyz.openbmc_project.CPU.FeatureEnable"});
         },
-            "xyz.openbmc_project.ObjectMapper",
-            "/xyz/openbmc_project/object_mapper",
-            "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-            ondemandObjectPath, 0,
-            std::array<const char*, 1>{
-                "xyz.openbmc_project.CPU.FeatureEnable"});
-    },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetObject",
@@ -291,20 +298,29 @@ inline bool readAuthFeature(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 {
     if (nlohmann::json oemIntelObject;
         !oemObject.empty() &&
-        json_util::readJson(oemObject, asyncResp->res, "Intel", oemIntelObject))
+        json_util::readJson( //
+            oemObject, asyncResp->res, //
+            "Intel", oemIntelObject //
+            ))
     {
         if (nlohmann::json linkObject;
             !oemIntelObject.empty() &&
-            json_util::readJson(oemIntelObject, asyncResp->res, "Links",
-                                linkObject))
+            json_util::readJson( //
+                oemIntelObject, asyncResp->res, //
+                "Links", linkObject //
+                ))
         {
             if (nlohmann::json authFeatureObject;
                 !linkObject.empty() &&
-                json_util::readJson(linkObject, asyncResp->res,
-                                    "AuthorizedFeature", authFeatureObject))
+                json_util::readJson( //
+                    linkObject, asyncResp->res, //
+                    "AuthorizedFeature", authFeatureObject //
+                    ))
             {
-                if (json_util::readJson(authFeatureObject, asyncResp->res,
-                                        "@odata.id", authFeature))
+                if (json_util::readJson( //
+                        authFeatureObject, asyncResp->res, //
+                        "@odata.id", authFeature //
+                        ))
                 {
                     return true;
                 }
@@ -346,11 +362,10 @@ inline bool getLicenseTypeFromAuthDevices(
     return false;
 }
 
-inline void addCPULicense(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                          const crow::Request& req,
-                          const std::string& authFeature,
-                          const std::string& authDevice,
-                          const std::string& licenseString)
+inline void addCPULicense(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const crow::Request& req, const std::string& authFeature,
+    const std::string& authDevice, const std::string& licenseString)
 {
     std::string processorId;
     processorId =
@@ -378,69 +393,76 @@ inline void addCPULicense(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         [asyncResp, req, processorId, oemAuthFeatureType, licenseString,
          authDevice](const boost::system::error_code ec,
                      const dbus::utility::MapperGetObject& getObjectType) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("ObjectMapper::GetObject call failed: {}", ec);
-            messages::internalError(asyncResp->res);
-
-            return;
-        }
-        std::string service = getObjectType.begin()->first;
-        BMCWEB_LOG_DEBUG("GetObjectType: {}", service);
-
-        crow::connections::systemBus->async_method_call(
-            [asyncResp, payload(task::Payload(req)), processorId,
-             oemAuthFeatureType, licenseString, authDevice,
-             service](boost::system::error_code ec2,
-                      const dbus::utility::MapperGetSubTreeResponse&
-                          subtree) mutable {
-            if (ec2)
+            if (ec)
             {
-                BMCWEB_LOG_WARNING("D-Bus error: {}, {}", ec2, ec2.message());
+                BMCWEB_LOG_ERROR("ObjectMapper::GetObject call failed: {}", ec);
                 messages::internalError(asyncResp->res);
+
                 return;
             }
-            // validate the cpu instance to make sure resource exists and throw
-            // 404 if not.
-            for (const auto& [objectPath, serviceMap] : subtree)
-            {
-                // Ignore any configs without ending with desired cpu name
-                if (!objectPath.ends_with(processorId) || serviceMap.empty())
-                {
-                    continue;
-                }
-                bool found = false;
-                for (const auto& [serviceName, interfaceList] : serviceMap)
-                {
-                    if (std::find_first_of(
-                            interfaceList.begin(), interfaceList.end(),
-                            licenseService::cpuLicenseInterfaces.begin(),
-                            licenseService::cpuLicenseInterfaces.end()) !=
-                        interfaceList.end())
+            std::string service = getObjectType.begin()->first;
+            BMCWEB_LOG_DEBUG("GetObjectType: {}", service);
+
+            crow::connections::systemBus->async_method_call(
+                [asyncResp, payload(task::Payload(req)), processorId,
+                 oemAuthFeatureType, licenseString, authDevice,
+                 service](boost::system::error_code ec2,
+                          const dbus::utility::MapperGetSubTreeResponse&
+                              subtree) mutable {
+                    if (ec2)
                     {
-                        found = true;
-                        break;
+                        BMCWEB_LOG_WARNING("D-Bus error: {}, {}", ec2,
+                                           ec2.message());
+                        messages::internalError(asyncResp->res);
+                        return;
                     }
-                }
-                if (!found)
-                {
-                    continue;
-                }
-                createCPULicense(std::move(payload), asyncResp, objectPath,
-                                 processorId, oemAuthFeatureType, licenseString,
-                                 service);
-                return;
-            }
-            messages::propertyValueNotInList(asyncResp->res, authDevice,
-                                             "Links/0/AuthorizedDevices");
+                    // validate the cpu instance to make sure resource exists
+                    // and throw 404 if not.
+                    for (const auto& [objectPath, serviceMap] : subtree)
+                    {
+                        // Ignore any configs without ending with desired cpu
+                        // name
+                        if (!objectPath.ends_with(processorId) ||
+                            serviceMap.empty())
+                        {
+                            continue;
+                        }
+                        bool found = false;
+                        for (const auto& [serviceName, interfaceList] :
+                             serviceMap)
+                        {
+                            if (std::find_first_of(
+                                    interfaceList.begin(), interfaceList.end(),
+                                    licenseService::cpuLicenseInterfaces
+                                        .begin(),
+                                    licenseService::cpuLicenseInterfaces
+                                        .end()) != interfaceList.end())
+                            {
+                                found = true;
+                                break;
+                            }
+                        }
+                        if (!found)
+                        {
+                            continue;
+                        }
+                        createCPULicense(std::move(payload), asyncResp,
+                                         objectPath, processorId,
+                                         oemAuthFeatureType, licenseString,
+                                         service);
+                        return;
+                    }
+                    messages::propertyValueNotInList(
+                        asyncResp->res, authDevice,
+                        "Links/0/AuthorizedDevices");
+                },
+                "xyz.openbmc_project.ObjectMapper",
+                "/xyz/openbmc_project/object_mapper",
+                "xyz.openbmc_project.ObjectMapper", "GetSubTree",
+                ondemandObjectPath, 0,
+                std::array<const char*, 1>{
+                    "xyz.openbmc_project.CPU.FeatureEnable"});
         },
-            "xyz.openbmc_project.ObjectMapper",
-            "/xyz/openbmc_project/object_mapper",
-            "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-            ondemandObjectPath, 0,
-            std::array<const char*, 1>{
-                "xyz.openbmc_project.CPU.FeatureEnable"});
-    },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetObject",
@@ -470,25 +492,25 @@ inline void
         [asyncResp](
             const boost::system::error_code& ec,
             const dbus::utility::MapperGetSubTreePathsResponse& subtreePath) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("{}", ec);
-            return;
-        }
-        for (const auto& pathStr : subtreePath)
-        {
-            if (pathStr.find("AC_Baseboard") != std::string::npos)
+            if (ec)
             {
-                asyncResp->res.jsonValue["ServiceEnabled"] = false;
-                break;
+                BMCWEB_LOG_ERROR("{}", ec);
+                return;
             }
-            else
+            for (const auto& pathStr : subtreePath)
             {
-                asyncResp->res.jsonValue["ServiceEnabled"] = true;
-                asyncResp->res.jsonValue["Licenses"]["@odata.id"] =
-                    "/redfish/v1/LicenseService/Licenses";
+                if (pathStr.find("AC_Baseboard") != std::string::npos)
+                {
+                    asyncResp->res.jsonValue["ServiceEnabled"] = false;
+                    break;
+                }
+                else
+                {
+                    asyncResp->res.jsonValue["ServiceEnabled"] = true;
+                    asyncResp->res.jsonValue["Licenses"]["@odata.id"] =
+                        "/redfish/v1/LicenseService/Licenses";
+                }
             }
-        }
         });
 
 } // requestRoutesLicenseService
@@ -524,10 +546,13 @@ inline void handleLicenseCollectionPost(
     std::vector<nlohmann::json> linksAuthDevArray;
     std::vector<std::string> authDevices;
 
-    if (!redfish::json_util::readJsonPatch(req, asyncResp->res, "LicenseString",
-                                           licenseString, "AuthorizationScope",
-                                           authScope, "Links/AuthorizedDevices",
-                                           linksAuthDevArray, "Oem", oemObject))
+    if (!redfish::json_util::readJsonPatch( //
+            req, asyncResp->res, //
+            "LicenseString", licenseString, //
+            "AuthorizationScope", authScope, //
+            "Links/AuthorizedDevices", linksAuthDevArray, //
+            "Oem", oemObject //
+            ))
     {
         return;
     }
@@ -550,9 +575,10 @@ inline void handleLicenseCollectionPost(
     for (nlohmann::json authDevObj : linksAuthDevArray)
     {
         std::string authDev;
-        if (!json_util::readJson(authDevObj, asyncResp->res, "@odata.id",
-                                 authDev))
-
+        if (!json_util::readJson( //
+                authDevObj, asyncResp->res, //
+                "@odata.id", authDev //
+                ))
         {
             return;
         }
@@ -611,67 +637,73 @@ inline void
         [asyncResp, licenseType, processorId, getMethod,
          param](const boost::system::error_code ec,
                 const dbus::utility::MapperGetObject& getObjectType) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("ObjectMapper::GetObject call failed: {}", ec);
-            messages::internalError(asyncResp->res);
-
-            return;
-        }
-        std::string service = getObjectType.begin()->first;
-        BMCWEB_LOG_DEBUG("GetObjectType: {}", service);
-
-        crow::connections::systemBus->async_method_call(
-            [asyncResp, processorId, licenseType, param, getMethod,
-             service](boost::system::error_code ec2,
-                      const dbus::utility::MapperGetSubTreeResponse& subtree) {
-            if (ec2)
+            if (ec)
             {
-                BMCWEB_LOG_WARNING("D-Bus error: {}, {}", ec2, ec2.message());
+                BMCWEB_LOG_ERROR("ObjectMapper::GetObject call failed: {}", ec);
                 messages::internalError(asyncResp->res);
+
                 return;
             }
+            std::string service = getObjectType.begin()->first;
+            BMCWEB_LOG_DEBUG("GetObjectType: {}", service);
 
-            for (const auto& [objectPath, serviceMap] : subtree)
-            {
-                // Ignore any configs without ending with desired cpu name
-                if (!boost::ends_with(objectPath, processorId) ||
-                    serviceMap.empty())
-                {
-                    continue;
-                }
-
-                bool found = false;
-                for (const auto& [serviceName, interfaceList] : serviceMap)
-                {
-                    if (std::find_first_of(
-                            interfaceList.begin(), interfaceList.end(),
-                            licenseService::cpuLicenseInterfaces.begin(),
-                            licenseService::cpuLicenseInterfaces.end()) !=
-                        interfaceList.end())
+            crow::connections::systemBus->async_method_call(
+                [asyncResp, processorId, licenseType, param, getMethod,
+                 service](
+                    boost::system::error_code ec2,
+                    const dbus::utility::MapperGetSubTreeResponse& subtree) {
+                    if (ec2)
                     {
-                        found = true;
-                        break;
+                        BMCWEB_LOG_WARNING("D-Bus error: {}, {}", ec2,
+                                           ec2.message());
+                        messages::internalError(asyncResp->res);
+                        return;
                     }
-                }
-                if (!found)
-                {
-                    continue;
-                }
-                licenseService::fillCPULicenseInstance(asyncResp, objectPath,
-                                                       getMethod, processorId,
-                                                       licenseType, service);
-                return;
-            }
-            messages::resourceNotFound(asyncResp->res, "Licenses", param);
+
+                    for (const auto& [objectPath, serviceMap] : subtree)
+                    {
+                        // Ignore any configs without ending with desired cpu
+                        // name
+                        if (!boost::ends_with(objectPath, processorId) ||
+                            serviceMap.empty())
+                        {
+                            continue;
+                        }
+
+                        bool found = false;
+                        for (const auto& [serviceName, interfaceList] :
+                             serviceMap)
+                        {
+                            if (std::find_first_of(
+                                    interfaceList.begin(), interfaceList.end(),
+                                    licenseService::cpuLicenseInterfaces
+                                        .begin(),
+                                    licenseService::cpuLicenseInterfaces
+                                        .end()) != interfaceList.end())
+                            {
+                                found = true;
+                                break;
+                            }
+                        }
+                        if (!found)
+                        {
+                            continue;
+                        }
+                        licenseService::fillCPULicenseInstance(
+                            asyncResp, objectPath, getMethod, processorId,
+                            licenseType, service);
+                        return;
+                    }
+                    messages::resourceNotFound(asyncResp->res, "Licenses",
+                                               param);
+                },
+                "xyz.openbmc_project.ObjectMapper",
+                "/xyz/openbmc_project/object_mapper",
+                "xyz.openbmc_project.ObjectMapper", "GetSubTree",
+                licenseService::ondemandObjectPath, 0,
+                std::array<const char*, 1>{
+                    "xyz.openbmc_project.CPU.FeatureEnable"});
         },
-            "xyz.openbmc_project.ObjectMapper",
-            "/xyz/openbmc_project/object_mapper",
-            "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-            licenseService::ondemandObjectPath, 0,
-            std::array<const char*, 1>{
-                "xyz.openbmc_project.CPU.FeatureEnable"});
-    },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetObject",

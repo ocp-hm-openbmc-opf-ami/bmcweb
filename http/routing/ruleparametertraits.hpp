@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
 #include "privilegeparametertraits.hpp"
@@ -14,6 +16,11 @@ namespace crow
 template <typename T>
 struct RuleParameterTraits : public PrivilegeParameterTraits<T>
 {
+    private:
+    RuleParameterTraits() = default;
+    friend T;
+    
+  public:
     using self_t = T;
     WebSocketRule& websocket()
     {

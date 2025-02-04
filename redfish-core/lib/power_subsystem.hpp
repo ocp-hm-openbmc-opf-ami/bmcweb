@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
 #include "app.hpp"
@@ -26,28 +28,29 @@ inline void
                 std::string, std::variant<uint8_t, uint16_t, std::string,
                                           std::vector<std::string>>>>&
                 propertiesList) {
-        if (ec2)
-        {
-            return;
-        }
-        for (const std::pair<std::string,
-                             std::variant<uint8_t, uint16_t, std::string,
-                                          std::vector<std::string>>>& property :
-             propertiesList)
-        {
-            const std::string& propertyName = property.first;
-            if ((propertyName == "AllocatedWatts") ||
-                (propertyName == "RequestedWatts"))
+            if (ec2)
             {
-                const uint16_t* value = std::get_if<uint16_t>(&property.second);
-                if (value != nullptr)
+                return;
+            }
+            for (const std::pair<std::string,
+                                 std::variant<uint8_t, uint16_t, std::string,
+                                              std::vector<std::string>>>&
+                     property : propertiesList)
+            {
+                const std::string& propertyName = property.first;
+                if ((propertyName == "AllocatedWatts") ||
+                    (propertyName == "RequestedWatts"))
                 {
-                    asyncResp->res.jsonValue["Allocation"][propertyName] =
-                        *value;
+                    const uint16_t* value =
+                        std::get_if<uint16_t>(&property.second);
+                    if (value != nullptr)
+                    {
+                        asyncResp->res.jsonValue["Allocation"][propertyName] =
+                            *value;
+                    }
                 }
             }
-        }
-    },
+        },
         "xyz.openbmc_project.Power.PSUMonitor",
         "/xyz/openbmc_project/inventory/system/powersupply",
         "org.freedesktop.DBus.Properties", "GetAll",
@@ -57,9 +60,8 @@ inline void getCollectionOfPSUMembers(
     std::shared_ptr<bmcweb::AsyncResp> asyncResp,
     const boost::urls::url& collectionPath,
     std::span<const std::string_view> interfaces,
-    const std::vector<
-        std::pair<std::string, std::variant<uint8_t, std::string, bool>>>&
-        propertiesList,
+    const std::vector<std::pair<
+        std::string, std::variant<uint8_t, std::string, bool>>>& propertiesList,
     const char* subtree = "/xyz/openbmc_project/inventory")
 {
     dbus::utility::getSubTreePaths(
@@ -67,64 +69,65 @@ inline void getCollectionOfPSUMembers(
         [collectionPath, propertiesList, asyncResp](
             const boost::system::error_code& ec,
             const dbus::utility::MapperGetSubTreePathsResponse& objects) {
-        if (ec)
-        {
-            // BMCWEB_LOG_DEBUG << "DBUS response error " << ec.value();
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        nlohmann::json redundancyGroup;
-        std::vector<std::string> pathNames;
-        for (const auto& object : objects)
-        {
-            sdbusplus::message::object_path path(object);
-            std::string leaf = path.filename();
-            if (leaf.empty())
+            if (ec)
             {
-                continue;
+                // BMCWEB_LOG_DEBUG << "DBUS response error " << ec.value();
+                messages::internalError(asyncResp->res);
+                return;
             }
-            pathNames.push_back(leaf);
-        }
-        std::sort(pathNames.begin(), pathNames.end(),
-                  AlphanumLess<std::string>());
-        nlohmann::json memberArray = nlohmann::json::array();
-        for (const std::string& leaf : pathNames)
-        {
-            boost::urls::url url = collectionPath;
-            crow::utility::appendUrlPieces(url, leaf);
-            nlohmann::json memberObject;
-            memberObject["@odata.id"] = std::move(url);
-            memberArray.push_back(memberObject);
-        }
-        redundancyGroup["RedundancyGroup"] = std::move(memberArray);
-        redundancyGroup["RedundancyType"] = "Failover";
-        redundancyGroup["Status"]["State"] = "UnavailableOffline";
-        redundancyGroup["Status"]["Health"] = "OK";
-        for (const std::pair<std::string,
-                             std::variant<uint8_t, std::string, bool>>&
-                 property : propertiesList)
-        {
-            const std::string& propertyName = property.first;
-            if ((propertyName == "PSUNumber") ||
-                (propertyName == "RedundantCount"))
+            nlohmann::json redundancyGroup;
+            std::vector<std::string> pathNames;
+            for (const auto& object : objects)
             {
-                const uint8_t* value = std::get_if<uint8_t>(&property.second);
-                if (value != nullptr)
+                sdbusplus::message::object_path path(object);
+                std::string leaf = path.filename();
+                if (leaf.empty())
                 {
-                    if (propertyName == "PSUNumber")
+                    continue;
+                }
+                pathNames.push_back(leaf);
+            }
+            std::sort(pathNames.begin(), pathNames.end(),
+                      AlphanumLess<std::string>());
+            nlohmann::json memberArray = nlohmann::json::array();
+            for (const std::string& leaf : pathNames)
+            {
+                boost::urls::url url = collectionPath;
+                crow::utility::appendUrlPieces(url, leaf);
+                nlohmann::json memberObject;
+                memberObject["@odata.id"] = std::move(url);
+                memberArray.push_back(memberObject);
+            }
+            redundancyGroup["RedundancyGroup"] = std::move(memberArray);
+            redundancyGroup["RedundancyType"] = "Failover";
+            redundancyGroup["Status"]["State"] = "UnavailableOffline";
+            redundancyGroup["Status"]["Health"] = "OK";
+            for (const std::pair<std::string,
+                                 std::variant<uint8_t, std::string, bool>>&
+                     property : propertiesList)
+            {
+                const std::string& propertyName = property.first;
+                if ((propertyName == "PSUNumber") ||
+                    (propertyName == "RedundantCount"))
+                {
+                    const uint8_t* value =
+                        std::get_if<uint8_t>(&property.second);
+                    if (value != nullptr)
                     {
-                        redundancyGroup["MaxSupportedInGroup"] = *value;
-                    }
-                    else
-                    {
-                        redundancyGroup["MinNeededInGroup"] = *value;
+                        if (propertyName == "PSUNumber")
+                        {
+                            redundancyGroup["MaxSupportedInGroup"] = *value;
+                        }
+                        else
+                        {
+                            redundancyGroup["MinNeededInGroup"] = *value;
+                        }
                     }
                 }
             }
-        }
-        asyncResp->res.jsonValue["PowerSupplyRedundancy"].push_back(
-            redundancyGroup);
-    });
+            asyncResp->res.jsonValue["PowerSupplyRedundancy"].push_back(
+                redundancyGroup);
+        });
 }
 inline void
     getPSURedundancy(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -137,19 +140,19 @@ inline void
             const std::vector<std::pair<
                 std::string, std::variant<uint8_t, std::string, bool>>>&
                 propertiesList) {
-        if (ec2)
-        {
-            return;
-        }
-        constexpr std::array<std::string_view, 1> interface{
-            "xyz.openbmc_project.Inventory.Item.PowerSupply"};
-        getCollectionOfPSUMembers(
-            asyncResp,
-            boost::urls::format(
-                "/redfish/v1/Chassis/{}/PowerSubsystem/PowerSupplies",
-                chassisId),
-            interface, propertiesList);
-    },
+            if (ec2)
+            {
+                return;
+            }
+            constexpr std::array<std::string_view, 1> interface{
+                "xyz.openbmc_project.Inventory.Item.PowerSupply"};
+            getCollectionOfPSUMembers(
+                asyncResp,
+                boost::urls::format(
+                    "/redfish/v1/Chassis/{}/PowerSubsystem/PowerSupplies",
+                    chassisId),
+                interface, propertiesList);
+        },
         "xyz.openbmc_project.PSURedundancy",
         "/xyz/openbmc_project/control/power_supply_redundancy",
         "org.freedesktop.DBus.Properties", "GetAll",

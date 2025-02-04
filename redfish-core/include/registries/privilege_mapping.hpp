@@ -10,12 +10,13 @@ namespace redfish::registries::PrivilegeRegistry
 const Header header = {
     "Copyright 2015-2022 DMTF. All rights reserved.",
     "#PrivilegeRegistry.v1_1_5.PrivilegeRegistry",
-    "Redfish_1.5.0_PrivilegeRegistry",
+    1,
+    5,
+    0,
     "Privilege Mapping array collection",
     "en",
     "This registry defines the Privilege Mapping array collection.",
     "PrivilegeRegistry",
-    "1.0.2",
     "DMTF",
 
     

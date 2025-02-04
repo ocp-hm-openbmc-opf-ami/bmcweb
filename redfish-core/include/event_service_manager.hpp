@@ -1,53 +1,44 @@
-/*
-// Copyright (c) 2020 Intel Corporation
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-*/
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
+// SPDX-FileCopyrightText: Copyright 2020 Intel Corporation
 #pragma once
+#include "dbus_log_watcher.hpp"
+#include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
+#include "event_log.hpp"
+#include "event_matches_filter.hpp"
 #include "event_service_store.hpp"
-#include "generated/enums/event.hpp"
-#include "generated/enums/log_entry.hpp"
-#include "http_client.hpp"
+#include "filesystem_log_watcher.hpp"
 #include "kafka_manager.hpp"
 #include "metric_report.hpp"
 #include "ossl_random.hpp"
 #include "persistent_data.hpp"
-#include "registries.hpp"
-#include "registries_selector.hpp"
-#include "str_utility.hpp"
+#include "subscription.hpp"
 #include "utility.hpp"
+#include "utils/dbus_event_log_entry.hpp"
 #include "utils/json_utils.hpp"
 #include "utils/time_utils.hpp"
 
-#include <sys/inotify.h>
-
 #include <boost/asio/io_context.hpp>
+#include <boost/asio/steady_timer.hpp>
+#include <boost/circular_buffer.hpp>
 #include <boost/container/flat_map.hpp>
 #include <boost/url/format.hpp>
 #include <boost/url/url_view_base.hpp>
-#include <sdbusplus/bus/match.hpp>
 #include <snmp.hpp>
 #include <snmp_notification.hpp>
 
 #include <algorithm>
 #include <cstdlib>
 #include <ctime>
+#include <format>
 #include <fstream>
 #include <memory>
-#include <ranges>
-#include <span>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <variant>
 
 namespace redfish
 {
@@ -55,19 +46,11 @@ namespace redfish
 static constexpr const char* eventFormatType = "Event";
 static constexpr const char* metricReportFormatType = "MetricReport";
 
-static constexpr const char* subscriptionTypeSSE = "SSE";
 static constexpr const char* eventServiceFile =
     "/var/lib/bmcweb/eventservice_config.json";
 
 static std::function<void(const std::string&)> retryExhaustCallback =
     [](const std::string&) {};
-
-static constexpr const uint8_t maxNoOfSubscriptions = 20;
-static constexpr const uint8_t maxNoOfSSESubscriptions = 10;
-
-using EventLogObjectsType =
-    std::tuple<std::string, std::string, std::string, std::string, std::string,
-               std::vector<std::string>>;
 
 using Value = std::variant<bool, uint8_t, int16_t, uint16_t, int32_t, uint32_t,
                            int64_t, uint64_t, double, std::string,
@@ -79,141 +62,6 @@ using ObjectType =
                                boost::container::flat_map<std::string, Value>>;
 
 static std::string existMsg;
-
-namespace registries
-{
-static const Message*
-    getMsgFromRegistry(const std::string& messageKey,
-                       const std::span<const MessageEntry>& registry)
-{
-    std::span<const MessageEntry>::iterator messageIt = std::ranges::find_if(
-        registry, [&messageKey](const MessageEntry& messageEntry) {
-        return messageKey == messageEntry.first;
-    });
-    if (messageIt != registry.end())
-    {
-        return &messageIt->second;
-    }
-
-    return nullptr;
-}
-
-static const Message* formatMessage(std::string messageID)
-{
-    // Find the right registry and check it for the MessageKey
-    const std::string& registryName = "OpenBMC";
-    std::string messageKey = messageID;
-    messageKey.erase(std::remove(messageKey.begin(), messageKey.end(), ' '),
-                     messageKey.end());
-    return getMsgFromRegistry(messageKey, getRegistryFromPrefix(registryName));
-}
-} // namespace registries
-
-namespace event_log
-{
-inline bool getUniqueEntryID(const std::string& logEntry, std::string& entryID)
-{
-    static time_t prevTs = 0;
-    static int index = 0;
-
-    // Get the entry timestamp
-    std::time_t curTs = 0;
-    std::tm timeStruct = {};
-    std::istringstream entryStream(logEntry);
-    if (entryStream >> std::get_time(&timeStruct, "%Y-%m-%dT%H:%M:%S"))
-    {
-        curTs = std::mktime(&timeStruct);
-        if (curTs == -1)
-        {
-            return false;
-        }
-    }
-    // If the timestamp isn't unique, increment the index
-    index = (curTs == prevTs) ? index + 1 : 0;
-
-    // Save the timestamp
-    prevTs = curTs;
-
-    entryID = std::to_string(curTs);
-    if (index > 0)
-    {
-        entryID += "_" + std::to_string(index);
-    }
-    return true;
-}
-
-inline int getEventLogParams(const std::string& logEntry,
-                             std::string& messageID,
-                             std::vector<std::string>& messageArgs)
-{
-    size_t colonPos = logEntry.find(':');
-    if (colonPos == std::string::npos)
-    {
-        messageID = logEntry;
-    }
-    else
-    {
-        messageID = logEntry.substr(0, colonPos);
-        messageArgs.push_back(logEntry.substr(colonPos + 1));
-    }
-    return 0;
-}
-
-inline void getRegistryAndMessageKey(const std::string& messageID,
-                                     std::string& registryName,
-                                     std::string& messageKey)
-{
-    registryName = "OpenBMC";
-    messageKey = messageID;
-    messageKey.erase(std::remove(messageKey.begin(), messageKey.end(), ' '),
-                     messageKey.end());
-}
-
-inline int formatEventLogEntry(const std::string& logEntryID,
-                               const std::string& messageID,
-                               const std::span<std::string_view> messageArgs,
-                               std::string timestamp,
-                               const std::string& customText,
-                               nlohmann::json& logEntryJson)
-{
-    // Get the Message from the MessageRegistry
-    const registries::Message* message = registries::formatMessage(messageID);
-
-    if (message == nullptr)
-    {
-        return -1;
-    }
-
-    std::string msg = redfish::registries::fillMessageArgs(messageArgs,
-                                                           message->message);
-    if (msg.empty())
-    {
-        return -1;
-    }
-
-    // Get the Created time from the timestamp. The log timestamp is in
-    // RFC3339 format which matches the Redfish format except for the
-    // fractional seconds between the '.' and the '+', so just remove them.
-    std::size_t dot = timestamp.find_first_of('.');
-    std::size_t plus = timestamp.find_first_of('+', dot);
-    if (dot != std::string::npos && plus != std::string::npos)
-    {
-        timestamp.erase(dot, plus - dot);
-    }
-
-    // Fill in the log entry with the gathered data
-    logEntryJson["EventId"] = logEntryID;
-
-    logEntryJson["Severity"] = message->messageSeverity;
-    logEntryJson["Message"] = std::move(msg);
-    logEntryJson["MessageId"] = messageID;
-    logEntryJson["MessageArgs"] = messageArgs;
-    logEntryJson["EventTimestamp"] = std::move(timestamp);
-    logEntryJson["Context"] = customText;
-    return 0;
-}
-
-} // namespace event_log
 
 inline bool isFilterQuerySpecialChar(char c)
 {
@@ -323,390 +171,6 @@ inline crow::ConnectionPolicy getSubPolicy()
             .invalidResp = subRetryHandler};
 }
 
-class Subscription : public persistent_data::UserSubscription
-{
-  public:
-    Subscription(const Subscription&) = delete;
-    Subscription& operator=(const Subscription&) = delete;
-    Subscription(Subscription&&) = delete;
-    Subscription& operator=(Subscription&&) = delete;
-
-    Subscription(const boost::urls::url_view_base& url,
-                 boost::asio::io_context& ioc) :
-        policy(std::make_shared<crow::ConnectionPolicy>(getSubPolicy()))
-    {
-        destinationUrl = url;
-        client.emplace(ioc, policy);
-        // Subscription constructor
-        policy->invalidResp = retryRespHandler;
-    }
-
-    explicit Subscription(
-        std::shared_ptr<crow::sse_socket::Connection>& connIn) :
-        policy(std::make_shared<crow::ConnectionPolicy>(getSubPolicy())),
-        sseConn(connIn)
-    {
-        // Subscription constructor
-        policy->invalidResp = retryRespHandler;
-    }
-
-    ~Subscription() = default;
-
-    void
-        getSseConnection(std::shared_ptr<crow::sse_socket::Connection>& connPtr)
-    {
-        connPtr = sseConn;
-        return;
-    }
-
-    bool sendEvent(std::string&& msg)
-    {
-        if (subscriptionType == "SNMPTrap")
-        {
-            return true; // Don't need send SNMPTrap event.
-        }
-        persistent_data::EventServiceConfig eventServiceConfig =
-            persistent_data::EventServiceStore::getInstance()
-                .getEventServiceConfig();
-        if (!eventServiceConfig.enabled)
-        {
-            return false;
-        }
-
-        // For Suspended subscriptions, State is set to "Disabled". So
-        // stop sending events to that subscription.
-        if (state == "Disabled")
-        {
-            BMCWEB_LOG_DEBUG(
-                "Subscription is suspended, so not sending events.");
-            return false;
-        }
-
-        // A connection pool will be created if one does not already exist
-        if (client)
-        {
-            std::function<void(crow::Response&)> sendEventCallback =
-                [subId(id), retryPolicy(retryPolicy),
-                 retryExhaustCallback(retryExhaustCallback)](
-                    crow::Response& res) {
-                if (res.result() == boost::beast::http::status::bad_gateway)
-                {
-                    // Response is going to have bad_gateway result if the event
-                    // listener was not able to receive the event even after
-                    // multiple retries. This response is received only when
-                    // retry policy is Suspend after retires or Terminate after
-                    // reties.
-                    retryExhaustCallback(subId);
-                }
-            };
-
-            client->sendData(
-                std::move(msg), destinationUrl,
-                static_cast<ensuressl::VerifyCertificate>(verifyCertificate),
-                httpHeaders, boost::beast::http::verb::post);
-            return true;
-        }
-
-        if (sseConn != nullptr)
-        {
-            sseConn->sendEvent(std::to_string(eventSeqNum), msg);
-        }
-        return true;
-    }
-
-    bool sendSNMPTrap(uint32_t eventId, std::string timestamp, std::string sev,
-                      std::string& msg)
-    {
-        persistent_data::EventServiceConfig eventServiceConfig =
-            persistent_data::EventServiceStore::getInstance()
-                .getEventServiceConfig();
-        if (!eventServiceConfig.enabled)
-        {
-            return false;
-        }
-        phosphor::network::snmp::sendTrap<
-            phosphor::network::snmp::OBMCErrorNotification>(
-            static_cast<uint32_t>(eventId), timestamp, sev, std::move(msg));
-        eventSeqNum++;
-        return true;
-    }
-
-    void filterAndsendSNMPTrap(
-        const std::vector<EventLogObjectsType>& eventRecords)
-    {
-        for (const EventLogObjectsType& logEntry : eventRecords)
-        {
-            const std::string& idStr = std::get<0>(logEntry);
-            const std::string& messageID = std::get<2>(logEntry);
-            const std::string& registryName = std::get<3>(logEntry);
-            const std::string& messageKey = std::get<4>(logEntry);
-            const std::vector<std::string>& messageArgs = std::get<5>(logEntry);
-
-            if (!registryPrefixes.empty())
-            {
-                auto obj = std::find(registryPrefixes.begin(),
-                                     registryPrefixes.end(), registryName);
-                if (obj == registryPrefixes.end())
-                {
-                    continue;
-                }
-            }
-            if (!registryMsgIds.empty())
-            {
-                auto obj = std::find(registryMsgIds.begin(),
-                                     registryMsgIds.end(), messageKey);
-                if (obj == registryMsgIds.end())
-                {
-                    continue;
-                }
-            }
-            std::vector<std::string_view> messageArgsView(messageArgs.begin(),
-                                                          messageArgs.end());
-
-            const registries::Message* message =
-                registries::formatMessage(messageID);
-            if (message == nullptr)
-            {
-                continue;
-            }
-
-            std::string msg = redfish::registries::fillMessageArgs(
-                messageArgsView, message->message);
-            if (msg.empty() || existMsg == msg)
-            {
-                continue;
-            }
-            existMsg = msg;
-            std::string messageSeverity{message->messageSeverity};
-            this->sendSNMPTrap(static_cast<uint32_t>(eventSeqNum), idStr,
-                               messageSeverity == "Ok"         ? "Ok"
-                               : messageSeverity == "Warning"  ? "Warning"
-                               : messageSeverity == "Critical" ? "Critical"
-                                                               : "Ok",
-                               msg);
-        }
-    }
-
-    bool sendTestEventLog(std::string msgId)
-    {
-        nlohmann::json logEntryArray;
-        logEntryArray.push_back({});
-        nlohmann::json& logEntryJson = logEntryArray.back();
-
-        logEntryJson["EventId"] = "TestID";
-
-        logEntryJson["Severity"] = log_entry::EventSeverity::OK;
-        logEntryJson["Message"] = "Generated test event";
-        logEntryJson["MessageId"] = msgId;
-        // MemberId is 0 : since we are sending one event record.
-        logEntryJson["MemberId"] = 0;
-        logEntryJson["MessageArgs"] = nlohmann::json::array();
-        logEntryJson["EventTimestamp"] =
-            redfish::time_utils::getDateTimeOffsetNow().first;
-        logEntryJson["Context"] = customText;
-
-        nlohmann::json msg;
-        msg["@odata.type"] = "#Event.v1_4_0.Event";
-        msg["Id"] = std::to_string(eventSeqNum);
-        msg["Name"] = "Event Log";
-        msg["Events"] = logEntryArray;
-
-        std::string strMsg = msg.dump(2, ' ', true,
-                                      nlohmann::json::error_handler_t::replace);
-        return sendEvent(std::move(strMsg));
-    }
-
-    bool sendTestSNMPTrap()
-    {
-        std::string timestamp =
-            redfish::time_utils::getDateTimeOffsetNow().first;
-        std::tm timeStruct = {};
-        std::istringstream entryStream(timestamp);
-        if (!(entryStream >> std::get_time(&timeStruct, "%Y-%m-%dT%H:%M:%S")))
-        {
-            return false;
-        }
-        std::stringstream ss;
-        ss << std::put_time(&timeStruct, "%Y-%m-%d %H:%M:%S");
-        std::string timeString = ss.str();
-        std::string msg{"Generated test event"};
-        this->sendSNMPTrap(static_cast<uint32_t>(eventSeqNum), timeString, "Ok",
-                           msg);
-        return true;
-    }
-
-    void filterAndSendEventLogs(
-        const std::vector<EventLogObjectsType>& eventRecords)
-    {
-        nlohmann::json logEntryArray;
-        for (const EventLogObjectsType& logEntry : eventRecords)
-        {
-            const std::string& idStr = std::get<0>(logEntry);
-            const std::string& timestamp = std::get<1>(logEntry);
-            const std::string& messageID = std::get<2>(logEntry);
-            const std::string& registryName = std::get<3>(logEntry);
-            const std::string& messageKey = std::get<4>(logEntry);
-            const std::vector<std::string>& messageArgs = std::get<5>(logEntry);
-
-            // If registryPrefixes list is empty, don't filter events
-            // send everything.
-            if (!registryPrefixes.empty())
-            {
-                auto obj = std::ranges::find(registryPrefixes, registryName);
-                if (obj == registryPrefixes.end())
-                {
-                    continue;
-                }
-            }
-
-            // If registryMsgIds list is empty, don't filter events
-            // send everything.
-            if (!registryMsgIds.empty())
-            {
-                auto obj = std::ranges::find(registryMsgIds, messageKey);
-                if (obj == registryMsgIds.end())
-                {
-                    continue;
-                }
-            }
-
-            std::vector<std::string_view> messageArgsView(messageArgs.begin(),
-                                                          messageArgs.end());
-
-            logEntryArray.push_back({});
-            nlohmann::json& bmcLogEntry = logEntryArray.back();
-            if (event_log::formatEventLogEntry(idStr, messageID,
-                                               messageArgsView, timestamp,
-                                               customText, bmcLogEntry) != 0)
-            {
-                BMCWEB_LOG_DEBUG("Read eventLog entry failed");
-                continue;
-            }
-        }
-
-        if (logEntryArray.empty())
-        {
-            BMCWEB_LOG_DEBUG("No log entries available to be transferred.");
-            return;
-        }
-
-        nlohmann::json msg;
-        msg["@odata.type"] = "#Event.v1_4_0.Event";
-        msg["Id"] = std::to_string(eventSeqNum);
-        msg["Name"] = "Event Log";
-        msg["Events"] = logEntryArray;
-        std::string strMsg = msg.dump(2, ' ', true,
-                                      nlohmann::json::error_handler_t::replace);
-        sendEvent(std::move(strMsg));
-        eventSeqNum++;
-    }
-
-    void filterAndSendReports(const std::string& reportId,
-                              const telemetry::TimestampReadings& var)
-    {
-        boost::urls::url mrdUri = boost::urls::format(
-            "/redfish/v1/TelemetryService/MetricReportDefinitions/{}",
-            reportId);
-
-        // Empty list means no filter. Send everything.
-        if (!metricReportDefinitions.empty())
-        {
-            if (std::ranges::find(metricReportDefinitions, mrdUri.buffer()) ==
-                metricReportDefinitions.end())
-            {
-                return;
-            }
-        }
-
-        nlohmann::json msg;
-        if (!telemetry::fillReport(msg, reportId, var))
-        {
-            BMCWEB_LOG_ERROR("Failed to fill the MetricReport for DBus "
-                             "Report with id {}",
-                             reportId);
-            return;
-        }
-
-        // Context is set by user during Event subscription and it must be
-        // set for MetricReport response.
-        if (!customText.empty())
-        {
-            msg["Context"] = customText;
-        }
-
-        std::string strMsg = msg.dump(2, ' ', true,
-                                      nlohmann::json::error_handler_t::replace);
-        sendEvent(std::move(strMsg));
-    }
-
-    void updateRetryConfig(uint32_t retryAttempts,
-                           uint32_t retryTimeoutInterval)
-    {
-        if (policy == nullptr)
-        {
-            BMCWEB_LOG_DEBUG("Retry policy was nullptr, ignoring set");
-            return;
-        }
-        policy->maxRetryAttempts = retryAttempts;
-        policy->retryIntervalSecs = std::chrono::seconds(retryTimeoutInterval);
-    }
-
-    uint64_t getEventSeqNum() const
-    {
-        return eventSeqNum;
-    }
-
-    void setSubscriptionId(const std::string& id2)
-    {
-        BMCWEB_LOG_DEBUG("Subscription ID: {}", id2);
-        subId = id2;
-    }
-
-    std::string getSubscriptionId()
-    {
-        return subId;
-    }
-
-    std::optional<std::string> getSubscriptionId(
-        const std::shared_ptr<crow::sse_socket::Connection>& connPtr)
-    {
-        if (sseConn != nullptr && connPtr == sseConn)
-        {
-            BMCWEB_LOG_DEBUG("{} conn matched, subId: {}", __FUNCTION__, subId);
-            return subId;
-        }
-
-        return std::nullopt;
-    }
-
-  private:
-    std::string subId;
-    uint64_t eventSeqNum = 1;
-    boost::urls::url host;
-    std::shared_ptr<crow::ConnectionPolicy> policy;
-    std::shared_ptr<crow::sse_socket::Connection> sseConn = nullptr;
-    std::optional<crow::HttpClient> client;
-    std::string path;
-    std::string uriProto;
-
-    // Check used to indicate what response codes are valid as part of our retry
-    // policy.  2XX is considered acceptable
-    static boost::system::error_code retryRespHandler(unsigned int respCode)
-    {
-        BMCWEB_LOG_DEBUG(
-            "Checking response code validity for SubscriptionEvent");
-        if ((respCode < 200) || (respCode >= 300))
-        {
-            return boost::system::errc::make_error_code(
-                boost::system::errc::result_out_of_range);
-        }
-
-        // Return 0 if the response code is valid
-        return boost::system::errc::make_error_code(
-            boost::system::errc::success);
-    }
-};
-
 class EventServiceManager
 {
   private:
@@ -716,12 +180,22 @@ class EventServiceManager
 
     size_t noOfEventLogSubscribers{0};
     size_t noOfMetricReportSubscribers{0};
-    std::shared_ptr<sdbusplus::bus::match_t> matchTelemetryMonitor;
+    std::optional<DbusEventLogMonitor> dbusEventLogMonitor;
+    std::optional<DbusTelemetryMonitor> matchTelemetryMonitor;
+    std::optional<FilesystemLogWatcher> filesystemLogMonitor;
     std::shared_ptr<sdbusplus::bus::match_t> matchEventLog;
     boost::container::flat_map<std::string, std::shared_ptr<Subscription>>
         subscriptionsMap;
 
     uint64_t eventId{1};
+
+    struct Event
+    {
+        std::string id;
+        nlohmann::json message;
+    };
+    constexpr static size_t maxMessages = 200;
+    boost::circular_buffer<Event> messages{maxMessages};
 
     boost::asio::io_context& ioc;
 
@@ -742,20 +216,20 @@ class EventServiceManager
             {
                 return;
             }
-            if (subValue->retryPolicy == "TerminateAfterRetries")
+            if (subValue->userSub->retryPolicy == "TerminateAfterRetries")
             {
                 // As per spec, Subscription should be deleted in this case.
                 BMCWEB_LOG_DEBUG("Deleting Terminated Subscription: {}", id);
                 EventServiceManager::getInstance().deleteSubscription(id);
             }
-            else if (subValue->retryPolicy == "SuspendRetries")
+            else if (subValue->userSub->retryPolicy == "SuspendRetries")
             {
                 // As per spec, Subscription state should be set to disabled in
                 // this case.
                 BMCWEB_LOG_DEBUG(
                     "Setting state to Disabled for Suspended Subscription: {}",
                     id);
-                subValue->state = "Disabled";
+                subValue->userSub->state = "Disabled";
                 EventServiceManager::getInstance().updateSubscription(id);
             }
             // Other case, do nothing
@@ -801,34 +275,25 @@ class EventServiceManager
                 continue;
             }
             std::shared_ptr<Subscription> subValue =
-                std::make_shared<Subscription>(*url, ioc);
+                std::make_shared<Subscription>(newSub, *url, ioc);
 
-            subValue->id = newSub->id;
-            subValue->destinationUrl = newSub->destinationUrl;
-            subValue->protocol = newSub->protocol;
-            subValue->verifyCertificate = newSub->verifyCertificate;
-            subValue->retryPolicy = newSub->retryPolicy;
-            subValue->customText = newSub->customText;
-            subValue->eventFormatType = newSub->eventFormatType;
-            subValue->subscriptionType = newSub->subscriptionType;
-            subValue->registryMsgIds = newSub->registryMsgIds;
-            subValue->registryPrefixes = newSub->registryPrefixes;
-            subValue->resourceTypes = newSub->resourceTypes;
-            subValue->httpHeaders = newSub->httpHeaders;
-            subValue->metricReportDefinitions = newSub->metricReportDefinitions;
-            subValue->state = newSub->state;
-            subValue->owner = newSub->owner;
+            std::string id = subValue->userSub->id;
+            subValue->deleter = [id]() {
+                EventServiceManager::getInstance().deleteSubscription(id);
+            };
 
-            if (subValue->id.empty())
-            {
-                BMCWEB_LOG_ERROR("Failed to add subscription");
-            }
-            subscriptionsMap.insert(std::pair(subValue->id, subValue));
+            subscriptionsMap.emplace(id, subValue);
 
             updateNoOfSubscribersCount();
 
             // Update retry configuration.
             subValue->updateRetryConfig(retryAttempts, retryTimeoutInterval);
+
+            // schedule a heartbeat if sendHeartbeat was set to true
+            if (subValue->userSub->sendHeartbeat)
+            {
+                subValue->scheduleNextHeartbeatEvent();
+            }
         }
     }
 
@@ -849,6 +314,10 @@ class EventServiceManager
 
         const nlohmann::json::object_t* obj =
             jsonData.get_ptr<const nlohmann::json::object_t*>();
+        if (obj == nullptr)
+        {
+            return;
+        }
         for (const auto& item : *obj)
         {
             if (item.first == "Configuration")
@@ -861,16 +330,18 @@ class EventServiceManager
             {
                 for (const auto& elem : item.second)
                 {
-                    std::shared_ptr<persistent_data::UserSubscription>
+                    std::optional<persistent_data::UserSubscription>
                         newSubscription =
                             persistent_data::UserSubscription::fromJson(elem,
                                                                         true);
-                    if (newSubscription == nullptr)
+                    if (!newSubscription)
                     {
                         BMCWEB_LOG_ERROR("Problem reading subscription "
                                          "from old persistent store");
                         continue;
                     }
+                    persistent_data::UserSubscription& newSub =
+                        *newSubscription;
 
                     std::uniform_int_distribution<uint32_t> dist(0);
                     bmcweb::OpenSSLGenerator gen;
@@ -886,11 +357,13 @@ class EventServiceManager
                             retry = 0;
                             break;
                         }
-                        newSubscription->id = id;
+                        newSub.id = id;
                         auto inserted =
                             persistent_data::EventServiceStore::getInstance()
-                                .subscriptionsConfigMap.insert(
-                                    std::pair(id, newSubscription));
+                                .subscriptionsConfigMap.insert(std::pair(
+                                    id, std::make_shared<
+                                            persistent_data::UserSubscription>(
+                                            newSub)));
                         if (inserted.second)
                         {
                             break;
@@ -923,7 +396,7 @@ class EventServiceManager
         }
     }
 
-    void persistSubscriptionData() const
+    void updateSubscriptionData() const
     {
         persistent_data::EventServiceStore::getInstance()
             .eventServiceConfig.enabled = serviceEnabled;
@@ -940,17 +413,56 @@ class EventServiceManager
         bool updateConfig = false;
         bool updateRetryCfg = false;
 
-        if (serviceEnabled != cfg.enabled)
+        if (serviceEnabled)
         {
-            serviceEnabled = cfg.enabled;
-            if (serviceEnabled && noOfMetricReportSubscribers != 0U)
+            if (noOfEventLogSubscribers > 0U)
             {
-                registerMetricReportSignal();
+                if constexpr (BMCWEB_REDFISH_DBUS_LOG)
+                {
+                    if (!dbusEventLogMonitor)
+                    {
+                        if constexpr (
+                            BMCWEB_EXPERIMENTAL_REDFISH_DBUS_LOG_SUBSCRIPTION)
+                        {
+                            dbusEventLogMonitor.emplace();
+                        }
+                    }
+                }
+                else
+                {
+                    if (!filesystemLogMonitor)
+                    {
+                        filesystemLogMonitor.emplace(ioc);
+                    }
+                }
             }
             else
             {
-                unregisterMetricReportSignal();
+                dbusEventLogMonitor.reset();
             }
+
+            if (noOfMetricReportSubscribers > 0U)
+            {
+                if (!matchTelemetryMonitor)
+                {
+                    matchTelemetryMonitor.emplace();
+                }
+            }
+            else
+            {
+                matchTelemetryMonitor.reset();
+            }
+        }
+        else
+        {
+            matchTelemetryMonitor.reset();
+            dbusEventLogMonitor.reset();
+            filesystemLogMonitor.reset();
+        }
+
+        if (serviceEnabled != cfg.enabled)
+        {
+            serviceEnabled = cfg.enabled;
             updateConfig = true;
         }
 
@@ -970,7 +482,7 @@ class EventServiceManager
 
         if (updateConfig)
         {
-            persistSubscriptionData();
+            updateSubscriptionData();
         }
 
         if (updateRetryCfg)
@@ -992,28 +504,51 @@ class EventServiceManager
         for (const auto& it : subscriptionsMap)
         {
             std::shared_ptr<Subscription> entry = it.second;
-            if (entry->eventFormatType == eventFormatType)
+            if (entry->userSub->eventFormatType == eventFormatType)
             {
                 eventLogSubCount++;
             }
-            else if (entry->eventFormatType == metricReportFormatType)
+            else if (entry->userSub->eventFormatType == metricReportFormatType)
             {
                 metricReportSubCount++;
             }
         }
 
         noOfEventLogSubscribers = eventLogSubCount;
-        if (noOfMetricReportSubscribers != metricReportSubCount)
+        if (eventLogSubCount > 0U)
         {
-            noOfMetricReportSubscribers = metricReportSubCount;
-            if (noOfMetricReportSubscribers != 0U)
+            if constexpr (BMCWEB_REDFISH_DBUS_LOG)
             {
-                registerMetricReportSignal();
+                if (!dbusEventLogMonitor &&
+                    BMCWEB_EXPERIMENTAL_REDFISH_DBUS_LOG_SUBSCRIPTION)
+                {
+                    dbusEventLogMonitor.emplace();
+                }
             }
             else
             {
-                unregisterMetricReportSignal();
+                if (!filesystemLogMonitor)
+                {
+                    filesystemLogMonitor.emplace(ioc);
+                }
             }
+        }
+        else
+        {
+            dbusEventLogMonitor.reset();
+            filesystemLogMonitor.reset();
+        }
+        noOfMetricReportSubscribers = metricReportSubCount;
+        if (metricReportSubCount > 0U)
+        {
+            if (!matchTelemetryMonitor)
+            {
+                matchTelemetryMonitor.emplace();
+            }
+        }
+        else
+        {
+            matchTelemetryMonitor.reset();
         }
     }
 
@@ -1029,8 +564,8 @@ class EventServiceManager
         return subValue;
     }
 
-    void addSubscription(const std::shared_ptr<Subscription>& subValue,
-                         std::string& id, const bool updateFile = true)
+    void addSubscriptionInternal(const std::shared_ptr<Subscription>& subValue,
+                                 std::string& id)
     {
         std::uniform_int_distribution<uint32_t> dist(0);
         bmcweb::OpenSSLGenerator gen;
@@ -1061,39 +596,18 @@ class EventServiceManager
             return;
         }
 
-        subValue->id = id;
-        std::shared_ptr<persistent_data::UserSubscription> newSub =
-            std::make_shared<persistent_data::UserSubscription>();
-        newSub->id = id;
-        newSub->destinationUrl = subValue->destinationUrl;
-        newSub->protocol = subValue->protocol;
-        newSub->retryPolicy = subValue->retryPolicy;
-        newSub->customText = subValue->customText;
-        newSub->eventFormatType = subValue->eventFormatType;
-        newSub->subscriptionType = subValue->subscriptionType;
-        newSub->registryMsgIds = subValue->registryMsgIds;
-        newSub->registryPrefixes = subValue->registryPrefixes;
-        newSub->resourceTypes = subValue->resourceTypes;
-        newSub->httpHeaders = subValue->httpHeaders;
-        newSub->metricReportDefinitions = subValue->metricReportDefinitions;
-        newSub->state = subValue->state;
-        newSub->owner = subValue->owner;
+        // subValue->id = id;
+
+        // Set Subscription ID for back trace
+        subValue->userSub->id = id;
 
         persistent_data::EventServiceStore::getInstance()
-            .subscriptionsConfigMap.emplace(newSub->id, newSub);
+            .subscriptionsConfigMap.emplace(id, subValue->userSub);
 
         updateNoOfSubscribersCount();
 
-        if (updateFile)
-        {
-            persistSubscriptionData();
-        }
-
         // Update retry configuration.
         subValue->updateRetryConfig(retryAttempts, retryTimeoutInterval);
-
-        // Set Subscription ID for back trace
-        subValue->setSubscriptionId(id);
 
         /* Log event for subscription addition */
         std::string severity =
@@ -1119,60 +633,114 @@ class EventServiceManager
         return;
     }
 
+    void addSSESubscription(const std::shared_ptr<Subscription>& subValue,
+                            std::string_view lastEventId, std::string& id)
+    {
+        addSubscriptionInternal(subValue, id);
+        if (!lastEventId.empty())
+        {
+            BMCWEB_LOG_INFO("Attempting to find message for last id {}",
+                            lastEventId);
+            boost::circular_buffer<Event>::iterator lastEvent =
+                std::find_if(messages.begin(), messages.end(),
+                             [&lastEventId](const Event& event) {
+                                 return event.id == lastEventId;
+                             });
+            // Can't find a matching ID
+            if (lastEvent == messages.end())
+            {
+                nlohmann::json msg = messages::eventBufferExceeded();
+                // If the buffer overloaded, send all messages.
+                subValue->sendEventToSubscriber(msg);
+                lastEvent = messages.begin();
+            }
+            else
+            {
+                // Skip the last event the user already has
+                lastEvent++;
+            }
+            for (boost::circular_buffer<Event>::const_iterator event =
+                     lastEvent;
+                 lastEvent != messages.end(); lastEvent++)
+            {
+                subValue->sendEventToSubscriber(event->message);
+            }
+        }
+        return;
+    }
+
+    void addPushSubscription(const std::shared_ptr<Subscription>& subValue,
+                             std::string& id)
+    {
+        addSubscriptionInternal(subValue, id);
+
+        subValue->deleter = [id]() {
+            EventServiceManager::getInstance().deleteSubscription(id);
+        };
+        updateSubscriptionData();
+        return;
+    }
+
     bool isSubscriptionExist(const std::string& id)
     {
         auto obj = subscriptionsMap.find(id);
         return obj != subscriptionsMap.end();
     }
 
-    void deleteSubscription(const std::string& id)
+    bool deleteSubscription(const std::string& id)
     {
         auto obj = subscriptionsMap.find(id);
         std::shared_ptr<crow::sse_socket::Connection> sseConnPtr = NULL;
         if (obj != subscriptionsMap.end())
         {
-            std::shared_ptr<Subscription> entry = obj->second;
-            if (entry->subscriptionType == subscriptionTypeSSE)
-            {
-                entry->getSseConnection(sseConnPtr);
-            }
+            BMCWEB_LOG_WARNING("Could not find subscription with id {}", id);
+            return false;
+        }
+        std::shared_ptr<Subscription> entry = obj->second;
+        if (entry->userSub->subscriptionType == subscriptionTypeSSE)
+        {
+            entry->getSseConnection(sseConnPtr);
+        }
+        subscriptionsMap.erase(obj);
+        auto& event = persistent_data::EventServiceStore::getInstance();
+        auto persistentObj = event.subscriptionsConfigMap.find(id);
+        if (persistentObj == event.subscriptionsConfigMap.end())
+        {
+            BMCWEB_LOG_ERROR("Subscription wasn't in persistent data");
+            return true;
+        }
+        persistent_data::EventServiceStore::getInstance()
+            .subscriptionsConfigMap.erase(persistentObj);
+        updateNoOfSubscribersCount();
+        updateSubscriptionData();
 
-            subscriptionsMap.erase(obj);
-            auto obj2 = persistent_data::EventServiceStore::getInstance()
-                            .subscriptionsConfigMap.find(id);
-            persistent_data::EventServiceStore::getInstance()
-                .subscriptionsConfigMap.erase(obj2);
-            updateNoOfSubscribersCount();
-            persistSubscriptionData();
+        /* Log event for subscription delete. */
+        std::string severity =
+            "xyz.openbmc_project.Logging.Entry.Level.Informational";
+        auto bus = sdbusplus::bus::new_default_system();
+        sdbusplus::message::message m = bus.new_method_call(
+            "xyz.openbmc_project.Logging", "/xyz/openbmc_project/logging",
+            "xyz.openbmc_project.Logging.Create", "Create");
+        std::string journalMsg = "EventSubscriptionRemoved:" + id;
 
-            /* Log event for subscription delete. */
-            std::string severity =
-                "xyz.openbmc_project.Logging.Entry.Level.Informational";
-            auto bus = sdbusplus::bus::new_default_system();
-            sdbusplus::message::message m = bus.new_method_call(
-                "xyz.openbmc_project.Logging", "/xyz/openbmc_project/logging",
-                "xyz.openbmc_project.Logging.Create", "Create");
-            std::string journalMsg = "EventSubscriptionRemoved:" + id;
-
-            // Append the arguments to the method call
-            m.append(journalMsg, severity,
-                     std::map<std::string, std::string>());
-            try
-            {
-                bus.call(m);
-                std::string timestampStr = std::to_string(std::time(nullptr));
-                readEventLogsFromDbus(journalMsg, timestampStr);
-            }
-            catch (const sdbusplus::exception_t& e)
-            {
-                std::cerr << "Failed to create log entry: " << e.what()
-                          << std::endl;
-            }
+        // Append the arguments to the method call
+        m.append(journalMsg, severity, std::map<std::string, std::string>());
+        try
+        {
+            bus.call(m);
+            std::string timestampStr = std::to_string(std::time(nullptr));
+            readEventLogsFromDbus(journalMsg, timestampStr);
+        }
+        catch (const sdbusplus::exception_t& e)
+        {
+            std::cerr << "Failed to create log entry: " << e.what()
+                      << std::endl;
         }
         if (sseConnPtr)
         {
             sseConnPtr->close("subscription deleted");
         }
+        return true;
     }
 
     void deleteSseSubscription(
@@ -1181,7 +749,7 @@ class EventServiceManager
         for (auto it = subscriptionsMap.begin(); it != subscriptionsMap.end();)
         {
             std::shared_ptr<Subscription> entry = it->second;
-            if (entry->subscriptionType == subscriptionTypeSSE)
+            if (entry->userSub->subscriptionType == subscriptionTypeSSE)
             {
                 std::optional<std::string> id =
                     entry->getSubscriptionId(thisConn);
@@ -1197,7 +765,7 @@ class EventServiceManager
 
     void updateSubscription(const std::string& id) const
     {
-        persistSubscriptionData();
+        updateSubscriptionData();
 
         /* Log event for subscription update. */
         std::string severity =
@@ -1233,8 +801,9 @@ class EventServiceManager
             subscriptionsMap,
             [](const std::pair<std::string, std::shared_ptr<Subscription>>&
                    entry) {
-            return (entry.second->subscriptionType == subscriptionTypeSSE);
-        });
+                return (entry.second->userSub->subscriptionType ==
+                        subscriptionTypeSSE);
+            });
         return static_cast<size_t>(size);
     }
 
@@ -1248,14 +817,15 @@ class EventServiceManager
         return idList;
     }
 
-    bool sendTestEventLog(std::string msgId)
+    bool sendTestEventLog(TestEvent& testEvent)
     {
         bool snmpNotified = false;
         for (const auto& it : subscriptionsMap)
         {
             std::shared_ptr<Subscription> entry = it.second;
-            if (entry->protocol == "SNMPv1" || entry->protocol == "SNMPv2c" ||
-                entry->protocol == "SNMPv3")
+            if (entry->userSub->protocol == "SNMPv1" ||
+                entry->userSub->protocol == "SNMPv2c" ||
+                entry->userSub->protocol == "SNMPv3")
             {
                 if (!snmpNotified)
                 {
@@ -1267,12 +837,34 @@ class EventServiceManager
                 continue;
             }
 
-            if (!entry->sendTestEventLog(msgId))
+            if (!entry->sendTestEventLog(testEvent))
             {
                 return false;
             }
         }
         return true;
+    }
+
+    static void
+        sendEventsToSubs(const std::vector<EventLogObjectsType>& eventRecords)
+    {
+        for (const auto& it :
+             EventServiceManager::getInstance().subscriptionsMap)
+        {
+            Subscription& entry = *it.second;
+            entry.filterAndSendEventLogs(eventRecords);
+        }
+    }
+
+    static void sendTelemetryReportToSubs(
+        const std::string& reportId, const telemetry::TimestampReadings& var)
+    {
+        for (const auto& it :
+             EventServiceManager::getInstance().subscriptionsMap)
+        {
+            Subscription& entry = *it.second;
+            entry.filterAndSendReports(reportId, var);
+        }
     }
 
     void sendEvent(nlohmann::json eventMessage, std::string_view origin,
@@ -1289,46 +881,38 @@ class EventServiceManager
         {
             msg = eventMessage["Message"].get<std::string>();
         }
-        nlohmann::json eventRecord = nlohmann::json::array();
 
         eventMessage["EventId"] = eventId;
         // MemberId is 0 : since we are sending one event record.
-        eventMessage["MemberId"] = 0;
+        eventMessage["MemberId"] = "0";
         eventMessage["EventTimestamp"] =
             redfish::time_utils::getDateTimeOffsetNow().first;
         eventMessage["OriginOfCondition"] = origin;
 
-        eventRecord.emplace_back(std::move(eventMessage));
+        messages.push_back(Event(std::to_string(eventId), eventMessage));
 
         bool snmpNotified = false;
 
-        for (const auto& it : subscriptionsMap)
+        for (auto& it : subscriptionsMap)
         {
-            std::shared_ptr<Subscription> entry = it.second;
-            bool isSubscribed = false;
-            // Search the resourceTypes list for the subscription.
-            // If resourceTypes list is empty, don't filter events
-            // send everything.
-            if (!entry->resourceTypes.empty())
+            std::shared_ptr<Subscription>& entry = it.second;
+            if (!eventMatchesFilter(*entry->userSub, eventMessage, resType))
             {
-                for (const auto& resource : entry->resourceTypes)
-                {
-                    if (resType == resource)
-                    {
-                        BMCWEB_LOG_INFO(
-                            "ResourceType {} found in the subscribed list",
-                            resource);
-                        isSubscribed = true;
-                        break;
-                    }
-                }
+                BMCWEB_LOG_DEBUG("Filter didn't match");
+                continue;
             }
-            else // resourceTypes list is empty.
-            {
-                isSubscribed = true;
-            }
+            nlohmann::json::array_t eventRecord;
+            eventRecord.emplace_back(eventMessage);
+            nlohmann::json msgJson;
+            msgJson["@odata.type"] = "#Event.v1_4_0.Event";
+            msgJson["Name"] = "Event Log";
+            msgJson["Id"] = eventId;
+            msgJson["Events"] = std::move(eventRecord);
+            std::string strMsg = msgJson.dump(
+                2, ' ', true, nlohmann::json::error_handler_t::replace);
+            entry->sendEventToSubscriber(std::move(strMsg));
 
-            if (entry->subscriptionType == "SNMPTrap")
+            if (entry->userSub->subscriptionType == "SNMPTrap")
             {
                 if (!snmpNotified)
                 {
@@ -1351,26 +935,8 @@ class EventServiceManager
                 }
                 continue;
             }
-
-            if (isSubscribed)
-            {
-                nlohmann::json msgJson;
-
-                msgJson["@odata.type"] = "#Event.v1_4_0.Event";
-                msgJson["Name"] = "Event Log";
-                msgJson["Id"] = eventId;
-                msgJson["Events"] = eventRecord;
-
-                std::string strMsg = msgJson.dump(
-                    2, ' ', true, nlohmann::json::error_handler_t::replace);
-                entry->sendEvent(std::move(strMsg));
-                eventId++; // increment the eventId
-            }
-            else
-            {
-                BMCWEB_LOG_INFO("Not subscribed to this resource");
-            }
         }
+        eventId++; // increment the eventId
     }
 
     void readEventLogsFromDbus(const std::string& logEntry,
@@ -1401,13 +967,12 @@ class EventServiceManager
 
         event_log::getUniqueEntryID(logEntry, idStr);
 
-        event_log::getEventLogParams(logEntry, messageID, messageArgs);
+        event_log::getDbusEventLogParams(logEntry, messageID, messageArgs);
 
-        event_log::getRegistryAndMessageKey(messageID, registryName,
-                                            messageKey);
+        getRegistryAndMessageKey(messageID, registryName, messageKey);
 
-        eventRecords.emplace_back(idStr, timestamp, messageID, registryName,
-                                  messageKey, messageArgs);
+        eventRecords.emplace_back(idStr, timestamp, messageID, messageArgs,
+                                  registryName, messageKey);
 
         if (eventRecords.empty())
         {
@@ -1419,19 +984,19 @@ class EventServiceManager
         for (const auto& it : subscriptionsMap)
         {
             std::shared_ptr<Subscription> entry = it.second;
-            std::string prot = entry->protocol;
-            if (entry->eventFormatType == "Event")
+            std::string prot = entry->userSub->protocol;
+            if (entry->userSub->eventFormatType == "Event")
             {
                 if (prot != "SNMPv1" && prot != "SNMPv2c" && prot != "SNMPv3")
                 {
                     entry->filterAndSendEventLogs(eventRecords);
-                    //break;
+                    // break;
                 }
                 else if (!snmpNotified)
                 {
                     entry->filterAndsendSNMPTrap(eventRecords);
                     snmpNotified = true;
-                    //break;
+                    // break;
                 }
             }
         }
@@ -1478,7 +1043,7 @@ class EventServiceManager
         }
     }
 
-    static void startEventLogMonitor()
+    static void startdbusEventLogMonitor()
     {
         std::string matchStr1 =
             "type='signal',member='InterfacesAdded',path='/xyz/openbmc_project/logging'";
@@ -1493,80 +1058,6 @@ class EventServiceManager
         {
             std::cerr << "bmcweb::error in signal " << e.what() << "\n";
         }
-    }
-    static void getReadingsForReport(sdbusplus::message_t& msg)
-    {
-        if (msg.is_method_error())
-        {
-            BMCWEB_LOG_ERROR("TelemetryMonitor Signal error");
-            return;
-        }
-
-        sdbusplus::message::object_path path(msg.get_path());
-        std::string id = path.filename();
-        if (id.empty())
-        {
-            BMCWEB_LOG_ERROR("Failed to get Id from path");
-            return;
-        }
-
-        std::string interface;
-        dbus::utility::DBusPropertiesMap props;
-        std::vector<std::string> invalidProps;
-        msg.read(interface, props, invalidProps);
-
-        auto found = std::ranges::find_if(
-            props, [](const auto& x) { return x.first == "Readings"; });
-        if (found == props.end())
-        {
-            BMCWEB_LOG_INFO("Failed to get Readings from Report properties");
-            return;
-        }
-
-        const telemetry::TimestampReadings* readings =
-            std::get_if<telemetry::TimestampReadings>(&found->second);
-        if (readings == nullptr)
-        {
-            BMCWEB_LOG_INFO("Failed to get Readings from Report properties");
-            return;
-        }
-
-        for (const auto& it :
-             EventServiceManager::getInstance().subscriptionsMap)
-        {
-            Subscription& entry = *it.second;
-            if (entry.eventFormatType == metricReportFormatType)
-            {
-                entry.filterAndSendReports(id, *readings);
-            }
-        }
-    }
-
-    void unregisterMetricReportSignal()
-    {
-        if (matchTelemetryMonitor)
-        {
-            BMCWEB_LOG_DEBUG("Metrics report signal - Unregister");
-            matchTelemetryMonitor.reset();
-            matchTelemetryMonitor = nullptr;
-        }
-    }
-
-    void registerMetricReportSignal()
-    {
-        if (!serviceEnabled || matchTelemetryMonitor)
-        {
-            BMCWEB_LOG_DEBUG("Not registering metric report signal.");
-            return;
-        }
-
-        BMCWEB_LOG_DEBUG("Metrics report signal - Register");
-        std::string matchStr = "type='signal',member='PropertiesChanged',"
-                               "interface='org.freedesktop.DBus.Properties',"
-                               "arg0=xyz.openbmc_project.Telemetry.Report";
-
-        matchTelemetryMonitor = std::make_shared<sdbusplus::bus::match_t>(
-            *crow::connections::systemBus, matchStr, getReadingsForReport);
     }
 };
 

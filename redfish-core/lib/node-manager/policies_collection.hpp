@@ -117,8 +117,8 @@ inline bool isHwProtectionPolicy(
 inline void getAttributes(const std::shared_ptr<bmcweb::AsyncResp>& response,
                           const std::string& policyObjectPath)
 {
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, kNodeManagerService, policyObjectPath,
+    dbus::utility::getAllProperties(
+        kNodeManagerService, policyObjectPath,
         kPolicyAttributesInterface,
         [response](boost::system::error_code ec,
                    const std::vector<
@@ -571,8 +571,8 @@ inline void requestRoutesNodeManagerPolicies(App& app)
         getPolicyObjectPath(
             req, asyncResp, policyName,
             [req, asyncResp, policyName](const std::string& policyObjectPath) {
-            sdbusplus::asio::getAllProperties(
-                *crow::connections::systemBus, kNodeManagerService,
+            dbus::utility::getAllProperties(
+                kNodeManagerService,
                 policyObjectPath, kPolicyAttributesInterface,
                 [req, asyncResp, policyObjectPath, policyName](
                     boost::system::error_code ec,
@@ -647,8 +647,8 @@ inline void requestRoutesNodeManagerPolicies(App& app)
         getPolicyObjectPath(
             req, asyncResp, policyName,
             [req, asyncResp, policyName](const std::string& policyObjectPath) {
-            sdbusplus::asio::getAllProperties(
-                *crow::connections::systemBus, kNodeManagerService,
+            dbus::utility::getAllProperties(
+                kNodeManagerService,
                 policyObjectPath, kPolicyAttributesInterface,
                 [req, asyncResp, policyObjectPath, policyName](
                     boost::system::error_code ec,

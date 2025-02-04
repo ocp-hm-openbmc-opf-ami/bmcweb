@@ -217,19 +217,19 @@ class KafkaManager : public std::enable_shared_from_this<KafkaManager>
             sdbusplus::message::object_path(certs::authorityObjectPath) /
             certId;
 
-        sdbusplus::asio::getProperty<std::string>(
-            *crow::connections::systemBus, certs::authorityServiceName, objPath,
-            certs::certPropIntf, "CertificateString",
+        dbus::utility::getProperty<std::string>(
+            certs::authorityServiceName, objPath, certs::certPropIntf,
+            "CertificateString",
             [callback(std::move(callback))](const boost::system::error_code& ec,
                                             const std::string& certString) {
-            if (ec)
-            {
-                callback(ec, std::nullopt);
-                return;
-            }
+                if (ec)
+                {
+                    callback(ec, std::nullopt);
+                    return;
+                }
 
-            callback(ec, certString);
-        });
+                callback(ec, certString);
+            });
     }
 
   public:

@@ -1,5 +1,8 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
+#include "filter_expr_executor.hpp"
 #include "privileges.hpp"
 #include "registries/privilege_registry.hpp"
 
@@ -26,6 +29,21 @@ inline void
         asyncResp->res.result(boost::beast::http::status::bad_request);
         return;
     }
+
+    std::optional<filter_ast::LogicalAnd> filter;
+    boost::urls::params_base::iterator filterIt =
+        req.url().params().find("$filter");
+    if (filterIt != req.url().params().end())
+    {
+        std::string_view filterValue = (*filterIt).value;
+        filter = parseFilter(filterValue);
+        if (!filter)
+        {
+            // conn.close(std::format("Bad $filter param: {}", filterValue));
+            return;
+        }
+    }
+    std::string lastEventId(req.getHeaderValue("Last-Event-Id"));
 
     BMCWEB_LOG_DEBUG("Request query param size: {}", req.url().params().size());
 
@@ -80,8 +98,8 @@ inline void
         if (!evtFormatType.empty())
         {
             if (std::find(supportedEvtFormatTypes.begin(),
-                          supportedEvtFormatTypes.end(),
-                          evtFormatType) == supportedEvtFormatTypes.end())
+                          supportedEvtFormatTypes.end(), evtFormatType) ==
+                supportedEvtFormatTypes.end())
             {
                 messages::propertyValueNotInList(asyncResp->res, evtFormatType,
                                                  "EventFormatType");
@@ -99,8 +117,8 @@ inline void
             for (const std::string& it : regPrefixes)
             {
                 if (std::find(supportedRegPrefixes.begin(),
-                              supportedRegPrefixes.end(),
-                              it) == supportedRegPrefixes.end())
+                              supportedRegPrefixes.end(), it) ==
+                    supportedRegPrefixes.end())
                 {
                     messages::propertyValueNotInList(asyncResp->res, it,
                                                      "RegistryPrefix");
@@ -140,8 +158,8 @@ inline void
                             registry.begin(), registry.end(),
                             [&id](const redfish::registries::MessageEntry&
                                       messageEntry) {
-                        return !id.compare(messageEntry.first);
-                    }))
+                                return !id.compare(messageEntry.first);
+                            }))
                     {
                         validId = true;
                         break;
@@ -158,22 +176,29 @@ inline void
         }
     }
 
-    std::shared_ptr<redfish::Subscription> subValue =
-        std::make_shared<redfish::Subscription>(conn);
+    std::shared_ptr<Subscription> subValue =
+        std::make_shared<Subscription>(conn);
+
+    if (subValue->userSub == nullptr)
+    {
+        BMCWEB_LOG_ERROR("Subscription data is null");
+        // conn.close("Internal Error");
+        return;
+    }
 
     // GET on this URI means, Its SSE subscriptionType.
-    subValue->subscriptionType = redfish::subscriptionTypeSSE;
+    subValue->userSub->subscriptionType = redfish::subscriptionTypeSSE;
 
-    subValue->protocol = "Redfish";
-    subValue->retryPolicy = "TerminateAfterRetries";
-    subValue->eventFormatType = evtFormatType;
-    subValue->owner = req.session->username;
-    subValue->registryMsgIds = msgIds;
-    subValue->registryPrefixes = regPrefixes;
-    subValue->metricReportDefinitions = mrdsArray;
+    subValue->userSub->protocol = "Redfish";
+    subValue->userSub->retryPolicy = "TerminateAfterRetries";
+    subValue->userSub->eventFormatType = evtFormatType;
+    subValue->userSub->owner = req.session->username;
+    subValue->userSub->registryMsgIds = msgIds;
+    subValue->userSub->registryPrefixes = regPrefixes;
+    subValue->userSub->metricReportDefinitions = mrdsArray;
 
     std::string id;
-    manager.addSubscription(subValue, id, false);
+    manager.addSSESubscription(subValue, lastEventId, id);
 
     if (id.empty())
     {
@@ -182,7 +207,7 @@ inline void
         return;
     }
 
-    subValue->setSubscriptionId(id);
+    subValue->userSub->id = id;
 
     // All success, So lets send SSE headers
     conn->sendSSEHeader();

@@ -1,4 +1,5 @@
-#pragma once
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors#pragma once
 #include <nlohmann/json.hpp>
 
 namespace license_service

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
 #include "app.hpp"
@@ -28,8 +30,7 @@ inline std::string getStaticEtag(const std::filesystem::path& webpath)
     // Try to detect this, so we can use the hash as the ETAG
     std::vector<std::string> split;
     bmcweb::split(split, webpath.filename().string(), '.');
-    BMCWEB_LOG_DEBUG("Checking {} split.size() {}", webpath.filename().string(),
-                     split.size());
+    
     if (split.size() < 3)
     {
         return "";
@@ -101,7 +102,7 @@ inline void
         }
     }
 
-    if (!asyncResp->res.openFile(file.absolutePath))
+    if (asyncResp->res.openFile(file.absolutePath) != crow::OpenCode::Success)
     {
         BMCWEB_LOG_DEBUG("failed to read file");
         asyncResp->res.result(

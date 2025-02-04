@@ -38,58 +38,58 @@ inline void fillOnDemandOemObject(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
         [asyncResp,
          processorId](boost::system::error_code ec,
                       const dbus::utility::MapperGetSubTreeResponse& subtree) {
-        if (ec)
-        {
-            return;
-        }
-        for (const auto& [objectPath, serviceMap] : subtree)
-        {
-            // Ignore any configs without ending with desired cpu name
-            if (!objectPath.ends_with(processorId) || serviceMap.empty())
+            if (ec)
             {
-                continue;
+                return;
             }
-	    asyncResp->res.jsonValue["Name"] = processorId;
-	    asyncResp->res.jsonValue["Id"] = processorId;
-            nlohmann::json& oem = asyncResp->res.jsonValue["Oem"];
-            nlohmann::json& oemIntel = oem["Intel"];
-            oemIntel["@odata.type"] = "#OemProcessor.v1_0_0.Processor";
-            oemIntel["MeteringFeature"]["@odata.id"] =
-                "/redfish/v1/Systems/system/Processors/" + processorId +
-                "/Oem/Intel/MeteringFeature";
-            oemIntel["StateFeature"]["@odata.id"] =
-                "/redfish/v1/Systems/system/Processors/" + processorId +
-                "/Oem/Intel/StateFeature";
-            oemIntel["ProvisionFeature"]["@odata.id"] =
-                "/redfish/v1/Systems/system/Processors/" + processorId +
-                "/Oem/Intel/ProvisionFeature";
-            oemIntel["DynamicFeature"]["@odata.id"] =
-                "/redfish/v1/Systems/system/Processors/" + processorId +
-                "/Oem/Intel/DynamicFeature";
+            for (const auto& [objectPath, serviceMap] : subtree)
+            {
+                // Ignore any configs without ending with desired cpu name
+                if (!objectPath.ends_with(processorId) || serviceMap.empty())
+                {
+                    continue;
+                }
+                asyncResp->res.jsonValue["Name"] = processorId;
+                asyncResp->res.jsonValue["Id"] = processorId;
+                nlohmann::json& oem = asyncResp->res.jsonValue["Oem"];
+                nlohmann::json& oemIntel = oem["Intel"];
+                oemIntel["@odata.type"] = "#OemProcessor.v1_0_0.Processor";
+                oemIntel["MeteringFeature"]["@odata.id"] =
+                    "/redfish/v1/Systems/system/Processors/" + processorId +
+                    "/Oem/Intel/MeteringFeature";
+                oemIntel["StateFeature"]["@odata.id"] =
+                    "/redfish/v1/Systems/system/Processors/" + processorId +
+                    "/Oem/Intel/StateFeature";
+                oemIntel["ProvisionFeature"]["@odata.id"] =
+                    "/redfish/v1/Systems/system/Processors/" + processorId +
+                    "/Oem/Intel/ProvisionFeature";
+                oemIntel["DynamicFeature"]["@odata.id"] =
+                    "/redfish/v1/Systems/system/Processors/" + processorId +
+                    "/Oem/Intel/DynamicFeature";
 
-            sdbusplus::asio::getProperty<std::string>(
-                *crow::connections::systemBus,
-                "xyz.openbmc_project.SpecialMode",
-                "/xyz/openbmc_project/security/special_mode",
-                "xyz.openbmc_project.Security.SpecialMode", "SpecialMode",
-                [asyncResp, &oemIntel,
-                 processorId](const boost::system::error_code error,
-                              const std::string& specialModeStr) {
-                if (error)
-                {
-                    BMCWEB_LOG_DEBUG("DBUS response error {}", error);
-                    return;
-                }
-                if (specialModeStr.ends_with("ValidationUnsecure"))
-                {
-                    oemIntel["UnsignedMeteringFeature"]["@odata.id"] =
-                        "/redfish/v1/Systems/system/Processors/" + processorId +
-                        "/Oem/Intel/UnsignedMeteringFeature";
-                }
-            });
-        }
-        return;
-    },
+                dbus::utility::getProperty<std::string>(
+                    "xyz.openbmc_project.SpecialMode",
+                    "/xyz/openbmc_project/security/special_mode",
+                    "xyz.openbmc_project.Security.SpecialMode", "SpecialMode",
+                    [asyncResp, &oemIntel,
+                     processorId](const boost::system::error_code error,
+                                  const std::string& specialModeStr) {
+                        if (error)
+                        {
+                            BMCWEB_LOG_DEBUG("DBUS response error {}", error);
+                            return;
+                        }
+                        if (specialModeStr.ends_with("ValidationUnsecure"))
+                        {
+                            oemIntel["UnsignedMeteringFeature"]["@odata.id"] =
+                                "/redfish/v1/Systems/system/Processors/" +
+                                processorId +
+                                "/Oem/Intel/UnsignedMeteringFeature";
+                        }
+                    });
+            }
+            return;
+        },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTree",

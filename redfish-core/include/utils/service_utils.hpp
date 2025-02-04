@@ -37,53 +37,58 @@ void getSerialConsoleSshMasked(
     const std::string& serviceName, const std::string& ObjectName,
     const std::string& subObjectName, const std::string& propertyName)
 {
-    sdbusplus::asio::getProperty<bool>(
-        *crow::connections::systemBus, serviceManagerService,
-        serviceManagerPath + serviceName, serviceConfigInterface, "Masked",
+    dbus::utility::getProperty<bool>(
+        serviceManagerService, serviceManagerPath + serviceName,
+        serviceConfigInterface, "Masked",
         [asyncResp, ObjectName, subObjectName,
          propertyName](const boost::system::error_code& ec, bool eventValue) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("D-BUS response error on EventSeverity Get{}", ec);
-            // messages::internalError(asyncResp->res);
-            return;
-        }
-        asyncResp->res.jsonValue["Oem"]["OpenBmc"][ObjectName][subObjectName]
-                                [propertyName] = eventValue;
-        asyncResp->res.jsonValue["Oem"]["OpenBmc"][ObjectName][subObjectName]
-                                ["@odata.type"] = "#AMIManagerNetworkProtocol.v1_0_0.AMIManagerNetworkProtocol";
-    });
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("D-BUS response error on EventSeverity Get{}",
+                                 ec);
+                // messages::internalError(asyncResp->res);
+                return;
+            }
+            asyncResp->res.jsonValue["Oem"]["OpenBmc"][ObjectName]
+                                    [subObjectName][propertyName] = eventValue;
+            asyncResp->res.jsonValue["Oem"]["OpenBmc"][ObjectName]
+                                    [subObjectName]["@odata.type"] =
+                "#AMIManagerNetworkProtocol.v1_0_0.AMIManagerNetworkProtocol";
+        });
 }
 
 void getMasked(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                const std::string& serviceName, const std::string& ObjectName,
                const std::string& propertyName)
 {
-    sdbusplus::asio::getProperty<bool>(
-        *crow::connections::systemBus, serviceManagerService,
-        serviceManagerPath + serviceName, serviceConfigInterface, propertyName,
+    dbus::utility::getProperty<bool>(
+        serviceManagerService, serviceManagerPath + serviceName,
+        serviceConfigInterface, propertyName,
         [asyncResp, ObjectName,
          propertyName](const boost::system::error_code& ec, bool eventValue) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("D-BUS response error on EventSeverity Get{}", ec);
-            // messages::internalError(asyncResp->res);
-            return;
-        }
-        asyncResp->res.jsonValue["Oem"]["OpenBmc"][ObjectName][propertyName] =
-            eventValue;
-        if(ObjectName == "IPMB")
-        {
-            asyncResp->res.jsonValue["Oem"]["OpenBmc"][ObjectName]["@odata.type"] =
-            "#AMIManagerNetworkProtocol.v1_0_0.AMIIPMB";
-        }
-        else
-        {
-            asyncResp->res.jsonValue["Oem"]["OpenBmc"][ObjectName]["@odata.type"] =
-            "#AMIManagerNetworkProtocol.v1_0_0.AMIManagerNetworkProtocol";
-        }
-        
-    });
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("D-BUS response error on EventSeverity Get{}",
+                                 ec);
+                // messages::internalError(asyncResp->res);
+                return;
+            }
+            asyncResp->res
+                .jsonValue["Oem"]["OpenBmc"][ObjectName][propertyName] =
+                eventValue;
+            if (ObjectName == "IPMB")
+            {
+                asyncResp->res
+                    .jsonValue["Oem"]["OpenBmc"][ObjectName]["@odata.type"] =
+                    "#AMIManagerNetworkProtocol.v1_0_0.AMIIPMB";
+            }
+            else
+            {
+                asyncResp->res
+                    .jsonValue["Oem"]["OpenBmc"][ObjectName]["@odata.type"] =
+                    "#AMIManagerNetworkProtocol.v1_0_0.AMIManagerNetworkProtocol";
+            }
+        });
 }
 void getRunning(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 const std::string& serviceName,
@@ -93,53 +98,55 @@ void getRunning(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         [asyncResp, serviceName,
          valueJsonPtr](const boost::system::error_code ec,
                        const dbus::utility::ManagedObjectType& objects) {
-        if (ec)
-        {
-            messages::internalError(asyncResp->res);
-            return;
-        }
-
-        bool serviceFound = false;
-        for (const auto& [path, interfaces] : objects)
-        {
-            if (matchService(path, serviceName))
+            if (ec)
             {
-                serviceFound = true;
-                for (const auto& [interface, properties] : interfaces)
-                {
-                    if (interface != serviceConfigInterface)
-                    {
-                        continue;
-                    }
+                messages::internalError(asyncResp->res);
+                return;
+            }
 
-                    for (const auto& [key, val] : properties)
+            bool serviceFound = false;
+            for (const auto& [path, interfaces] : objects)
+            {
+                if (matchService(path, serviceName))
+                {
+                    serviceFound = true;
+                    for (const auto& [interface, properties] : interfaces)
                     {
-                        // Service is enabled if one instance is running or
-                        // enabled
-                        if (key == "Running")
+                        if (interface != serviceConfigInterface)
                         {
-                            const auto* runningStatus = std::get_if<bool>(&val);
-                            if (runningStatus == nullptr)
+                            continue;
+                        }
+
+                        for (const auto& [key, val] : properties)
+                        {
+                            // Service is enabled if one instance is running or
+                            // enabled
+                            if (key == "Running")
                             {
-                                messages::internalError(asyncResp->res);
-                                return;
+                                const auto* runningStatus =
+                                    std::get_if<bool>(&val);
+                                if (runningStatus == nullptr)
+                                {
+                                    messages::internalError(asyncResp->res);
+                                    return;
+                                }
+                                if (*runningStatus)
+                                {
+                                    asyncResp->res.jsonValue[valueJsonPtr] =
+                                        true;
+                                    return;
+                                }
                             }
-                            if (*runningStatus)
-                            {
-                                asyncResp->res.jsonValue[valueJsonPtr] = true;
-                                return;
-                            } 
                         }
                     }
                 }
             }
-        }
-        // Not populating the property when service is not found
-        if (serviceFound)
-        {
-            asyncResp->res.jsonValue[valueJsonPtr] = false;
-        }
-    },
+            // Not populating the property when service is not found
+            if (serviceFound)
+            {
+                asyncResp->res.jsonValue[valueJsonPtr] = false;
+            }
+        },
         serviceManagerService, "/xyz/openbmc_project/control/service",
         "org.freedesktop.DBus.ObjectManager", "GetManagedObjects");
 }
@@ -151,64 +158,65 @@ void getEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         [asyncResp, serviceName,
          valueJsonPtr](const boost::system::error_code ec,
                        const dbus::utility::ManagedObjectType& objects) {
-        if (ec)
-        {
-            messages::internalError(asyncResp->res);
-            return;
-        }
-
-        bool serviceFound = false;
-        for (const auto& [path, interfaces] : objects)
-        {
-            if (matchService(path, serviceName))
+            if (ec)
             {
-                serviceFound = true;
-                for (const auto& [interface, properties] : interfaces)
-                {
-                    if (interface != serviceConfigInterface)
-                    {
-                        continue;
-                    }
+                messages::internalError(asyncResp->res);
+                return;
+            }
 
-                    for (const auto& [key, val] : properties)
+            bool serviceFound = false;
+            for (const auto& [path, interfaces] : objects)
+            {
+                if (matchService(path, serviceName))
+                {
+                    serviceFound = true;
+                    for (const auto& [interface, properties] : interfaces)
                     {
-                        // Service is enabled if one instance is running or
-                        // enabled
-                        if (key == "Enabled")
+                        if (interface != serviceConfigInterface)
                         {
-                            const auto* enabled = std::get_if<bool>(&val);
-                            if (enabled == nullptr)
+                            continue;
+                        }
+
+                        for (const auto& [key, val] : properties)
+                        {
+                            // Service is enabled if one instance is running or
+                            // enabled
+                            if (key == "Enabled")
                             {
-                                messages::internalError(asyncResp->res);
-                                return;
-                            }
-                            if (*enabled)
-                            {
-                                asyncResp->res.jsonValue[valueJsonPtr] = true;
-                                if (serviceName == "start_2dipkvm")
-                                    asyncResp->res
-                                        .jsonValue["GraphicalConsole"]
-                                                  ["MaxConcurrentSessions"] = 1;
-                                return;
-                            }
-                            else
-                            {
-                                if (serviceName == "start_2dipkvm")
-                                    asyncResp->res
-                                        .jsonValue["GraphicalConsole"]
-                                                  ["MaxConcurrentSessions"] = 0;
+                                const auto* enabled = std::get_if<bool>(&val);
+                                if (enabled == nullptr)
+                                {
+                                    messages::internalError(asyncResp->res);
+                                    return;
+                                }
+                                if (*enabled)
+                                {
+                                    asyncResp->res.jsonValue[valueJsonPtr] =
+                                        true;
+                                    if (serviceName == "start_2dipkvm")
+                                        asyncResp->res.jsonValue
+                                            ["GraphicalConsole"]
+                                            ["MaxConcurrentSessions"] = 1;
+                                    return;
+                                }
+                                else
+                                {
+                                    if (serviceName == "start_2dipkvm")
+                                        asyncResp->res.jsonValue
+                                            ["GraphicalConsole"]
+                                            ["MaxConcurrentSessions"] = 0;
+                                }
                             }
                         }
                     }
                 }
             }
-        }
-        // Not populating the property when service is not found
-        if (serviceFound)
-        {
-            asyncResp->res.jsonValue[valueJsonPtr] = false;
-        }
-    },
+            // Not populating the property when service is not found
+            if (serviceFound)
+            {
+                asyncResp->res.jsonValue[valueJsonPtr] = false;
+            }
+        },
         serviceManagerService, "/xyz/openbmc_project/control/service",
         "org.freedesktop.DBus.ObjectManager", "GetManagedObjects");
 }
@@ -221,51 +229,51 @@ void getPortNumber(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         [asyncResp, serviceName,
          valueJsonPtr](const boost::system::error_code ec,
                        const dbus::utility::ManagedObjectType& objects) {
-        if (ec)
-        {
-            messages::internalError(asyncResp->res);
-            return;
-        }
-
-        bool serviceFound = false;
-        for (const auto& [path, interfaces] : objects)
-        {
-            if (matchService(path, serviceName))
+            if (ec)
             {
-                serviceFound = true;
-                for (const auto& [interface, properties] : interfaces)
-                {
-                    if (interface != portConfigInterface)
-                    {
-                        continue;
-                    }
+                messages::internalError(asyncResp->res);
+                return;
+            }
 
-                    for (const auto& [key, val] : properties)
+            bool serviceFound = false;
+            for (const auto& [path, interfaces] : objects)
+            {
+                if (matchService(path, serviceName))
+                {
+                    serviceFound = true;
+                    for (const auto& [interface, properties] : interfaces)
                     {
-                        // For service with multiple instances, return the
-                        // port of first instance found as redfish only
-                        // support one port value, they should be same
-                        if (key == "Port")
+                        if (interface != portConfigInterface)
                         {
-                            const auto* port = std::get_if<uint16_t>(&val);
-                            if (port == nullptr)
+                            continue;
+                        }
+
+                        for (const auto& [key, val] : properties)
+                        {
+                            // For service with multiple instances, return the
+                            // port of first instance found as redfish only
+                            // support one port value, they should be same
+                            if (key == "Port")
                             {
-                                messages::internalError(asyncResp->res);
+                                const auto* port = std::get_if<uint16_t>(&val);
+                                if (port == nullptr)
+                                {
+                                    messages::internalError(asyncResp->res);
+                                    return;
+                                }
+                                asyncResp->res.jsonValue[valueJsonPtr] = *port;
                                 return;
                             }
-                            asyncResp->res.jsonValue[valueJsonPtr] = *port;
-                            return;
                         }
                     }
                 }
             }
-        }
-        // Not populating the property when service is not found
-        if (serviceFound)
-        {
-            asyncResp->res.jsonValue[valueJsonPtr] = 0;
-        }
-    },
+            // Not populating the property when service is not found
+            if (serviceFound)
+            {
+                asyncResp->res.jsonValue[valueJsonPtr] = 0;
+            }
+        },
         serviceManagerService, "/xyz/openbmc_project/control/service",
         "org.freedesktop.DBus.ObjectManager", "GetManagedObjects");
 }
@@ -278,13 +286,14 @@ static inline void
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code ec) {
-        if (ec)
-        {
-            messages::internalError(asyncResp->res);
-            return;
-        }
-	asyncResp->res.result(boost::beast::http::status::no_content);
-    }, serviceManagerService, path, "org.freedesktop.DBus.Properties", "Set",
+            if (ec)
+            {
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            asyncResp->res.result(boost::beast::http::status::no_content);
+        },
+        serviceManagerService, path, "org.freedesktop.DBus.Properties", "Set",
         interface, property, dbus::utility::DbusVariantType{value});
 }
 
@@ -295,13 +304,13 @@ void setMasked(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         *crow::connections::systemBus, serviceManagerService,
         serviceManagerPath + serviceName, serviceConfigInterface, "Masked",
         enabled, [asyncResp](const boost::system::error_code& ec) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
-            messages::internalError(asyncResp->res);
-            return;
-        }
-    });
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
+                messages::internalError(asyncResp->res);
+                return;
+            }
+        });
 }
 
 void setEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -311,33 +320,33 @@ void setEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         [asyncResp, serviceName,
          enabled](const boost::system::error_code ec,
                   const dbus::utility::ManagedObjectType& objects) {
-        if (ec)
-        {
-            messages::internalError(asyncResp->res);
-            return;
-        }
-
-        bool serviceFound = false;
-        for (const auto& [path, _] : objects)
-        {
-            if (matchService(path, serviceName))
+            if (ec)
             {
-                serviceFound = true;
-                setProperty(asyncResp, path, serviceConfigInterface, "Running",
-                            enabled);
-                setProperty(asyncResp, path, serviceConfigInterface, "Enabled",
-                            enabled);
+                messages::internalError(asyncResp->res);
+                return;
             }
-        }
 
-        // The Redfish property will not be populated in if service is not
-        // found, return PropertyUnknown for PATCH request
-        if (!serviceFound)
-        {
-            messages::propertyUnknown(asyncResp->res, "Enabled");
-            return;
-        }
-    },
+            bool serviceFound = false;
+            for (const auto& [path, _] : objects)
+            {
+                if (matchService(path, serviceName))
+                {
+                    serviceFound = true;
+                    setProperty(asyncResp, path, serviceConfigInterface,
+                                "Running", enabled);
+                    setProperty(asyncResp, path, serviceConfigInterface,
+                                "Enabled", enabled);
+                }
+            }
+
+            // The Redfish property will not be populated in if service is not
+            // found, return PropertyUnknown for PATCH request
+            if (!serviceFound)
+            {
+                messages::propertyUnknown(asyncResp->res, "Enabled");
+                return;
+            }
+        },
         serviceManagerService, "/xyz/openbmc_project/control/service",
         "org.freedesktop.DBus.ObjectManager", "GetManagedObjects");
 }
@@ -349,31 +358,31 @@ void setPortNumber(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         [asyncResp, serviceName,
          portNumber](const boost::system::error_code ec,
                      const dbus::utility::ManagedObjectType& objects) {
-        if (ec)
-        {
-            messages::internalError(asyncResp->res);
-            return;
-        }
-
-        bool serviceFound = false;
-        for (const auto& [path, _] : objects)
-        {
-            if (matchService(path, serviceName))
+            if (ec)
             {
-                serviceFound = true;
-                setProperty(asyncResp, path, portConfigInterface, "Port",
-                            portNumber);
+                messages::internalError(asyncResp->res);
+                return;
             }
-        }
 
-        // The Redfish property will not be populated in if service is not
-        // found, return PropertyUnknown for PATCH request
-        if (!serviceFound)
-        {
-            messages::propertyUnknown(asyncResp->res, "Enabled");
-            return;
-        }
-    },
+            bool serviceFound = false;
+            for (const auto& [path, _] : objects)
+            {
+                if (matchService(path, serviceName))
+                {
+                    serviceFound = true;
+                    setProperty(asyncResp, path, portConfigInterface, "Port",
+                                portNumber);
+                }
+            }
+
+            // The Redfish property will not be populated in if service is not
+            // found, return PropertyUnknown for PATCH request
+            if (!serviceFound)
+            {
+                messages::propertyUnknown(asyncResp->res, "Enabled");
+                return;
+            }
+        },
         serviceManagerService, "/xyz/openbmc_project/control/service",
         "org.freedesktop.DBus.ObjectManager", "GetManagedObjects");
 }
