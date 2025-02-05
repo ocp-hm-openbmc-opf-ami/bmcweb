@@ -523,10 +523,11 @@ inline bool readJsonHelperObject(nlohmann::json::object_t& obj,
                 result = details::unpackValue<nlohmann::json>(item.second, key,
                                                               res, j) &&
                          result;
-                if (!result)
+                // In nested key after the first iteration the result will give false
+		/*if (!result)
                 {
                     return result;
-                }
+                }*/
 
                 std::vector<PerUnpack> nextLevel;
                 for (PerUnpack& p : toUnpack)
