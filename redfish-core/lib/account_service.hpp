@@ -1600,7 +1600,6 @@ inline void
             messages::passwordResetFailed(asyncResp->res);
             return;
         }
-        messages::success(asyncResp->res);
     }
 
     if (params.enabled)
