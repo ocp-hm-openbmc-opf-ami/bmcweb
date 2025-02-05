@@ -72,14 +72,14 @@ inline void afterGetSnmpTrapClientdata(
         asyncResp->res.jsonValue["SNMP"]["AuthenticationProtocol"] = algorithm;
         asyncResp->res.jsonValue["SNMP"]["EncryptionProtocol"] = encryption;
         asyncResp->res.jsonValue["Destination"] =
-            "snmp://" + user + "@" + address;
+            "snmp://" + user + "@" + address + ":" + std::to_string(port);
     }
     else 
     {
         asyncResp->res.jsonValue["SNMP"]["AuthenticationProtocol"] = nullptr;
         asyncResp->res.jsonValue["SNMP"]["EncryptionProtocol"] = nullptr;
         asyncResp->res.jsonValue["Destination"] =
-            "snmp://" + address;
+            "snmp://" + address + ":" + std::to_string(port);
     }
     asyncResp->res.jsonValue["Protocol"] = "SNMP" + version;
 }
