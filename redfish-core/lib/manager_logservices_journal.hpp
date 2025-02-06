@@ -38,6 +38,7 @@ inline void handleManagersLogServiceJournalGet(
         messages::resourceNotFound(asyncResp->res, "Manager", managerId);
         return;
     }
+     int MaxNumberOfRecords = 1000;
 
     asyncResp->res.jsonValue["@odata.type"] = "#LogService.v1_2_0.LogService";
     asyncResp->res.jsonValue["@odata.id"] =
@@ -47,7 +48,7 @@ inline void handleManagersLogServiceJournalGet(
     asyncResp->res.jsonValue["Description"] = "BMC Journal Log Service";
     asyncResp->res.jsonValue["Id"] = "Journal";
     asyncResp->res.jsonValue["OverWritePolicy"] = "WrapsWhenFull";
-    asyncResp->res.jsonValue["MaxNumberOfRecords"] = 150;
+    asyncResp->res.jsonValue["MaxNumberOfRecords"] = MaxNumberOfRecords;
 
     std::pair<std::string, std::string> redfishDateTimeOffset =
         redfish::time_utils::getDateTimeOffsetNow();
@@ -124,6 +125,7 @@ inline void readJournalEntries(
         }
         segmentCountRemaining--;
     }
+    asyncResp->res.jsonValue["Members@odata.count"] = logEntryArray->size();
 }
 
 inline void handleManagersJournalLogEntryCollectionGet(
@@ -162,6 +164,8 @@ inline void handleManagersJournalLogEntryCollectionGet(
     asyncResp->res.jsonValue["Description"] =
         "Collection of BMC Journal Entries";
     asyncResp->res.jsonValue["Members"] = nlohmann::json::array_t();
+    uint64_t MaxNumberOfRecords = 1000;
+    std::string OverWritePolicy = "WrapsWhenFull";
 
     // Go through the journal and use the timestamp to create a
     // unique ID for each entry
@@ -235,13 +239,16 @@ inline void handleManagersJournalLogEntryCollectionGet(
 
     // Add 1 to account for the last entry
     uint64_t totalEntries = endSeqNum - startSeqNum + 1;
-    asyncResp->res.jsonValue["Members@odata.count"] = totalEntries;
-    if (skip + top < totalEntries)
+    if (OverWritePolicy != "WrapsWhenFull")
     {
-        asyncResp->res.jsonValue["Members@odata.nextLink"] =
-            boost::urls::format(
+        asyncResp->res.jsonValue["Members@odata.count"] = totalEntries;
+        if (skip + top < totalEntries)
+        {
+            asyncResp->res
+                .jsonValue["Members@odata.nextLink"] = boost::urls::format(
                 "/redfish/v1/Managers/{}/LogServices/Journal/Entries?$skip={}",
                 BMCWEB_REDFISH_MANAGER_URI_NAME, std::to_string(skip + top));
+        }
     }
     uint64_t index = 0;
     if (skip > 0)
@@ -253,7 +260,20 @@ inline void handleManagersJournalLogEntryCollectionGet(
         }
     }
     BMCWEB_LOG_DEBUG("Index was {}", index);
-    readJournalEntries(top, asyncResp, {std::move(journal)});
+
+    if (OverWritePolicy == "WrapsWhenFull")
+    {
+        skip = static_cast<size_t>(totalEntries - MaxNumberOfRecords);
+        top = static_cast<size_t>(MaxNumberOfRecords);
+
+        if (sd_journal_next_skip(journal.get(), skip) < 0)
+        {
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        readJournalEntries(top, asyncResp,
+                           {std::move(journal)});
+    }
 }
 
 inline void handleManagersJournalEntriesLogEntryGet(
