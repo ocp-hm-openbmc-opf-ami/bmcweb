@@ -99,6 +99,7 @@ inline void handleFruGet(App& app, const crow::Request& req,
     asyncResp->res.jsonValue["@odata.type"] =
         "#AMIChassisFRU.v1_0_0.AMIChassisFRU";
     asyncResp->res.jsonValue["Name"] = fruName;
+    asyncResp->res.jsonValue["Id"] = "FRU Value";
 
     crow::connections::systemBus->async_method_call(
         [asyncResp, fruName](const boost::system::error_code ec,

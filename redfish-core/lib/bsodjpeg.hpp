@@ -48,15 +48,17 @@ inline void requestRoutesBsodjpeg(App& app)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
-                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-                {
-                    return;
-                }
-                asyncResp->res.jsonValue["@odata.id"] =
-                    "/redfish/v1/Managers/bmc/Oem/OpenBmc/Jpeg";
-                asyncResp->res.jsonValue["@odata.type"] = "#Jpeg.v1_0_0.Jpeg";
-                getBsodjpeg(asyncResp);
-            });
+        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+        {
+            return;
+        }
+        asyncResp->res.jsonValue["@odata.id"] =
+            "/redfish/v1/Managers/bmc/Oem/OpenBmc/Jpeg";
+        asyncResp->res.jsonValue["Id"] = "Jpeg";
+        asyncResp->res.jsonValue["Name"] = "Jpeg Image";
+	asyncResp->res.jsonValue["@odata.type"] = "#Jpeg_v1_0_0.Jpeg";
+        getBsodjpeg(asyncResp);
+    });
 }
 
 inline void requestRoutesDeleteBsodjpeg(App& app)
