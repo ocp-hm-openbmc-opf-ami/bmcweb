@@ -950,6 +950,8 @@ class AddReport
                 if (type == AddReportType::create)
                 {
                     messages::created(asyncResp->res);
+                    asyncResp->res.addHeader("Location",
+                             "/redfish/v1/TelemetryService/MetricReportDefinitions/" + id);
                 }
                 else
                 {
