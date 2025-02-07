@@ -67,7 +67,6 @@ static constexpr const char* reqActivationsStandBySpare =
     "xyz.openbmc_project.Software.Activation.RequestedActivations.StandbySpare";
 static constexpr const char* activationsStandBySpare =
     "xyz.openbmc_project.Software.Activation.Activations.StandbySpare";
-const char* ClearCacheCommandLine("echo 3 > /proc/sys/vm/drop_caches");
 
 struct MemoryFileDescriptor
 {
@@ -1331,14 +1330,6 @@ inline void
     handleUpdateServicePost(App& app, const crow::Request& req,
                             const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-#if !(BMCWEB_AST2600_EVB_MACRO)
-    int systemRet = system(ClearCacheCommandLine);
-    if (systemRet == -1)
-    {
-        BMCWEB_LOG_DEBUG("Failed to clear cache {}", systemRet);
-    }
-#endif
-
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
