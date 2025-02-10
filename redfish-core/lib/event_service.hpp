@@ -85,6 +85,9 @@ constexpr const char* snmpProtocolInterface =
     "xyz.openbmc_project.Snmp.SnmpUtils";
 constexpr const char* snmpProtocolProp = "SnmpTrapStatus";
 
+/* Flag for successfully setting SNMP property */
+bool successStatus = false;
+
 using PropertyValue = std::variant<uint8_t, uint16_t, uint64_t, std::string,
                                    std::vector<std::string>, bool>;
 
@@ -661,7 +664,7 @@ inline void setAuthentication(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                 messages::internalError(aResp->res);
                 return;
             }
-            messages::success(aResp->res);
+            successStatus = true;
             BMCWEB_LOG_DEBUG("Patch Authentication Success");
         });
 }
@@ -679,7 +682,7 @@ inline void setServiceEnable(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                 messages::internalError(aResp->res);
                 return;
             }
-            messages::success(aResp->res);
+            successStatus = true;
 
             BMCWEB_LOG_DEBUG("Patch ServiceEnable Success");
         });
@@ -698,7 +701,7 @@ inline void setTlsEnable(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                 messages::internalError(aResp->res);
                 return;
             }
-            messages::success(aResp->res);
+            successStatus = true;
             BMCWEB_LOG_DEBUG("Patch TLSEnable Success");
         });
 }
@@ -716,7 +719,7 @@ inline void setUsername(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                 messages::internalError(aResp->res);
                 return;
             }
-            messages::success(aResp->res);
+            successStatus = true;
             BMCWEB_LOG_DEBUG("Patch UserName Success");
         });
 }
@@ -734,7 +737,7 @@ inline void setPassword(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                 messages::internalError(aResp->res);
                 return;
             }
-            messages::success(aResp->res);
+            successStatus = true;
             BMCWEB_LOG_DEBUG("Patch Password Success");
         });
 }
@@ -752,7 +755,7 @@ inline void setSender(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                 messages::internalError(aResp->res);
                 return;
             }
-            messages::success(aResp->res);
+            successStatus = true;
             BMCWEB_LOG_DEBUG("Patch Sender Success");
         });
 }
@@ -770,7 +773,7 @@ inline void setHost(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                 messages::internalError(aResp->res);
                 return;
             }
-            messages::success(aResp->res);
+            successStatus = true;
             BMCWEB_LOG_DEBUG("Patch Host Success");
         });
 }
@@ -788,7 +791,7 @@ inline void setport(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                 messages::internalError(aResp->res);
                 return;
             }
-            messages::success(aResp->res);
+            successStatus = true;
             BMCWEB_LOG_DEBUG("Patch port Success");
         });
 }
@@ -807,7 +810,7 @@ inline void setRecipient(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                 messages::internalError(aResp->res);
                 return;
             }
-            messages::success(aResp->res);
+            successStatus = true;
             BMCWEB_LOG_DEBUG("Patch Recipient Success");
         });
 }
@@ -870,7 +873,7 @@ inline void handleauthenticationpatch(
                                     messages::internalError(aResp->res);
                                     return;
                                 }
-                                messages::success(aResp->res);
+                                successStatus = true;
                                 BMCWEB_LOG_DEBUG(
                                     "Patch Authentication2 SUCESS");
                             });
@@ -1704,7 +1707,10 @@ inline void requestRoutesEventService(App& app)
                     }
                 }
             }
-
+            if(successStatus)
+            {
+                messages::success(asyncResp->res);
+            }
             EventServiceManager::getInstance().setEventServiceConfig(
                 eventServiceConfig);
         });
