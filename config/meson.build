@@ -54,7 +54,8 @@ feature_options = [
     'ami-asd',
     'arbel-nuvoton',
     'ami-redebug',
-    'intel-pfr'
+    'intel-pfr',
+    'ami-2fa'
 ]
 
 string_options = [
@@ -107,7 +108,9 @@ foreach option_key : feature_options + string_options + int_options
             'ami-nm',
         ) or option_key.contains(
             'intel-pfr',
-        )    
+        ) or option_key.contains(
+            'ami-2fa',
+        )
             feature_options_string += '#define ' + option_macro_config + '  ' + opt.allowed().to_string() + '\n'
         endif
         opt = opt.allowed().to_string()
