@@ -596,6 +596,40 @@ inline void requestRoutesTask(App& app)
         }
         asyncResp->res.jsonValue["PercentComplete"] = ptr->percentComplete;
     });
+
+    BMCWEB_ROUTE(app, "/redfish/v1/TaskService/Tasks/<str>/")
+        .privileges(redfish::privileges::getTask)
+        .methods(boost::beast::http::verb::post,
+                 boost::beast::http::verb::patch,
+                 boost::beast::http::verb::put)(
+            [&app](const crow::Request& req,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const std::string& strParam) {
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
+                auto find = std::ranges::find_if(
+                    task::tasks,
+                    [&strParam](const std::shared_ptr<task::TaskData>& task) {
+                        if (!task)
+                        {
+                            return false;
+                        }
+
+                        return std::to_string(task->index) == strParam;
+                    });
+
+                if (find == task::tasks.end())
+                {
+                    messages::resourceNotFound(asyncResp->res, "Task",
+                                               strParam);
+                    return;
+                }
+
+                messages::operationNotAllowed(asyncResp->res);
+                return;
+            });
 }
 
 inline void requestRoutesTaskCollection(App& app)
