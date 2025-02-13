@@ -47,9 +47,9 @@
 #include "power_supply.hpp"
 #include "processor.hpp"
 #include "redfish_sessions.hpp"
-#if (!BMCWEB_AMI_REP_MACRO) || (!BMCWEB_AMI_NIC_MACRO)
+//#if (!BMCWEB_AMI_REP_MACRO) && (!BMCWEB_AMI_NIC_MACRO)
 #include "redfish_v1.hpp"
-#endif
+//#endif
 #include "roles.hpp"
 #include "sensor_patching.hpp"
 #include "sensors.hpp"
@@ -396,9 +396,9 @@ RedfishService::RedfishService(App& app)
     requestRoutesPefService(app);
     requestRoutesSendTrap(app);
     // Note, this must be the last route registered
-#if (!BMCWEB_AMI_REP_MACRO) || (!BMCWEB_AMI_NIC_MACRO)
-    requestRoutesRedfish(app);
-#endif
+// #if (!BMCWEB_AMI_REP_MACRO) && (!BMCWEB_AMI_NIC_MACRO)
+//     requestRoutesRedfish(app);
+// #endif
 }
 
 } // namespace redfish

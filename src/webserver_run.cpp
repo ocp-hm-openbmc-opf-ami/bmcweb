@@ -18,6 +18,8 @@
 #include "obmc_console.hpp"
 #include "openbmc_dbus_rest.hpp"
 #include "redfish.hpp"
+#include "ext.hpp"
+#include <redfish_v1.hpp>
 #if (BMCWEB_AMI_REP_MACRO) || (BMCWEB_AMI_NIC_MACRO)
 #include <boost/dll/import.hpp>
 #include <redfish/ami/extension/service.hpp>
@@ -84,6 +86,7 @@ int run()
     if constexpr (BMCWEB_REDFISH)
     {
         redfish::RedfishService redfish(app);
+        redfish::ExtService redfish1(app);
 
 #if (BMCWEB_AMI_NIC_MACRO)
         try
@@ -119,7 +122,7 @@ int run()
         }
 #endif
 
-#if (BMCWEB_AMI_REP_MACRO) || (BMCWEB_AMI_NIC_MACRO)
+//#if (BMCWEB_AMI_REP_MACRO) || (BMCWEB_AMI_NIC_MACRO)
 
         // Note, this must be the last route registered
         redfish::requestRoutesRedfish(app);
@@ -130,7 +133,7 @@ int run()
         // Initialize config JSON file for SSDP service ,
         // /home/root/bmcweb_persistent_data.json
         persistent_data::getConfig().readData();
-#endif
+//#endif
 
         if constexpr (BMCWEB_REDFISH_AGGREGATION)
         {
