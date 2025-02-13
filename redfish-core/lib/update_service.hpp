@@ -1783,8 +1783,9 @@ inline void handleUpdateServicePatch(
     std::optional<std::vector<std::string>> imgTargets;
     std::optional<bool> imgTargetBusy;
     std::optional<nlohmann::json> oem;
+    #if (BMCWEB_AMI_EGS_MACRO || BMCWEB_AMI_BHS_MACRO || BMCWEB_AST2700_EVB_MACRO || BMCWEB_AST2600_EVB_MACRO)
 
-    if constexpr (BMCWEB_REDFISH_ALLOW_SIMPLE_UPDATE)
+    
     std::optional<std::string> applyTime;
     std::optional<std::string> maintenanceWindowStartTime;
     std::optional<std::uint64_t> maintenanceWindowDurationInSeconds;
