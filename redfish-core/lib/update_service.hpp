@@ -114,6 +114,7 @@ inline void cleanUp()
     fwUpdateErrorMatcher = nullptr;
 }
 
+#if (BMCWEB_AMI_EGS_MACRO || BMCWEB_AMI_BHS_MACRO || BMCWEB_AST2700_EVB_MACRO || BMCWEB_AST2600_EVB_MACRO)
 inline const PropertyValue getApplyTimePropertyValue(
     const std::string& servicePath, const std::string& objectName,
     const std::string& interface, const std::string& property_Name)
@@ -128,12 +129,14 @@ inline const PropertyValue getApplyTimePropertyValue(
     reply.read(value);
     return value;
 }
+#endif
 
 inline void activateImage(const std::string& objPath,
                           const std::string& service,
                           const std::vector<std::string>& imgUriTargets)
 {
     BMCWEB_LOG_DEBUG("Activate image for {} {}", objPath, service);
+    #if (BMCWEB_AMI_EGS_MACRO || BMCWEB_AMI_BHS_MACRO || BMCWEB_AST2700_EVB_MACRO || BMCWEB_AST2600_EVB_MACRO)
     // If targets is empty, it will apply to the active.
     if (!imgUriTargets.empty())
     {
@@ -239,6 +242,108 @@ inline void activateImage(const std::string& objPath,
         activationIntf, reqActivationPropName,
         std::variant<std::string>(reqActivationsActive));
     return;
+    #else
+    if (imgUriTargets.size() == 0)
+    {
+        crow::connections::systemBus->async_method_call(
+            [](const boost::system::error_code errorCode) {
+                if (errorCode)
+                {
+                    BMCWEB_LOG_DEBUG(
+                        "RequestedActivation failed: error_code = {}",
+                        errorCode);
+                    BMCWEB_LOG_DEBUG("error msg = {}", errorCode.message());
+                }
+            },
+            service, objPath, "org.freedesktop.DBus.Properties", "Set",
+            activationIntf, reqActivationPropName,
+            std::variant<std::string>(reqActivationsActive));
+        return;
+    }
+
+    // TODO: Now we support only one target becuase software-manager
+    // code support one activation per object. It will be enhanced
+    // to multiple targets for single image in future. For now,
+    // consider first target alone.
+    crow::connections::systemBus->async_method_call(
+        [objPath, service, imgTarget{imgUriTargets[0]}](
+            const boost::system::error_code ec,
+            const dbus::utility::MapperGetSubTreeResponse& subtree) {
+            if (ec || !subtree.size())
+            {
+                return;
+            }
+
+            for (const auto& [invObjPath, invDict] : subtree)
+            {
+                std::size_t idPos = invObjPath.rfind("/");
+                if ((idPos == std::string::npos) ||
+                    ((idPos + 1) >= invObjPath.size()))
+                {
+                    BMCWEB_LOG_DEBUG("Can't parse firmware ID!!");
+                    return;
+                }
+                std::string swId = invObjPath.substr(idPos + 1);
+
+                if (swId != imgTarget)
+                {
+                    continue;
+                }
+
+                if (invDict.size() < 1)
+                {
+                    continue;
+                }
+                BMCWEB_LOG_DEBUG("Image target matched with object {}",
+                                 invObjPath);
+                crow::connections::systemBus->async_method_call(
+                    [objPath, service](const boost::system::error_code ec2,
+                                       const std::variant<std::string> value) {
+                        if (ec2)
+                        {
+                            BMCWEB_LOG_DEBUG(
+                                "Error in querying activation value");
+                            // not all fwtypes are updateable,
+                            // this is ok
+                            return;
+                        }
+                        std::string activationValue =
+                            std::get<std::string>(value);
+                        BMCWEB_LOG_DEBUG("Activation Value: {}",
+                                         activationValue);
+                        std::string reqActivation = reqActivationsActive;
+                        if (activationValue == activationsStandBySpare)
+                        {
+                            reqActivation = reqActivationsStandBySpare;
+                        }
+                        BMCWEB_LOG_DEBUG(
+                            "Setting RequestedActivation value as {} for {} {}",
+                            reqActivation, service, objPath);
+                        crow::connections::systemBus->async_method_call(
+                            [](const boost::system::error_code ec3) {
+                                if (ec3)
+                                {
+                                    BMCWEB_LOG_DEBUG(
+                                        "RequestedActivation failed: ec = {}",
+                                        ec3);
+                                }
+                                return;
+                            },
+                            service, objPath, "org.freedesktop.DBus.Properties",
+                            "Set", activationIntf, reqActivationPropName,
+                            std::variant<std::string>(reqActivation));
+                    },
+                    invDict[0].first,
+                    "/xyz/openbmc_project/software/" + imgTarget,
+                    "org.freedesktop.DBus.Properties", "Get", activationIntf,
+                    "Activation");
+            }
+        },
+        "xyz.openbmc_project.ObjectMapper",
+        "/xyz/openbmc_project/object_mapper",
+        "xyz.openbmc_project.ObjectMapper", "GetSubTree", "/",
+        static_cast<int32_t>(0), std::array<const char*, 1>{versionIntf});
+    #endif
 }
 
 inline bool handleCreateTask(const boost::system::error_code& ec2,
@@ -334,6 +439,8 @@ inline bool handleCreateTask(const boost::system::error_code& ec2,
         // still alive, update timer
         taskData->extendTimer(std::chrono::minutes(10));
     }
+    #if (BMCWEB_AMI_EGS_MACRO || BMCWEB_AMI_BHS_MACRO || BMCWEB_AST2700_EVB_MACRO || BMCWEB_AST2600_EVB_MACRO)
+
     else if (iface == "xyz.openbmc_project.Common.Task")
     {
         const std::string* taskState = nullptr;
@@ -401,6 +508,7 @@ inline bool handleCreateTask(const boost::system::error_code& ec2,
             }
         }
     }
+    #endif
     // as firmware update often results in a
     // reboot, the task  may never "complete"
     // unless it is an error
@@ -421,6 +529,8 @@ inline void createTask(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     task->populateResp(asyncResp->res);
     task->payload.emplace(std::move(payload));
 
+    #if (BMCWEB_AMI_EGS_MACRO || BMCWEB_AMI_BHS_MACRO || BMCWEB_AST2700_EVB_MACRO || BMCWEB_AST2600_EVB_MACRO)
+
     std::vector<uint16_t> vectorTaskId = {static_cast<uint16_t>(task->index)};
 
     // Set the requested image apply time
@@ -437,6 +547,8 @@ inline void createTask(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             }
             // messages::success(asyncResp->res);
         });
+    
+    #endif
 }
 
 // Note that asyncResp can be either a valid pointer or nullptr. If nullptr
@@ -451,10 +563,13 @@ inline void
     sdbusplus::message::object_path objPath;
 
     m.read(objPath, interfacesProperties);
+    BMCWEB_LOG_DEBUG("Software Interface Added. obj path = {}", objPath.str);
+
+    #if (BMCWEB_AMI_EGS_MACRO || BMCWEB_AMI_BHS_MACRO || BMCWEB_AST2700_EVB_MACRO || BMCWEB_AST2600_EVB_MACRO)
 
     std::array<std::string, 1> inface = {
         "xyz.openbmc_project.Software.Version"};
-    BMCWEB_LOG_DEBUG("Software Interface Added. obj path = {}", objPath.str);
+   
 
     std::string fwPath = objPath.str;
     if (!fwPath.empty())
@@ -481,6 +596,7 @@ inline void
                 asyncResp->res.jsonValue["Oem"]["ImageName"] = updatingImage;
             });
     }
+    #endif
 
     for (const auto& interface : interfacesProperties)
     {
@@ -876,6 +992,7 @@ inline bool convertApplyTime(crow::Response& res, const std::string& applyTime,
         "Immediate", "OnReset", "AtMaintenanceWindowStart",
         "InMaintenanceWindowOnReset"};
 #endif
+#if (BMCWEB_AMI_EGS_MACRO || BMCWEB_AMI_BHS_MACRO || BMCWEB_AST2700_EVB_MACRO || BMCWEB_AST2600_EVB_MACRO)
 
     auto it = std::find(applyTimeAllowableValues.begin(),
                         applyTimeAllowableValues.end(), applyTime);
@@ -894,6 +1011,27 @@ inline bool convertApplyTime(crow::Response& res, const std::string& applyTime,
         return false;
     }
     return true;
+#else
+if (applyTime == "Immediate")
+{
+    applyTimeNewVal =
+        "xyz.openbmc_project.Software.ApplyTime.RequestedApplyTimes.Immediate";
+}
+else if (applyTime == "OnReset")
+{
+    applyTimeNewVal =
+        "xyz.openbmc_project.Software.ApplyTime.RequestedApplyTimes.OnReset";
+}
+else
+{
+    BMCWEB_LOG_WARNING(
+        "ApplyTime value {} is not in the list of acceptable values",
+        applyTime);
+    messages::propertyValueNotInList(res, applyTime, "ApplyTime");
+    return false;
+}
+return true;
+#endif    
 }
 
 inline void setApplyTime(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -1240,6 +1378,7 @@ inline void
         uploadImageFile(asyncResp->res, multipart->uploadData);
     }
 }
+#if (BMCWEB_AMI_EGS_MACRO || BMCWEB_AMI_BHS_MACRO || BMCWEB_AST2700_EVB_MACRO || BMCWEB_AST2600_EVB_MACRO)
 
 inline bool checkApplyTime(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
@@ -1296,6 +1435,7 @@ inline bool checkApplyTime(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
     }
     return true;
 }
+#endif
 
 inline void doHTTPUpdate(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                          const crow::Request& req)
@@ -1319,12 +1459,14 @@ inline void doHTTPUpdate(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         // Setup callback for when new software detected
         monitorForSoftwareAvailable(asyncResp, req, "/redfish/v1/UpdateService",
                                     httpPushUriTargets);
-
+        
+        #if (BMCWEB_AMI_EGS_MACRO || BMCWEB_AMI_BHS_MACRO || BMCWEB_AST2700_EVB_MACRO || BMCWEB_AST2600_EVB_MACRO)
         if (checkApplyTime(asyncResp) == false)
         {
             messages::internalError(asyncResp->res);
             return;
         }
+        #endif
 
         uploadImageFile(asyncResp->res, req.body());
     }
@@ -1510,6 +1652,8 @@ inline void
     getPreserveConfig(asyncResp, "UpdateService");
     asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] =
         "#AMIUpdateService.v1_0_0.Ami";
+    
+    #if (BMCWEB_AMI_EGS_MACRO || BMCWEB_AMI_BHS_MACRO || BMCWEB_AST2700_EVB_MACRO || BMCWEB_AST2600_EVB_MACRO)
 
     sdbusplus::asio::getAllProperties(
         *crow::connections::systemBus, "xyz.openbmc_project.Settings",
@@ -1576,7 +1720,7 @@ inline void
                               ["MaintenanceWindowDurationInSeconds"] =
                     *maintenanceWindowDurationInSeconds;
             }
-
+    #endif
             // Get the ApplyOptions value
             crow::connections::systemBus->async_method_call(
                 [asyncResp](const boost::system::error_code ec1,
@@ -1639,6 +1783,8 @@ inline void handleUpdateServicePatch(
     std::optional<std::vector<std::string>> imgTargets;
     std::optional<bool> imgTargetBusy;
     std::optional<nlohmann::json> oem;
+
+    if constexpr (BMCWEB_REDFISH_ALLOW_SIMPLE_UPDATE)
     std::optional<std::string> applyTime;
     std::optional<std::string> maintenanceWindowStartTime;
     std::optional<std::uint64_t> maintenanceWindowDurationInSeconds;
@@ -1751,6 +1897,15 @@ inline void handleUpdateServicePatch(
             }
         }
         setApplyTime(asyncResp, *applyTime);
+        #else
+        if (!json_util::readJsonPatch(req, asyncResp->res, "HttpPushUriTargets",
+            imgTargets, "HttpPushUriTargetsBusy",
+            imgTargetBusy, "Oem", oem))
+            {
+                BMCWEB_LOG_DEBUG("UpdateService doPatch: Invalid request body");
+                return;
+            }    
+        #endif    
     }
 
     if (imgTargetBusy)
@@ -1781,6 +1936,8 @@ inline void handleUpdateServicePatch(
                 // object. It will be enhanced to multiple targets for
                 // single image in future. For now, consider first
                 // target alone.
+                #if (BMCWEB_AMI_EGS_MACRO || BMCWEB_AMI_BHS_MACRO || BMCWEB_AST2700_EVB_MACRO || BMCWEB_AST2600_EVB_MACRO)
+
                 if ((*imgTargets).size() > 3)
                 {
                     messages::invalidObject(
@@ -1788,6 +1945,15 @@ inline void handleUpdateServicePatch(
                         boost::urls::format("HttpPushUriTargets"));
                     return;
                 }
+                #else
+                if ((*imgTargets).size() != 1)
+                {
+                    messages::invalidObject(
+                        asyncResp->res,
+                        boost::urls::format("HttpPushUriTargets"));
+                    return;
+                }
+                #endif
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, uriTargets{*imgTargets},
                      targetBusy{*imgTargetBusy}](
@@ -1799,7 +1965,7 @@ inline void handleUpdateServicePatch(
                         }
 
                         bool swInvObjFound = false;
-                        size_t uriCount = 0;
+                        
                         for (const std::string& path : swInvPaths)
                         {
                             std::size_t idPos = path.rfind("/");
@@ -1811,7 +1977,9 @@ inline void handleUpdateServicePatch(
                                 return;
                             }
                             std::string swId = path.substr(idPos + 1);
+                            #if (BMCWEB_AMI_EGS_MACRO || BMCWEB_AMI_BHS_MACRO || BMCWEB_AST2700_EVB_MACRO || BMCWEB_AST2600_EVB_MACRO)
 
+                            size_t uriCount = 0;
                             for (const std::string& target : uriTargets)
                             {
                                 if (swId == target)
@@ -1824,6 +1992,13 @@ inline void handleUpdateServicePatch(
                                     }
                                 }
                             }
+                            #else
+                            if (swId == uriTargets[0])
+                            {
+                                swInvObjFound = true;
+                                break;
+                            }
+                            #endif
                         }
                         if (!swInvObjFound)
                         {

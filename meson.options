@@ -157,6 +157,27 @@ option(
 )
 
 option(
+    'ami-egs',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable the EGS build.'
+)
+
+option(
+    'ami-bhs',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable the BHS build.'
+)
+
+option(
+    'ast2700-evb',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable the EVB 2700 build.'
+)
+
+option(
     'rest',
     type: 'feature',
     value: 'disabled',
