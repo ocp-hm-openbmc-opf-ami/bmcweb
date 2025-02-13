@@ -1379,7 +1379,7 @@ inline void
 
 inline void
     getpreserveProperties(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                          std::string objectPaths)
+                          std::string objectPaths, std::string uri)
 {
     std::string propertyname;
     size_t lastPosition = objectPaths.find_last_of('/');
@@ -1391,20 +1391,28 @@ inline void
     dbus::utility::getProperty<bool>(
         *crow::connections::systemBus, "xyz.openbmc_project.EntityManager",
         objectPaths, "xyz.openbmc_project.Configuration.Preserve", "isEnable",
-        [asyncResp,
-         propertyname](const boost::system::error_code ec1, bool Enable) {
+        [asyncResp, propertyname,
+         uri](const boost::system::error_code ec1, bool Enable) {
             if (ec1)
             {
                 messages::internalError(asyncResp->res);
                 return;
             }
-            asyncResp->res.jsonValue["Oem"]["Ami"]["PreserveConfiguration"]
-                                    [propertyname] = Enable;
+            if (uri == "UpdateService")
+            {
+                asyncResp->res.jsonValue["Oem"]["Ami"]["PreserveConfiguration"]
+                                        [propertyname] = Enable;
+            }
+            else
+            {
+                asyncResp->res
+                    .jsonValue["PreserveConfiguration"][propertyname] = Enable;
+            }
         });
 }
 
-inline void
-    getPreserveConfig(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void getPreserveConfig(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, std::string uri)
 {
     auto bus = sdbusplus::bus::new_default();
     auto getpreserveobjectpaths = bus.new_method_call(
@@ -1423,7 +1431,6 @@ inline void
     {
         try
         {
-            // Check the isOptional property value
             auto isOptionalCall = bus.new_method_call(
                 "xyz.openbmc_project.EntityManager", configObj.c_str(),
                 "org.freedesktop.DBus.Properties", "Get");
@@ -1437,12 +1444,10 @@ inline void
 
             if (!isOptional)
             {
-                // Skip the current object path if isOptional is true
                 continue;
             }
 
-            // If not optional, send the object path to a function
-            getpreserveProperties(asyncResp, configObj); // Function call
+            getpreserveProperties(asyncResp, configObj, uri);
         }
         catch (const sdbusplus::exception::SdBusError& e)
         {
@@ -1496,7 +1501,7 @@ inline void
             std::move(allowed);
     }
 
-    getPreserveConfig(asyncResp);
+    getPreserveConfig(asyncResp, "UpdateService");
     asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] =
         "#AMIUpdateService.v1_0_0.Ami";
 

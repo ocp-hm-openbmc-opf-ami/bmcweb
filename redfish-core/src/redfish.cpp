@@ -161,7 +161,7 @@ RedfishService::RedfishService(App& app)
     requestRoutesManagerSerialInterface(app);
     requestRoutesManagerResetAction(app);
     requestRoutesManagerResetActionInfo(app);
-    requestRoutesManagerResetToDefaultsAction(app);
+    requestRoutesManagerResetToDefaults(app);
     requestRoutesManagerDiagnosticData(app);
     requestRoutesBsodjpeg(app);
     requestRoutesDeleteBsodjpeg(app);
