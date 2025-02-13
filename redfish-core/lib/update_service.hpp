@@ -176,6 +176,7 @@ inline void activateImage(const std::string& objPath,
                         }
                         BMCWEB_LOG_DEBUG("Image target matched with object {}",
                                          invObjPath);
+                        #if(BMCWEB_INTEL_PFR_MACRO)                 
                         crow::connections::systemBus->async_method_call(
                             [invObjPath, objPath,
                              service](const boost::system::error_code ec2,
@@ -215,6 +216,48 @@ inline void activateImage(const std::string& objPath,
                                     "org.freedesktop.DBus.Properties", "Set",
                                     activationIntf, reqActivationPropName,
                                     std::variant<std::string>(reqActivation));
+                                #else
+                                crow::connections::systemBus->async_method_call(
+                                    [invObjPath,
+                                     service](const boost::system::error_code ec2,
+                                              const std::variant<std::string> value) {
+                                        if (ec2)
+                                        {
+                                            BMCWEB_LOG_DEBUG(
+                                                "Error in querying activation value");
+                                            // not all fwtypes are updateable,
+                                            // this is ok
+                                            return;
+                                        }
+                                        std::string activationValue =
+                                            std::get<std::string>(value);
+                                        BMCWEB_LOG_DEBUG("Activation Value: {}",
+                                                         activationValue);
+                                        std::string reqActivation =
+                                            reqActivationsActive;
+                                        if (activationValue == activationsStandBySpare)
+                                        {
+                                            reqActivation = reqActivationsStandBySpare;
+                                        }
+                                        BMCWEB_LOG_DEBUG(
+                                            "Setting RequestedActivation value as {} for {} {}",
+                                            reqActivation, service, invObjPath);
+                                        crow::connections::systemBus->async_method_call(
+                                            [](const boost::system::error_code ec3) {
+                                                if (ec3)
+                                                {
+                                                    BMCWEB_LOG_DEBUG(
+                                                        "RequestedActivation failed: ec = {}",
+                                                        ec3);
+                                                }
+                                                return;
+                                            },
+                                            service, invObjPath,
+                                            "org.freedesktop.DBus.Properties", "Set",
+                                            activationIntf, reqActivationPropName,
+                                            std::variant<std::string>(reqActivation));
+                                #endif            
+
                             },
                             invDict[0].first,
                             "/xyz/openbmc_project/software/" + imgTarget,
