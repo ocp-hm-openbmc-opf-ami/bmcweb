@@ -67,6 +67,10 @@ static constexpr const char* reqActivationsStandBySpare =
     "xyz.openbmc_project.Software.Activation.RequestedActivations.StandbySpare";
 static constexpr const char* activationsStandBySpare =
     "xyz.openbmc_project.Software.Activation.Activations.StandbySpare";
+<<<<<<< HEAD
+=======
+//const char* ClearCacheCommandLine("echo 3 > /proc/sys/vm/drop_caches");
+>>>>>>> e33c3af2 (ot-10052-Fixed beechnutcity performance network performance get worse than before)
 
 struct MemoryFileDescriptor
 {
@@ -1330,6 +1334,17 @@ inline void
     handleUpdateServicePost(App& app, const crow::Request& req,
                             const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
+<<<<<<< HEAD
+=======
+// #if !(BMCWEB_AST2600_EVB_MACRO)
+//     int systemRet = system(ClearCacheCommandLine);
+//     if (systemRet == -1)
+//     {
+//         BMCWEB_LOG_DEBUG("Failed to clear cache {}", systemRet);
+//     }
+// #endif
+
+>>>>>>> e33c3af2 (ot-10052-Fixed beechnutcity performance network performance get worse than before)
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
