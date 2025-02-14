@@ -25,6 +25,7 @@
 #include <sdbusplus/asio/property.hpp>
 #include <sdbusplus/unpack_properties.hpp>
 #include <task.hpp>
+#include <boost/date_time.hpp>
 
 #include <algorithm>
 #include <array>
@@ -36,6 +37,7 @@
 #include <string>
 #include <string_view>
 #include <variant>
+#include "managers_header.hpp"
 
 namespace redfish
 {
@@ -70,7 +72,7 @@ constexpr const char* consoleDbusObject =
     "/xyz/openbmc_project/console/default";
 constexpr const char* consoleDbusInterface = "xyz.openbmc_project.Console.UART";
 
-bool ishandleManagersInstanceGet = false;
+//inline bool ishandleManagersInstanceGet = false;
 
 using namespace std;
 using managerPropertyValue = std::variant<uint8_t, uint16_t, std::string,
