@@ -38,7 +38,7 @@
                         "null"
                     ]
                 },
-                "UserId": {
+		"UserId": {
                     "description": "The UserId of the WebUI/Redfish session.",
                     "longDescription": "The UserId of the  Generated WebUI/Redfish Session.",
                     "type": [

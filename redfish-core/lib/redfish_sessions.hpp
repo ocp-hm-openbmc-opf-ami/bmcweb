@@ -159,14 +159,7 @@ inline void fillSessionObject(crow::Response& res,
     res.jsonValue["Name"] = "User Session";
     res.jsonValue["Description"] = "Manager User Session";
     res.jsonValue["ClientOriginIPAddress"] = session.clientIp;
-    if (static_cast<int>(session.sessionType) == 1)
-    {
-        res.jsonValue["SessionType"] = "Redfish";
-    }
-    else
-    {
-        res.jsonValue["SessionType"] = session.AMIsessionType;
-    }
+    res.jsonValue["SessionType"] = session.AMIsessionType;
     res.jsonValue["Oem"]["AMI_WebSession"]["@odata.id"] = boost::urls::format(
         "/redfish/v1/SessionService/Sessions/{}#/Oem/AMI_WebSession",
         session.uniqueId);
@@ -819,8 +812,16 @@ inline void handleSessionCollectionPost(
     std::shared_ptr<persistent_data::UserSession> session =
         persistent_data::SessionStore::getInstance().generateUserSession(
             username, req.ipAddress, clientId,
-            persistent_data::SessionType::Session, isConfigureSelfOnly);
-    if (session == nullptr)
+            persistent_data::SessionType::Session, isConfigureSelfOnly,
+            "Redfish");
+    bool maxSessionReached =
+        persistent_data::SessionStore::getInstance().getRedfishSessionReached();
+    if (session == nullptr && maxSessionReached == true)
+    {
+        messages::sessionLimitExceeded(asyncResp->res);
+        return;
+    }
+    else if (session == nullptr)
     {
         messages::internalError(asyncResp->res);
         return;
@@ -862,6 +863,18 @@ inline void
     // asyncResp->res.jsonValue["SessionTimeout"] =
     //     persistent_data::SessionStore::getInstance().getTimeoutInSeconds();
     asyncResp->res.jsonValue["ServiceEnabled"] = true;
+    asyncResp->res.jsonValue["Oem"]["Ami"]["KvmMaxSession"] =
+        persistent_data::SessionStore::getInstance().loadMaxSession(
+            "start-ipkvm");
+    asyncResp->res.jsonValue["Oem"]["Ami"]["VmMaxSession"] =
+        persistent_data::SessionStore::getInstance().loadMaxSession(
+            "xyz.openbmc_project.VirtualMedia");
+    asyncResp->res.jsonValue["Oem"]["Ami"]["SshMaxSession"] =
+        persistent_data::SessionStore::getInstance().loadMaxSession("dropbear");
+    asyncResp->res.jsonValue["Oem"]["Ami"]["WebMaxSession"] =
+        persistent_data::SessionStore::getInstance().loadMaxSession("web");
+    asyncResp->res.jsonValue["Oem"]["Ami"]["RedfishMaxSession"] =
+        persistent_data::SessionStore::getInstance().loadMaxSession("redfish");
 
     asyncResp->res.jsonValue["Sessions"]["@odata.id"] =
         "/redfish/v1/SessionService/Sessions";
@@ -1002,12 +1015,9 @@ inline void handleSessionServicePatch(
             std::optional<uint64_t> kvmSessionTimeout;
             std::optional<uint16_t> bmcwebPort;
             std::optional<uint16_t> kvmPort;
-            if (!json_util::readJson( //
-                    *ami, asyncResp->res, //
-                    "KVMSessionTimeout", kvmSessionTimeout, //
-                    "BMCwebPort", bmcwebPort, //
-                    "KVMPort", kvmPort //
-                    ))
+            if (!json_util::readJson(*ami, asyncResp->res, "KVMSessionTimeout",
+                                     kvmSessionTimeout, "BMCwebPort",
+                                     bmcwebPort, "KVMPort", kvmPort))
             {
                 return;
             }

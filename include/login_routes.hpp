@@ -4,6 +4,7 @@
 
 #include "app.hpp"
 #include "cookies.hpp"
+#include "error_messages.hpp"
 #include "http_request.hpp"
 #include "http_response.hpp"
 #include "multipart_parser.hpp"
@@ -172,7 +173,16 @@ inline void handleLogin(const crow::Request& req,
                 persistent_data::SessionStore::getInstance()
                     .generateUserSession(username, req.ipAddress, std::nullopt,
                                          persistent_data::SessionType::Session,
-                                         isConfigureSelfOnly);
+                                         isConfigureSelfOnly, "WebUI");
+
+            bool maxSessionReached =
+                persistent_data::SessionStore::getInstance()
+                    .getWebSessionReached();
+            if (session == nullptr && maxSessionReached == true)
+            {
+                redfish::messages::sessionLimitExceeded(asyncResp->res);
+                return;
+            }
 
             bmcweb::setSessionCookies(asyncResp->res, *session);
 
