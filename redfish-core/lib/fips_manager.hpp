@@ -206,7 +206,6 @@ inline void handleSecurityPolicyPatch(
             "Oem", oemObject //
             ))
     {
-        messages::unrecognizedRequestBody(asyncResp->res);
         BMCWEB_LOG_ERROR("Cannot read values from FIPSPolicy tag");
         return;
     }
