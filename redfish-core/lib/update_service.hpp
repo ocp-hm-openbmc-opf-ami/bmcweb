@@ -72,6 +72,35 @@ static constexpr const char* activationsStandBySpare =
 //const char* ClearCacheCommandLine("echo 3 > /proc/sys/vm/drop_caches");
 >>>>>>> e33c3af2 (ot-10052-Fixed beechnutcity performance network performance get worse than before)
 
+// PFR image types (pcType)
+enum pfrImgPCType
+{
+    pfrCPLDUpdateCap = 0x00,
+    pfrPCHPFM = 0x01,
+    pfrPCHUpdateCap = 0x02,
+    pfrBMCPFM = 0x03,
+    pfrBMCUpdateCap = 0x04,
+    seamlessPCHUpdateCap = 0x05,
+    pfrAFMUpdateCap = 0x06,
+    pfrCmpstCPLDUpdateCap = 0x07,
+    pfrCmpstRetimerUpdateCap = 0x09
+};
+
+static constexpr const uint32_t pfrBlock0MagicTag = 0xB6EAFD19;
+
+// PFR block 0 structure (the very first data in PFR image)
+struct pfrImgBlock0
+{
+    uint32_t tag;
+    uint8_t pcLength[4];
+    uint8_t pcType[4];
+    uint8_t reserved1[4];
+    uint8_t hash256[32];
+    uint8_t hash384[48];
+} __attribute__((packed));
+
+
+
 struct MemoryFileDescriptor
 {
     int fd = -1;
@@ -106,6 +135,51 @@ struct MemoryFileDescriptor
         return true;
     }
 };
+#if(BMCWEB_INTEL_PFR_MACRO)
+// Read the PFR image pcType 
+static int readPfrImageType(std::filesystem::path imgPath)
+{
+    uint32_t imgMagic {};
+    constexpr size_t readBufferSize = sizeof(pfrImgBlock0);
+    std::array<char, readBufferSize> readBuffer = {};
+    pfrImgBlock0* block0Data = nullptr;
+
+    if (std::filesystem::exists(imgPath))
+    {
+        try
+        {
+            std::ifstream imgFile(imgPath, std::ios::binary | std::ios::in);
+
+            if (!imgFile.good())
+            {
+                BMCWEB_LOG_ERROR("Image file read failed: {}", imgPath.string());
+                return -1;
+            }
+
+            imgFile.read(readBuffer.data(), readBufferSize);
+
+            block0Data = reinterpret_cast<pfrImgBlock0*>(readBuffer.data());
+
+            imgMagic = block0Data->tag;
+            if (imgMagic != pfrBlock0MagicTag)
+            {
+                BMCWEB_LOG_ERROR("Staged image magic number match failed");
+                return -1;
+            }
+        }
+        catch (std::exception& e)
+        {
+            BMCWEB_LOG_ERROR("EXCEPTION: {}", e.what());
+            return -1;
+        }
+
+        return static_cast<int>(block0Data->pcType[0]); // return the pcType byte
+    }
+    BMCWEB_LOG_ERROR("Image file does not exist: {}", imgPath.string());
+    return -1;
+}
+#endif
+
 
 inline void cleanUp()
 {
@@ -432,9 +506,57 @@ inline bool handleCreateTask(const boost::system::error_code& ec2,
             taskData->messages.emplace_back(messages::taskAborted(index));
             return task::completed;
         }
-
+       
         if (state->ends_with("Staged"))
         {
+            #if(BMCWEB_INTEL_PFR_MACRO)
+            // Staged activation is a PFR concept, Therefore, if Activation = "Staged",
+            // we can assume a PFR related update is in progress.
+            // Get staged PFR image type 
+            int imageType = readPfrImageType(std::filesystem::path{"/dev/mtd/image-stg"});
+                                BMCWEB_LOG_DEBUG("Update capsule staged. imageType = {}", imageType);
+
+                                // If an error occurred determining staged image type
+                                // perhaps it is not a PFR image (doh).  
+                                // I'm unaware of any use cases for this. 
+                                if (imageType < 0)
+                                {
+                                    BMCWEB_LOG_ERROR("Non-PFR image staged!");
+                                    taskData->state = "Exception";
+                                    taskData->status = "Warning";
+                                    taskData->messages.emplace_back(
+                                    messages::taskAborted(index));
+                                    return task::completed;
+
+                                } // If staged image is seamless update capsule 
+                                else if (seamlessPCHUpdateCap == imageType)
+                                {
+                                    // For seamless updates, we will pause task here.
+                                    // However, when the seamless update completes, the  
+                                    // task progress and state will be updated 
+                                    taskData->state = "Stopping";
+                                    taskData->messages.emplace_back(
+                                        messages::taskPaused(index));
+                                    BMCWEB_LOG_DEBUG("Task state = Paused");
+
+                                    // Set long timer to allow seamless update time to complete
+                                    taskData->extendTimer(std::chrono::hours(1));
+                                    return !task::completed;
+
+                                } // Non seamless update.  Image is staged so mark task as complete
+                                else
+                                {
+                                    // If we made it here, it most likely means ApplyTime = OnReset, image is  
+                                    // staged, and BMC is still running. Note: ApplyTime = Immediate causes
+                                    // BMC to be held in reset while CPLD performs update (aka T-1 mode).
+                                    // Therefore, task will never complete and not exist when BMC starts back up.
+                                    BMCWEB_LOG_DEBUG("Task state = Complete");
+                                    taskData->messages.emplace_back(
+                                        messages::taskCompletedOK(index));
+                                    taskData->state = "Completed";
+                                    return task::completed;
+                                }
+            #else
             taskData->state = "Pending";
             taskData->messages.emplace_back(messages::taskPaused(index));
 
@@ -445,6 +567,7 @@ inline bool handleCreateTask(const boost::system::error_code& ec2,
             // task will be canceled
             taskData->extendTimer(std::chrono::hours(5));
             return !task::completed;
+            #endif
         }
 
         if (state->ends_with("Active"))
