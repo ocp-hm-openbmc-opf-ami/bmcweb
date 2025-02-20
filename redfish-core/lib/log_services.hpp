@@ -2812,7 +2812,7 @@ inline void requestRoutesCrashdumpService(App& app)
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/LogServices/Crashdump/")
         // This is incorrect, should be:
         //.privileges(redfish::privileges::getLogService)
-        .privileges({{"ConfigureManager"}})
+	.privileges({{"Login"}})
         .methods(
             boost::beast::http::verb::
                 get)([&app](const crow::Request& req,
@@ -3217,8 +3217,8 @@ inline void requestRoutesCrashdumpEntryCollection(App& app)
                  "/redfish/v1/Systems/<str>/LogServices/Crashdump/Entries/")
         // This is incorrect, should be.
         //.privileges(redfish::privileges::postLogEntryCollection)
-        .privileges({{"ConfigureComponents"}})
-        .methods(
+        .privileges({{"Login"}})
+	.methods(
             boost::beast::http::verb::
                 get)([&app](const crow::Request& req,
                             const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -3698,8 +3698,8 @@ static void
 inline void requestRoutesAcpiService(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/system/LogServices/acpi/")
-        .privileges({{"ConfigureManager"}})
-        .methods(boost::beast::http::verb::get)(
+	.privileges({{"Login"}})
+	.methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
@@ -3732,8 +3732,8 @@ inline void requestRoutesAcpiService(App& app)
 inline void requestRoutesAcpiEntryCollection(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/system/LogServices/acpi/Entries/")
-        .privileges({{"ConfigureComponents"}})
-        .methods(boost::beast::http::verb::get)(
+        .privileges({{"Login"}})
+	.methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))

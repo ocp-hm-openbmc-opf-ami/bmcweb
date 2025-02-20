@@ -253,7 +253,8 @@ const static auto& deleteCableCollection = privilegeSetConfigureComponents;
 const static auto& postCableCollection = privilegeSetConfigureComponents;
 
 // Certificate
-const static auto& getCertificate = privilegeSetConfigureManager;
+//const static auto& getCertificate = privilegeSetConfigureManager;
+const static auto& getCertificate = privilegeSetLogin; 
 const static auto& headCertificate = privilegeSetConfigureManager;
 const static auto& patchCertificate = privilegeSetConfigureManager;
 const static auto& putCertificate = privilegeSetConfigureManager;
@@ -1971,7 +1972,7 @@ const static auto& headVirtualMedia = privilegeSetLogin;
 const static auto& patchVirtualMedia = privilegeSetLoginConfigureManager; // Added to Vmedia for OEM Extended 
 const static auto& putVirtualMedia = privilegeSetLoginConfigureManager;
 const static auto& deleteVirtualMedia = privilegeSetLoginConfigureManager;
-const static auto& postVirtualMedia = privilegeSetLoginConfigureManager;
+const static auto& postVirtualMedia = privilegeSetConfigureManager;
 
 // VirtualMediaCollection
 const static auto& getVirtualMediaCollection = privilegeSetLogin;
