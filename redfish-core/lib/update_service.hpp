@@ -730,9 +730,11 @@ inline void
 
     m.read(objPath, interfacesProperties);
     BMCWEB_LOG_DEBUG("Software Interface Added. obj path = {}", objPath.str);
+   
+
 
     #if (BMCWEB_AMI_EGS_MACRO || BMCWEB_AMI_BHS_MACRO || BMCWEB_AST2700_EVB_MACRO || BMCWEB_AST2600_EVB_MACRO)
-
+   
     std::array<std::string, 1> inface = {
         "xyz.openbmc_project.Software.Version"};
    
@@ -1857,18 +1859,18 @@ inline void
                         requestedApplyTime->find_last_of('.') + 1);
             }
 
-#if (BMCWEB_INTEL_PFR_MACRO)
+           #if (BMCWEB_INTEL_PFR_MACRO)
             asyncResp->res
                 .jsonValue["HttpPushUriOptions"]["HttpPushUriApplyTime"]
                           ["ApplyTime@Redfish.AllowableValues"] = {
                 "Immediate", "OnReset"};
-#else
+            #endif
             asyncResp->res
                 .jsonValue["HttpPushUriOptions"]["HttpPushUriApplyTime"]
                           ["ApplyTime@Redfish.AllowableValues"] = {
                 "Immediate", "OnReset", "AtMaintenanceWindowStart",
                 "InMaintenanceWindowOnReset"};
-#endif
+
 
             if (maintenanceWindowStartTime != nullptr)
             {
@@ -1886,35 +1888,37 @@ inline void
                               ["MaintenanceWindowDurationInSeconds"] =
                     *maintenanceWindowDurationInSeconds;
             }
-    #endif
-            // Get the ApplyOptions value
-            crow::connections::systemBus->async_method_call(
-                [asyncResp](const boost::system::error_code ec1,
-                            const std::variant<bool> applyOption) {
-                    if (ec1)
-                    {
-                        BMCWEB_LOG_DEBUG("DBUS response error {}", ec1);
-                        messages::internalError(asyncResp->res);
-                        return;
-                    }
-
-                    const bool* b = std::get_if<bool>(&applyOption);
-
-                    if (b)
-                    {
-                        asyncResp->res
-                            .jsonValue["Oem"]["ApplyOptions"]["@odata.type"] =
-                            "#OemUpdateService.ApplyOptions";
-                        asyncResp->res
-                            .jsonValue["Oem"]["ApplyOptions"]["ClearConfig"] =
-                            *b;
-                    }
-                },
-                "xyz.openbmc_project.Software.BMC.Updater",
-                "/xyz/openbmc_project/software",
-                "org.freedesktop.DBus.Properties", "Get",
-                "xyz.openbmc_project.Software.ApplyOptions", "ClearConfig");
         });
+        #endif
+        // Get the ApplyOptions value
+        crow::connections::systemBus->async_method_call(
+            [asyncResp](const boost::system::error_code ec1,
+                        const std::variant<bool> applyOption) {
+                if (ec1)
+                {
+                    BMCWEB_LOG_DEBUG("DBUS response error {}", ec1);
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+
+                const bool* b = std::get_if<bool>(&applyOption);
+
+                if (b)
+                {
+                    asyncResp->res
+                        .jsonValue["Oem"]["ApplyOptions"]["@odata.type"] =
+                        "#OemUpdateService.ApplyOptions";
+                    asyncResp->res
+                        .jsonValue["Oem"]["ApplyOptions"]["ClearConfig"] =
+                        *b;
+                }
+            },
+            "xyz.openbmc_project.Software.BMC.Updater",
+            "/xyz/openbmc_project/software",
+            "org.freedesktop.DBus.Properties", "Get",
+            "xyz.openbmc_project.Software.ApplyOptions", "ClearConfig");
+           
+
 }
 
 inline void
@@ -2064,16 +2068,17 @@ inline void handleUpdateServicePatch(
             }
         }
         setApplyTime(asyncResp, *applyTime);
-        #else
-        if (!json_util::readJsonPatch(req, asyncResp->res, "HttpPushUriTargets",
-            imgTargets, "HttpPushUriTargetsBusy",
-            imgTargetBusy, "Oem", oem))
-            {
-                BMCWEB_LOG_DEBUG("UpdateService doPatch: Invalid request body");
-                return;
-            }    
-        #endif    
+          
     }
+    #else
+    if (!json_util::readJsonPatch(req, asyncResp->res, "HttpPushUriTargets",
+                                  imgTargets, "HttpPushUriTargetsBusy",
+                                  imgTargetBusy, "Oem", oem))
+        {
+            BMCWEB_LOG_DEBUG("UpdateService doPatch: Invalid request body");
+            return;
+        }    
+    #endif 
 
     if (imgTargetBusy)
     {
