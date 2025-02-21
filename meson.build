@@ -369,7 +369,6 @@ srcfiles_bmcweb = files(
     'redfish-core/src/filter_expr_printer.cpp',
     'redfish-core/src/heartbeat_messages.cpp',
     'redfish-core/src/redfish.cpp',
-    'redfish-core/src/ext.cpp',    
     'redfish-core/src/registries.cpp',
     'redfish-core/src/resource_messages.cpp',
     'redfish-core/src/subscription.cpp',
@@ -387,6 +386,12 @@ srcfiles_bmcweb = files(
     'src/webserver_run.cpp',
 )
 
+#if (BMCWEB_AMI_REP_MACRO)
+    srcfiles_bmcweb += 'redfish-core/src/ext.cpp'
+#endif 
+#if (BMCWEB_AMI_NIC_MACRO)
+    srcfiles_bmcweb += 'redfish-core/src/nic.cpp'
+#endif  
 bmcweblib = static_library(
     'bmcweblib',
     srcfiles_bmcweb,

@@ -19,6 +19,9 @@
 #include "openbmc_dbus_rest.hpp"
 #include "redfish.hpp"
 #include "ext.hpp"
+#if (BMCWEB_AMI_NIC_MACRO)
+#include "nic.hpp"
+#endif
 #include <redfish_v1.hpp>
 #if (BMCWEB_AMI_REP_MACRO) || (BMCWEB_AMI_NIC_MACRO)
 #include <boost/dll/import.hpp>
@@ -86,9 +89,12 @@ int run()
     if constexpr (BMCWEB_REDFISH)
     {
         redfish::RedfishService redfish(app);
-        redfish::ExtService redfish1(app);
+        redfish::ExtService rep(app);
+        #if (BMCWEB_AMI_NIC_MACRO)
+            redfish::NicService nic(app);
+        #endif
 
-#if (BMCWEB_AMI_NIC_MACRO)
+/* #if (BMCWEB_AMI_NIC_MACRO)
         try
         {
             // Create AMI Redfish extension service and initialize Config
@@ -103,8 +109,8 @@ int run()
         {
             std::cerr << e.what() << std::endl;
         }
-#endif
-#if (BMCWEB_AMI_REP_MACRO)
+#endif */
+/* #if (BMCWEB_AMI_REP_MACRO)
         try
         {
             BMCWEB_LOG_ERROR("Inside BMCWEB_ENABLE_AMI_REP");
@@ -120,20 +126,20 @@ int run()
         {
             std::cerr << e.what() << std::endl;
         }
-#endif
+#endif */
 
-//#if (BMCWEB_AMI_REP_MACRO) || (BMCWEB_AMI_NIC_MACRO)
+#if (BMCWEB_AMI_REP_MACRO) || (BMCWEB_AMI_NIC_MACRO)
 
         // Note, this must be the last route registered
         redfish::requestRoutesRedfish(app);
-
+#endif
         // Create EventServiceManager instance and initialize Config
         redfish::EventServiceManager::getInstance(&*io);
 
         // Initialize config JSON file for SSDP service ,
         // /home/root/bmcweb_persistent_data.json
         persistent_data::getConfig().readData();
-//#endif
+
 
         if constexpr (BMCWEB_REDFISH_AGGREGATION)
         {
