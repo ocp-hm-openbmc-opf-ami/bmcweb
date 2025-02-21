@@ -70,7 +70,8 @@ constexpr auto getSensorPaths(){
         "/xyz/openbmc_project/sensors/battery",
         "/xyz/openbmc_project/sensors/chassisstate",
         "/xyz/openbmc_project/sensors/os",
-        "/xyz/openbmc_project/sensors/watchdog"});
+        "/xyz/openbmc_project/sensors/watchdog",
+	"/xyz/openbmc_project/sensors/count/"});
     } else {
       return  std::to_array<std::string_view>({"/xyz/openbmc_project/sensors/power",
         "/xyz/openbmc_project/sensors/current",
