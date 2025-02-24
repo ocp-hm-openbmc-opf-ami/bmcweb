@@ -2066,6 +2066,39 @@ inline void getLocation(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 property;
         });
 }
+
+inline void getCurrentDateTimeValue(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& timeZoneName)
+{
+    BMCWEB_LOG_DEBUG("Getting Manager Date Time");
+    dbus::utility::getProperty<uint64_t>(
+        "org.freedesktop.timedate1", "/org/freedesktop/timedate1",
+        "org.freedesktop.timedate1", "TimeUSec",
+        [asyncResp, timeZoneName](const boost::system::error_code& ec,
+                    const uint64_t& timeUSec)
+    {
+          if (ec)
+          {
+                BMCWEB_LOG_DEBUG("D-BUS response error {}", ec);
+                return;
+          }
+          const std::chrono::time_zone* tz = std::chrono::locate_zone(timeZoneName);
+          auto now = std::chrono::system_clock::now();
+          std::chrono::sys_info tzInfo = tz->get_info(std::chrono::floor<std::chrono::seconds>(now));
+          auto offset = tzInfo.offset;
+
+          uint64_t epochTime = timeUSec / 1000000;
+          epochTime += static_cast<uint64_t>(offset.count());
+          std::time_t time = static_cast<std::time_t>(epochTime);
+          std::tm gmTime = *std::gmtime(&time);
+          std::ostringstream oss;
+          oss << std::put_time(&gmTime, "%Y-%m-%dT%H:%M:%S");
+          asyncResp->res.jsonValue["DateTime"] = oss.str();
+    });
+
+}
+
 // avoid name collision systems.hpp
 inline void
     managerGetLastResetTime(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
@@ -2256,17 +2289,44 @@ inline void setDateTime(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                                            "DateTime");
         return;
     }
-    // Set the absolute datetime
-    bool relative = false;
-    bool interactive = false;
-    crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code& ec,
-                    const sdbusplus::message_t& msg) {
-            afterSetDateTime(asyncResp, ec, msg);
-        },
-        "org.freedesktop.timedate1", "/org/freedesktop/timedate1",
-        "org.freedesktop.timedate1", "SetTime", us->count(), relative,
-        interactive);
+    dbus::utility::getProperty<std::string>(
+      "org.freedesktop.timedate1", "/org/freedesktop/timedate1",
+      "org.freedesktop.timedate1", "Timezone",
+      [asyncResp, us](const boost::system::error_code& ec,
+                  const std::string& timezone) {
+          if (ec)
+          {
+              BMCWEB_LOG_DEBUG("DBUS response error for "
+                               "TimeZoneName");
+              messages::internalError(asyncResp->res);
+              return;
+          }
+          // Set timezone
+          setenv("TZ", timezone.c_str(), 1);
+          tzset();
+
+          // Get current time
+          time_t now = time(nullptr);
+          struct tm localTm;
+          localtime_r(&now, &localTm);
+
+          int offset_sec = localTm.tm_gmtoff;
+          int64_t offset_microseconds = static_cast<int64_t>(offset_sec) * 1000000;
+
+          int64_t adjustedEpochTime = us->count() - (offset_microseconds);
+
+          // Set the absolute datetime
+          bool relative = false;
+          bool interactive = false;
+          crow::connections::systemBus->async_method_call(
+              [asyncResp](const boost::system::error_code& ec1,
+                          const sdbusplus::message_t& msg) {
+                  afterSetDateTime(asyncResp, ec1, msg);
+              },
+              "org.freedesktop.timedate1", "/org/freedesktop/timedate1",
+              "org.freedesktop.timedate1", "SetTime", adjustedEpochTime, relative,
+              interactive);
+    });
 }
 
 inline void
@@ -2393,9 +2453,6 @@ inline void handleManagersInstanceGet(
         resetToDefaults["@odata.id"]= boost::urls::format("/redfish/v1/Managers/{}/Oem/Ami/ResetToDefaults",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
 
-    std::string redfishDateTime = crow::utility::getDateTimeCurrentValue();
-    asyncResp->res.jsonValue["DateTime"] = redfishDateTime;
-
     dbus::utility::getProperty<std::string>(
         "org.freedesktop.timedate1", "/org/freedesktop/timedate1",
         "org.freedesktop.timedate1", "Timezone",
@@ -2410,6 +2467,7 @@ inline void handleManagersInstanceGet(
             }
 
             asyncResp->res.jsonValue["TimeZoneName"] = property;
+            getCurrentDateTimeValue(asyncResp, property);
         });
 
     // TODO (Gunnar): Remove these one day since moved to ComputerSystem
@@ -2710,14 +2768,13 @@ inline void requestRoutesManager(App& app)
             {
                 setActiveFirmwareImage(asyncResp, *activeSoftwareImageOdataId);
             }
-
-            if (datetime)
-            {
-                setDateTime(asyncResp, *datetime);
-            }
             if (timeZoneName.has_value())
             {
                 setTimeZoneName(asyncResp, *timeZoneName);
+            }
+            if (datetime)
+            {
+                setDateTime(asyncResp, *datetime);
             }
             if (locationIndicatorActive)
             {
