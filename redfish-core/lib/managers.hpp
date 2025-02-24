@@ -2310,7 +2310,7 @@ inline void setDateTime(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
           struct tm localTm;
           localtime_r(&now, &localTm);
 
-          int offset_sec = localTm.tm_gmtoff;
+          long int offset_sec = localTm.tm_gmtoff;
           int64_t offset_microseconds = static_cast<int64_t>(offset_sec) * 1000000;
 
           int64_t adjustedEpochTime = us->count() - (offset_microseconds);
