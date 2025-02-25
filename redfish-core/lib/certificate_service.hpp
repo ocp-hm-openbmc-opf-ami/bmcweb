@@ -76,6 +76,39 @@ constexpr std::string_view CertificateKeyLengthTooSmallError =
  * are installed.
  */
 
+inline std::string detectCertificateType(
+    const std::string& str)
+{
+
+    if (str.empty())
+    {
+        return "Invalid";
+    }
+
+    int count = 0;
+    size_t pos = 0;
+    std::string sub = "-----BEGIN CERTIFICATE";
+
+    // Determine the certificateType based on the count of occurrences of the
+    // string"-----BEGIN CERTIFICATE"
+    while ((pos = str.find(sub, pos)) != std::string::npos)
+    {
+        count++;
+        pos += sub.length();
+    }
+
+    if (count == 1)
+    {
+        return "PEM";
+    }
+    else if (count > 1)
+    {
+        return "PEMchain";
+    }
+
+    return "None";
+}
+
 inline std::string getCertificateFromReqBody(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const crow::Request& req)
@@ -106,6 +139,14 @@ inline std::string getCertificateFromReqBody(
     {
         messages::propertyValueNotInList(asyncResp->res, *certificateType,
                                          "CertificateType");
+        return {};
+    }
+
+    if (detectCertificateType(certificate) != certificateType)
+    {
+        // If the CertificateString does not match the certificateType
+        messages::invalidTypeForCertificateString(asyncResp->res, *certificateType);
+        BMCWEB_LOG_ERROR("invalidTypeForCertificateString");
         return {};
     }
 
@@ -583,37 +624,6 @@ inline void handleCertificateLocationsGet(
     getCertificateList(asyncResp, certs::baseObjectPath,
                        "/Links/Certificates"_json_pointer,
                        "/Links/Certificates@odata.count"_json_pointer);
-}
-
-inline std::string detectCertificateType(const std::string& str)
-{
-    if (str.empty())
-    {
-        return "Invalid";
-    }
-
-    int count = 0;
-    size_t pos = 0;
-    std::string sub = "-----BEGIN CERTIFICATE";
-
-    // Determine the certificateType based on the count of occurrences of the
-    // string"-----BEGIN CERTIFICATE"
-    while ((pos = str.find(sub, pos)) != std::string::npos)
-    {
-        count++;
-        pos += sub.length();
-    }
-
-    if (count == 1)
-    {
-        return "PEM";
-    }
-    else if (count > 1)
-    {
-        return "PEMchain";
-    }
-
-    return "None";
 }
 
 inline void handleError(const std::string_view dbusErrorName,
@@ -1233,8 +1243,8 @@ inline void handleHTTPSCertificateCollectionPost(
 
     if (certHttpBody.empty())
     {
-        BMCWEB_LOG_ERROR("Cannot get certificate from request body.");
-        messages::unrecognizedRequestBody(asyncResp->res);
+        // BMCWEB_LOG_ERROR("Cannot get certificate from request body.");
+        // messages::unrecognizedRequestBody(asyncResp->res);
         return;
     }
 
@@ -1351,8 +1361,8 @@ inline void handleLDAPCertificateCollectionPost(
 
     if (certHttpBody.empty())
     {
-        BMCWEB_LOG_ERROR("Cannot get certificate from request body.");
-        messages::unrecognizedRequestBody(asyncResp->res);
+        // BMCWEB_LOG_ERROR("Cannot get certificate from request body.");
+        // messages::unrecognizedRequestBody(asyncResp->res);
         return;
     }
 
@@ -1493,8 +1503,8 @@ inline void handleTrustStoreCertificateCollectionPost(
 
     if (certHttpBody.empty())
     {
-        BMCWEB_LOG_ERROR("Cannot get certificate from request body.");
-        messages::unrecognizedRequestBody(asyncResp->res);
+        // BMCWEB_LOG_ERROR("Cannot get certificate from request body.");
+        // messages::unrecognizedRequestBody(asyncResp->res);
         return;
     }
 
