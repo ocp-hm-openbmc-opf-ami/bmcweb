@@ -460,11 +460,12 @@ void getChassis(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             // Get the list of all sensors for this Chassis element
             std::string sensorPath = *chassisPath + "/all_sensors";
             dbus::utility::getAssociationEndPoints(
-                sensorPath, [asyncResp,chassisPaths,chassisSubNode, sensorTypes,
-                             callback = std::forward<Callback>(callback)](
-                                const boost::system::error_code& ec2,
-                                const dbus::utility::MapperEndPoints&
-                                    nodeSensorList) mutable {
+                sensorPath,
+                [asyncResp, chassisPaths, chassisSubNode, sensorTypes,
+                 callback = std::forward<Callback>(callback)](
+                    const boost::system::error_code& ec2,
+                    const dbus::utility::MapperEndPoints&
+                        nodeSensorList) mutable {
                     if (ec2)
                     {
                         if (ec2.value() != EBADR)
@@ -474,13 +475,14 @@ void getChassis(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         }
                     }
                     dbus::utility::MapperEndPoints SensorList = nodeSensorList;
-                    for(const std::string& objpath : chassisPaths)
+                    for (const std::string& objpath : chassisPaths)
                     {
-                        if(std::find(SensorList.begin(), SensorList.end(), objpath) == SensorList.end())
+                        if (std::find(SensorList.begin(), SensorList.end(),
+                                      objpath) == SensorList.end())
                         {
                             SensorList.emplace_back(objpath);
-                       }
-                   }
+                        }
+                    }
                     const std::shared_ptr<std::set<std::string>>
                         culledSensorList =
                             std::make_shared<std::set<std::string>>();
@@ -1626,8 +1628,7 @@ void getInventoryLedData(
 
         // Get the State property for the current LED
         dbus::utility::getProperty<std::string>(
-            ledConnection, ledPath,
-            "xyz.openbmc_project.Led.Physical", "State",
+            ledConnection, ledPath, "xyz.openbmc_project.Led.Physical", "State",
             std::move(respHandler));
     }
 
@@ -2033,9 +2034,9 @@ inline nlohmann::json& getPowerSupply(nlohmann::json& powerSupplyArray,
     powerSupplyArray.push_back({});
     nlohmann::json railValues, inputRanges, efficiencyRatings;
     nlohmann::json& powerSupply = powerSupplyArray.back();
-    //boost::urls::url url =
-      //  boost::urls::format("/redfish/v1/Chassis/{}/Power", chassisId);
-    //url.set_fragment(("/PowerSupplies"_json_pointer).to_string());
+    // boost::urls::url url =
+    //   boost::urls::format("/redfish/v1/Chassis/{}/Power", chassisId);
+    // url.set_fragment(("/PowerSupplies"_json_pointer).to_string());
     powerSupply["@odata.id"] =
         "/redfish/v1/Chassis/" + chassisId + "/PowerSubsystem/PowerSupplies/" +
         inventoryItem.name;
@@ -2958,9 +2959,10 @@ inline void setSensorThreshold(
 
     std::replace(sensorName.begin(), sensorName.end(), ' ', '_');
 
-    std::array<std::string, 2> interfacesList = {
+    std::array<std::string, 3> interfacesList = {
         "xyz.openbmc_project.Sensor.Threshold.Warning",
-        "xyz.openbmc_project.Sensor.Threshold.Critical"};
+        "xyz.openbmc_project.Sensor.Threshold.Critical",
+        "xyz.openbmc_project.Sensor.Threshold.NonRecoverable"};
 
     crow::connections::systemBus->async_method_call(
         [asyncResp, &service, &Objpath, threshold, &interface, sensorName,
@@ -3020,15 +3022,27 @@ inline void setSensorThreshold(
                 interface = "xyz.openbmc_project.Sensor.Threshold.Critical";
                 property = "CriticalHigh";
             }
+            else if (threshold == "UpperFatal")
+            {
+                interface =
+                    "xyz.openbmc_project.Sensor.Threshold.NonRecoverable";
+                property = "NonRecoverableHigh";
+            }
+            else if (threshold == "LowerFatal")
+            {
+                interface =
+                    "xyz.openbmc_project.Sensor.Threshold.NonRecoverable";
+                property = "NonRecoverableLow";
+            }
             else
             {
                 messages::propertyUnknown(asyncResp->res, threshold);
                 return;
             }
 
-           ::dbus::utility::getProperty<double>(
-                service, objectPath,
-                "xyz.openbmc_project.Sensor.Value", "Value",
+            ::dbus::utility::getProperty<double>(
+                service, objectPath, "xyz.openbmc_project.Sensor.Value",
+                "Value",
                 [asyncResp, thresholdValue, threshold](
                     const boost::system::error_code& ec1, double sensorValue) {
                     if (ec1)
@@ -3039,7 +3053,8 @@ inline void setSensorThreshold(
                     }
 
                     if (threshold == "LowerCaution" ||
-                        threshold == "LowerCritical")
+                        threshold == "LowerCritical" ||
+                        threshold == "LowerFatal")
                     {
                         if (sensorValue > thresholdValue)
                         {
@@ -3053,7 +3068,8 @@ inline void setSensorThreshold(
                         }
                     }
                     if (threshold == "UpperCaution" ||
-                        threshold == "UpperCritical")
+                        threshold == "UpperCritical" ||
+                        threshold == "UpperFatal")
                     {
                         if (sensorValue < thresholdValue)
                         {
@@ -3137,6 +3153,8 @@ inline void handleSensorThreshPatch(
     std::optional<double> lowerCritical;
     std::optional<double> upperCaution;
     std::optional<double> upperCritical;
+    std::optional<double> upperFatal;
+    std::optional<double> lowerFatal;
     std::string threshold;
 
     if (!json_util::readJsonPatch( //
@@ -3144,7 +3162,9 @@ inline void handleSensorThreshPatch(
             "Thresholds/LowerCaution", lowerCaution, //
             "Thresholds/LowerCritical", lowerCritical, //
             "Thresholds/UpperCaution", upperCaution, //
-            "Thresholds/UpperCritical", upperCritical //
+            "Thresholds/UpperCritical", upperCritical, //
+            "Thresholds/UpperFatal", upperFatal, //
+            "Thresholds/LowerFatal", lowerFatal //
             ))
     {
         return;
@@ -3179,6 +3199,18 @@ inline void handleSensorThreshPatch(
     {
         threshold = "UpperCritical";
         setSensorThreshold(asyncResp, sensorType, sensorName, *upperCritical,
+                           threshold, objectNameEnd);
+    }
+    if (upperFatal)
+    {
+        threshold = "UpperFatal";
+        setSensorThreshold(asyncResp, sensorType, sensorName, *upperFatal,
+                           threshold, objectNameEnd);
+    }
+    if (lowerFatal)
+    {
+        threshold = "LowerFatal";
+        setSensorThreshold(asyncResp, sensorType, sensorName, *lowerFatal,
                            threshold, objectNameEnd);
     }
 }
@@ -3292,8 +3324,8 @@ void getSensorReading(const std::string& sensorPath,
             std::string service = subtree.begin()->first;
 
             ::dbus::utility::getProperty<double>(
-                service, sensorPath,
-                "xyz.openbmc_project.Sensor.Value", "Value",
+                service, sensorPath, "xyz.openbmc_project.Sensor.Value",
+                "Value",
                 [callback](boost::system::error_code ec1, double value) {
                     if (ec1)
                     {
