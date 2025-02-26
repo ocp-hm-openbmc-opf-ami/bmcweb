@@ -2859,8 +2859,14 @@ inline void requestRoutesEventDestination(App& app)
                     return;
                 }
 
-                EventServiceManager::getInstance().deleteSubscription(param);
-                asyncResp->res.result(boost::beast::http::status::no_content);
+                if(EventServiceManager::getInstance().deleteSubscription(param))
+		{
+		    asyncResp->res.result(boost::beast::http::status::no_content);
+		}
+		else
+		{
+		    messages::resourceNotFound(asyncResp->res, "Subscriptions", param);
+		}
             });
 }
 

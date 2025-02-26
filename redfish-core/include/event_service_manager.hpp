@@ -691,7 +691,7 @@ class EventServiceManager
     {
         auto obj = subscriptionsMap.find(id);
         std::shared_ptr<crow::sse_socket::Connection> sseConnPtr = NULL;
-        if (obj != subscriptionsMap.end())
+        if (obj == subscriptionsMap.end())
         {
             BMCWEB_LOG_WARNING("Could not find subscription with id {}", id);
             return false;

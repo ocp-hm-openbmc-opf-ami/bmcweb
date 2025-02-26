@@ -744,7 +744,7 @@ class KafkaManager : public std::enable_shared_from_this<KafkaManager>
         auto obj = subscriptionsMap.find(subId);
         if (obj == subscriptionsMap.end())
         {
-            aResp->res.result(boost::beast::http::status::not_found);
+            messages::resourceNotFound(aResp->res, "Subscriptions", subId);
             return;
         }
 
