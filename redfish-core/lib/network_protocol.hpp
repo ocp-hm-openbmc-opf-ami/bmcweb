@@ -410,7 +410,7 @@ inline void handleNTPProtocolEnabled(
 using IpAddress =
     std::variant<std::string, nlohmann::json::object_t, std::nullptr_t>;
 
-void storeNtpServers(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+inline void storeNtpServers(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                      const std::vector<IpAddress>& NTPServers,
                      std::vector<nlohmann::json>& input)
 {
@@ -588,7 +588,7 @@ inline void handleNTPServersPatch(
             }
         });
 }
-void setRunning(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+inline void setRunning(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 const bool running)
 {
     sdbusplus::asio::setProperty(
@@ -636,7 +636,7 @@ inline void
             }
         });
 }
-void setEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+inline void setEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 const bool enabled)
 {
     sdbusplus::asio::setProperty(
@@ -1102,7 +1102,7 @@ inline void handleManagersNetworkProtocolHead(
     }
 }
 
-void getEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+inline void getEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 const std::string& serviceName, const std::string& ObjectName,
                 const std::string& propertyName)
 {

@@ -22,10 +22,10 @@
 #if (BMCWEB_AMI_NIC_MACRO)
 #include "nic.hpp"
 #endif
-#include <redfish_v1.hpp>
+//#include <redfish_v1.hpp>
 #if (BMCWEB_AMI_REP_MACRO) || (BMCWEB_AMI_NIC_MACRO)
-#include <boost/dll/import.hpp>
-#include <redfish/ami/extension/service.hpp>
+//#include <boost/dll/import.hpp>
+//#include <redfish/ami/extension/service.hpp>
 #include <redfish_v1.hpp>
 #endif
 #include "redfish_aggregator.hpp"
