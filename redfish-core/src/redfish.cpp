@@ -68,19 +68,19 @@
 #include "virtual_media.hpp"
 
 #if BMCWEB_AMI_RAIDBRCM_MACRO
-#include "redfish-core/lib/ext/brcm/storage_brcm.hpp"
+#include "ext/brcm/storage_brcm.hpp"
 #endif
 
 #if BMCWEB_AMI_RAIDMSCC_MACRO
-#include "redfish-core/lib/ext/mscc/storage_mscc.hpp"
+#include "ext/mscc/storage_mscc.hpp"
 #endif
 
 #if BMCWEB_AMI_NVME_MACRO
-#include "redfish-core/lib/ext/nvme/storage_nvme.hpp"
+#include "ext/nvme/storage_nvme.hpp"
 #endif
 
 #if (BMCWEB_AMI_RAIDBRCM_MACRO) || (BMCWEB_AMI_RAIDMSCC_MACRO) || (BMCWEB_AMI_NVME_MACRO)
-#include "redfish-core/lib/ext/storage_ext.hpp"
+#include "ext/storage_ext.hpp"
 #endif
 
 #if BMCWEB_AMI_PCIESW_MACRO
