@@ -729,7 +729,8 @@ class EventServiceManager
         {
             bus.call(m);
             std::string timestampStr = std::to_string(std::time(nullptr));
-            readEventLogsFromDbus(journalMsg, timestampStr);
+            int32_t sensorType = 0;
+            readEventLogsFromDbus(journalMsg, timestampStr, sensorType);
         }
         catch (const sdbusplus::exception_t& e)
         {
@@ -940,7 +941,8 @@ class EventServiceManager
     }
 
     void readEventLogsFromDbus(const std::string& logEntry,
-                               std::string& timestampStr)
+                               std::string& timestampStr,
+                               const int32_t& sensorType)
     {
         std::vector<EventLogObjectsType> eventRecords;
         std::vector<std::string> messageArgs;
@@ -972,7 +974,7 @@ class EventServiceManager
         getRegistryAndMessageKey(messageID, registryName, messageKey);
 
         eventRecords.emplace_back(idStr, timestamp, messageID, messageArgs,
-                                  registryName, messageKey);
+                                  registryName, messageKey, sensorType);
 
         if (eventRecords.empty())
         {
@@ -1017,30 +1019,63 @@ class EventServiceManager
         }
 
         auto findType = object.find("xyz.openbmc_project.Logging.Entry");
-        if (findType != object.end())
+        if (findType == object.end())
         {
-            std::string messages, timestampStr;
-            uint64_t timestamp;
+            std::cerr << "Logging entry not found!" << std::endl;
+            return;
+        }
 
-            auto property_Msg = findType->second.find("Message");
-            auto property_Time = findType->second.find("Timestamp");
-            if (property_Msg != findType->second.end() &&
-                property_Time != findType->second.end())
-            {
-                if (std::holds_alternative<std::string>(property_Msg->second))
+        std::string messages, timestampStr;
+        uint64_t timestamp = 0;
+
+        auto property_Msg = findType->second.find("Message");
+        auto property_Time = findType->second.find("Timestamp");
+
+        //  Fetch Message
+        if (property_Msg != findType->second.end() &&
+            std::holds_alternative<std::string>(property_Msg->second))
+        {
+            messages = std::get<std::string>(property_Msg->second);
+        }
+
+        //  Fetch Timestamp
+        if (property_Time != findType->second.end() &&
+            std::holds_alternative<uint64_t>(property_Time->second))
+        {
+            timestamp = std::get<uint64_t>(property_Time->second);
+            timestampStr = std::to_string(timestamp);
+        }
+
+        sdbusplus::asio::getProperty<std::vector<std::string>>(
+            *crow::connections::systemBus,
+            "xyz.openbmc_project.Logging", // D-Bus service name
+            path.str.c_str(), // Object path
+            "xyz.openbmc_project.Logging.Entry", // Interface
+            "AdditionalData", // Property name
+            [messages, timestampStr](
+                const boost::system::error_code& ec,
+                const std::vector<std::string>& additionalData) mutable {
+                if (ec)
                 {
-                    messages = std::get<std::string>(property_Msg->second);
+                    BMCWEB_LOG_ERROR("Failed to get AdditionalData: {}", ec);
+                    return;
                 }
 
-                if (std::holds_alternative<uint64_t>(property_Time->second))
+                int32_t sensorType = 0; // Default value if not found
+
+                //  Extract SENSOR_TYPE from AdditionalData
+                for (const auto& entry : additionalData)
                 {
-                    timestamp = std::get<uint64_t>(property_Time->second);
-                    timestampStr = std::to_string(timestamp);
+                    if (entry.find("SENSOR_TYPE=") == 0)
+                    {
+                        // Extract value after "SENSOR_TYPE="
+                        sensorType = std::stoi(entry.substr(12));
+                        break;
+                    }
                 }
                 EventServiceManager::getInstance().readEventLogsFromDbus(
-                    messages, timestampStr);
-            }
-        }
+                    messages, timestampStr, sensorType);
+            });
     }
 
     static void startdbusEventLogMonitor()

@@ -405,11 +405,14 @@ void Subscription::filterAndSendEventLogs(
                          logEntry.timestamp, logEntry.messageId);
         std::vector<std::string_view> messageArgsView(
             logEntry.messageArgs.begin(), logEntry.messageArgs.end());
+        std::string origin = getOrigin(logEntry.sensorType);
+        std::string memberId = std::to_string(eventSeqNum);
 
         nlohmann::json::object_t bmcLogEntry;
         if (event_log::formatEventLogEntry(
                 logEntry.id, logEntry.messageId, messageArgsView,
-                logEntry.timestamp, userSub->customText, bmcLogEntry) != 0)
+                logEntry.timestamp, userSub->customText, origin, memberId,
+                bmcLogEntry) != 0)
         {
             BMCWEB_LOG_DEBUG("Read eventLog entry failed");
             continue;
@@ -443,6 +446,8 @@ void Subscription::filterAndSendEventLogs(
     msg["@odata.type"] = "#Event.v1_4_0.Event";
     msg["Id"] = std::to_string(eventSeqNum);
     msg["Name"] = "Event Log";
+    msg["Context"] = userSub->customText;
+    msg["Events@odata.count"] = logEntryArray.size();
     msg["Events"] = std::move(logEntryArray);
     std::string strMsg =
         msg.dump(2, ' ', true, nlohmann::json::error_handler_t::replace);
@@ -529,6 +534,58 @@ boost::system::error_code Subscription::retryRespHandler(unsigned int respCode)
 
     // Return 0 if the response code is valid
     return boost::system::errc::make_error_code(boost::system::errc::success);
+}
+std::string Subscription::getOrigin(const int& sensorTypeCode)
+{
+    if (sensorTypeCode == 24 || sensorTypeCode == 5)
+    {
+        return "/redfish/v1/Chassis/AC_Baseboard";
+    }
+    else if (sensorTypeCode == 1 || sensorTypeCode == 4)
+    {
+        return "/redfish/v1/Chassis/AC_Baseboard/ThermalSubsystem";
+    }
+    else if (sensorTypeCode == 2 || sensorTypeCode == 3 ||
+             sensorTypeCode == 8 || sensorTypeCode == 9)
+    {
+        return "/redfish/v1/Chassis/AC_Baseboard/Power";
+    }
+    else if (sensorTypeCode == 15 || sensorTypeCode == 18 ||
+             sensorTypeCode == 29 || sensorTypeCode == 30 ||
+             sensorTypeCode == 31 || sensorTypeCode == 32 ||
+             sensorTypeCode == 34)
+    {
+        return "/redfish/v1/Systems/system";
+    }
+    else if (sensorTypeCode == 12)
+    {
+        return "/redfish/v1/Systems/system/Memory";
+    }
+    else if (sensorTypeCode == 7)
+    {
+        return "/redfish/v1/Systems/system/Processors";
+    }
+    else if (sensorTypeCode == 6  || sensorTypeCode == 10 ||
+             sensorTypeCode == 11 || sensorTypeCode == 13 ||
+             sensorTypeCode == 14 || sensorTypeCode == 16 ||
+             sensorTypeCode == 17 || sensorTypeCode == 19 ||
+             sensorTypeCode == 20 || sensorTypeCode == 21 ||
+             sensorTypeCode == 22 || sensorTypeCode == 23 ||
+             sensorTypeCode == 25 || sensorTypeCode == 26 ||
+             sensorTypeCode == 27 || sensorTypeCode == 28 ||
+             sensorTypeCode == 33 || sensorTypeCode == 35 ||
+             sensorTypeCode == 36 || sensorTypeCode == 37 ||
+             sensorTypeCode == 38 || sensorTypeCode == 39 ||
+             sensorTypeCode == 40 || sensorTypeCode == 41 ||
+             sensorTypeCode == 42 || sensorTypeCode == 43 ||
+             sensorTypeCode == 44)
+    {
+        return "/redfish/v1/Managers/bmc";
+    }
+    else
+    {
+        return "/redfish/v1";
+    }
 }
 
 } // namespace redfish

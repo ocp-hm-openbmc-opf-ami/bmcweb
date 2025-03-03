@@ -23,5 +23,6 @@ struct EventLogObjectsType
     std::vector<std::string> messageArgs;
     std::string registryName;
     std::string messageKey;
+    int32_t sensorType;
 };
 } // namespace redfish

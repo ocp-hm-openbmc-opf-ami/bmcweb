@@ -24,7 +24,8 @@ int getDbusEventLogParams(const std::string& logEntry, std::string& messageID,
 int formatEventLogEntry(
     const std::string& logEntryID, const std::string& messageID,
     std::span<std::string_view> messageArgs, std::string timestamp,
-    const std::string& customText, nlohmann::json::object_t& logEntryJson);
+    const std::string& customText, const std::string& origin,
+    const std::string& memberId, nlohmann::json::object_t& logEntryJson);
 
 } // namespace event_log
 

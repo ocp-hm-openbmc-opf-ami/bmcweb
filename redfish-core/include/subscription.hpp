@@ -113,6 +113,8 @@ class Subscription : public std::enable_shared_from_this<Subscription>
         const std::shared_ptr<crow::sse_socket::Connection>& connPtr);
     bool matchSseId(const crow::sse_socket::Connection& thisConn);
 
+    std::string getOrigin(const int& sensorTypeCode);
+
     // Check used to indicate what response codes are valid as part of our retry
     // policy.  2XX is considered acceptable
     static boost::system::error_code retryRespHandler(unsigned int respCode);

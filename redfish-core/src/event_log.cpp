@@ -137,7 +137,8 @@ int getEventLogParams(const std::string& logEntry, std::string& timestamp,
 int formatEventLogEntry(
     const std::string& logEntryID, const std::string& messageID,
     const std::span<std::string_view> messageArgs, std::string timestamp,
-    const std::string& customText, nlohmann::json::object_t& logEntryJson)
+    const std::string& customText, const std::string& origin,
+    const std::string& memberId, nlohmann::json::object_t& logEntryJson)
 {
     // Get the Message from the MessageRegistry
     const registries::Message* message = registries::formatMessage(messageID);
@@ -169,6 +170,7 @@ int formatEventLogEntry(
         timestamp.erase(dot, plus - dot);
     }
 
+    nlohmann::json originMsg;
     // Fill in the log entry with the gathered data
     logEntryJson["EventId"] = logEntryID;
 
@@ -178,6 +180,13 @@ int formatEventLogEntry(
     logEntryJson["MessageArgs"] = messageArgs;
     logEntryJson["EventTimestamp"] = std::move(timestamp);
     logEntryJson["Context"] = customText;
+    logEntryJson["MemberId"] = memberId;
+    //  Adding EventType property as "Other" since it is deprecated but a
+    //  required property
+    logEntryJson["EventType"] = "Other";
+    originMsg["@odata.id"] = origin;
+    logEntryJson["OriginOfCondition"] = std::move(originMsg);
+
     return 0;
 }
 
