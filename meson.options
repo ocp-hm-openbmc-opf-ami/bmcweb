@@ -119,7 +119,12 @@ option(
     description: 'Enable the AMI NM.'
 )
 
-
+option(
+    'ami-2fa',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable the AMI TWOFACTOR AUTHENTICATION.'
+)
 option(
     'rest',
     type: 'feature',

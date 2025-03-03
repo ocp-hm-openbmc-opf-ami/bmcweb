@@ -176,7 +176,7 @@ inline void handleLogin(const crow::Request& req,
 
             // if content type is json, assume json token
             asyncResp->res.jsonValue["token"] = session->sessionToken;
-
+		#if (BMCWEB_AMI_2FA_MACRO)
             if (std::filesystem::exists("/usr/lib/redfish/core/libami.so.1"))
             {
             std::string user(username);
@@ -200,6 +200,7 @@ inline void handleLogin(const crow::Request& req,
             {
                 asyncResp->res.jsonValue["TwoFacEnableStatus"] = "N/A";
             }
+		 #endif
         }
     }
     else
