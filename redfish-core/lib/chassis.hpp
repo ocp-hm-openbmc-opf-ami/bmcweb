@@ -513,6 +513,13 @@ inline void handleDecoratorAssetProperties(
                                 chassisId);
     }
 
+#if (BMCWEB_AMI_NIC_MACRO)
+    
+    asyncResp->res.jsonValue["NetworkAdapters"]["@odata.id"] =
+    boost::urls::format("/redfish/v1/Chassis/{}/NetworkAdapters",
+                        chassisId); 
+#endif
+
     // Power
     //asyncResp->res.jsonValue["Power"]["@odata.id"] =
       //  boost::urls::format("/redfish/v1/Chassis/{}/Power", chassisId);

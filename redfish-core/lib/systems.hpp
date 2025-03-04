@@ -4069,7 +4069,12 @@ inline void
         "/redfish/v1/Systems/{}/Storage", BMCWEB_REDFISH_SYSTEM_URI_NAME);
     asyncResp->res.jsonValue["FabricAdapters"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Systems/{}/FabricAdapters",
-                            BMCWEB_REDFISH_SYSTEM_URI_NAME);
+                            BMCWEB_REDFISH_SYSTEM_URI_NAME);   
+#if (BMCWEB_AMI_NIC_MACRO)        
+    asyncResp->res.jsonValue["NetworkInterfaces"]["@odata.id"] = boost::urls::format(
+            "/redfish/v1/Systems/{}/NetworkInterfaces", BMCWEB_REDFISH_SYSTEM_URI_NAME);            
+#endif    
+   
 
     asyncResp->res.jsonValue["Actions"]["#ComputerSystem.Reset"]["target"] =
         boost::urls::format(
