@@ -359,7 +359,6 @@ fs = import('fs')
 
 srcfiles_bmcweb = files(
     'http/mutual_tls.cpp',
-    'ext/ami_errors.cpp',
     'redfish-core/src/dbus_log_watcher.cpp',
     'redfish-core/src/error_messages.cpp',
     'redfish-core/src/error_message_utils.cpp',
@@ -386,12 +385,17 @@ srcfiles_bmcweb = files(
     'src/webserver_run.cpp',
 )
 
-#if (BMCWEB_AMI_REP_MACRO)
-    srcfiles_bmcweb += 'ext/Rep/ext.cpp'
-#endif 
-#if (BMCWEB_AMI_NIC_MACRO)
+if get_option('ami-rep').enabled()
+    srcfiles_bmcweb += files(
+        'ext/Rep/ext.cpp',
+        'ext/ami_errors.cpp',
+    )
+endif
+
+if get_option('ami-nic').enabled()
     srcfiles_bmcweb += 'ext/nic/nic.cpp'
-#endif  
+endif
+
 bmcweblib = static_library(
     'bmcweblib',
     srcfiles_bmcweb,
