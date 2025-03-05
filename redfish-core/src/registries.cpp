@@ -38,6 +38,7 @@ const Message* getMessage(std::string_view messageID)
     // the right Message
     std::vector<std::string> fields;
     fields.reserve(4);
+    bmcweb::split(fields, messageID, '.');
 
     bmcweb::split(fields, messageID, '.');
     if (fields.size() != 4)
