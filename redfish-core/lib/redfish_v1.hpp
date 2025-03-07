@@ -28,7 +28,27 @@ inline std::string toLowerCase(const std::string& str)
 
 inline bool isStandardSchema(const std::string& input)
 {
-    std::vector<std::string> customSchemas = {"oem", "ami", "openbmc"};
+    std::vector<std::string> customSchemas = {
+        "oem",
+        "ami",
+        "openbmc",
+        "cupspolicy",
+        "cupspolicycollection",
+        "cupssensorcollection",
+        "cupsservice",
+        "inventorycrc",
+        "meterstatefeature",
+        "nmdomain",
+        "nmdomaincollection",
+        "nmpolicy",
+        "nmthrottlingstatus",
+        "nmtrigger",
+        "nmtriggercollection",
+        "nodemanager",
+        "pefentry",
+        "pefservice",
+        "provisiondynamicfeature"};
+
     for (const auto& schema : customSchemas)
     {
         std::string lowerInput = toLowerCase(input);
@@ -48,6 +68,7 @@ inline bool isStandardSchema(const std::string& input)
             return false;
         }
     }
+
     return true;
 }
 
@@ -96,8 +117,8 @@ inline void redfish405(App& app, const crow::Request& req,
 
     if (req.method() == boost::beast::http::verb::head)
     {
-            asyncResp->res.result(boost::beast::http::status::method_not_allowed);
-            return;
+        asyncResp->res.result(boost::beast::http::status::method_not_allowed);
+        return;
     }
 
     std::size_t lastSlashPos = path.rfind('/');
@@ -267,6 +288,10 @@ inline void jsonSchemaGet(App& app, const crow::Request& req,
             locationEntry["PublicationUri"] = boost::urls::format(
                 "http://redfish.dmtf.org/schemas/v1/{}", filename);
         }
+        else
+        {
+            locationEntry.erase("PublicationUri");
+        }
 
         locationEntry["Uri"] = boost::urls::format(
             "/redfish/v1/JsonSchemas/{}/{}", schema, filename);
@@ -320,6 +345,8 @@ inline void
         messages::internalError(asyncResp->res);
         return;
     }
+
+    // messages::resourceNotFound(asyncResp->res, "JsonSchemaFile", schema);
 }
 
 inline void requestRoutesRedfish(App& app)
