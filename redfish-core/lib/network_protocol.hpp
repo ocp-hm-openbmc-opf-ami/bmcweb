@@ -169,9 +169,8 @@ inline void
     getSNMPProtocolEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     dbus::utility::getProperty<bool>(
-        "xyz.openbmc_project.Snmp",
-        "/xyz/openbmc_project/Snmp", "xyz.openbmc_project.Snmp.SnmpUtils",
-        "SnmpTrapStatus",
+        "xyz.openbmc_project.Snmp", "/xyz/openbmc_project/Snmp",
+        "xyz.openbmc_project.Snmp.SnmpUtils", "SnmpTrapStatus",
         [asyncResp](const boost::system::error_code& ec, bool protocolEnabled) {
             if (ec)
             {
@@ -190,9 +189,8 @@ inline void
     getSNMPVersionEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     dbus::utility::getProperty<bool>(
-        "xyz.openbmc_project.Snmp",
-        "/xyz/openbmc_project/Snmp", "xyz.openbmc_project.Snmp.SnmpConf",
-        "disableSNMPv1",
+        "xyz.openbmc_project.Snmp", "/xyz/openbmc_project/Snmp",
+        "xyz.openbmc_project.Snmp.SnmpConf", "disableSNMPv1",
         [asyncResp](const boost::system::error_code& ec, bool enableSNMPv1) {
             if (ec)
             {
@@ -205,9 +203,8 @@ inline void
         });
 
     dbus::utility::getProperty<bool>(
-        "xyz.openbmc_project.Snmp",
-        "/xyz/openbmc_project/Snmp", "xyz.openbmc_project.Snmp.SnmpConf",
-        "disableSNMPv2c",
+        "xyz.openbmc_project.Snmp", "/xyz/openbmc_project/Snmp",
+        "xyz.openbmc_project.Snmp.SnmpConf", "disableSNMPv2c",
         [asyncResp](const boost::system::error_code& ec, bool enableSNMPv2c) {
             if (ec)
             {
@@ -220,9 +217,8 @@ inline void
         });
 
     dbus::utility::getProperty<bool>(
-        "xyz.openbmc_project.Snmp",
-        "/xyz/openbmc_project/Snmp", "xyz.openbmc_project.Snmp.SnmpConf",
-        "disableSNMPv3",
+        "xyz.openbmc_project.Snmp", "/xyz/openbmc_project/Snmp",
+        "xyz.openbmc_project.Snmp.SnmpConf", "disableSNMPv3",
         [asyncResp](const boost::system::error_code& ec, bool enableSNMPv3) {
             if (ec)
             {
@@ -710,8 +706,8 @@ inline void
     getNTPProtocolEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     dbus::utility::getProperty<bool>(
-        "org.freedesktop.timedate1",
-        "/org/freedesktop/timedate1", "org.freedesktop.timedate1", "NTP",
+        "org.freedesktop.timedate1", "/org/freedesktop/timedate1",
+        "org.freedesktop.timedate1", "NTP",
         [asyncResp](const boost::system::error_code& ec, bool enabled) {
             if (ec)
             {
@@ -779,25 +775,24 @@ inline void handleManagersNetworkProtocolPatch(
     std::optional<bool> ipmbRunning;
 
     // clang-format off
-        if (!json_util::readJsonPatch( //
-                req, asyncResp->res, //
-                "HostName", newHostName, //
-                "NTP",ntp, //
-                "IPMI",ipmi, //
-                "HTTPS", bmcweb, //
-                "SSH",ssh, //
-                "Id", vId, //
-                "SNMP",snmp, //
-                "Oem/OpenBmc/HTTPS/Masked",bmcwebMasked, //
-                "Oem/OpenBmc/IPMB/Masked",ipmbMasked, //
-                "Oem/OpenBmc/IPMB/ProtocolEnabled",ipmbEnabled, //
-                "Oem/OpenBmc/IPMI/Masked",ipmiMasked, //
-                "Oem/OpenBmc/SSH/Masked",sshMasked, //
-                "Oem/OpenBmc/IPMI/Running",ipmiRunning, //
-                "Oem/OpenBmc/HTTPS/Running",bmcwebRunning, //
-                "Oem/OpenBmc/SSH/Running",sshRunning, //
-                "Oem/OpenBmc/IPMB/Running",ipmbRunning // 
-                ))
+        if (!json_util::readJsonPatch(
+                req, asyncResp->res,
+                "HostName", newHostName,
+                "NTP",ntp,
+                "IPMI",ipmi,
+                "HTTPS", bmcweb,
+                "SSH",ssh,
+                "Id", vId,
+                "SNMP",snmp,
+                "Oem/OpenBmc/HTTPS/Masked",bmcwebMasked,
+                "Oem/OpenBmc/IPMB/Masked",ipmbMasked,
+                "Oem/OpenBmc/IPMB/ProtocolEnabled",ipmbEnabled,
+                "Oem/OpenBmc/IPMI/Masked",ipmiMasked,
+                "Oem/OpenBmc/SSH/Masked",sshMasked,
+                "Oem/OpenBmc/IPMI/Running",ipmiRunning,
+                "Oem/OpenBmc/HTTPS/Running",bmcwebRunning,
+                "Oem/OpenBmc/SSH/Running",sshRunning,
+                "Oem/OpenBmc/IPMB/Running",ipmbRunning))
         {
             return;
         }
@@ -810,7 +805,6 @@ inline void handleManagersNetworkProtocolPatch(
 
     // clang-format on
 
-    asyncResp->res.result(boost::beast::http::status::no_content);
     if (newHostName)
     {
         messages::propertyNotWritable(asyncResp->res, "HostName");
@@ -1042,7 +1036,20 @@ inline void handleManagersNetworkProtocolPatch(
     }
     if (ipmiRunning)
     {
-        setRunning(asyncResp, *ipmiRunning);
+        service_util::getMaskedStatus(
+            asyncResp, ipmiServiceName, "IPMI", "Masked",
+            [ipmiRunning, asyncResp](bool isMasked) {
+                if (!isMasked)
+                {
+                    setRunning(asyncResp, *ipmiRunning);
+                }
+                else
+                {
+                    asyncResp->res.result(
+                        boost::beast::http::status::bad_request);
+                    return;
+                }
+            });
     }
     if (bmcwebRunning)
     {
@@ -1052,8 +1059,22 @@ inline void handleManagersNetworkProtocolPatch(
     }
     if (sshRunning)
     {
-        handleProtocolRunning(*sshRunning, asyncResp,
-                              encodeServiceObjectPath(sshServiceName));
+        service_util::getMaskedStatus(
+            asyncResp, sshServiceName, "SSH", "Masked",
+            [sshRunning, asyncResp](bool isMasked) {
+                if (!isMasked)
+                {
+                    handleProtocolRunning(
+                        *sshRunning, asyncResp,
+                        encodeServiceObjectPath(sshServiceName));
+                }
+                else
+                {
+                    asyncResp->res.result(
+                        boost::beast::http::status::bad_request);
+                    return;
+                }
+            });
     }
     if (ipmbRunning)
     {
@@ -1086,8 +1107,7 @@ void getEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 const std::string& propertyName)
 {
     dbus::utility::getProperty<bool>(
-        serviceManagerService,
-        serviceManagerPath + serviceName,
+        serviceManagerService, serviceManagerPath + serviceName,
         "xyz.openbmc_project.Control.Service.Attributes", "Enabled",
         [asyncResp, ObjectName,
          propertyName](const boost::system::error_code& ec, bool eventValue) {

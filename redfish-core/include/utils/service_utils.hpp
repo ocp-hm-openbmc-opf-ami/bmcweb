@@ -90,6 +90,29 @@ void getMasked(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             }
         });
 }
+
+void getMaskedStatus(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& serviceName, const std::string& ObjectName,
+    const std::string& propertyName,
+    std::function<void(bool)> callback) // Use a callback to handle the result
+{
+    sdbusplus::asio::getProperty<bool>(
+        *crow::connections::systemBus, serviceManagerService,
+        serviceManagerPath + serviceName, serviceConfigInterface, propertyName,
+        [asyncResp, ObjectName, propertyName,
+         callback](const boost::system::error_code& ec, bool eventValue) {
+            if (ec)
+            {
+                messages::internalError(asyncResp->res);
+                callback(false); // Default to false on error
+                return;
+            }
+            BMCWEB_LOG_DEBUG("getMaskedStatus = {}", eventValue);
+            callback(eventValue); // Pass the result to the callback
+        });
+}
+
 void getRunning(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 const std::string& serviceName,
                 const nlohmann::json::json_pointer& valueJsonPtr)
