@@ -79,7 +79,6 @@ constexpr std::string_view CertificateKeyLengthTooSmallError =
 inline std::string detectCertificateType(
     const std::string& str)
 {
-
     if (str.empty())
     {
         return "Invalid";
@@ -117,6 +116,14 @@ inline std::string getCertificateFromReqBody(
     JsonParseResult ret = parseRequestAsJson(req, reqJson);
     if (ret != JsonParseResult::Success)
     {
+        // LDAP & Truststore(CA) only support PEM
+        if (detectCertificateType(req.body()) != "PEM")
+        {
+            messages::invalidTypeForCertificateString(asyncResp->res, "PEM");
+            BMCWEB_LOG_ERROR("invalidTypeForCertificateString");
+            return {};
+        }
+
         // We did not receive JSON request, proceed as it is RAW data
         return req.body();
     }
