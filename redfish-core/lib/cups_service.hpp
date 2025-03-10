@@ -240,6 +240,7 @@ inline void
         {"@odata.id", "/redfish/v1/Oem/Intel/CupsService"},
         {"Id", "CupsService"},
         {"Name", "Cups Service"},
+        {"Description", "Cups Service"},
     };
 
     asyncResp->res.jsonValue["CupsSensors"]["@odata.id"] =
