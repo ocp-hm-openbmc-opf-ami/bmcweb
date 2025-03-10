@@ -91,7 +91,7 @@ void getMasked(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         });
 }
 
-void getMaskedStatus(
+inline void getMaskedStatus(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& serviceName, const std::string& ObjectName,
     const std::string& propertyName,
