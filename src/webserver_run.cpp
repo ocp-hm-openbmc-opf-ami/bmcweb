@@ -18,9 +18,9 @@
 #include "obmc_console.hpp"
 #include "openbmc_dbus_rest.hpp"
 #include "redfish.hpp"
-#include "ext/Rep/ext.hpp"
+#include "ext/rep/lib/ext.hpp"
 #if (BMCWEB_AMI_NIC_MACRO)
-#include "ext/nic/nic.hpp"
+#include "ext/nic/lib/nic.hpp"
 #endif
 //#include <redfish_v1.hpp>
 #if (BMCWEB_AMI_REP_MACRO) || (BMCWEB_AMI_NIC_MACRO)
