@@ -68,15 +68,15 @@
 #include "virtual_media.hpp"
 
 #if BMCWEB_AMI_RAIDBRCM_MACRO
-#include "ext/brcm/lib/storage_brcm.hpp"
+#include "ext/brcm/storage_brcm.hpp"
 #endif
 
 #if BMCWEB_AMI_RAIDMSCC_MACRO
-#include "ext/mscc/lib/storage_mscc.hpp"
+#include "ext/mscc/storage_mscc.hpp"
 #endif
 
 #if BMCWEB_AMI_NVME_MACRO
-#include "ext/nvme/lib/storage_nvme.hpp"
+#include "ext/nvme/storage_nvme.hpp"
 #endif
 
 #if (BMCWEB_AMI_RAIDBRCM_MACRO) || (BMCWEB_AMI_RAIDMSCC_MACRO) || (BMCWEB_AMI_NVME_MACRO)
