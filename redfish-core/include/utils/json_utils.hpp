@@ -1,18 +1,6 @@
-/*
-// Copyright (c) 2018 Intel Corporation
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-*/
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
+// SPDX-FileCopyrightText: Copyright 2018 Intel Corporation
 #pragma once
 
 #include "error_messages.hpp"
@@ -22,6 +10,9 @@
 #include "human_sort.hpp"
 #include "logging.hpp"
 
+#include <boost/system/result.hpp>
+#include <boost/url/parse.hpp>
+#include <boost/url/url_view.hpp>
 #include <nlohmann/json.hpp>
 
 #include <algorithm>
@@ -65,32 +56,26 @@ bool processJsonFromRequest(crow::Response& res, const crow::Request& req,
 namespace details
 {
 
-template <typename Type>
-struct IsOptional : std::false_type
+template <typename Type> struct IsOptional : std::false_type
 {};
 
-template <typename Type>
-struct IsOptional<std::optional<Type>> : std::true_type
+template <typename Type> struct IsOptional<std::optional<Type>> : std::true_type
 {};
 
-template <typename Type>
-struct IsVector : std::false_type
+template <typename Type> struct IsVector : std::false_type
 {};
 
-template <typename Type>
-struct IsVector<std::vector<Type>> : std::true_type
+template <typename Type> struct IsVector<std::vector<Type>> : std::true_type
 {};
 
-template <typename Type>
-struct IsStdArray : std::false_type
+template <typename Type> struct IsStdArray : std::false_type
 {};
 
 template <typename Type, std::size_t size>
 struct IsStdArray<std::array<Type, size>> : std::true_type
 {};
 
-template <typename Type>
-struct IsVariant : std::false_type
+template <typename Type> struct IsVariant : std::false_type
 {};
 
 template <typename... Types>
@@ -208,8 +193,8 @@ UnpackErrorCode unpackValueWithErrorCode(nlohmann::json& jsonValue,
         value = static_cast<Type>(*jsonPtr);
     }
 
-    else if constexpr ((std::is_unsigned_v<Type>)&&(
-                           !std::is_same_v<bool, Type>))
+    else if constexpr ((std::is_unsigned_v<Type>) &&
+                       (!std::is_same_v<bool, Type>))
     {
         uint64_t* jsonPtr = jsonValue.get_ptr<uint64_t*>();
         if (jsonPtr == nullptr)
@@ -330,7 +315,7 @@ bool unpackValue(nlohmann::json& jsonValue, std::string_view key,
             }
             else if (ec == UnpackErrorCode::outOfRange)
             {
-                messages::propertyValueNotInList(res, jsonValue, key);
+                messages::propertyValueOutOfRange(res, jsonValue, key);
             }
             return false;
         }
@@ -346,7 +331,7 @@ bool unpackValue(nlohmann::json& jsonValue, std::string_view key,
             }
             else if (ec == UnpackErrorCode::outOfRange)
             {
-                messages::propertyValueNotInList(res, jsonValue, key);
+                messages::propertyValueOutOfRange(res, jsonValue, key);
             }
             return false;
         }
@@ -538,10 +523,11 @@ inline bool readJsonHelperObject(nlohmann::json::object_t& obj,
                 result = details::unpackValue<nlohmann::json>(item.second, key,
                                                               res, j) &&
                          result;
-                if (!result)
+                // In nested key after the first iteration the result will give false
+		/*if (!result)
                 {
                     return result;
-                }
+                }*/
 
                 std::vector<PerUnpack> nextLevel;
                 for (PerUnpack& p : toUnpack)
@@ -559,15 +545,16 @@ inline bool readJsonHelperObject(nlohmann::json::object_t& obj,
                 break;
             }
 
-            result = std::visit(
-                         [&item, &unpackSpec, &res](auto&& val) {
-                using ContainedT =
-                    std::remove_pointer_t<std::decay_t<decltype(val)>>;
-                return details::unpackValue<ContainedT>(
-                    item.second, unpackSpec.key, res, *val);
-            },
-                         unpackSpec.value) &&
-                     result;
+            result =
+                std::visit(
+                    [&item, &unpackSpec, &res](auto& val) {
+                        using ContainedT =
+                            std::remove_pointer_t<std::decay_t<decltype(val)>>;
+                        return details::unpackValue<ContainedT>(
+                            item.second, unpackSpec.key, res, *val);
+                    },
+                    unpackSpec.value) &&
+                result;
 
             unpackSpec.complete = true;
             break;
@@ -585,11 +572,11 @@ inline bool readJsonHelperObject(nlohmann::json::object_t& obj,
         if (!perUnpack.complete)
         {
             bool isOptional = std::visit(
-                [](auto&& val) {
-                using ContainedType =
-                    std::remove_pointer_t<std::decay_t<decltype(val)>>;
-                return details::IsOptional<ContainedType>::value;
-            },
+                [](auto& val) {
+                    using ContainedType =
+                        std::remove_pointer_t<std::decay_t<decltype(val)>>;
+                    return details::IsOptional<ContainedType>::value;
+                },
                 perUnpack.value);
             if (isOptional)
             {
@@ -620,7 +607,7 @@ inline void packVariant(std::span<PerUnpack> /*toPack*/) {}
 
 template <typename FirstType, typename... UnpackTypes>
 void packVariant(std::span<PerUnpack> toPack, std::string_view key,
-                 FirstType& first, UnpackTypes&&... in)
+                 FirstType&& first, UnpackTypes&&... in)
 {
     if (toPack.empty())
     {
@@ -639,7 +626,8 @@ bool readJsonObject(nlohmann::json::object_t& jsonRequest, crow::Response& res,
 {
     const std::size_t n = sizeof...(UnpackTypes) + 2;
     std::array<PerUnpack, n / 2> toUnpack2;
-    packVariant(toUnpack2, key, first, std::forward<UnpackTypes&&>(in)...);
+    packVariant(toUnpack2, key, std::forward<FirstType>(first),
+                std::forward<UnpackTypes&&>(in)...);
     return readJsonHelperObject(jsonRequest, res, toUnpack2);
 }
 
@@ -657,6 +645,41 @@ bool readJson(nlohmann::json& jsonRequest, crow::Response& res,
     }
     return readJsonObject(*obj, res, key, std::forward<FirstType>(first),
                           std::forward<UnpackTypes&&>(in)...);
+}
+
+inline const nlohmann::json* findNestedKey(std::string_view key,
+                                           const nlohmann::json& value)
+{
+    size_t keysplitIndex = key.find('/');
+    std::string_view leftover;
+    nlohmann::json::const_iterator it;
+    if (keysplitIndex != std::string_view::npos)
+    {
+        const nlohmann::json::object_t* obj =
+            value.get_ptr<const nlohmann::json::object_t*>();
+        if (obj == nullptr || obj->empty())
+        {
+            BMCWEB_LOG_ERROR("Requested key wasn't an object");
+            return nullptr;
+        }
+
+        leftover = key.substr(keysplitIndex + 1);
+        std::string_view keypart = key.substr(0, keysplitIndex);
+        it = value.find(keypart);
+        if (it == value.end())
+        {
+            // Entry didn't have key
+            return nullptr;
+        }
+        return findNestedKey(leftover, it.value());
+    }
+
+    it = value.find(key);
+    if (it == value.end())
+    {
+        return nullptr;
+    }
+    return &*it;
 }
 
 inline std::optional<nlohmann::json::object_t>
@@ -678,8 +701,8 @@ inline std::optional<nlohmann::json::object_t>
     }
     std::erase_if(*object,
                   [](const std::pair<std::string, nlohmann::json>& item) {
-        return item.first.starts_with("@odata.");
-    });
+                      return item.first.starts_with("@odata.");
+                  });
     if (object->empty())
     {
         //  If the update request only contains OData annotations, the service
@@ -736,7 +759,8 @@ bool readJsonAction(const crow::Request& req, crow::Response& res,
 
 // Determines if two json objects are less, based on the presence of the
 // @odata.id key
-inline int odataObjectCmp(const nlohmann::json& a, const nlohmann::json& b)
+inline int objectKeyCmp(std::string_view key, const nlohmann::json& a,
+                        const nlohmann::json& b)
 {
     using object_t = nlohmann::json::object_t;
     const object_t* aObj = a.get_ptr<const object_t*>();
@@ -754,9 +778,10 @@ inline int odataObjectCmp(const nlohmann::json& a, const nlohmann::json& b)
     {
         return 1;
     }
-    object_t::const_iterator aIt = aObj->find("@odata.id");
-    object_t::const_iterator bIt = bObj->find("@odata.id");
-    // If either object doesn't have the key, they get "sorted" to the end.
+    object_t::const_iterator aIt = aObj->find(key);
+    object_t::const_iterator bIt = bObj->find(key);
+    // If either object doesn't have the key, they get "sorted" to the
+    // beginning.
     if (aIt == aObj->end())
     {
         if (bIt == bObj->end())
@@ -774,7 +799,7 @@ inline int odataObjectCmp(const nlohmann::json& a, const nlohmann::json& b)
     const nlohmann::json::string_t* nameB =
         bIt->second.get_ptr<const std::string*>();
     // If either object doesn't have a string as the key, they get "sorted" to
-    // the end.
+    // the beginning.
     if (nameA == nullptr)
     {
         if (nameB == nullptr)
@@ -787,22 +812,40 @@ inline int odataObjectCmp(const nlohmann::json& a, const nlohmann::json& b)
     {
         return 1;
     }
-    boost::urls::url_view aUrl(*nameA);
-    boost::urls::url_view bUrl(*nameB);
-    auto segmentsAIt = aUrl.segments().begin();
-    auto segmentsBIt = bUrl.segments().begin();
+    if (key != "@odata.id")
+    {
+        return alphanumComp(*nameA, *nameB);
+    }
+    boost::system::result<boost::urls::url_view> aUrl =
+        boost::urls::parse_relative_ref(*nameA);
+    boost::system::result<boost::urls::url_view> bUrl =
+        boost::urls::parse_relative_ref(*nameB);
+    if (!aUrl)
+    {
+        if (!bUrl)
+        {
+            return 0;
+        }
+        return -1;
+    }
+    if (!bUrl)
+    {
+        return 1;
+    }
+    auto segmentsAIt = aUrl->segments().begin();
+    auto segmentsBIt = bUrl->segments().begin();
 
     while (true)
     {
-        if (segmentsAIt == aUrl.segments().end())
+        if (segmentsAIt == aUrl->segments().end())
         {
-            if (segmentsBIt == bUrl.segments().end())
+            if (segmentsBIt == bUrl->segments().end())
             {
                 return 0;
             }
             return -1;
         }
-        if (segmentsBIt == bUrl.segments().end())
+        if (segmentsBIt == bUrl->segments().end())
         {
             return 1;
         }
@@ -815,23 +858,44 @@ inline int odataObjectCmp(const nlohmann::json& a, const nlohmann::json& b)
         segmentsAIt++;
         segmentsBIt++;
     }
+    return 0;
 };
+
+// kept for backward compatibility
+inline int odataObjectCmp(const nlohmann::json& left,
+                          const nlohmann::json& right)
+{
+    return objectKeyCmp("@odata.id", left, right);
+}
 
 struct ODataObjectLess
 {
+    std::string_view key;
+
+    explicit ODataObjectLess(std::string_view keyIn) : key(keyIn) {}
+
     bool operator()(const nlohmann::json& left,
                     const nlohmann::json& right) const
     {
-        return odataObjectCmp(left, right) < 0;
+        return objectKeyCmp(key, left, right) < 0;
     }
 };
 
 // Sort the JSON array by |element[key]|.
 // Elements without |key| or type of |element[key]| is not string are smaller
 // those whose |element[key]| is string.
+inline void sortJsonArrayByKey(nlohmann::json::array_t& array,
+                               std::string_view key)
+{
+    std::ranges::sort(array, ODataObjectLess(key));
+}
+
+// Sort the JSON array by |element[key]|.
+// Elements without |key| or type of |element[key]| is not string are smaller
+// those whose |element[key]| is string.
 inline void sortJsonArrayByOData(nlohmann::json::array_t& array)
 {
-    std::ranges::sort(array, ODataObjectLess());
+    std::ranges::sort(array, ODataObjectLess("@odata.id"));
 }
 
 // Returns the estimated size of the JSON value

@@ -1,11 +1,8 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
 #include "bmcweb_config.h"
-
-extern "C"
-{
-#include <openssl/crypto.h>
-}
 
 #include <boost/callable_traits.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
@@ -265,17 +262,20 @@ inline bool base64Decode(std::string_view input, std::string& output)
 
         base64code0 = getCodeValue(input[i]);
         if (base64code0 == nop)
-        { // non base64 character
+        {
+            // non base64 character
             return false;
         }
         if (!(++i < inputLength))
-        { // we need at least two input bytes for first
-          // byte output
+        {
+            // we need at least two input bytes for first
+            // byte output
             return false;
         }
         base64code1 = getCodeValue(input[i]);
         if (base64code1 == nop)
-        { // non base64 character
+        {
+            // non base64 character
             return false;
         }
         output +=
@@ -285,12 +285,14 @@ inline bool base64Decode(std::string_view input, std::string& output)
         {
             char c = input[i];
             if (c == '=')
-            { // padding , end of input
+            {
+                // padding , end of input
                 return (base64code1 & 0x0f) == 0;
             }
             base64code2 = getCodeValue(input[i]);
             if (base64code2 == nop)
-            { // non base64 character
+            {
+                // non base64 character
                 return false;
             }
             output += static_cast<char>(
@@ -301,12 +303,14 @@ inline bool base64Decode(std::string_view input, std::string& output)
         {
             char c = input[i];
             if (c == '=')
-            { // padding , end of input
+            {
+                // padding , end of input
                 return (base64code2 & 0x03) == 0;
             }
             char base64code3 = getCodeValue(input[i]);
             if (base64code3 == nop)
-            { // non base64 character
+            {
+                // non base64 character
                 return false;
             }
             output +=
@@ -468,25 +472,6 @@ inline std::pair<std::string, std::string> getDateTimeOffsetNow()
     return std::make_pair(dateTime, timeOffset);
 }
 
-inline bool constantTimeStringCompare(std::string_view a, std::string_view b)
-{
-    // Important note, this function is ONLY constant time if the two input
-    // sizes are the same
-    if (a.size() != b.size())
-    {
-        return false;
-    }
-    return CRYPTO_memcmp(a.data(), b.data(), a.size()) == 0;
-}
-
-struct ConstantTimeCompare
-{
-    bool operator()(std::string_view a, std::string_view b) const
-    {
-        return constantTimeStringCompare(a, b);
-    }
-};
-
 inline std::time_t getTimestamp(uint64_t millisTimeStamp)
 {
     // Retrieve Created property with format:
@@ -497,27 +482,18 @@ inline std::time_t getTimestamp(uint64_t millisTimeStamp)
         .count();
 }
 
-namespace details
-{
-inline boost::urls::url appendUrlPieces(
-    boost::urls::url& url, const std::initializer_list<std::string_view> args)
-{
-    for (std::string_view arg : args)
-    {
-        url.segments().push_back(arg);
-    }
-    return url;
-}
-
-} // namespace details
-
 class OrMorePaths
 {};
 
 template <typename... AV>
-inline void appendUrlPieces(boost::urls::url& url, const AV... args)
+inline void appendUrlPieces(boost::urls::url& url, AV&&... args)
 {
-    details::appendUrlPieces(url, {args...});
+    // Unclear the correct fix here.
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-array-to-pointer-decay)
+    for (const std::string_view arg : {args...})
+    {
+        url.segments().push_back(arg);
+    }
 }
 
 namespace details

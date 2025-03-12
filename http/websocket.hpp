@@ -1,9 +1,12 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 #include "async_resp.hpp"
 #include "http_body.hpp"
 #include "http_request.hpp"
 
 #include <boost/asio/buffer.hpp>
+#include <boost/asio/ssl/error.hpp>
 #include <boost/beast/core/multi_buffer.hpp>
 #include <boost/beast/websocket.hpp>
 #include <boost/beast/websocket/ssl.hpp>
@@ -102,8 +105,8 @@ class ConnectionImpl : public Connection
                 {
                     // use protocol for csrf checking
                     if (session->cookieAuth &&
-                        !crow::utility::constantTimeStringCompare(
-                            protocolHeader, session->csrfToken))
+                        !bmcweb::constantTimeStringCompare(protocolHeader,
+                                                           session->csrfToken))
                     {
                         BMCWEB_LOG_ERROR("Websocket CSRF error");
                         m.result(boost::beast::http::status::unauthorized);
@@ -258,7 +261,9 @@ class ConnectionImpl : public Connection
                                     size_t bytesRead) {
             if (ec)
             {
-                if (ec != boost::beast::websocket::error::closed)
+                if (ec != boost::beast::websocket::error::closed &&
+                    ec != boost::asio::error::eof &&
+                    ec != boost::asio::ssl::error::stream_truncated)
                 {
                     BMCWEB_LOG_ERROR("doRead error {}", ec);
                 }

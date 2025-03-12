@@ -1,3 +1,4 @@
+# BMCWEB_KVM
 option(
     'kvm',
     type: 'feature',
@@ -6,6 +7,7 @@ option(
                     Video is from the BMCs /dev/videodevice.''',
 )
 
+# BMCWEB_TESTS
 option(
     'tests',
     type: 'feature',
@@ -13,6 +15,7 @@ option(
     description: 'Enable Unit tests for bmcweb',
 )
 
+# BMCWEB_VM_WEBSOCKET
 option(
     'vm-websocket',
     type: 'feature',
@@ -22,6 +25,18 @@ option(
                     https://github.com/openbmc/jsnbd/blob/master/README.''',
 )
 
+option(
+    'redfish-use-3-digit-messageid',
+    type: 'feature',
+    value: 'disabled',
+    description: '''Prior to a bug fix, bmcweb exposed error messages with a
+                    MessageId of Base.x.y.z.Message which was incorrect.
+                    Enabling this option causes return codes to return the old
+                    incorrect version for backward compatibility.  Will be
+                    removed Q2-2025'''
+)
+
+# BMCWEB_NBDPROXY
 # if you use this option and are seeing this comment, please comment here:
 # https://github.com/openbmc/bmcweb/issues/188 and put forward your intentions
 # for this code.  At this point, no daemon has been upstreamed that implements
@@ -35,6 +50,7 @@ option(
     description: 'Enable the Virtual Media WebSocket.',
 )
 
+# BMCWEB_AMI_REP_MACRO
 option(
     'ami-rep',
     type: 'feature',
@@ -42,6 +58,7 @@ option(
     description: 'Enable the AMI redfish extension pack.'
 )
 
+# BMCWEB_AMI_NVME_MACRO
 option(
     'ami-nvme',
     type: 'feature',
@@ -49,6 +66,7 @@ option(
     description: 'Enable the AMI NVME.'
 )
 
+# BMCWEB_AMI_RAIDMSCC_MACRO
 option(
     'ami-raidmscc',
     type: 'feature',
@@ -56,6 +74,7 @@ option(
     description: 'Enable the AMI RAID MSCC.'
 )
 
+# BMCWEB_AMI_RAIDBRCM_MACRO
 option(
     'ami-raidbrcm',
     type: 'feature',
@@ -63,6 +82,7 @@ option(
     description: 'Enable the AMI RAID BRCM.'
 )
 
+# BMCWEB_AMI_NIC_MACRO
 option(
     'ami-nic',
     type: 'feature',
@@ -70,6 +90,7 @@ option(
     description: 'Enable the AMI NIC.'
 )
 
+# BMCWEB_AMI_PCIESW_MACRO
 option(
     'ami-pciesw',
     type: 'feature',
@@ -77,6 +98,7 @@ option(
     description: 'Enable the AMI PCIESW.'
 )
 
+# BMCWEB_AST2600_EVB_MACRO
 option(
     'ast2600-evb',
     type: 'feature',
@@ -84,6 +106,7 @@ option(
     description: 'Enable the AST2600EVB Build.'
 )
 
+# BMCWEB_REST
 option(
     'arbel-nuvoton',
     type: 'feature',
@@ -120,11 +143,19 @@ option(
 )
 
 option(
+    'intel-pfr',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable the AST2600EVB Build.'
+)
+
+option(
     'ami-2fa',
     type: 'feature',
     value: 'disabled',
     description: 'Enable the AMI TWOFACTOR AUTHENTICATION.'
 )
+
 option(
     'rest',
     type: 'feature',
@@ -135,6 +166,7 @@ option(
                     https://github.com/openbmc/docs/blob/master/rest-api.md.''',
 )
 
+# BMCWEB_REDFISH
 option(
     'redfish',
     type: 'feature',
@@ -143,6 +175,7 @@ option(
                     https://github.com/openbmc/bmcweb/blob/master/DEVELOPING.md#redfish.''',
 )
 
+# BMCWEB_HOST_SERIAL_SOCKET
 option(
     'host-serial-socket',
     type: 'feature',
@@ -151,6 +184,7 @@ option(
                     See https://github.com/openbmc/docs/blob/master/console.md.''',
 )
 
+# BMCWEB_STATIC_HOSTING
 option(
     'static-hosting',
     type: 'feature',
@@ -159,6 +193,7 @@ option(
                     as paths under /.''',
 )
 
+# BMCWEB_REDFISH_BMC_JOURNAL
 option(
     'redfish-bmc-journal',
     type: 'feature',
@@ -167,6 +202,7 @@ option(
                     /redfish/v1/Managers/bmc/LogServices/Journal.''',
 )
 
+# BMCWEB_REDFISH_CPU_LOG
 option(
     'redfish-cpu-log',
     type: 'feature',
@@ -175,6 +211,7 @@ option(
                     are under /redfish/v1/Systems/system/LogServices/Crashdump'.''',
 )
 
+# BMCWEB_REDFISH_DUMP_LOG
 option(
     'redfish-dump-log',
     type: 'feature',
@@ -184,6 +221,7 @@ option(
                    and /redfish/v1/Managers/bmc/LogServices/Dump''',
 )
 
+# BMCWEB_REDFISH_DBUS_LOG
 option(
     'redfish-dbus-log',
     type: 'feature',
@@ -193,6 +231,22 @@ option(
                     /redfish/v1/Systems/system/LogServices/EventLog/Entries''',
 )
 
+# BMCWEB_EXPERIMENTAL_REDFISH_DBUS_LOG_SUBSCRIPTION
+option(
+    'experimental-redfish-dbus-log-subscription',
+    type: 'feature',
+    value: 'disabled',
+    description: '''
+        Allows EventService subscriptions when the redfish-dbus-log option is
+        enabled.
+        This option is currently non-functional, given Redfish requirements for
+        MessageId support in Events.
+        Option will be removed begining of Q2-2025.
+        Should not be enabled on any production systems.
+    ''',
+)
+
+# BMCWEB_REDFISH_HOST_LOGGER
 option(
     'redfish-host-logger',
     type: 'feature',
@@ -202,6 +256,7 @@ option(
                     /redfish/v1/Systems/system/LogServices/HostLogger''',
 )
 
+# BMCWEB_REDFISH_PROVISIONING_FEATURE
 option(
     'redfish-provisioning-feature',
     type: 'feature',
@@ -210,6 +265,7 @@ option(
                     under /redfish/v1/Systems/system/''',
 )
 
+# BMCWEB_REDFISH_MANAGER_URI_NAME
 option(
     'redfish-aggregation-prefix',
     type: 'string',
@@ -235,6 +291,7 @@ option(
                     /redfish/v1/Managers/bmc''',
 )
 
+# BMCWEB_REDFISH_SYSTEM_URI_NAME
 option(
     'redfish-system-uri-name',
     type: 'string',
@@ -246,6 +303,7 @@ option(
                     /redfish/v1/Systems/system''',
 )
 
+# BMCWEB_LOGGING_LEVEL
 option(
     'bmcweb-logging',
     type: 'combo',
@@ -257,6 +315,7 @@ option(
                     - For the other logging level option, see DEVELOPING.md.''',
 )
 
+# BMCWEB_BASIC_AUTH
 option(
     'basic-auth',
     type: 'feature',
@@ -264,6 +323,7 @@ option(
     description: 'Enable basic authentication',
 )
 
+# BMCWEB_SESSION_AUTH
 option(
     'session-auth',
     type: 'feature',
@@ -271,6 +331,7 @@ option(
     description: 'Enable session authentication',
 )
 
+# BMCWEB_XTOKEN_AUTH
 option(
     'xtoken-auth',
     type: 'feature',
@@ -278,6 +339,7 @@ option(
     description: 'Enable xtoken authentication',
 )
 
+# BMCWEB_COOKIE_AUTH
 option(
     'cookie-auth',
     type: 'feature',
@@ -285,6 +347,7 @@ option(
     description: 'Enable cookie authentication',
 )
 
+# BMCWEB_MUTUAL_TLS_AUTH
 option(
     'mutual-tls-auth',
     type: 'feature',
@@ -294,6 +357,7 @@ option(
                     this option to take effect.''',
 )
 
+# BMCWEB_MUTUAL_TLS_COMMON_NAME_PARSING_DEFAULT
 option(
     'mutual-tls-common-name-parsing-default',
     type: 'combo',
@@ -304,6 +368,7 @@ option(
                     ''',
 )
 
+# BMCWEB_META_TLS_COMMON_NAME_PARSING
 option(
     'meta-tls-common-name-parsing',
     type: 'feature',
@@ -313,6 +378,7 @@ option(
     ''',
 )
 
+# BMCWEB_IBM_MANAGEMENT_CONSOLE
 option(
     'ibm-management-console',
     type: 'feature',
@@ -321,6 +387,7 @@ option(
                     Paths are under /ibm/v1/''',
 )
 
+# BMCWEB_GOOGLE_API
 option(
     'google-api',
     type: 'feature',
@@ -329,6 +396,7 @@ option(
                     /google/v1/''',
 )
 
+# BMCWEB_HTTP_BODY_LIMIT
 option(
     'http-body-limit',
     type: 'integer',
@@ -338,6 +406,7 @@ option(
     description: 'Specifies the http request body length limit in KB',
 )
 
+# BMCWEB_IMAGE_PAYLOAD_LIMIT
 option(
     'image-payload-limit',
     type: 'integer',
@@ -347,6 +416,7 @@ option(
     description: 'Specifies the maximum image size limit in MB',
 )
 
+# BMCWEB_IMAGE_UPLOAD_DIR
 option(
     'image-upload-dir',
     type: 'string',
@@ -354,6 +424,7 @@ option(
     description: 'Directory where downloaded software images are placed.',
 )
 
+# BMCWEB_REDFISH_NEW_POWERSUBSYSTEM_THERMALSUBSYSTEM
 option(
     'redfish-new-powersubsystem-thermalsubsystem',
     type: 'feature',
@@ -363,6 +434,7 @@ option(
                     sensors in the SensorCollection.''',
 )
 
+# BMCWEB_REDFISH_INTEL_FEATURE
 option(
     'redfish-intel-feature',
     type: 'feature',
@@ -370,6 +442,7 @@ option(
     description: '''Enable/disable the intel uri.'''
 )
 
+# BMCWEB_REDFISH_ALLOW_DEPRECATED_POWER_THERMAL
 option(
     'redfish-allow-deprecated-power-thermal',
     type: 'feature',
@@ -379,15 +452,17 @@ option(
                     will be disabled by default June 2024. ''',
 )
 
+# BMCWEB_REDFISH_OEM_MANAGER_FAN_DATA
 option(
     'redfish-oem-manager-fan-data',
     type: 'feature',
     value: 'enabled',
     description: '''Enables Redfish OEM fan data on the manager resource.
                     This includes PID and Stepwise controller data. See
-                    OemManager schema for more detail.''',
+                    OpenBMCManager schema for more detail.''',
 )
 
+# BMCWEB_REDFISH_UPDATESERVICE_USE_DBUS
 option(
     'redfish-updateservice-use-dbus',
     type: 'feature',
@@ -402,6 +477,18 @@ option(
                 ''',
 )
 
+# BMCWEB_REDFISH_ALLOW_SIMPLE_UPDATE
+option(
+    'redfish-allow-simple-update',
+    type: 'feature',
+    value: 'disabled',
+    description: '''Enables Redfish UpdateService SimpleUpdate Action.  Note
+                    that at this time this option is non-functional.  Redfish
+                    recommends using MultiPartUpdate.''',
+)
+
+
+# BMCWEB_HTTPS_PORT
 option(
     'https_port',
     type: 'integer',
@@ -411,6 +498,7 @@ option(
     description: 'HTTPS Port number.',
 )
 
+# BMCWEB_DNS_RESOLVER
 option(
     'dns-resolver',
     type: 'combo',
@@ -422,6 +510,7 @@ option(
     names when boost threading is disabled.''',
 )
 
+# BMCWEB_REDFISH_AGGREGATION
 option(
     'redfish-aggregation',
     type: 'feature',
@@ -429,6 +518,7 @@ option(
     description: 'Allows this BMC to aggregate resources from satellite BMCs',
 )
 
+# BMCWEB_HYPERVISOR_COMPUTER_SYSTEM
 option(
     'hypervisor-computer-system',
     type: 'feature',
@@ -438,16 +528,18 @@ option(
     resources such as EthernetInterfaces and ComputerSystem.Reset.''',
 )
 
+# BMCWEB_EXPERIMENTAL_REDFISH_MULTI_COMPUTER_SYSTEM
 option(
     'experimental-redfish-multi-computer-system',
     type: 'feature',
     value: 'disabled',
     description: '''This is a temporary option flag for staging the
     ComputerSystemCollection transition to multi-host.  It, as well as the code
-    still beneath it will be removed on 9/1/2024.  Do not enable in a
+    still beneath it will be removed on 3/1/2025.  Do not enable in a
     production environment, or where API stability is required.''',
 )
 
+# BMCWEB_EXPERIMENTAL_HTTP2
 option(
     'experimental-http2',
     type: 'feature',
@@ -462,6 +554,7 @@ option(
 # the implications of doing so.In general, enabling these options will cause security
 # problems of varying degrees
 
+# BMCWEB_INSECURE_DISABLE_CSRF
 option(
     'insecure-disable-csrf',
     type: 'feature',
@@ -470,6 +563,7 @@ option(
                     production systems.''',
 )
 
+# BMCWEB_INSECURE_DISABLE_SSL
 option(
     'insecure-disable-ssl',
     type: 'feature',
@@ -478,6 +572,7 @@ option(
                     systems.''',
 )
 
+# BMCWEB_INSECURE_DISABLE_AUTH
 option(
     'insecure-disable-auth',
     type: 'feature',
@@ -486,6 +581,7 @@ option(
                     Should be set to false for production systems.''',
 )
 
+# BMCWEB_INSECURE_IGNORE_CONTENT_TYPE
 option(
     'insecure-ignore-content-type',
     type: 'feature',
@@ -497,6 +593,7 @@ option(
                     Content-Type header on payloads.''',
 )
 
+# BMCWEB_INSECURE_PUSH_STYLE_NOTIFICATION
 option(
     'insecure-push-style-notification',
     type: 'feature',
@@ -504,6 +601,7 @@ option(
     description: 'Enable HTTP push style eventing feature',
 )
 
+# BMCWEB_INSECURE_ENABLE_REDFISH_QUERY
 option(
     'insecure-enable-redfish-query',
     type: 'feature',

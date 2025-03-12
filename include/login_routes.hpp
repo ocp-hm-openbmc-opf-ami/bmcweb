@@ -1,7 +1,10 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
 #include "app.hpp"
 #include "cookies.hpp"
+#include "error_messages.hpp"
 #include "http_request.hpp"
 #include "http_response.hpp"
 #include "multipart_parser.hpp"
@@ -170,18 +173,27 @@ inline void handleLogin(const crow::Request& req,
                 persistent_data::SessionStore::getInstance()
                     .generateUserSession(username, req.ipAddress, std::nullopt,
                                          persistent_data::SessionType::Session,
-                                         isConfigureSelfOnly);
+                                         isConfigureSelfOnly, "WebUI");
+
+            bool maxSessionReached =
+                persistent_data::SessionStore::getInstance()
+                    .getWebSessionReached();
+            if (session == nullptr && maxSessionReached == true)
+            {
+                redfish::messages::sessionLimitExceeded(asyncResp->res);
+                return;
+            }
 
             bmcweb::setSessionCookies(asyncResp->res, *session);
 
             // if content type is json, assume json token
             asyncResp->res.jsonValue["token"] = session->sessionToken;
-		#if (BMCWEB_AMI_2FA_MACRO)
+
+            #if (BMCWEB_AMI_2FA_MACRO)
             if (std::filesystem::exists("/usr/lib/redfish/core/libami.so.1"))
             {
             std::string user(username);
-            sdbusplus::asio::getProperty<bool>(
-                *crow::connections::systemBus,
+            dbus::utility::getProperty<bool>(
                 "xyz.openbmc_project.User.Manager",
                 "/xyz/openbmc_project/user/" + user,
                 "xyz.openbmc_project.User.Attributes", "TwoFacEnableStatus",
@@ -200,7 +212,7 @@ inline void handleLogin(const crow::Request& req,
             {
                 asyncResp->res.jsonValue["TwoFacEnableStatus"] = "N/A";
             }
-		 #endif
+            #endif
         }
     }
     else

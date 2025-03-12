@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #include "http_request.hpp"
 #include "http_response.hpp"
 #include "utils/json_utils.hpp"
@@ -371,6 +373,24 @@ TEST(ReadJsonPatch, OnlyOdataGivesNoOperation)
     EXPECT_THAT(res.jsonValue, Not(IsEmpty()));
 }
 
+TEST(ReadJsonPatch, VerifyReadJsonPatchIntegerReturnsOutOfRange)
+{
+    crow::Response res;
+    std::error_code ec;
+    // 4294967296 is an out-of-range value for uint32_t
+    crow::Request req(R"({"@odata.etag": "etag", "integer": 4294967296})", ec);
+    req.addHeader(boost::beast::http::field::content_type, "application/json");
+    uint32_t integer = 0;
+    ASSERT_FALSE(readJsonPatch(req, res, "integer", integer));
+    EXPECT_EQ(res.result(), boost::beast::http::status::bad_request);
+    const nlohmann::json& resExtInfo =
+        res.jsonValue["error"]["@Message.ExtendedInfo"];
+    EXPECT_THAT(resExtInfo[0]["@odata.type"], "#Message.v1_1_1.Message");
+    EXPECT_THAT(resExtInfo[0]["MessageId"],
+                "Base.1.19.PropertyValueOutOfRange");
+    EXPECT_THAT(resExtInfo[0]["MessageSeverity"], "Warning");
+}
+
 TEST(ReadJsonAction, ValidElementsReturnsTrueResponseOkValuesUnpackedCorrectly)
 {
     crow::Response res;
@@ -429,7 +449,7 @@ TEST(odataObjectCmp, PositiveCases)
                                 R"({"@odata.id": 4})"_json));
 }
 
-TEST(SortJsonArrayByKey, ElementMissingKeyReturnsFalseArrayIsPartlySorted)
+TEST(SortJsonArrayByOData, ElementMissingKeyReturnsFalseArrayIsPartlySorted)
 {
     nlohmann::json::array_t array =
         R"([{"@odata.id" : "/redfish/v1/100"}, {"@odata.id": "/redfish/v1/1"}, {"@odata.id" : "/redfish/v1/20"}])"_json;
@@ -442,7 +462,7 @@ TEST(SortJsonArrayByKey, ElementMissingKeyReturnsFalseArrayIsPartlySorted)
                             R"({"@odata.id" : "/redfish/v1/100"})"_json));
 }
 
-TEST(SortJsonArrayByKey, SortedByStringValueOnSuccessArrayIsSorted)
+TEST(SortJsonArrayByOData, SortedByStringValueOnSuccessArrayIsSorted)
 {
     nlohmann::json::array_t array =
         R"([{"@odata.id": "/redfish/v1/20"}, {"@odata.id" : "/redfish/v1"}, {"@odata.id" : "/redfish/v1/100"}])"_json;
@@ -452,6 +472,83 @@ TEST(SortJsonArrayByKey, SortedByStringValueOnSuccessArrayIsSorted)
                             R"({"@odata.id" : "/redfish/v1/20"})"_json,
                             R"({"@odata.id" : "/redfish/v1/100"})"_json));
 }
+
+TEST(objectKeyCmp, PositiveCases)
+{
+    EXPECT_EQ(
+        0, objectKeyCmp("@odata.id",
+                        R"({"@odata.id": "/redfish/v1/1", "Name": "a"})"_json,
+                        R"({"@odata.id": "/redfish/v1/1", "Name": "b"})"_json));
+    EXPECT_GT(
+        0, objectKeyCmp("Name",
+                        R"({"@odata.id": "/redfish/v1/1", "Name": "a"})"_json,
+                        R"({"@odata.id": "/redfish/v1/1", "Name": "b"})"_json));
+     EXPECT_EQ(0, objectKeyCmp(
+                     "Name",
+                     R"({"@odata.id": "/redfish/v1/1", "Name": "a 45"})"_json,
+                     R"({"@odata.id": "/redfish/v1/1", "Name": "a 45"})"_json));
+    EXPECT_GT(0, objectKeyCmp(
+                     "Name",
+                     R"({"@odata.id": "/redfish/v1/1", "Name": "a 45"})"_json,
+                     R"({"@odata.id": "/redfish/v1/1", "Name": "b 45"})"_json));
+                     
+    EXPECT_GT(
+        0, objectKeyCmp("@odata.id",
+                        R"({"@odata.id": "/redfish/v1/1", "Name": "b"})"_json,
+                        R"({"@odata.id": "/redfish/v1/2", "Name": "b"})"_json));
+    EXPECT_EQ(
+        0, objectKeyCmp("Name",
+                        R"({"@odata.id": "/redfish/v1/1", "Name": "b"})"_json,
+                        R"({"@odata.id": "/redfish/v1/2", "Name": "b"})"_json));
+    EXPECT_LT(0,
+              objectKeyCmp(
+                  "@odata.id",
+                  R"({"@odata.id": "/redfish/v1/p10/", "Name": "a1"})"_json,
+                  R"({"@odata.id": "/redfish/v1/p1/", "Name": "a10"})"_json));
+    EXPECT_GT(0,
+              objectKeyCmp(
+                  "Name",
+                  R"({"@odata.id": "/redfish/v1/p10/", "Name": "a1"})"_json,
+                  R"({"@odata.id": "/redfish/v1/p1/", "Name": "a10"})"_json));
+    nlohmann::json leftRequest =
+        R"({"Name": "fan1", "@odata.id": "/redfish/v1/Chassis/chassis2"})"_json;
+    nlohmann::json rightRequest =
+        R"({"Name": "fan2", "@odata.id": "/redfish/v1/Chassis/chassis1"})"_json;
+    EXPECT_GT(0, objectKeyCmp("Name", leftRequest, rightRequest));
+    EXPECT_LT(0, objectKeyCmp("@odata.id", leftRequest, rightRequest));
+    EXPECT_EQ(0, objectKeyCmp("DataSourceUri", leftRequest, rightRequest));
+}
+TEST(SortJsonArrayByKey, ElementMissingKeyReturnsFalseArrayIsPartlySorted)
+{
+    nlohmann::json::array_t array =
+        R"([{"@odata.id" : "/redfish/v1/100"}, {"Name" : "/redfish/v1/5"}, {"@odata.id": "/redfish/v1/1"}, {"@odata.id" : "/redfish/v1/20"}])"_json;
+    sortJsonArrayByKey(array, "@odata.id");
+    // Objects with other keys are always smaller than those with the specified
+    // key.
+    EXPECT_THAT(array,
+                ElementsAre(R"({"Name" : "/redfish/v1/5"})"_json,
+                            R"({"@odata.id": "/redfish/v1/1"})"_json,
+                            R"({"@odata.id" : "/redfish/v1/20"})"_json,
+                            R"({"@odata.id" : "/redfish/v1/100"})"_json));
+}
+TEST(SortJsonArrayByKey, SortedByStringValueOnSuccessArrayIsSorted)
+{
+    nlohmann::json::array_t array =
+        R"([{"@odata.id": "/redfish/v1/20", "Name": "a"}, {"@odata.id" : "/redfish/v1", "Name": "c"}, {"@odata.id" : "/redfish/v1/100", "Name": "b"}])"_json;
+    sortJsonArrayByKey(array, "@odata.id");
+    EXPECT_THAT(
+        array,
+        ElementsAre(R"({"@odata.id": "/redfish/v1", "Name": "c"})"_json,
+                    R"({"@odata.id": "/redfish/v1/20", "Name": "a"})"_json,
+                    R"({"@odata.id": "/redfish/v1/100", "Name": "b"})"_json));
+    sortJsonArrayByKey(array, "Name");
+    EXPECT_THAT(
+        array,
+        ElementsAre(R"({"@odata.id": "/redfish/v1/20", "Name": "a"})"_json,
+                    R"({"@odata.id": "/redfish/v1/100", "Name": "b"})"_json,
+                    R"({"@odata.id": "/redfish/v1", "Name": "c"})"_json));
+}
+
 TEST(GetEstimatedJsonSize, NumberIs8Bytpes)
 {
     EXPECT_EQ(getEstimatedJsonSize(nlohmann::json(123)), 8);

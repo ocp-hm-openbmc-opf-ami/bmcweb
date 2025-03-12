@@ -45,6 +45,46 @@
                         "number",
                         "null"
                     ]
+                },
+                "KvmMaxSession": {
+                    "description": "Kvm MaxSession.",
+                    "longDescription": "The value indicates Maximum kvm sessions user can access.",
+                    "type": [
+                        "number",
+                        "null"
+                    ]
+                },
+                "RedfishMaxSession": {
+                    "description": "Redfish MaxSession.",
+                    "longDescription": "The value indicates Maximum Redfish sessions user can access.",
+                    "type": [
+                        "number",
+                        "null"
+                    ]
+                },
+                "SshMaxSession": {
+                    "description": "SSH MaxSession.",
+                    "longDescription": "The value indicates Maximum SSH sessions user can access.",
+                    "type": [
+                        "number",
+                        "null"
+                    ]
+                },
+                "VmMaxSession": {
+                    "description": "VirtualMedia MaxSession.",
+                    "longDescription": "The value indicates Maximum VM sessions user can access.",
+                    "type": [
+                        "number",
+                        "null"
+                    ]
+                },
+                "WebMaxSession": {
+                    "description": "Web MaxSession.",
+                    "longDescription": "The value indicates Maximum Web Sessions user can access.",
+                    "type": [
+                        "number",
+                        "null"
+                    ]
                 }
             },
             "type": "object"

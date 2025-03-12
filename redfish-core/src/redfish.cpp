@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #include "redfish.hpp"
 
 #include "bmcweb_config.h"
@@ -141,8 +143,8 @@ RedfishService::RedfishService(App& app)
     if constexpr (BMCWEB_REDFISH_ALLOW_DEPRECATED_POWER_THERMAL)
     {
         requestRoutesThermal(app);
+	requestRoutesPower(app);
     }
-    requestRoutesPower(app);
     if constexpr (BMCWEB_REDFISH_NEW_POWERSUBSYSTEM_THERMALSUBSYSTEM)
     {
         requestRoutesEnvironmentMetrics(app);
@@ -159,7 +161,7 @@ RedfishService::RedfishService(App& app)
     requestRoutesManagerSerialInterface(app);
     requestRoutesManagerResetAction(app);
     requestRoutesManagerResetActionInfo(app);
-    requestRoutesManagerResetToDefaultsAction(app);
+    requestRoutesManagerResetToDefaults(app);
     requestRoutesManagerDiagnosticData(app);
     requestRoutesBsodjpeg(app);
     requestRoutesDeleteBsodjpeg(app);

@@ -54,7 +54,9 @@ inline void requestRoutesBsodjpeg(App& app)
         }
         asyncResp->res.jsonValue["@odata.id"] =
             "/redfish/v1/Managers/bmc/Oem/OpenBmc/Jpeg";
-        asyncResp->res.jsonValue["@odata.type"] = "#Jpeg.v1_0_0.Jpeg";
+        asyncResp->res.jsonValue["Id"] = "Jpeg";
+        asyncResp->res.jsonValue["Name"] = "Jpeg Image";
+	asyncResp->res.jsonValue["@odata.type"] = "#Jpeg_v1_0_0.Jpeg";
         getBsodjpeg(asyncResp);
     });
 }
@@ -66,24 +68,24 @@ inline void requestRoutesDeleteBsodjpeg(App& app)
         .methods(boost::beast::http::verb::delete_)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
-        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-        {
-            return;
-        }
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
 
-        if (fs::exists(inputImagePath))
-        {
-            if (fs::remove(inputImagePath))
-            {
-                messages::success(asyncResp->res);
-            }
-        }
-        else
-        {
-            messages::resourceNotFound(asyncResp->res, "Jpeg", "Image");
-            return;
-        }
-    });
+                if (fs::exists(inputImagePath))
+                {
+                    if (fs::remove(inputImagePath))
+                    {
+                        messages::success(asyncResp->res);
+                    }
+                }
+                else
+                {
+                    messages::resourceNotFound(asyncResp->res, "Jpeg", "Image");
+                    return;
+                }
+            });
 }
 
 inline void requestRoutesTriggerBsodjpeg(App& app)
@@ -93,30 +95,30 @@ inline void requestRoutesTriggerBsodjpeg(App& app)
         .methods(boost::beast::http::verb::post)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
-        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-        {
-            return;
-        }
-        int32_t dbuspropertyvalue = 1;
-        crow::connections::systemBus->async_method_call(
-            [asyncResp](const boost::system::error_code& ec,
-                        const std::string& response) {
-            if (ec)
-            {
-                messages::internalError(asyncResp->res);
-                return;
-            }
-            if (response != "Success")
-            {
-                messages::internalError(asyncResp->res);
-                return;
-            }
-            messages::success(asyncResp->res);
-        },
-            "xyz.openbmc_project.Kvm", "/xyz/openbmc_project/Kvm",
-            "xyz.openbmc_project.Kvm.Screenshot", "TriggerScreenshot",
-            dbuspropertyvalue);
-    });
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
+                int32_t dbuspropertyvalue = 1;
+                crow::connections::systemBus->async_method_call(
+                    [asyncResp](const boost::system::error_code& ec,
+                                const std::string& response) {
+                        if (ec)
+                        {
+                            messages::internalError(asyncResp->res);
+                            return;
+                        }
+                        if (response != "Success")
+                        {
+                            messages::internalError(asyncResp->res);
+                            return;
+                        }
+                        messages::success(asyncResp->res);
+                    },
+                    "xyz.openbmc_project.Kvm", "/xyz/openbmc_project/Kvm",
+                    "xyz.openbmc_project.Kvm.Screenshot", "TriggerScreenshot",
+                    dbuspropertyvalue);
+            });
 }
 
 } // namespace redfish

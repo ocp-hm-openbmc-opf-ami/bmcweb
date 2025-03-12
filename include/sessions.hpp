@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
 #include "logging.hpp"
@@ -272,8 +274,47 @@ class SessionStore
     std::shared_ptr<UserSession> generateUserSession(
         std::string_view username, const boost::asio::ip::address& clientIp,
         const std::optional<std::string>& clientId, SessionType sessionType,
-        bool isConfigureSelfOnly = false)
+        bool isConfigureSelfOnly = false,
+        std::string sessionTypeString = "Redfish")
     {
+        // Count the number of active sessions of the specific type
+        size_t activeWebUISessions = 1;
+        size_t activeRedfishSessions = 1;
+        webSessionReached = false;
+        redfishSessionReached = false;
+
+        // Iterate through all sessions to count WebUI and Redfish sessions
+        for (const auto& session : authTokens)
+        {
+            if (session.second->AMIsessionType == "WebUI")
+            {
+                activeWebUISessions++;
+            }
+            else if (session.second->AMIsessionType == "Redfish")
+            {
+                activeRedfishSessions++;
+            }
+        }
+
+        // Check if the total session count exceeds the limit
+        if (activeWebUISessions > maxWebuiSessions &&
+            sessionTypeString == "WebUI")
+        {
+            BMCWEB_LOG_ERROR(
+                "Maximum WebUI sessions reached, cannot create new session.");
+            webSessionReached = true;
+            return nullptr;
+        }
+
+        if (activeRedfishSessions > maxRedfishSessions &&
+            sessionTypeString == "Redfish")
+        {
+            BMCWEB_LOG_ERROR(
+                "Maximum Redfish sessions reached, cannot create new session.");
+            redfishSessionReached = true;
+            return nullptr;
+        }
+
         // Only need csrf tokens for cookie based auth, token doesn't matter
         std::string sessionToken =
             bmcweb::getRandomIdOfLength(sessionTokenSize);
@@ -290,7 +331,7 @@ class SessionStore
         static int currentUserId = 1;
         int userId = currentUserId++;
 
-        std::string AMIsessionType = "WebUI";
+        std::string AMIsessionType = sessionTypeString;
 
         auto session = std::make_shared<UserSession>(UserSession{
             uniqueId,
@@ -461,6 +502,21 @@ class SessionStore
         lastTimeoutUpdate = timeNow;
     }
 
+
+    std::size_t getMaxWebuiSessions()
+    {
+        return maxWebuiSessions;
+    }
+
+    bool getRedfishSessionReached()
+    {
+        return redfishSessionReached;
+    }
+    bool getWebSessionReached()
+    {
+        return webSessionReached;
+    }
+
     static SessionStore& getInstance()
     {
         static SessionStore sessionStore;
@@ -525,6 +581,50 @@ class SessionStore
         }
     }
 
+    // Fetching Maxsession values from srvcfg.json
+    std::size_t loadMaxSession(std::string ServiceName)
+    {
+        std::string filePath = "/etc/srvcfg-manager/srvcfg.json";
+        std::ifstream file(filePath);
+        if (!file.is_open())
+        {
+            BMCWEB_LOG_ERROR("Error opening config file: {}", filePath);
+            return 0;
+        }
+
+        nlohmann::json config;
+
+        file >> config;
+
+        // Now, find the service and retrieve the max_session_limit
+        try
+        {
+            for (const auto& service : config["services"])
+            {
+                if (service["name"] == ServiceName)
+                {
+                    std::size_t value = service["max_session_limit"];
+                    return value;
+                }
+                else if (ServiceName == "redfish" && service["name"] == "bmcweb")
+                {
+                    std::size_t value = service["redfish_max_session_limit"];
+                    return value;
+                }
+                else if (ServiceName == "web" && service["name"] == "bmcweb")
+                {
+                    std::size_t value = service["web_max_session_limit"];
+                    return value;
+                }
+            }
+        }
+        catch (const nlohmann::json::exception& e)
+        {
+            BMCWEB_LOG_ERROR("Error accessing JSON: {}", e.what());
+        }
+        return 0;
+    }
+
     SessionStore(const SessionStore&) = delete;
     SessionStore& operator=(const SessionStore&) = delete;
     SessionStore(SessionStore&&) = delete;
@@ -532,13 +632,16 @@ class SessionStore
     ~SessionStore() = default;
 
     std::unordered_map<std::string, std::shared_ptr<UserSession>,
-                       std::hash<std::string>,
-                       crow::utility::ConstantTimeCompare>
+                        std::hash<std::string>, bmcweb::ConstantTimeCompare>
         authTokens;
 
     std::chrono::time_point<std::chrono::steady_clock> lastTimeoutUpdate;
     bool needWrite{false};
     std::chrono::seconds timeoutInSeconds;
+    std::size_t maxRedfishSessions = loadMaxSession("redfish");
+    std::size_t maxWebuiSessions = loadMaxSession("web");
+    bool redfishSessionReached = false;
+    bool webSessionReached = false;
     AuthConfigMethods authMethodsConfig;
 
   private:

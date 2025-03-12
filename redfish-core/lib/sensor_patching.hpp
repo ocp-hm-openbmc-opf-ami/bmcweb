@@ -29,9 +29,9 @@ inline void
               std::unordered_map<std::string, std::pair<double, std::string>>&
                   overrideMap)
 {
-    auto getChassisSensorListCb =
-        [sensorAsyncResp, overrideMap](
-            const std::shared_ptr<std::set<std::string>>& sensorsList) {
+    auto getChassisSensorListCb = [sensorAsyncResp, overrideMap](
+                                      const std::shared_ptr<
+                                          std::set<std::string>>& sensorsList) {
         // Match sensor names in the PATCH request to those managed by the
         // chassis node
         const std::shared_ptr<std::set<std::string>> sensorNames =
@@ -49,23 +49,25 @@ inline void
             }
         }
         // Get the connection to which the memberId belongs
-        auto getObjectsWithConnectionCb =
-            [sensorAsyncResp,
-             overrideMap](const std::set<std::string>& /*connections*/,
-                          const std::set<std::pair<std::string, std::string>>&
-                              objectsWithConnection) {
+        auto getObjectsWithConnectionCb = [sensorAsyncResp, overrideMap](
+                                              const std::set<
+                                                  std::string>& /*connections*/,
+                                              const std::set<std::pair<
+                                                  std::string, std::string>>&
+                                                  objectsWithConnection) {
             if (objectsWithConnection.size() != overrideMap.size())
             {
                 BMCWEB_LOG_INFO(
                     "Unable to find all objects with proper connection {} requested {}",
                     objectsWithConnection.size(), overrideMap.size());
-                messages::resourceNotFound(sensorAsyncResp->asyncResp->res,
-                                           sensorAsyncResp->chassisSubNode ==
-                                                    sensor_utils::chassisSubNodeToString(
-                        sensor_utils::ChassisSubNode::thermalNode)
-                                               ? "Temperatures"
-                                               : "Voltages",
-                                           "Count");
+                messages::resourceNotFound(
+                    sensorAsyncResp->asyncResp->res,
+                    sensorAsyncResp->chassisSubNode ==
+                            sensor_utils::chassisSubNodeToString(
+                                sensor_utils::ChassisSubNode::thermalNode)
+                        ? "Temperatures"
+                        : "Voltages",
+                    "Count");
                 return;
             }
             for (const auto& item : objectsWithConnection)
@@ -88,15 +90,16 @@ inline void
                 }
                 crow::connections::systemBus->async_method_call(
                     [sensorAsyncResp](const boost::system::error_code ec) {
-                    if (ec)
-                    {
-                        BMCWEB_LOG_DEBUG(
-                            "setOverrideValueStatus DBUS error: {}", ec);
-                        messages::internalError(
-                            sensorAsyncResp->asyncResp->res);
-                        return;
-                    }
-                }, item.second, item.first, "org.freedesktop.DBus.Properties",
+                        if (ec)
+                        {
+                            BMCWEB_LOG_DEBUG(
+                                "setOverrideValueStatus DBUS error: {}", ec);
+                            messages::internalError(
+                                sensorAsyncResp->asyncResp->res);
+                            return;
+                        }
+                    },
+                    item.second, item.first, "org.freedesktop.DBus.Properties",
                     "Set", "xyz.openbmc_project.Sensor.Value", "Value",
                     std::variant<double>(iterator->second.first));
             }
@@ -119,27 +122,31 @@ inline void requestRoutesSensorPatching(App& app)
             [](const crow::Request& req,
                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                const std::string& chassisName, const std::string&) {
-        std::unordered_map<std::string, std::pair<double, std::string>>
-            overrideMap;
-        std::string memberId;
-        double value = 0;
+                std::unordered_map<std::string, std::pair<double, std::string>>
+                    overrideMap;
+                std::string memberId;
+                double value = 0;
 
-        auto sensorsAsyncResp = std::make_shared<SensorsAsyncResp>(
-            asyncResp, chassisName, sensors::dbus::sensorPaths,
-             sensors::sensorsNodeStr);
+                auto sensorsAsyncResp = std::make_shared<SensorsAsyncResp>(
+                    asyncResp, chassisName, sensors::dbus::sensorPaths,
+                    sensors::sensorsNodeStr);
 
-        if (!json_util::readJsonPatch(req, sensorsAsyncResp->asyncResp->res,
-                                      "Id", memberId, "Reading", value))
-        {
-            return;
-        }
+                if (!json_util::readJsonPatch( //
+                        req, sensorsAsyncResp->asyncResp->res, //
+                        "Id", memberId, //
+                        "Reading", value //
+                        ))
+                {
+                    return;
+                }
 
-        std::pair<std::string, std::string> nameType =
-            redfish::sensor_utils::splitSensorNameAndType(memberId);
-        overrideMap.emplace(nameType.second, std::make_pair(value, "Reading"));
+                std::pair<std::string, std::string> nameType =
+                    redfish::sensor_utils::splitSensorNameAndType(memberId);
+                overrideMap.emplace(nameType.second,
+                                    std::make_pair(value, "Reading"));
 
-        setSensor(sensorsAsyncResp, overrideMap);
-    });
+                setSensor(sensorsAsyncResp, overrideMap);
+            });
 }
 
 } // namespace redfish

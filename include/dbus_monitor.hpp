@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 #include "app.hpp"
 #include "async_resp.hpp"
@@ -127,15 +129,15 @@ inline void requestRoutes(App& app)
     BMCWEB_ROUTE(app, "/subscribe")
         .websocket()
         .privileges(redfish::privileges::privilegeSetLogin)
-        .onopen([&](crow::websocket::Connection& conn) {
+        .onopen([](crow::websocket::Connection& conn) {
         BMCWEB_LOG_DEBUG("Connection {} opened", logPtr(&conn));
         sessions.try_emplace(&conn);
     })
-        .onclose([&](crow::websocket::Connection& conn, const std::string&) {
+        .onclose([](crow::websocket::Connection& conn, const std::string&) {
         sessions.erase(&conn);
     })
-        .onmessage([&](crow::websocket::Connection& conn,
-                       const std::string& data, bool) {
+        .onmessage([](crow::websocket::Connection& conn,
+                      const std::string& data, bool) {
         const auto sessionPair = sessions.find(&conn);
         if (sessionPair == sessions.end())
         {

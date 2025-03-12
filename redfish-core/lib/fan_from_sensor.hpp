@@ -47,49 +47,51 @@ inline void doFanCollection(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             [chassisId, asyncResp](
                 const boost::system::error_code& ec,
                 const dbus::utility::MapperGetSubTreePathsResponse& objects) {
-            if (ec == boost::system::errc::io_error)
-            {
-                asyncResp->res.jsonValue["Members"] = nlohmann::json::array();
-                asyncResp->res.jsonValue["Members@odata.count"] = 0;
-                return;
-            }
-
-            if (ec)
-            {
-                BMCWEB_LOG_DEBUG("DBUS response error {}", ec.value());
-                messages::internalError(asyncResp->res);
-                return;
-            }
-
-            std::vector<std::string> pathNames;
-
-            for (const auto& object : objects)
-            {
-                sdbusplus::message::object_path path(object);
-                std::string leaf = path.filename();
-                if (leaf.empty())
+                if (ec == boost::system::errc::io_error)
                 {
-                    continue;
+                    asyncResp->res.jsonValue["Members"] =
+                        nlohmann::json::array();
+                    asyncResp->res.jsonValue["Members@odata.count"] = 0;
+                    return;
                 }
-                pathNames.push_back(leaf);
-            }
-            std::sort(pathNames.begin(), pathNames.end(),
-                      AlphanumLess<std::string>());
 
-            for (const std::string& leaf : pathNames)
-            {
-                boost::urls::url url = boost::urls::format(
-                    "/redfish/v1/Chassis/{}/ThermalSubsystem/Fans", chassisId);
-                ;
-                crow::utility::appendUrlPieces(url, leaf);
-                nlohmann::json::object_t member;
-                member["@odata.id"] = std::move(url);
-                asyncResp->res.jsonValue["Members"].push_back(
-                    std::move(member));
-            }
-            asyncResp->res.jsonValue["Members@odata.count"] =
-                asyncResp->res.jsonValue["Members"].size();
-        });
+                if (ec)
+                {
+                    BMCWEB_LOG_DEBUG("DBUS response error {}", ec.value());
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+
+                std::vector<std::string> pathNames;
+
+                for (const auto& object : objects)
+                {
+                    sdbusplus::message::object_path path(object);
+                    std::string leaf = path.filename();
+                    if (leaf.empty())
+                    {
+                        continue;
+                    }
+                    pathNames.push_back(leaf);
+                }
+                std::sort(pathNames.begin(), pathNames.end(),
+                          AlphanumLess<std::string>());
+
+                for (const std::string& leaf : pathNames)
+                {
+                    boost::urls::url url = boost::urls::format(
+                        "/redfish/v1/Chassis/{}/ThermalSubsystem/Fans",
+                        chassisId);
+                    ;
+                    crow::utility::appendUrlPieces(url, leaf);
+                    nlohmann::json::object_t member;
+                    member["@odata.id"] = std::move(url);
+                    asyncResp->res.jsonValue["Members"].push_back(
+                        std::move(member));
+                }
+                asyncResp->res.jsonValue["Members@odata.count"] =
+                    asyncResp->res.jsonValue["Members"].size();
+            });
     }
 }
 
@@ -108,30 +110,30 @@ inline void getValidfanId(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         [callback{std::forward<Callback>(callback)}, asyncResp, chassisId,
          fanId](const boost::system::error_code ec,
                 const dbus::utility::MapperGetSubTreeResponse& subtree) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("respHandler DBUS error: {}", ec.message());
-            messages::internalError(asyncResp->res);
-            return;
-        }
-
-        bool resourceFound = false;
-        for (const auto& [fanPath, serviceMap] : subtree)
-        {
-            for (const auto& [service, interfaces] : serviceMap)
+            if (ec)
             {
-                if (checkFanId(fanPath, fanId))
+                BMCWEB_LOG_ERROR("respHandler DBUS error: {}", ec.message());
+                messages::internalError(asyncResp->res);
+                return;
+            }
+
+            bool resourceFound = false;
+            for (const auto& [fanPath, serviceMap] : subtree)
+            {
+                for (const auto& [service, interfaces] : serviceMap)
                 {
-                    resourceFound = true;
-                    callback(service, fanPath, interfaces);
+                    if (checkFanId(fanPath, fanId))
+                    {
+                        resourceFound = true;
+                        callback(service, fanPath, interfaces);
+                    }
                 }
             }
-        }
-        if (!resourceFound)
-        {
-            messages::resourceNotFound(asyncResp->res, "fan", fanId);
-        }
-    };
+            if (!resourceFound)
+            {
+                messages::resourceNotFound(asyncResp->res, "fan", fanId);
+            }
+        };
 
     crow::connections::systemBus->async_method_call(
         respHandler, "xyz.openbmc_project.ObjectMapper",
@@ -149,28 +151,29 @@ inline void getFanValue(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code ec,
                     const dbus::utility::DBusPropertiesMap& propertiesList) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("Can't get Fan value!");
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        for (const auto& property : propertiesList)
-        {
-            const std::string& propertyName = property.first;
-            if (propertyName == "Value")
+            if (ec)
             {
-                const double* value = std::get_if<double>(&property.second);
-                if (value == nullptr)
-                {
-                    std::cerr << "nullptr  " << std::endl;
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                asyncResp->res.jsonValue["SpeedPercent"]["Reading"] = *value;
+                BMCWEB_LOG_ERROR("Can't get Fan value!");
+                messages::internalError(asyncResp->res);
+                return;
             }
-        }
-    },
+            for (const auto& property : propertiesList)
+            {
+                const std::string& propertyName = property.first;
+                if (propertyName == "Value")
+                {
+                    const double* value = std::get_if<double>(&property.second);
+                    if (value == nullptr)
+                    {
+                        std::cerr << "nullptr  " << std::endl;
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    asyncResp->res.jsonValue["SpeedPercent"]["Reading"] =
+                        *value;
+                }
+            }
+        },
         service, path, "org.freedesktop.DBus.Properties", "GetAll", intf);
 }
 
@@ -178,38 +181,38 @@ inline void getFanState(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         const std::string& service, const std::string& path,
                         const std::string& intf)
 {
-    sdbusplus::asio::getProperty<bool>(
-        *crow::connections::systemBus, service, path, intf, "Available",
+    dbus::utility::getProperty<bool>(
+        service, path, intf, "Available",
         [asyncResp](const boost::system::error_code ec, const bool value) {
-        if (ec)
-        {
-            BMCWEB_LOG_DEBUG("DBUS response error {}", ec.message());
-            messages::internalError(asyncResp->res);
-            return;
-        }
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG("DBUS response error {}", ec.message());
+                messages::internalError(asyncResp->res);
+                return;
+            }
 
-        asyncResp->res.jsonValue["Status"]["State"] = value ? "Enabled"
-                                                            : "Absent";
-    });
+            asyncResp->res.jsonValue["Status"]["State"] =
+                value ? "Enabled" : "Absent";
+        });
 }
 
 inline void getFanHealth(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                          const std::string& service, const std::string& path,
                          const std::string& intf)
 {
-    sdbusplus::asio::getProperty<bool>(
-        *crow::connections::systemBus, service, path, intf, "Functional",
+    dbus::utility::getProperty<bool>(
+        service, path, intf, "Functional",
         [asyncResp](const boost::system::error_code ec, const bool value) {
-        if (ec)
-        {
-            BMCWEB_LOG_DEBUG("DBUS response error {}", ec.message());
-            messages::internalError(asyncResp->res);
-            return;
-        }
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG("DBUS response error {}", ec.message());
+                messages::internalError(asyncResp->res);
+                return;
+            }
 
-        asyncResp->res.jsonValue["Status"]["Health"] = value ? "OK"
-                                                             : "Critical";
-    });
+            asyncResp->res.jsonValue["Status"]["Health"] =
+                value ? "OK" : "Critical";
+        });
 }
 
 inline void doFanGet(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 #include <nlohmann/json.hpp>
 
@@ -9,6 +11,8 @@ enum class ComponentIntegrityType{
     Invalid,
     SPDM,
     TPM,
+    TCM,
+    TPCM,
     OEM,
 };
 
@@ -51,6 +55,8 @@ NLOHMANN_JSON_SERIALIZE_ENUM(ComponentIntegrityType, {
     {ComponentIntegrityType::Invalid, "Invalid"},
     {ComponentIntegrityType::SPDM, "SPDM"},
     {ComponentIntegrityType::TPM, "TPM"},
+    {ComponentIntegrityType::TCM, "TCM"},
+    {ComponentIntegrityType::TPCM, "TPCM"},
     {ComponentIntegrityType::OEM, "OEM"},
 });
 

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 /****************************************************************
  *                 READ THIS WARNING FIRST
@@ -251,7 +253,8 @@ const static auto& deleteCableCollection = privilegeSetConfigureComponents;
 const static auto& postCableCollection = privilegeSetConfigureComponents;
 
 // Certificate
-const static auto& getCertificate = privilegeSetConfigureManager;
+//const static auto& getCertificate = privilegeSetConfigureManager;
+const static auto& getCertificate = privilegeSetLogin; 
 const static auto& headCertificate = privilegeSetConfigureManager;
 const static auto& patchCertificate = privilegeSetConfigureManager;
 const static auto& putCertificate = privilegeSetConfigureManager;
@@ -1907,7 +1910,7 @@ const static auto& postTrustedComponentCollection = privilegeSetConfigureManager
 const static auto& getUpdateService = privilegeSetLogin;
 const static auto& headUpdateService = privilegeSetLogin;
 const static auto& patchUpdateService = privilegeSetConfigureComponents;
-const static auto& postUpdateService = privilegeSetConfigureComponents;
+const static auto& postUpdateService = privilegeSetConfigureManager;
 const static auto& putUpdateService = privilegeSetConfigureComponents;
 const static auto& deleteUpdateService = privilegeSetConfigureComponents;
 
@@ -1969,7 +1972,7 @@ const static auto& headVirtualMedia = privilegeSetLogin;
 const static auto& patchVirtualMedia = privilegeSetLoginConfigureManager; // Added to Vmedia for OEM Extended 
 const static auto& putVirtualMedia = privilegeSetLoginConfigureManager;
 const static auto& deleteVirtualMedia = privilegeSetLoginConfigureManager;
-const static auto& postVirtualMedia = privilegeSetLoginConfigureManager;
+const static auto& postVirtualMedia = privilegeSetConfigureManager;
 
 // VirtualMediaCollection
 const static auto& getVirtualMediaCollection = privilegeSetLogin;

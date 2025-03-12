@@ -21,12 +21,13 @@ namespace redfish::registries::nm
 const Header header = {
     "Copyright 2021 Intel. All rights reserved.",
     "#MessageRegistry.v1_4_0.MessageRegistry",
-    "NodeManager.0.1.0",
+    0,
+    1,
+    0,
     "NodeManager Message Registry",
     "en",
     "This registry defines the NodeManager messages for OpenBMC.",
     "NodeManager",
-    "0.1.0",
     "Intel",
 };
 constexpr std::array<MessageEntry, 9> registry = {

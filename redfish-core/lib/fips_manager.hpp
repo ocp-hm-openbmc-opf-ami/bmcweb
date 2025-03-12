@@ -38,20 +38,21 @@ inline void getFipsStatus(std::shared_ptr<bmcweb::AsyncResp> aResp)
     crow::connections::systemBus->async_method_call(
         [aResp](const boost::system::error_code& ec,
                 const std::variant<bool>& enabledStatus) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("DBUS response error for Fips Status");
-            messages::internalError(aResp->res);
-            return;
-        }
-        const bool* value = std::get_if<bool>(&enabledStatus);
-        if (value == nullptr)
-        {
-            BMCWEB_LOG_DEBUG("Null value returned for Version");
-            messages::internalError(aResp->res);
-            return;
-        }
-        aResp->res.jsonValue["Oem"]["Intel"]["FIPSStatus"]["Enabled"] = *value;
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("DBUS response error for Fips Status");
+                messages::internalError(aResp->res);
+                return;
+            }
+            const bool* value = std::get_if<bool>(&enabledStatus);
+            if (value == nullptr)
+            {
+                BMCWEB_LOG_DEBUG("Null value returned for Version");
+                messages::internalError(aResp->res);
+                return;
+            }
+            aResp->res.jsonValue["Oem"]["Intel"]["FIPSStatus"]["Enabled"] =
+                *value;
         },
         "xyz.openbmc_project.SecurityManager", "/com/intel/fips",
         "org.freedesktop.DBus.Properties", "Get", "com.intel.fips.status",
@@ -63,20 +64,21 @@ inline void getFipsVersion(std::shared_ptr<bmcweb::AsyncResp> aResp)
     crow::connections::systemBus->async_method_call(
         [aResp](const boost::system::error_code ec,
                 const std::variant<std::string>& version) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("DBUS response error for Fips Status");
-            messages::internalError(aResp->res);
-            return;
-        }
-        const std::string* value = std::get_if<std::string>(&version);
-        if (value == nullptr)
-        {
-            BMCWEB_LOG_DEBUG("Null value returned for Version");
-            messages::internalError(aResp->res);
-            return;
-        }
-        aResp->res.jsonValue["Oem"]["Intel"]["FIPSStatus"]["Version"] = *value;
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("DBUS response error for Fips Status");
+                messages::internalError(aResp->res);
+                return;
+            }
+            const std::string* value = std::get_if<std::string>(&version);
+            if (value == nullptr)
+            {
+                BMCWEB_LOG_DEBUG("Null value returned for Version");
+                messages::internalError(aResp->res);
+                return;
+            }
+            aResp->res.jsonValue["Oem"]["Intel"]["FIPSStatus"]["Version"] =
+                *value;
         },
         "xyz.openbmc_project.SecurityManager", "/com/intel/fips",
         "org.freedesktop.DBus.Properties", "Get", "com.intel.fips.status",
@@ -89,28 +91,29 @@ inline void getAvailableProviders(std::shared_ptr<bmcweb::AsyncResp> aResp)
         [aResp](
             const boost::system::error_code& ec,
             const std::variant<std::vector<std::string>>& availableProviders) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("DBUS response error for Fips Status");
-            messages::internalError(aResp->res);
-            return;
-        }
-        const std::vector<std::string>* value =
-            std::get_if<std::vector<std::string>>(&availableProviders);
-        if (value == nullptr)
-        {
-            BMCWEB_LOG_DEBUG("Null value returned for Version");
-            messages::internalError(aResp->res);
-            return;
-        }
-        nlohmann::json::array_t availableProvidersList =
-            nlohmann::json::array();
-        for (std::string val : *value)
-        {
-            availableProvidersList.emplace_back(val);
-        }
-        aResp->res.jsonValue["Oem"]["Intel"]["FIPSStatus"]
-                            ["AvailableProviders"] = availableProvidersList;
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("DBUS response error for Fips Status");
+                messages::internalError(aResp->res);
+                return;
+            }
+            const std::vector<std::string>* value =
+                std::get_if<std::vector<std::string>>(&availableProviders);
+            if (value == nullptr)
+            {
+                BMCWEB_LOG_DEBUG("Null value returned for Version");
+                messages::internalError(aResp->res);
+                return;
+            }
+            nlohmann::json::array_t availableProvidersList =
+                nlohmann::json::array();
+            for (std::string val : *value)
+            {
+                availableProvidersList.emplace_back(val);
+            }
+            aResp->res
+                .jsonValue["Oem"]["Intel"]["FIPSStatus"]["AvailableProviders"] =
+                availableProvidersList;
         },
         "xyz.openbmc_project.SecurityManager", "/com/intel/fips",
         "org.freedesktop.DBus.Properties", "Get", "com.intel.fips.providers",
@@ -138,7 +141,8 @@ inline void
     asyncResp->res.jsonValue["Id"] = "SecurityPolicy";
     asyncResp->res.jsonValue["Name"] = "Security Policy";
     asyncResp->res.jsonValue["Description"] = "Security Policy";
-    asyncResp->res.jsonValue["Oem"]["Intel"]["@odata.type"] = "#OemSecurityPolicy.Intel";
+    asyncResp->res.jsonValue["Oem"]["Intel"]["@odata.type"] =
+        "#OemSecurityPolicy.Intel";
     getFipsStatus(asyncResp);
     getFipsVersion(asyncResp);
     getAvailableProviders(asyncResp);
@@ -149,31 +153,31 @@ inline void
                           const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     auto fipsmodeChangeCb =
-        [asyncResp, enabledStatus](const boost::system::error_code ec,
-                                   bool success) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("DBUS response error for Fips Patch Support");
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        if (!success)
-        {
-            BMCWEB_LOG_ERROR("DBUS response error for Fips Patch Support");
-            messages::unrecognizedRequestBody(asyncResp->res);
-            return;
-        }
-	asyncResp->res.result(boost::beast::http::status::accepted);
-	asyncResp->res.jsonValue["@odata.id"] =
-            "/redfish/v1/Managers/bmc/SecurityPolicy";
-        asyncResp->res.jsonValue["@odata.type"] = "#SecurityPolicy."
-                                                  "v1_0_0.SecurityPolicy";
-        asyncResp->res.jsonValue["Actions"]["#Manager.Reset"]["target"] =
-            "/redfish/v1/Managers/bmc/Actions/Manager.Reset";
-        asyncResp->res.jsonValue["Id"] = "SecurityPolicy";
-        asyncResp->res.jsonValue["Name"] = "Security Policy";
-        asyncResp->res.jsonValue["Description"] = "Security Policy";
-    };
+        [asyncResp,
+         enabledStatus](const boost::system::error_code ec, bool success) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("DBUS response error for Fips Patch Support");
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            if (!success)
+            {
+                BMCWEB_LOG_ERROR("DBUS response error for Fips Patch Support");
+                messages::unrecognizedRequestBody(asyncResp->res);
+                return;
+            }
+            asyncResp->res.result(boost::beast::http::status::accepted);
+            asyncResp->res.jsonValue["@odata.id"] =
+                "/redfish/v1/Managers/bmc/SecurityPolicy";
+            asyncResp->res.jsonValue["@odata.type"] = "#SecurityPolicy."
+                                                      "v1_0_0.SecurityPolicy";
+            asyncResp->res.jsonValue["Actions"]["#Manager.Reset"]["target"] =
+                "/redfish/v1/Managers/bmc/Actions/Manager.Reset";
+            asyncResp->res.jsonValue["Id"] = "SecurityPolicy";
+            asyncResp->res.jsonValue["Name"] = "Security Policy";
+            asyncResp->res.jsonValue["Description"] = "Security Policy";
+        };
     if (!enabledStatus)
     {
         crow::connections::systemBus->async_method_call(
@@ -197,7 +201,10 @@ inline void handleSecurityPolicyPatch(
         return;
     }
     std::optional<nlohmann::json> oemObject;
-    if (!json_util::readJsonPatch(req, asyncResp->res, "Oem", oemObject))
+    if (!json_util::readJsonPatch( //
+            req, asyncResp->res, //
+            "Oem", oemObject //
+            ))
     {
         messages::unrecognizedRequestBody(asyncResp->res);
         BMCWEB_LOG_ERROR("Cannot read values from FIPSPolicy tag");
@@ -210,8 +217,10 @@ inline void handleSecurityPolicyPatch(
         return;
     }
     std::optional<nlohmann::json> oemIntelObject;
-    if (!json_util::readJson(*oemObject, asyncResp->res, "Intel",
-                             oemIntelObject))
+    if (!json_util::readJson( //
+            *oemObject, asyncResp->res, //
+            "Intel", oemIntelObject //
+            ))
     {
         messages::unrecognizedRequestBody(asyncResp->res);
         BMCWEB_LOG_ERROR("Cannot read values from FIPSPolicy tag");
@@ -224,8 +233,10 @@ inline void handleSecurityPolicyPatch(
         BMCWEB_LOG_ERROR("Cannot read values from FIPSPolicy tag");
         return;
     }
-    if (!json_util::readJson(*oemIntelObject, asyncResp->res, "FIPSPolicy",
-                             fipsPolicyObject))
+    if (!json_util::readJson( //
+            *oemIntelObject, asyncResp->res, //
+            "FIPSPolicy", fipsPolicyObject //
+            ))
     {
         messages::unrecognizedRequestBody(asyncResp->res);
         BMCWEB_LOG_ERROR("Cannot read values from FIPSPolicy tag");
@@ -239,8 +250,11 @@ inline void handleSecurityPolicyPatch(
     }
     std::optional<std::string> fipsVersion;
     std::optional<bool> enabledStatus;
-    if (!json_util::readJson(*fipsPolicyObject, asyncResp->res, "Version",
-                             fipsVersion, "Enabled", enabledStatus))
+    if (!json_util::readJson( //
+            *fipsPolicyObject, asyncResp->res, //
+            "Version", fipsVersion, //
+            "Enabled", enabledStatus //
+            ))
     {
         messages::unrecognizedRequestBody(asyncResp->res);
         BMCWEB_LOG_ERROR("Cannot read values from FIPSPolicy tag");

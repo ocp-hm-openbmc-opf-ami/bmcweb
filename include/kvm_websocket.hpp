@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 #include "app.hpp"
 #include "async_resp.hpp"
@@ -14,6 +16,7 @@ namespace obmc_kvm
 {
 
 static constexpr const uint maxSessions = 2;
+std::vector<std::string> csrfTokenlist;
 using PropertyValue = std::variant<uint8_t, uint16_t, std::string,
                                    std::vector<std::string>, bool>;
 
@@ -350,6 +353,22 @@ inline void requestRoutes(App& app)
 
         sessions[&conn] = std::make_shared<KvmSession>(conn);
         conn.session->kvmConnections++;
+        
+	if (conn.session->cookieAuth == 1)
+            {
+                auto it = std::find(csrfTokenlist.begin(), csrfTokenlist.end(),
+                                    conn.session->csrfToken);
+                if (it != csrfTokenlist.end())
+                {
+                    csrfTokenlist.push_back(conn.session->csrfToken);
+                    conn.close("Already a session is running in this browser");
+                    return;
+                }
+                else
+                {
+                    csrfTokenlist.push_back(conn.session->csrfToken);
+                }
+            }
 
         if (getActiveKVMSessionsFromDBus() >= maxSessions)
         {
@@ -359,6 +378,16 @@ inline void requestRoutes(App& app)
 
     })
         .onclose([](crow::websocket::Connection& conn, const std::string&) {
+	if (conn.session->cookieAuth == 1)
+            {
+                auto it =
+                    std::find(csrfTokenlist.rbegin(), csrfTokenlist.rend(),
+                              conn.session->csrfToken);
+                if (it != csrfTokenlist.rend())
+                {
+                    csrfTokenlist.erase(std::next(it).base());
+                }
+            }
         sessions.erase(&conn);
         conn.session->kvmConnections--;
     })

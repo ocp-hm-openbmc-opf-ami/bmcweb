@@ -24,12 +24,12 @@ inline void getLicenseKey(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code ec,
                     const std::string licenseKey) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("Get License Key DBUS response error: {}", ec);
-            return;
-        }
-        asyncResp->res.jsonValue["LicenseKey"] = licenseKey;
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("Get License Key DBUS response error: {}", ec);
+                return;
+            }
+            asyncResp->res.jsonValue["LicenseKey"] = licenseKey;
         },
         "xyz.openbmc_project.License", "/xyz/openbmc_project/License",
         "xyz.openbmc_project.License.LicenseControl", "GetLicenseKey");
@@ -41,14 +41,14 @@ inline void getGlobalLicenseValidity(
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code ec,
                     const int64_t globalLicenseValidity) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR(
-                "Get GlobalLicense Validity DBUS response error: {}", ec);
-            return;
-        }
-        asyncResp->res.jsonValue["GlobalLicenseValidity"] =
-            globalLicenseValidity;
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR(
+                    "Get GlobalLicense Validity DBUS response error: {}", ec);
+                return;
+            }
+            asyncResp->res.jsonValue["GlobalLicenseValidity"] =
+                globalLicenseValidity;
         },
         "xyz.openbmc_project.License", "/xyz/openbmc_project/License",
         "xyz.openbmc_project.License.LicenseControl", "GlobalLicenseValidity");
@@ -60,14 +60,14 @@ inline void
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code ec,
                     const int64_t servicesUpCountDays) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR(
-                "Get Services UpCount Days DBUS response error: {}", ec);
-            return;
-        }
-        asyncResp->res.jsonValue["ServicesUpCountDays"] =
-            servicesUpCountDays;
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR(
+                    "Get Services UpCount Days DBUS response error: {}", ec);
+                return;
+            }
+            asyncResp->res.jsonValue["ServicesUpCountDays"] =
+                servicesUpCountDays;
         },
         "xyz.openbmc_project.License", "/xyz/openbmc_project/License",
         "xyz.openbmc_project.License.LicenseControl", "ServicesUpCountDays");
@@ -75,43 +75,41 @@ inline void
 
 inline void getAlertMessage(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    sdbusplus::asio::getProperty<std::string>(
-        *crow::connections::systemBus, "xyz.openbmc_project.License",
-        "/xyz/openbmc_project/License",
+    dbus::utility::getProperty<std::string>(
+        "xyz.openbmc_project.License", "/xyz/openbmc_project/License",
         "xyz.openbmc_project.License.LicenseControl", "AlertMessage",
         [asyncResp](const boost::system::error_code& ec,
                     const std::string alertMessage) {
-        if (ec)
-        {
-            BMCWEB_LOG_DEBUG("Alert message DBUS response error {}", ec);
-            return;
-        }
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG("Alert message DBUS response error {}", ec);
+                return;
+            }
 
-        BMCWEB_LOG_DEBUG("Alert Message: {}", alertMessage);
+            BMCWEB_LOG_DEBUG("Alert Message: {}", alertMessage);
 
-        asyncResp->res.jsonValue["AlertMessage"] = alertMessage;
+            asyncResp->res.jsonValue["AlertMessage"] = alertMessage;
         });
 }
 
 inline void
     getUserAlertCount(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    sdbusplus::asio::getProperty<uint32_t>(
-        *crow::connections::systemBus, "xyz.openbmc_project.License",
+    dbus::utility::getProperty<uint32_t>(
+        "xyz.openbmc_project.License",
         "/xyz/openbmc_project/License",
         "xyz.openbmc_project.License.LicenseControl", "UserAlertCount",
         [asyncResp](const boost::system::error_code& ec,
                     const uint32_t userAlertCount) {
-        if (ec)
-        {
-            BMCWEB_LOG_DEBUG("User Alert Count DBUS response error {}", ec);
-            return;
-        }
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG("User Alert Count DBUS response error {}", ec);
+                return;
+            }
 
-        BMCWEB_LOG_DEBUG("User Alert Count {}", userAlertCount);
+            BMCWEB_LOG_DEBUG("User Alert Count {}", userAlertCount);
 
-        asyncResp->res.jsonValue["UserAlertCount"] =
-            userAlertCount;
+            asyncResp->res.jsonValue["UserAlertCount"] = userAlertCount;
         });
 }
 
@@ -147,29 +145,31 @@ inline void
         "/xyz/openbmc_project/License",
         "xyz.openbmc_project.License.LicenseControl", "UserAlertCount",
         userAlertCount,
-        [asyncResp, userAlertCount](const boost::system::error_code& ec, sdbusplus::message_t& msg) {
-        if (ec)
-        {
-            const sd_bus_error* dbusError = msg.get_error();
-            if ((dbusError != nullptr) &&
-                (dbusError->name ==
-                 std::string_view(
-                     "xyz.openbmc_project.Common.Error.InvalidArgument")))
+        [asyncResp, userAlertCount](const boost::system::error_code& ec,
+                                    sdbusplus::message_t& msg) {
+            if (ec)
             {
-                std::string_view userAlertCountview = std::to_string(userAlertCount);
-                BMCWEB_LOG_WARNING(
-                    "Error Occurred in updating the property UserAlertCount");
-                messages::propertyValueOutOfRange(asyncResp->res, 
-                                                 userAlertCountview,
-                                                 "UserAlertCount");
-                return;
-	    }
+                const sd_bus_error* dbusError = msg.get_error();
+                if ((dbusError != nullptr) &&
+                    (dbusError->name ==
+                     std::string_view(
+                         "xyz.openbmc_project.Common.Error.InvalidArgument")))
+                {
+                    std::string_view userAlertCountview =
+                        std::to_string(userAlertCount);
+                    BMCWEB_LOG_WARNING(
+                        "Error Occurred in updating the property UserAlertCount");
+                    messages::propertyValueOutOfRange(
+                        asyncResp->res, userAlertCountview, "UserAlertCount");
+                    return;
+                }
 
-            BMCWEB_LOG_ERROR("Set UserAlertCount DBUS response error {}", ec);
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        BMCWEB_LOG_DEBUG("User Alert Count set successfully done");
+                BMCWEB_LOG_ERROR("Set UserAlertCount DBUS response error {}",
+                                 ec);
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            BMCWEB_LOG_DEBUG("User Alert Count set successfully done");
         });
 }
 
@@ -184,8 +184,10 @@ inline void handleLicenseControlPatch(
 
     std::optional<uint32_t> userAlertCount;
 
-    if (!json_util::readJsonPatch(req, asyncResp->res, "UserAlertCount",
-                                  userAlertCount))
+    if (!json_util::readJsonPatch( //
+            req, asyncResp->res, //
+            "UserAlertCount", userAlertCount //
+            ))
     {
         return;
     }
@@ -196,7 +198,8 @@ inline void handleLicenseControlPatch(
     }
 }
 
-inline void uploadLicenseKeyFile(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, std::string_view body)
+inline void uploadLicenseKeyFile(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, std::string_view body)
 {
     if (fs::exists("/tmp/license-control"))
     {
@@ -216,20 +219,19 @@ inline void uploadLicenseKeyFile(const std::shared_ptr<bmcweb::AsyncResp>& async
 
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code& ec, bool& result) {
-        if (ec)
-        {
-            messages::internalError(asyncResp->res);
-            return;
-        }
+            if (ec)
+            {
+                messages::internalError(asyncResp->res);
+                return;
+            }
 
-        if(!result)
-        {
-            std::cerr << "bef invalidFileContent " << std::endl;
-            messages::invalidFileContent(asyncResp->res, "output.key");
-            return;
-        }
-	asyncResp->res.result(boost::beast::http::status::no_content);
-
+            if (!result)
+            {
+                std::cerr << "bef invalidFileContent " << std::endl;
+                messages::invalidFileContent(asyncResp->res, "output.key");
+                return;
+            }
+            asyncResp->res.result(boost::beast::http::status::no_content);
         },
         "xyz.openbmc_project.License", "/xyz/openbmc_project/License",
         "xyz.openbmc_project.License.LicenseControl", "AddLicenseKey");
@@ -237,10 +239,13 @@ inline void uploadLicenseKeyFile(const std::shared_ptr<bmcweb::AsyncResp>& async
 
 // Function to check if a given string has the ".key" extension
 
-bool hasKeyExtension(const std::string& str) {
+bool hasKeyExtension(const std::string& str)
+{
     const std::string extension = ".key";
     if (str.size() >= extension.size() &&
-        str.compare(str.size() - extension.size(), extension.size(), extension) == 0) {
+        str.compare(str.size() - extension.size(), extension.size(),
+                    extension) == 0)
+    {
         return true;
     }
     return false;
@@ -273,9 +278,10 @@ inline void
         for (const auto& param :
              boost::beast::http::param_list{it->value().substr(index)})
         {
-            if(param.first == "filename" && !hasKeyExtension(param.second))
+            if (param.first == "filename" && !hasKeyExtension(param.second))
             {
-                messages::invalidLicenseKeyFileFormat(asyncResp->res,param.second);
+                messages::invalidLicenseKeyFileFormat(asyncResp->res,
+                                                      param.second);
                 return;
             }
 

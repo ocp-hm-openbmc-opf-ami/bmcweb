@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
 #include "dbus_utility.hpp"
@@ -532,7 +534,6 @@ inline void objectPropertiesToJson(
     std::vector<
         std::tuple<const char*, const char*, nlohmann::json::json_pointer>>
         properties;
-    properties.reserve(7);
 
     properties.emplace_back("xyz.openbmc_project.Sensor.Value", "Value", unit);
 
@@ -550,6 +551,20 @@ inline void objectPropertiesToJson(
         properties.emplace_back(
             "xyz.openbmc_project.Sensor.Threshold.Critical", "CriticalLow",
             "/Thresholds/LowerCritical/Reading"_json_pointer);
+        properties.emplace_back(
+            "xyz.openbmc_project.Sensor.Threshold.NonRecoverable",
+            "NonRecoverableHigh",
+            "/Thresholds/UpperFatal/Reading"_json_pointer);
+        properties.emplace_back(
+            "xyz.openbmc_project.Sensor.Threshold.NonRecoverable",
+            "NonRecoverableLow", "/Thresholds/LowerFatal/Reading"_json_pointer);
+
+        /* Add additional properties specific to sensorType */
+        if (sensorType == "fan_tach")
+        {
+            properties.emplace_back("xyz.openbmc_project.Sensor.Value", "Value",
+                                    "/SpeedRPM"_json_pointer);
+        }
     }
     else if (sensorType != "power")
     {
@@ -640,19 +655,25 @@ inline void objectPropertiesToJson(
             {
                 if (key == nlohmann::json::json_pointer("/Reading"))
                 {
-                      double roundedValue = std::round(*doubleValue * 100.0) / 100.0;
+                    double roundedValue =
+                        std::round(*doubleValue * 100.0) / 100.0;
                     sensorJson[key] = roundedValue;
                 }
-                else if (key == nlohmann::json::json_pointer("/Thresholds/LowerCaution/Reading") ||
-                         key == nlohmann::json::json_pointer("/Thresholds/LowerCritical/Reading") ||
-                         key == nlohmann::json::json_pointer("/Thresholds/UpperCaution/Reading") ||
-                         key == nlohmann::json::json_pointer("/Thresholds/UpperCritical/Reading"))
+                else if (key == nlohmann::json::json_pointer(
+                                    "/Thresholds/LowerCaution/Reading") ||
+                         key == nlohmann::json::json_pointer(
+                                    "/Thresholds/LowerCritical/Reading") ||
+                         key == nlohmann::json::json_pointer(
+                                    "/Thresholds/UpperCaution/Reading") ||
+                         key == nlohmann::json::json_pointer(
+                                    "/Thresholds/UpperCritical/Reading"))
                 {
-                    std::cout << "sensors :: Reading rounded " << __LINE__ << std::endl;
+                    std::cout << "sensors :: Reading rounded " << __LINE__
+                              << std::endl;
                     // Round to two decimal places for Threshold Readings
-                    double roundedValue = std::round(*doubleValue * 100.0) / 100.0;
+                    double roundedValue =
+                        std::round(*doubleValue * 100.0) / 100.0;
                     sensorJson[key] = roundedValue;
-
                 }
                 else
                 {

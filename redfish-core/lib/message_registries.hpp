@@ -1,37 +1,26 @@
-/*
-// Copyright (c) 2019 Intel Corporation
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-*/
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
+// SPDX-FileCopyrightText: Copyright 2019 Intel Corporation
 #pragma once
 
 #include "app.hpp"
 #include "query.hpp"
 #include "registries.hpp"
 #include "registries/base_message_registry.hpp"
+#include "registries/certificate_service_message_registry.hpp"
+#include "registries/heartbeat_event_message_registry.hpp"
 #include "registries/nm_message_registry.hpp"
 #include "registries/openbmc_message_registry.hpp"
+#include "registries/privilege_mapping.hpp"
 #include "registries/privilege_registry.hpp"
 #include "registries/resource_event_message_registry.hpp"
 #include "registries/task_event_message_registry.hpp"
 #include "registries/telemetry_message_registry.hpp"
-#include "registries/privilege_mapping.hpp"
-#include "registries/certificate_service_message_registry.hpp"
-
 
 #include <boost/url/format.hpp>
 
 #include <array>
+#include <format>
 
 namespace redfish
 {
@@ -55,16 +44,18 @@ inline void handleMessageRegistryFileCollectionGet(
         "Collection of MessageRegistryFiles";
 
     nlohmann::json& members = asyncResp->res.jsonValue["Members"];
-    for (const char* memberName :
-         std::to_array({"Base", "TaskEvent", "NodeManager", "ResourceEvent", "OpenBMC",
-                        "Telemetry", "PrivilegeRegistry", "CertificateService"}))
+    static constexpr const auto registryFiles = std::to_array(
+        {"Base", "TaskEvent", "NodeManager", "ResourceEvent", "OpenBMC",
+         "Telemetry", "PrivilegeRegistry", "HeartbeatEvent",
+         "CertificateService"});
+    for (const char* memberName : registryFiles)
     {
         nlohmann::json::object_t member;
-        member["@odata.id"] = boost::urls::format("/redfish/v1/Registries/{}",
-                                                  memberName);
+        member["@odata.id"] =
+            boost::urls::format("/redfish/v1/Registries/{}", memberName);
         members.emplace_back(std::move(member));
     }
-    asyncResp->res.jsonValue["Members@odata.count"] = (asyncResp->res.jsonValue["Members"]).size();
+    asyncResp->res.jsonValue["Members@odata.count"] = members.size();
 }
 
 inline void requestRoutesMessageRegistryFileCollection(App& app)
@@ -77,43 +68,52 @@ inline void requestRoutesMessageRegistryFileCollection(App& app)
         .methods(boost::beast::http::verb::get)(std::bind_front(
             handleMessageRegistryFileCollectionGet, std::ref(app)));
 }
-inline void fillPrivilegeRegistry(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const registries::Header* header
-    )
+inline void
+    fillPrivilegeRegistry(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                          const registries::Header* header)
 {
-    //asyncResp->res.jsonValue["@Redfish.Copyright"] = header->copyright;
+    // asyncResp->res.jsonValue["@Redfish.Copyright"] = header->copyright;
     asyncResp->res.jsonValue["@odata.type"] = header->type;
-    asyncResp->res.jsonValue["Id"] = header->id;
+    asyncResp->res.jsonValue["Id"] =
+        std::format("{}.{}.{}.{}", header->registryPrefix, header->versionMajor,
+                    header->versionMinor, header->versionPatch);
     asyncResp->res.jsonValue["Name"] = header->name;
-    //asyncResp->res.jsonValue["Language"] = header->language;
-    //asyncResp->res.jsonValue["Description"] = header->description;
-    //asyncResp->res.jsonValue["RegistryPrefix"] = header->registryPrefix;
-    //asyncResp->res.jsonValue["RegistryVersion"] = header->registryVersion;
-    //asyncResp->res.jsonValue["OwningEntity"] = header->owningEntity;
+    // asyncResp->res.jsonValue["Language"] = header->language;
+    // asyncResp->res.jsonValue["Description"] = header->description;
+    // asyncResp->res.jsonValue["RegistryPrefix"] = header->registryPrefix;
+    // asyncResp->res.jsonValue["RegistryVersion"] = header->registryVersion;
+    // asyncResp->res.jsonValue["OwningEntity"] = header->owningEntity;
 
     nlohmann::json& privilegeObj = asyncResp->res.jsonValue["PrivilegesUsed"];
     privilegeObj = nlohmann::json::array();
 
-    for (const char* privilegeItem : registries::PrivilegeRegistry::PrivilegesUsed) {
-        if (privilegeItem == nullptr) {
+    for (const char* privilegeItem :
+         registries::PrivilegeRegistry::PrivilegesUsed)
+    {
+        if (privilegeItem == nullptr)
+        {
             break;
         }
         privilegeObj.push_back(privilegeItem);
     }
 
-    nlohmann::json& oemPrivileges = asyncResp->res.jsonValue["OEMPrivilegesUsed"];
+    nlohmann::json& oemPrivileges =
+        asyncResp->res.jsonValue["OEMPrivilegesUsed"];
     oemPrivileges = nlohmann::json::array();
 
-    for(const char* OemprivilegeItem : registries::PrivilegeRegistry::OEMprivilegesUsed) {
-		    if (OemprivilegeItem == nullptr) {
+    for (const char* OemprivilegeItem :
+         registries::PrivilegeRegistry::OEMprivilegesUsed)
+    {
+        if (OemprivilegeItem == nullptr)
+        {
             break;
         }
         oemPrivileges.push_back(OemprivilegeItem);
-     }
+    }
 
     nlohmann::json& mappings = asyncResp->res.jsonValue["Mappings"];
-    for (const auto& entity : registries::PrivilegeRegistry::entities) {
+    for (const auto& entity : registries::PrivilegeRegistry::entities)
+    {
         std::string entityName = entity.first;
         const auto& operationMaps = entity.second;
 
@@ -121,23 +121,24 @@ inline void fillPrivilegeRegistry(
         mappingObj["Entity"] = entityName;
         mappingObj["OperationMap"] = nlohmann::json::object();
 
-
-        for (const auto& operation : operationMaps) {
+        for (const auto& operation : operationMaps)
+        {
             const std::string& method = operation.first;
             const auto& privileges = operation.second;
 
             mappingObj["OperationMap"][method] = nlohmann::json::array();
-            for (const auto& privilege : privileges) {
-                mappingObj["OperationMap"][method].push_back({
-                    {"Privilege", nlohmann::json::array({privilege})}
-                    });
+            for (const auto& privilege : privileges)
+            {
+                mappingObj["OperationMap"][method].push_back(
+                    {{"Privilege", nlohmann::json::array({privilege})}});
             }
         }
 
         mappings.push_back(mappingObj);
     }
 
-    for (const auto& entity : registries::PrivilegeRegistry::OEMentities) {
+    for (const auto& entity : registries::PrivilegeRegistry::OEMentities)
+    {
         std::string entityName = entity.first;
         const auto& operationMaps = entity.second;
 
@@ -145,16 +146,16 @@ inline void fillPrivilegeRegistry(
         oemPrivilegesObj["Entity"] = entityName;
         oemPrivilegesObj["OperationMap"] = nlohmann::json::object();
 
-        for (const auto& operation : operationMaps) {
-
+        for (const auto& operation : operationMaps)
+        {
             const std::string& method = operation.first;
             const auto& privileges = operation.second;
             oemPrivilegesObj["OperationMap"][method] = nlohmann::json::array();
 
-            for (const auto& privilege : privileges) {
-                oemPrivilegesObj["OperationMap"][method].push_back({
-                     {"Privilege", nlohmann::json::array({privilege})}
-                     });
+            for (const auto& privilege : privileges)
+            {
+                oemPrivilegesObj["OperationMap"][method].push_back(
+                    {{"Privilege", nlohmann::json::array({privilege})}});
             }
         }
 
@@ -178,7 +179,8 @@ inline void handleMessageRoutesMessageRegistryFileGet(
 
     size_t pos = registry.find('.');
     std::string registryName;
-    if (pos != std::string::npos) {
+    if (pos != std::string::npos)
+    {
         // Retrieve the substring before the first full stop
         registryName = registry.substr(0, pos);
     }
@@ -186,177 +188,232 @@ inline void handleMessageRoutesMessageRegistryFileGet(
     if (registry == "Base" || registryName == "Base")
     {
         header = &registries::base::header;
-        Val= header->id;
-        if(registry == "Base"){
-                registryVal = 0;
+        Val = std::format("{}.{}.{}.{}", header->registryPrefix,
+                          header->versionMajor, header->versionMinor,
+                          header->versionPatch);
+        if (registry == "Base")
+        {
+            registryVal = 0;
         }
         else if (registry == Val + ".json")
         {
-                for (const registries::MessageEntry& entry : registries::base::registry)
-                {
-                        registryEntries.emplace_back(&entry);
-                }
-                registryVal = 1;
+            for (const registries::MessageEntry& entry :
+                 registries::base::registry)
+            {
+                registryEntries.emplace_back(&entry);
+            }
+            registryVal = 1;
         }
         else
         {
             messages::resourceNotFound(asyncResp->res, "MessageRegistryFile",
-                                    registry);
+                                       registry);
             return;
         }
     }
     else if (registry == "TaskEvent" || registryName == "TaskEvent")
     {
         header = &registries::task_event::header;
-        Val= header->id;
-        if(registry == "TaskEvent"){
-                registryVal = 0;
+        Val =  std::format(
+            "{}.{}.{}.{}", header->registryPrefix, header->versionMajor,
+            header->versionMinor, header->versionPatch);
+        if (registry == "TaskEvent")
+        {
+            registryVal = 0;
         }
         else if (registry == Val + ".json")
         {
-                for (const registries::MessageEntry& entry : registries::task_event::registry)
-                {
-                        registryEntries.emplace_back(&entry);
-                }
-                registryVal = 1;
+            for (const registries::MessageEntry& entry :
+                 registries::task_event::registry)
+            {
+                registryEntries.emplace_back(&entry);
+            }
+            registryVal = 1;
         }
         else
         {
             messages::resourceNotFound(asyncResp->res, "MessageRegistryFile",
-                                    registry);
+                                       registry);
             return;
         }
     }
     else if (registry == "OpenBMC" || registryName == "OpenBMC")
     {
         header = &registries::openbmc::header;
-        Val= header->id;
-        if(registry == "OpenBMC"){
-                dmtf.clear();
-                registryVal = 0;
+        Val =  std::format(
+            "{}.{}.{}.{}", header->registryPrefix, header->versionMajor,
+            header->versionMinor, header->versionPatch);
+        if (registry == "OpenBMC")
+        {
+            dmtf.clear();
+            registryVal = 0;
         }
         else if (registry == Val + ".json")
         {
-                for (const registries::MessageEntry& entry : registries::openbmc::registry)
-                {
-                        registryEntries.emplace_back(&entry);
-                }
-                registryVal = 1;
+            for (const registries::MessageEntry& entry :
+                 registries::openbmc::registry)
+            {
+                registryEntries.emplace_back(&entry);
+            }
+            registryVal = 1;
         }
         else
         {
             messages::resourceNotFound(asyncResp->res, "MessageRegistryFile",
-                                    registry);
+                                       registry);
             return;
         }
     }
     else if (registry == "NodeManager" || registryName == "NodeManager")
     {
         header = &registries::nm::header;
-        Val= header->id;
-        if(registry == "NodeManager"){
-                dmtf.clear();
-                registryVal = 0;
+        Val =  std::format(
+            "{}.{}.{}.{}", header->registryPrefix, header->versionMajor,
+            header->versionMinor, header->versionPatch);
+        if (registry == "NodeManager")
+        {
+            dmtf.clear();
+            registryVal = 0;
         }
         else if (registry == Val + ".json")
         {
-                for (const registries::MessageEntry& entry : registries::nm::registry)
-                {
-                        registryEntries.emplace_back(&entry);
-                }
-                registryVal = 1;
+            for (const registries::MessageEntry& entry :
+                 registries::nm::registry)
+            {
+                registryEntries.emplace_back(&entry);
+            }
+            registryVal = 1;
         }
         else
         {
             messages::resourceNotFound(asyncResp->res, "MessageRegistryFile",
-                                    registry);
+                                       registry);
             return;
         }
     }
     else if (registry == "ResourceEvent" || registryName == "ResourceEvent")
     {
         header = &registries::resource_event::header;
-        Val= header->id;
-        if(registry == "ResourceEvent"){
-                registryVal = 0;
+        Val =  std::format(
+            "{}.{}.{}.{}", header->registryPrefix, header->versionMajor,
+            header->versionMinor, header->versionPatch);
+        if (registry == "ResourceEvent")
+        {
+            registryVal = 0;
         }
         else if (registry == Val + ".json")
         {
-                for (const registries::MessageEntry& entry : registries::resource_event::registry)
-                {
-                        registryEntries.emplace_back(&entry);
-                }
-                registryVal = 1;
+            for (const registries::MessageEntry& entry :
+                 registries::resource_event::registry)
+            {
+                registryEntries.emplace_back(&entry);
+            }
+            registryVal = 1;
         }
         else
         {
             messages::resourceNotFound(asyncResp->res, "MessageRegistryFile",
-                                    registry);
+                                       registry);
             return;
         }
     }
     else if (registry == "Telemetry" || registryName == "Telemetry")
     {
         header = &registries::telemetry::header;
-        Val= header->id;
-        if(registry == "Telemetry"){
-                registryVal = 0;
+        Val =  std::format(
+            "{}.{}.{}.{}", header->registryPrefix, header->versionMajor,
+            header->versionMinor, header->versionPatch);
+        if (registry == "Telemetry")
+        {
+            registryVal = 0;
         }
         else if (registry == Val + ".json")
         {
-                for (const registries::MessageEntry& entry : registries::telemetry::registry)
-                {
-                        registryEntries.emplace_back(&entry);
-                }
-                registryVal = 1;
+            for (const registries::MessageEntry& entry :
+                 registries::telemetry::registry)
+            {
+                registryEntries.emplace_back(&entry);
+            }
+            registryVal = 1;
         }
         else
         {
             messages::resourceNotFound(asyncResp->res, "MessageRegistryFile",
-                                    registry);
+                                       registry);
             return;
         }
     }
-    else if (registry == "PrivilegeRegistry" || registry.find("PrivilegeRegistry") != std::string::npos)
+    else if (registry == "HeartbeatEvent" || registryName == "HeartbeatEvent")
+    {
+        header = &registries::heartbeat_event::header;
+        Val =  std::format(
+            "{}.{}.{}.{}", header->registryPrefix, header->versionMajor,
+            header->versionMinor, header->versionPatch);
+        if (registry == "HeartbeatEvent")
+        {
+            registryVal = 0;
+        }
+        else if (registry == Val + ".json")
+        {
+            for (const registries::MessageEntry& entry :
+                 registries::telemetry::registry)
+            {
+                registryEntries.emplace_back(&entry);
+            }
+            registryVal = 1;
+        }
+        else
+        {
+            messages::resourceNotFound(asyncResp->res, "MessageRegistryFile",
+                                       registry);
+            return;
+        }
+    }
+    else if (registry == "PrivilegeRegistry" ||
+             registry.find("PrivilegeRegistry") != std::string::npos)
     {
         header = &registries::PrivilegeRegistry::header;
-        Val= header->id;
-        if(registry == "PrivilegeRegistry"){
-                registryVal = 0;
+        Val = "Redfish_1.5.0_PrivilegeRegistry";
+        if (registry == "PrivilegeRegistry")
+        {
+            registryVal = 0;
         }
         else if (registry == Val + ".json")
         {
-
-           fillPrivilegeRegistry(asyncResp ,header);
-           return;
-
+            fillPrivilegeRegistry(asyncResp, header);
+            return;
         }
         else
         {
             messages::resourceNotFound(asyncResp->res, "MessageRegistryFile",
-                                    registry);
+                                       registry);
             return;
         }
     }
-    else if (registry == "CertificateService" || registryName == "CertificateService")
+    else if (registry == "CertificateService" ||
+             registryName == "CertificateService")
     {
         header = &registries::certificate::header;
-        Val= header->id;
-        if(registry == "CertificateService"){
-                registryVal = 0;
+        Val =  std::format(
+            "{}.{}.{}.{}", header->registryPrefix, header->versionMajor,
+            header->versionMinor, header->versionPatch);
+        if (registry == "CertificateService")
+        {
+            registryVal = 0;
         }
         else if (registry == Val + ".json")
         {
-                for (const registries::MessageEntry& entry : registries::certificate::registry)
-                {
-                        registryEntries.emplace_back(&entry);
-                }
-                registryVal = 1;
+            for (const registries::MessageEntry& entry :
+                 registries::certificate::registry)
+            {
+                registryEntries.emplace_back(&entry);
+            }
+            registryVal = 1;
         }
         else
         {
             messages::resourceNotFound(asyncResp->res, "MessageRegistryFile",
-                                    registry);
+                                       registry);
             return;
         }
     }
@@ -373,10 +430,20 @@ inline void handleMessageRoutesMessageRegistryFileGet(
         asyncResp->res.jsonValue["@odata.type"] =
             "#MessageRegistryFile.v1_1_0.MessageRegistryFile";
         asyncResp->res.jsonValue["Name"] = registry + " Message Registry File";
-        asyncResp->res.jsonValue["Description"] = dmtf + registry +
-                                              " Message Registry File Location";
+        asyncResp->res.jsonValue["Description"] =
+            dmtf + registry + " Message Registry File Location";
         asyncResp->res.jsonValue["Id"] = header->registryPrefix;
-        asyncResp->res.jsonValue["Registry"] = header->id;
+        if(registry != "PrivilegeRegistry")
+        {
+        asyncResp->res.jsonValue["Registry"] =
+            std::format("{}.{}.{}", header->registryPrefix,
+                        header->versionMajor, header->versionMinor);    
+        }
+        else
+        {
+            asyncResp->res.jsonValue["Registry"] =
+                "Redfish_1.5.0_PrivilegeRegistry";
+        }
         nlohmann::json::array_t languages;
         languages.emplace_back(header->language);
         asyncResp->res.jsonValue["Languages@odata.count"] = languages.size();
@@ -384,22 +451,28 @@ inline void handleMessageRoutesMessageRegistryFileGet(
         nlohmann::json::array_t locationMembers;
         nlohmann::json::object_t location;
         location["Language"] = header->language;
-    location["Uri"] = "/redfish/v1/Registries/" + Val + ".json";
+        location["Uri"] = "/redfish/v1/Registries/" + Val + ".json";
 
         locationMembers.emplace_back(std::move(location));
-        asyncResp->res.jsonValue["Location@odata.count"] = locationMembers.size();
+        asyncResp->res.jsonValue["Location@odata.count"] =
+            locationMembers.size();
         asyncResp->res.jsonValue["Location"] = std::move(locationMembers);
     }
-    if(registryVal == 1){
+    if (registryVal == 1)
+    {
         std::cerr << "Enter in registryVal == 1 " << std::endl;
         asyncResp->res.jsonValue["@Redfish.Copyright"] = header->copyright;
         asyncResp->res.jsonValue["@odata.type"] = header->type;
-        asyncResp->res.jsonValue["Id"] = header->id;
+        asyncResp->res.jsonValue["Id"] = std::format(
+            "{}.{}.{}.{}", header->registryPrefix, header->versionMajor,
+            header->versionMinor, header->versionPatch);
         asyncResp->res.jsonValue["Name"] = header->name;
         asyncResp->res.jsonValue["Language"] = header->language;
         asyncResp->res.jsonValue["Description"] = header->description;
         asyncResp->res.jsonValue["RegistryPrefix"] = header->registryPrefix;
-        asyncResp->res.jsonValue["RegistryVersion"] = header->registryVersion;
+        asyncResp->res.jsonValue["RegistryVersion"] =
+            std::format("{}.{}.{}", header->versionMajor, header->versionMinor,
+                        header->versionPatch);
         asyncResp->res.jsonValue["OwningEntity"] = header->owningEntity;
 
         nlohmann::json& messageObj = asyncResp->res.jsonValue["Messages"];
@@ -420,16 +493,15 @@ inline void handleMessageRoutesMessageRegistryFileGet(
                 messageParamArray = nlohmann::json::array();
                 for (const char* str : message->second.paramTypes)
                 {
-                   if (str == nullptr)
-                   {
-                       break;
-                   }
-                   messageParamArray.push_back(str);
+                    if (str == nullptr)
+                    {
+                        break;
+                    }
+                    messageParamArray.push_back(str);
                 }
-             }
-         }
+            }
+        }
     }
-
 }
 
 inline void requestRoutesMessageRegistryFile(App& app)

@@ -1,18 +1,6 @@
-/*
-// Copyright (c) 2020 Intel Corporation
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-*/
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
+// SPDX-FileCopyrightText: Copyright 2020 Intel Corporation
 #pragma once
 
 #include "async_resolve.hpp"
@@ -80,8 +68,7 @@ enum class ConnState
     retry
 };
 
-static inline boost::system::error_code
-    defaultRetryHandler(unsigned int respCode)
+inline boost::system::error_code defaultRetryHandler(unsigned int respCode)
 {
     // As a default, assume 200X is alright
     BMCWEB_LOG_DEBUG("Using default check for response code validity");
@@ -354,8 +341,7 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
     {
         state = ConnState::recvInProgress;
 
-        parser_type& thisParser = parser.emplace(std::piecewise_construct,
-                                                 std::make_tuple());
+        parser_type& thisParser = parser.emplace();
 
         thisParser.body_limit(connPolicy->requestByteLimit);
 
@@ -877,6 +863,26 @@ class ConnectionPool : public std::enable_shared_from_this<ConnectionPool>
         // Initialize the pool with a single connection
         addConnection();
     }
+    // Check whether all connections are terminated
+    bool areAllConnectionsTerminated()
+    {
+        if (connections.empty())
+        {
+            BMCWEB_LOG_DEBUG("There are no connections for pool id:{}", id);
+            return false;
+        }
+        for (const auto& conn : connections)
+        {
+            if (conn != nullptr && conn->state != ConnState::terminated)
+            {
+                BMCWEB_LOG_DEBUG(
+                    "Not all connections of pool id:{} are terminated", id);
+                return false;
+            }
+        }
+        BMCWEB_LOG_INFO("All connections of pool id:{} are terminated", id);
+        return true;
+    }
 };
 
 class HttpClient
@@ -884,7 +890,9 @@ class HttpClient
   private:
     std::unordered_map<std::string, std::shared_ptr<ConnectionPool>>
         connectionPools;
-    boost::asio::io_context& ioc;
+    
+    // reference_wrapper here makes HttpClient movable
+    std::reference_wrapper<boost::asio::io_context> ioc;
     std::shared_ptr<ConnectionPolicy> connPolicy;
 
     // Used as a dummy callback by sendData() in order to call
@@ -904,8 +912,8 @@ class HttpClient
 
     HttpClient(const HttpClient&) = delete;
     HttpClient& operator=(const HttpClient&) = delete;
-    HttpClient(HttpClient&&) = delete;
-    HttpClient& operator=(HttpClient&&) = delete;
+    HttpClient(HttpClient&& client) = default;
+    HttpClient& operator=(HttpClient&& client) = default;
     ~HttpClient() = default;
 
     // Send a request to destIP where additional processing of the
@@ -947,6 +955,23 @@ class HttpClient
         // newly created connection pool
         pool.first->second->sendData(std::move(data), destUrl, httpHeader, verb,
                                      resHandler);
+    }
+    
+    // Test whether all connections are terminated (after MaxRetryAttempts)
+    bool isTerminated()
+    {
+        for (const auto& pool : connectionPools)
+        {
+            if (pool.second != nullptr &&
+                !pool.second->areAllConnectionsTerminated())
+            {
+                BMCWEB_LOG_DEBUG(
+                    "Not all of client connections are terminated");
+                return false;
+            }
+        }
+        BMCWEB_LOG_DEBUG("All client connections are terminated");
+        return true;
     }
 };
 } // namespace crow

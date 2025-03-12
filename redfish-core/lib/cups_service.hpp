@@ -143,10 +143,12 @@ inline std::string toString(const T& value)
 template <typename... T>
 inline std::string toString(const std::tuple<T...>& tuple)
 {
-    return std::apply([](auto&&... args) {
-        std::string value;
-        return ((value += toString(args) + " "), ...);
-    }, tuple);
+    return std::apply(
+        [](auto&&... args) {
+            std::string value;
+            return ((value += toString(args) + " "), ...);
+        },
+        tuple);
 }
 
 inline void getCupsServiceConfiguration(
@@ -157,55 +159,54 @@ inline void getCupsServiceConfiguration(
             const boost::system::error_code ec,
             const boost::container::flat_map<
                 std::string, std::variant<uint64_t, std::string>>& resp) {
-        if (ec)
-        {
-            asyncResp->res.jsonValue["Status"]["State"] = "Absent";
-            return;
-        }
+            if (ec)
+            {
+                asyncResp->res.jsonValue["Status"]["State"] = "Absent";
+                return;
+            }
 
-        asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
+            asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
 
-        for (const auto& property : resp)
-        {
-            if (property.first == "Interval")
+            for (const auto& property : resp)
             {
-                if (auto value = std::get_if<uint64_t>(&property.second))
+                if (property.first == "Interval")
                 {
-                    asyncResp->res.jsonValue["Interval"] =
-                        time_utils::toDurationString(
-                            std::chrono::milliseconds(*value));
+                    if (auto value = std::get_if<uint64_t>(&property.second))
+                    {
+                        asyncResp->res.jsonValue["Interval"] =
+                            time_utils::toDurationString(
+                                std::chrono::milliseconds(*value));
+                    }
+                }
+                else if (property.first == "AveragingPeriod")
+                {
+                    if (auto value = std::get_if<uint64_t>(&property.second))
+                    {
+                        asyncResp->res.jsonValue["AveragingPeriod"] =
+                            time_utils::toDurationString(
+                                std::chrono::milliseconds(*value));
+                    }
+                }
+                else if (property.first == "LoadFactorConfiguration")
+                {
+                    auto value = std::get_if<std::string>(&property.second);
+                    if (value != nullptr)
+                    {
+                        asyncResp->res.jsonValue["LoadFactorConfiguration"] =
+                            *value;
+                    }
                 }
             }
-            else if (property.first == "AveragingPeriod")
-            {
-                if (auto value = std::get_if<uint64_t>(&property.second))
-                {
-                    asyncResp->res.jsonValue["AveragingPeriod"] =
-                        time_utils::toDurationString(
-                            std::chrono::milliseconds(*value));
-                }
-            }
-            else if (property.first == "LoadFactorConfiguration")
-            {
-                auto value = std::get_if<std::string>(&property.second);
-                if (value != nullptr)
-                {
-                    asyncResp->res.jsonValue["LoadFactorConfiguration"] =
-                        *value;
-                }
-            }
-        }
-    },
+        },
         "xyz.openbmc_project.CupsService", "/xyz/openbmc_project/CupsService",
         "org.freedesktop.DBus.Properties", "GetAll",
         "xyz.openbmc_project.CupsService.Configuration");
 }
 
-inline void
-    getLoadFactorsProperty(const std::shared_ptr<bmcweb::AsyncResp> response,
-                           const std::string& loadFactorsType,
-                           const std::string& service, const std::string& path,
-                           const std::string& interface)
+inline void getLoadFactorsProperty(
+    const std::shared_ptr<bmcweb::AsyncResp> response,
+    const std::string& loadFactorsType, const std::string& service,
+    const std::string& path, const std::string& interface)
 {
     sdbusplus::asio::getProperty<std::tuple<double, double, double>>(
         *crow::connections::systemBus, service, path, interface,
@@ -213,22 +214,22 @@ inline void
         [response, service, path, interface, loadFactorsType](
             const boost::system::error_code ec,
             const std::tuple<double, double, double>& loadFactorsValues) {
-        BMCWEB_LOG_DEBUG("Getting property {}.{} in {} with value: {}",
-                         interface, loadFactorsType, path,
-                         toString(loadFactorsValues));
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("DBus response error: {} {} {}", ec, ec.message(),
-                             loadFactorsType);
-            return;
-        }
+            BMCWEB_LOG_DEBUG("Getting property {}.{} in {} with value: {}",
+                             interface, loadFactorsType, path,
+                             toString(loadFactorsValues));
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("DBus response error: {} {} {}", ec,
+                                 ec.message(), loadFactorsType);
+                return;
+            }
 
-        const auto& [core, iio, memory] = loadFactorsValues;
-        auto& loadFactors = response->res.jsonValue[loadFactorsType];
-        loadFactors["CoreLoadFactor"] = core;
-        loadFactors["IioLoadFactor"] = iio;
-        loadFactors["MemoryLoadFactor"] = memory;
-    });
+            const auto& [core, iio, memory] = loadFactorsValues;
+            auto& loadFactors = response->res.jsonValue[loadFactorsType];
+            loadFactors["CoreLoadFactor"] = core;
+            loadFactors["IioLoadFactor"] = iio;
+            loadFactors["MemoryLoadFactor"] = memory;
+        });
 }
 
 inline void
@@ -314,23 +315,25 @@ inline void setDbusProperty(const std::shared_ptr<PatchAsyncResp> response,
                             const std::string& interface,
                             const std::string& property, T& value)
 {
-    sdbusplus::asio::setProperty<T>(*crow::connections::systemBus, service,
-                                    path, interface, property, std::move(value),
-                                    [response, interface, property, value,
-                                     path](boost::system::error_code ec) {
-        BMCWEB_LOG_DEBUG("Updating property {}.{} in {} with value: {}",
-                         interface, property, path, toString(value));
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("DBus response error: {} {}", ec, ec.message());
+    sdbusplus::asio::setProperty<T>(
+        *crow::connections::systemBus, service, path, interface, property,
+        std::move(value),
+        [response, interface, property, value,
+         path](boost::system::error_code ec) {
+            BMCWEB_LOG_DEBUG("Updating property {}.{} in {} with value: {}",
+                             interface, property, path, toString(value));
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("DBus response error: {} {}", ec,
+                                 ec.message());
 
-            response->propertyInvalid(property);
-        }
-        else
-        {
-            response->propertyChanged(property);
-        }
-    });
+                response->propertyInvalid(property);
+            }
+            else
+            {
+                response->propertyChanged(property);
+            }
+        });
 }
 
 } // namespace CupsService
@@ -342,103 +345,109 @@ inline void requestRoutesCupsService(App& app)
         .methods(boost::beast::http::verb::get)(
             [](const crow::Request&,
                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
-        CupsService::getCupsServiceJson(asyncResp);
-    });
+                CupsService::getCupsServiceJson(asyncResp);
+            });
 
     BMCWEB_ROUTE(app, "/redfish/v1/Oem/Intel/CupsService/")
         .privileges({{"ConfigureComponents"}})
         .methods(boost::beast::http::verb::patch)(
             [](const crow::Request& req,
                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
-        std::optional<std::string> intervalStr;
-        std::optional<std::string> averagingPeriodStr;
-        std::optional<std::string> loadFactorConfiguration;
-        std::optional<nlohmann::json> staticLoadFactorsCollection;
+                std::optional<std::string> intervalStr;
+                std::optional<std::string> averagingPeriodStr;
+                std::optional<std::string> loadFactorConfiguration;
+                std::optional<nlohmann::json> staticLoadFactorsCollection;
 
-        if (!json_util::readJsonPatch(
-                req, asyncResp->res, "StaticLoadFactors",
-                staticLoadFactorsCollection, "AveragingPeriod",
-                averagingPeriodStr, "Interval", intervalStr,
-                "LoadFactorConfiguration", loadFactorConfiguration))
-        {
-            return;
-        }
+                if (!json_util::readJsonPatch( //
+                        req, asyncResp->res, //
+                        "StaticLoadFactors", staticLoadFactorsCollection, //
+                        "AveragingPeriod", averagingPeriodStr, //
+                        "Interval", intervalStr, //
+                        "LoadFactorConfiguration", loadFactorConfiguration //
+                        ))
+                {
+                    return;
+                }
 
-        auto patchResp =
-            std::make_shared<CupsService::PatchAsyncResp>(asyncResp);
+                auto patchResp =
+                    std::make_shared<CupsService::PatchAsyncResp>(asyncResp);
 
-        if (averagingPeriodStr)
-        {
-            auto averagingPeriodMs =
-                time_utils::fromDurationString(*averagingPeriodStr);
-            if (averagingPeriodMs)
-            {
-                uint64_t averagingPeriod =
-                    static_cast<uint64_t>((*averagingPeriodMs).count());
+                if (averagingPeriodStr)
+                {
+                    auto averagingPeriodMs =
+                        time_utils::fromDurationString(*averagingPeriodStr);
+                    if (averagingPeriodMs)
+                    {
+                        uint64_t averagingPeriod =
+                            static_cast<uint64_t>((*averagingPeriodMs).count());
 
-                CupsService::setDbusProperty(
-                    patchResp, CupsService::dbus::service,
-                    CupsService::dbus::path,
-                    CupsService::dbus::subIface("Configuration"),
-                    "AveragingPeriod", averagingPeriod);
-            }
-            else
-            {
-                patchResp->propertyInvalid("AveragingPeriod");
-            }
-        }
+                        CupsService::setDbusProperty(
+                            patchResp, CupsService::dbus::service,
+                            CupsService::dbus::path,
+                            CupsService::dbus::subIface("Configuration"),
+                            "AveragingPeriod", averagingPeriod);
+                    }
+                    else
+                    {
+                        patchResp->propertyInvalid("AveragingPeriod");
+                    }
+                }
 
-        if (intervalStr)
-        {
-            auto intervalMs = time_utils::fromDurationString(*intervalStr);
-            if (intervalMs)
-            {
-                uint64_t interval =
-                    static_cast<uint64_t>((*intervalMs).count());
+                if (intervalStr)
+                {
+                    auto intervalMs =
+                        time_utils::fromDurationString(*intervalStr);
+                    if (intervalMs)
+                    {
+                        uint64_t interval =
+                            static_cast<uint64_t>((*intervalMs).count());
 
-                CupsService::setDbusProperty(
-                    patchResp, CupsService::dbus::service,
-                    CupsService::dbus::path,
-                    CupsService::dbus::subIface("Configuration"), "Interval",
-                    interval);
-            }
-            else
-            {
-                patchResp->propertyInvalid("Interval");
-            }
-        }
+                        CupsService::setDbusProperty(
+                            patchResp, CupsService::dbus::service,
+                            CupsService::dbus::path,
+                            CupsService::dbus::subIface("Configuration"),
+                            "Interval", interval);
+                    }
+                    else
+                    {
+                        patchResp->propertyInvalid("Interval");
+                    }
+                }
 
-        if (loadFactorConfiguration)
-        {
-            CupsService::setDbusProperty(
-                patchResp, CupsService::dbus::service, CupsService::dbus::path,
-                CupsService::dbus::subIface("Configuration"),
-                "LoadFactorConfiguration", *loadFactorConfiguration);
-        }
+                if (loadFactorConfiguration)
+                {
+                    CupsService::setDbusProperty(
+                        patchResp, CupsService::dbus::service,
+                        CupsService::dbus::path,
+                        CupsService::dbus::subIface("Configuration"),
+                        "LoadFactorConfiguration", *loadFactorConfiguration);
+                }
 
-        if (staticLoadFactorsCollection)
-        {
-            double coreLoadFactor;
-            double iioLoadFactor;
-            double memoryLoadFactor;
-            if (!json_util::readJson(
-                    *staticLoadFactorsCollection, asyncResp->res,
-                    "CoreLoadFactor", coreLoadFactor, "IioLoadFactor",
-                    iioLoadFactor, "MemoryLoadFactor", memoryLoadFactor))
-            {
-                return;
-            }
+                if (staticLoadFactorsCollection)
+                {
+                    double coreLoadFactor;
+                    double iioLoadFactor;
+                    double memoryLoadFactor;
+                    if (!json_util::readJson( //
+                            *staticLoadFactorsCollection, asyncResp->res, //
+                            "CoreLoadFactor", coreLoadFactor, //
+                            "IioLoadFactor", iioLoadFactor, //
+                            "MemoryLoadFactor", memoryLoadFactor //
+                            ))
+                    {
+                        return;
+                    }
 
-            auto loadFactors = std::make_tuple(coreLoadFactor, iioLoadFactor,
-                                               memoryLoadFactor);
+                    auto loadFactors = std::make_tuple(
+                        coreLoadFactor, iioLoadFactor, memoryLoadFactor);
 
-            CupsService::setDbusProperty(
-                patchResp, CupsService::dbus::service,
-                CupsService::dbus::subPath("StaticLoadFactors"),
-                CupsService::dbus::subIface("StaticLoadFactors"),
-                "StaticLoadFactors", loadFactors);
-        }
-    });
+                    CupsService::setDbusProperty(
+                        patchResp, CupsService::dbus::service,
+                        CupsService::dbus::subPath("StaticLoadFactors"),
+                        CupsService::dbus::subIface("StaticLoadFactors"),
+                        "StaticLoadFactors", loadFactors);
+                }
+            });
 }
 
 namespace CupsSensors
@@ -500,48 +509,49 @@ inline void getCupsSensors(const std::shared_ptr<bmcweb::AsyncResp> asyncResp)
     crow::connections::systemBus->async_method_call(
         [asyncResp, &members](const boost::system::error_code ec,
                               const dbus::utility::ManagedObjectType& objects) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("DBus error: {}", ec.message());
-            return;
-        }
-
-        for (const auto& [path, ifaces] : objects)
-        {
-            if (!isSensor(ifaces))
+            if (ec)
             {
-                continue;
+                BMCWEB_LOG_ERROR("DBus error: {}", ec.message());
+                return;
             }
 
-            const auto associations = getAssociations(ifaces);
-            if (associations == nullptr)
+            for (const auto& [path, ifaces] : objects)
             {
-                BMCWEB_LOG_ERROR("Failed to retrieve Associations");
-                continue;
-            }
-
-            for (const auto& [what, type, to] : *associations)
-            {
-                if (what == "chassis" && type == "all_sensors")
+                if (!isSensor(ifaces))
                 {
-                    const auto sensorType = getName(path.parent_path());
-                    const auto sensorName = getName(path);
-                    const auto chassisName = getName(to);
-                    if (!sensorType || !sensorName || !chassisName)
+                    continue;
+                }
+
+                const auto associations = getAssociations(ifaces);
+                if (associations == nullptr)
+                {
+                    BMCWEB_LOG_ERROR("Failed to retrieve Associations");
+                    continue;
+                }
+
+                for (const auto& [what, type, to] : *associations)
+                {
+                    if (what == "chassis" && type == "all_sensors")
                     {
-                        BMCWEB_LOG_ERROR("Unable to determine path");
-                        messages::internalError(asyncResp->res);
-                        break;
+                        const auto sensorType = getName(path.parent_path());
+                        const auto sensorName = getName(path);
+                        const auto chassisName = getName(to);
+                        if (!sensorType || !sensorName || !chassisName)
+                        {
+                            BMCWEB_LOG_ERROR("Unable to determine path");
+                            messages::internalError(asyncResp->res);
+                            break;
+                        }
+                        members.push_back(
+                            {{"@odata.id",
+                              "/redfish/v1/Chassis/" + *chassisName +
+                                  "/Sensors/" +
+                                  getSensorId(*sensorType, *sensorName)}});
                     }
-                    members.push_back(
-                        {{"@odata.id",
-                          "/redfish/v1/Chassis/" + *chassisName + "/Sensors/" +
-                              getSensorId(*sensorType, *sensorName)}});
                 }
             }
-        }
 
-        asyncResp->res.jsonValue["Members@odata.count"] = members.size();
+            asyncResp->res.jsonValue["Members@odata.count"] = members.size();
         },
         "xyz.openbmc_project.CupsService", "/xyz/openbmc_project/sensors",
         "org.freedesktop.DBus.ObjectManager", "GetManagedObjects");
@@ -556,15 +566,16 @@ inline void requestRoutesCupsSensors(App& app)
         .methods(boost::beast::http::verb::get)(
             [](const crow::Request&,
                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
-        asyncResp->res.jsonValue = {
-            {"@odata.type", "#CupsSensorCollection.CupsSensorCollection"},
-            {"@odata.id", "/redfish/v1/Oem/Intel/CupsService/Sensors"},
-            {"Name", "Cups Sensor Collection"},
-	    {"Description", "Cups Sensor Collection"},
-        };
+                asyncResp->res.jsonValue = {
+                    {"@odata.type",
+                     "#CupsSensorCollection.CupsSensorCollection"},
+                    {"@odata.id", "/redfish/v1/Oem/Intel/CupsService/Sensors"},
+                    {"Name", "Cups Sensor Collection"},
+                    {"Description", "Cups Sensor Collection"},
+                };
 
-        CupsSensors::getCupsSensors(asyncResp);
-    });
+                CupsSensors::getCupsSensors(asyncResp);
+            });
 }
 
 } // namespace redfish

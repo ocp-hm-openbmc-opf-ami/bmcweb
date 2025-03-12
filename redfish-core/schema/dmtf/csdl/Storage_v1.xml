@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################                   -->
-<!--# Redfish Schema:  Storage v1.17.0                                                                 -->
+<!--# Redfish Schema:  Storage v1.18.0                                                                 -->
 <!--#                                                                                                  -->
 <!--# For a detailed change log, see the README file contained in the DSP8010 bundle,                  -->
 <!--# available at http://www.dmtf.org/standards/redfish                                               -->
@@ -96,6 +96,9 @@
   </edmx:Reference>
   <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/ConnectionCollection_v1.xml">
     <edmx:Include Namespace="ConnectionCollection"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/StorageMetrics_v1.xml">
+    <edmx:Include Namespace="StorageMetrics"/>
   </edmx:Reference>
 
   <edmx:DataServices>
@@ -466,6 +469,13 @@
       <EntityType Name="StorageController" BaseType="Storage.v1_0_12.StorageController"/>
     </Schema>
 
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Storage.v1_0_14">
+      <Annotation Term="Redfish.OwningEntity" String="DMTF"/>
+      <Annotation Term="OData.Description" String="This version was created to correct the OpenAPI usage of payload annotations in action request bodies."/>
+      <EntityType Name="Storage" BaseType="Storage.v1_0_13.Storage"/>
+      <EntityType Name="StorageController" BaseType="Storage.v1_0_13.StorageController"/>
+    </Schema>
+
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Storage.v1_1_0">
       <Annotation Term="Redfish.OwningEntity" String="DMTF"/>
       <Annotation Term="Redfish.Release" String="2016.2"/>
@@ -574,6 +584,13 @@
       <EntityType Name="StorageController" BaseType="Storage.v1_1_11.StorageController"/>
     </Schema>
 
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Storage.v1_1_13">
+      <Annotation Term="Redfish.OwningEntity" String="DMTF"/>
+      <Annotation Term="OData.Description" String="This version was created to correct the OpenAPI usage of payload annotations in action request bodies."/>
+      <EntityType Name="Storage" BaseType="Storage.v1_1_12.Storage"/>
+      <EntityType Name="StorageController" BaseType="Storage.v1_1_12.StorageController"/>
+    </Schema>
+
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Storage.v1_2_0">
       <Annotation Term="Redfish.OwningEntity" String="DMTF"/>
       <Annotation Term="Redfish.Release" String="2017.1"/>
@@ -674,6 +691,13 @@
       <EntityType Name="StorageController" BaseType="Storage.v1_2_9.StorageController"/>
     </Schema>
 
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Storage.v1_2_11">
+      <Annotation Term="Redfish.OwningEntity" String="DMTF"/>
+      <Annotation Term="OData.Description" String="This version was created to correct the OpenAPI usage of payload annotations in action request bodies."/>
+      <EntityType Name="Storage" BaseType="Storage.v1_2_10.Storage"/>
+      <EntityType Name="StorageController" BaseType="Storage.v1_2_10.StorageController"/>
+    </Schema>
+
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Storage.v1_3_0">
       <Annotation Term="Redfish.OwningEntity" String="DMTF"/>
       <Annotation Term="Redfish.Release" String="2017.2"/>
@@ -757,6 +781,13 @@
       <Annotation Term="OData.Description" String="This version was created to force the regeneration of OpenAPI schemas to properly express nullable properties with external references.  It was also created to correct various typographical errors."/>
       <EntityType Name="Storage" BaseType="Storage.v1_3_9.Storage"/>
       <EntityType Name="StorageController" BaseType="Storage.v1_3_9.StorageController"/>
+    </Schema>
+
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Storage.v1_3_11">
+      <Annotation Term="Redfish.OwningEntity" String="DMTF"/>
+      <Annotation Term="OData.Description" String="This version was created to correct the OpenAPI usage of payload annotations in action request bodies."/>
+      <EntityType Name="Storage" BaseType="Storage.v1_3_10.Storage"/>
+      <EntityType Name="StorageController" BaseType="Storage.v1_3_10.StorageController"/>
     </Schema>
 
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Storage.v1_4_0">
@@ -859,6 +890,13 @@
       <EntityType Name="StorageController" BaseType="Storage.v1_4_9.StorageController"/>
     </Schema>
 
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Storage.v1_4_11">
+      <Annotation Term="Redfish.OwningEntity" String="DMTF"/>
+      <Annotation Term="OData.Description" String="This version was created to correct the OpenAPI usage of payload annotations in action request bodies."/>
+      <EntityType Name="Storage" BaseType="Storage.v1_4_10.Storage"/>
+      <EntityType Name="StorageController" BaseType="Storage.v1_4_10.StorageController"/>
+    </Schema>
+
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Storage.v1_5_0">
       <Annotation Term="Redfish.OwningEntity" String="DMTF"/>
       <Annotation Term="Redfish.Release" String="2018.2"/>
@@ -958,6 +996,13 @@
       <EntityType Name="StorageController" BaseType="Storage.v1_5_7.StorageController"/>
     </Schema>
 
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Storage.v1_5_9">
+      <Annotation Term="Redfish.OwningEntity" String="DMTF"/>
+      <Annotation Term="OData.Description" String="This version was created to correct the OpenAPI usage of payload annotations in action request bodies."/>
+      <EntityType Name="Storage" BaseType="Storage.v1_5_8.Storage"/>
+      <EntityType Name="StorageController" BaseType="Storage.v1_5_8.StorageController"/>
+    </Schema>
+
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Storage.v1_6_0">
       <Annotation Term="Redfish.OwningEntity" String="DMTF"/>
       <Annotation Term="Redfish.Release" String="2018.3"/>
@@ -1020,6 +1065,13 @@
       <Annotation Term="OData.Description" String="This version was created to force the regeneration of OpenAPI schemas to properly express nullable properties with external references.  It was also created to correct various typographical errors."/>
       <EntityType Name="Storage" BaseType="Storage.v1_6_6.Storage"/>
       <EntityType Name="StorageController" BaseType="Storage.v1_6_6.StorageController"/>
+    </Schema>
+
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Storage.v1_6_8">
+      <Annotation Term="Redfish.OwningEntity" String="DMTF"/>
+      <Annotation Term="OData.Description" String="This version was created to correct the OpenAPI usage of payload annotations in action request bodies."/>
+      <EntityType Name="Storage" BaseType="Storage.v1_6_7.Storage"/>
+      <EntityType Name="StorageController" BaseType="Storage.v1_6_7.StorageController"/>
     </Schema>
 
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Storage.v1_7_0">
@@ -1118,6 +1170,13 @@
       <EntityType Name="StorageController" BaseType="Storage.v1_7_5.StorageController"/>
     </Schema>
 
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Storage.v1_7_7">
+      <Annotation Term="Redfish.OwningEntity" String="DMTF"/>
+      <Annotation Term="OData.Description" String="This version was created to correct the OpenAPI usage of payload annotations in action request bodies."/>
+      <EntityType Name="Storage" BaseType="Storage.v1_7_6.Storage"/>
+      <EntityType Name="StorageController" BaseType="Storage.v1_7_6.StorageController"/>
+    </Schema>
+
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Storage.v1_8_0">
       <Annotation Term="Redfish.OwningEntity" String="DMTF"/>
       <Annotation Term="Redfish.Release" String="2019.3"/>
@@ -1202,6 +1261,13 @@
       <EntityType Name="StorageController" BaseType="Storage.v1_8_4.StorageController"/>
     </Schema>
 
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Storage.v1_8_6">
+      <Annotation Term="Redfish.OwningEntity" String="DMTF"/>
+      <Annotation Term="OData.Description" String="This version was created to correct the OpenAPI usage of payload annotations in action request bodies."/>
+      <EntityType Name="Storage" BaseType="Storage.v1_8_5.Storage"/>
+      <EntityType Name="StorageController" BaseType="Storage.v1_8_5.StorageController"/>
+    </Schema>
+
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Storage.v1_9_0">
       <Annotation Term="Redfish.OwningEntity" String="DMTF"/>
       <Annotation Term="Redfish.Release" String="2020.3"/>
@@ -1265,6 +1331,13 @@
       <EntityType Name="StorageController" BaseType="Storage.v1_9_3.StorageController"/>
     </Schema>
 
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Storage.v1_9_5">
+      <Annotation Term="Redfish.OwningEntity" String="DMTF"/>
+      <Annotation Term="OData.Description" String="This version was created to correct the OpenAPI usage of payload annotations in action request bodies."/>
+      <EntityType Name="Storage" BaseType="Storage.v1_9_4.Storage"/>
+      <EntityType Name="StorageController" BaseType="Storage.v1_9_4.StorageController"/>
+    </Schema>
+
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Storage.v1_10_0">
       <Annotation Term="Redfish.OwningEntity" String="DMTF"/>
       <Annotation Term="Redfish.Release" String="2020.4"/>
@@ -1315,6 +1388,13 @@
       <EntityType Name="StorageController" BaseType="Storage.v1_10_2.StorageController"/>
     </Schema>
 
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Storage.v1_10_4">
+      <Annotation Term="Redfish.OwningEntity" String="DMTF"/>
+      <Annotation Term="OData.Description" String="This version was created to correct the OpenAPI usage of payload annotations in action request bodies."/>
+      <EntityType Name="Storage" BaseType="Storage.v1_10_3.Storage"/>
+      <EntityType Name="StorageController" BaseType="Storage.v1_10_3.StorageController"/>
+    </Schema>
+
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Storage.v1_11_0">
       <Annotation Term="Redfish.OwningEntity" String="DMTF"/>
       <Annotation Term="Redfish.Release" String="2021.2"/>
@@ -1357,6 +1437,13 @@
       <EntityType Name="StorageController" BaseType="Storage.v1_11_1.StorageController"/>
     </Schema>
 
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Storage.v1_11_3">
+      <Annotation Term="Redfish.OwningEntity" String="DMTF"/>
+      <Annotation Term="OData.Description" String="This version was created to correct the OpenAPI usage of payload annotations in action request bodies."/>
+      <EntityType Name="Storage" BaseType="Storage.v1_11_2.Storage"/>
+      <EntityType Name="StorageController" BaseType="Storage.v1_11_2.StorageController"/>
+    </Schema>
+
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Storage.v1_12_0">
       <Annotation Term="Redfish.OwningEntity" String="DMTF"/>
       <Annotation Term="Redfish.Release" String="2021.4"/>
@@ -1380,6 +1467,13 @@
       <EntityType Name="StorageController" BaseType="Storage.v1_12_1.StorageController"/>
     </Schema>
 
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Storage.v1_12_3">
+      <Annotation Term="Redfish.OwningEntity" String="DMTF"/>
+      <Annotation Term="OData.Description" String="This version was created to correct the OpenAPI usage of payload annotations in action request bodies."/>
+      <EntityType Name="Storage" BaseType="Storage.v1_12_2.Storage"/>
+      <EntityType Name="StorageController" BaseType="Storage.v1_12_2.StorageController"/>
+    </Schema>
+
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Storage.v1_13_0">
       <Annotation Term="Redfish.OwningEntity" String="DMTF"/>
       <Annotation Term="Redfish.Release" String="2022.1"/>
@@ -1401,6 +1495,13 @@
       <Annotation Term="OData.Description" String="This version was created to force the regeneration of OpenAPI schemas to properly express nullable properties with external references.  It was also created to correct various typographical errors."/>
       <EntityType Name="Storage" BaseType="Storage.v1_13_1.Storage"/>
       <EntityType Name="StorageController" BaseType="Storage.v1_13_1.StorageController"/>
+    </Schema>
+
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Storage.v1_13_3">
+      <Annotation Term="Redfish.OwningEntity" String="DMTF"/>
+      <Annotation Term="OData.Description" String="This version was created to correct the OpenAPI usage of payload annotations in action request bodies."/>
+      <EntityType Name="Storage" BaseType="Storage.v1_13_2.Storage"/>
+      <EntityType Name="StorageController" BaseType="Storage.v1_13_2.StorageController"/>
     </Schema>
 
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Storage.v1_14_0">
@@ -1499,6 +1600,13 @@
       <EntityType Name="StorageController" BaseType="Storage.v1_14_1.StorageController"/>
     </Schema>
 
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Storage.v1_14_3">
+      <Annotation Term="Redfish.OwningEntity" String="DMTF"/>
+      <Annotation Term="OData.Description" String="This version was created to correct the OpenAPI usage of payload annotations in action request bodies."/>
+      <EntityType Name="Storage" BaseType="Storage.v1_14_2.Storage"/>
+      <EntityType Name="StorageController" BaseType="Storage.v1_14_2.StorageController"/>
+    </Schema>
+
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Storage.v1_15_0">
       <Annotation Term="Redfish.OwningEntity" String="DMTF"/>
       <Annotation Term="Redfish.Release" String="2023.1"/>
@@ -1557,6 +1665,13 @@
       <EntityType Name="StorageController" BaseType="Storage.v1_15_1.StorageController"/>
     </Schema>
 
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Storage.v1_15_3">
+      <Annotation Term="Redfish.OwningEntity" String="DMTF"/>
+      <Annotation Term="OData.Description" String="This version was created to correct the OpenAPI usage of payload annotations in action request bodies."/>
+      <EntityType Name="Storage" BaseType="Storage.v1_15_2.Storage"/>
+      <EntityType Name="StorageController" BaseType="Storage.v1_15_2.StorageController"/>
+    </Schema>
+
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Storage.v1_16_0">
       <Annotation Term="Redfish.OwningEntity" String="DMTF"/>
       <Annotation Term="Redfish.Release" String="2024.1"/>
@@ -1612,6 +1727,13 @@
       <Annotation Term="OData.Description" String="This version was created to update the descriptions for `ConfigurationLock` to align with the new `TargetConfigurationLockLevel` property."/>
       <EntityType Name="Storage" BaseType="Storage.v1_16_0.Storage"/>
       <EntityType Name="StorageController" BaseType="Storage.v1_16_0.StorageController"/>
+    </Schema>
+
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Storage.v1_16_2">
+      <Annotation Term="Redfish.OwningEntity" String="DMTF"/>
+      <Annotation Term="OData.Description" String="This version was created to correct the OpenAPI usage of payload annotations in action request bodies."/>
+      <EntityType Name="Storage" BaseType="Storage.v1_16_1.Storage"/>
+      <EntityType Name="StorageController" BaseType="Storage.v1_16_1.StorageController"/>
     </Schema>
 
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Storage.v1_17_0">
@@ -1686,6 +1808,47 @@
           <Annotation Term="OData.Description" String="The configurable features that are able to be locked from in-band usage on an NVMe subsystem and their current lock state."/>
           <Annotation Term="OData.LongDescription" String="This property shall contain the configurable features that are able to be locked from in-band usage on an NVMe subsystem and their current lock state."/>
         </Property>
+      </ComplexType>
+    </Schema>
+
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Storage.v1_17_1">
+      <Annotation Term="Redfish.OwningEntity" String="DMTF"/>
+      <Annotation Term="OData.Description" String="This version was created to correct the OpenAPI usage of payload annotations in action request bodies."/>
+      <EntityType Name="Storage" BaseType="Storage.v1_17_0.Storage"/>
+      <EntityType Name="StorageController" BaseType="Storage.v1_17_0.StorageController"/>
+    </Schema>
+
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Storage.v1_18_0">
+      <Annotation Term="Redfish.OwningEntity" String="DMTF"/>
+      <Annotation Term="Redfish.Release" String="2024.4"/>
+
+      <EntityType Name="Storage" BaseType="Storage.v1_17_1.Storage">
+        <Property Name="BlockSecurityIDPolicy" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="Indicates if the storage controller sends a command to block establishment of a TCG-defined security ID (SID) during each drive boot sequence for drives that support it."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate if the storage controller sends the TCG-defined 'Block SID' command to block establishment of a TCG-defined security ID (SID) during each drive boot sequence for drives that support it.  The value `true` shall indicate the TCG-defined 'Block SID' command is sent to supporting drives during each drive boot sequence."/>
+        </Property>
+        <NavigationProperty Name="Metrics" Type="StorageMetrics.StorageMetrics">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The link to the metrics associated with this storage subsystem."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a link to a resource of type `StorageMetrics` that represents the metrics associated with this storage subsystem."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
+      </EntityType>
+
+      <ComplexType Name="Links" BaseType="Storage.v1_15_0.Links">
+        <NavigationProperty Name="BlockSecurityIDUnsupportedDrives" Type="Collection(Drive.Drive)">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The set of drives in this storage subsystem that do not support blocking of TCG-defined security ID (SID)."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain an array of links to resources of type `Drive` that represent the drives in this storage subsystem that do not support the TCG-defined 'Block SID' command.  This property should only be present if at least one drive does not support the TCG-defined 'Block SID' command."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
+        <NavigationProperty Name="BlockSecurityIDUpdateUnsuccessfulDrives" Type="Collection(Drive.Drive)">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The set of drives in this storage subsystem for which the most recent attempt to block TCG-defined security ID (SID) failed."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain an array of links to resources of type `Drive` that represent the drives in this storage subsystem for which the most recent attempt to block TCG-defined security ID (SID) with the TCG-defined 'Block SID' command failed.  This property should only be present if the most recent attempt to block TCG-defined security ID (SID) with the TCG-defined 'Block SID' command failed for at least one drive."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
       </ComplexType>
     </Schema>
 

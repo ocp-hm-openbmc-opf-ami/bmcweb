@@ -1,19 +1,8 @@
-/*
-// Copyright (c) 2018 Intel Corporation
-// Copyright (c) 2018 Ampere Computing LLC
-/
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-*/
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
+// SPDX-FileCopyrightText: Copyright 2018 Intel Corporation
+// SPDX-FileCopyrightText: Copyright 2018 Ampere Computing LLC
+
 #pragma once
 
 #include "app.hpp"
@@ -108,8 +97,10 @@ inline void afterGetChassisPath(
     auto& item = powerControlCollections[0];
 
     std::optional<uint32_t> value;
-    if (!json_util::readJsonObject(item, sensorsAsyncResp->asyncResp->res,
-                                   "PowerLimit/LimitInWatts", value))
+    if (!json_util::readJsonObject( //
+            item, sensorsAsyncResp->asyncResp->res, //
+            "PowerLimit/LimitInWatts", value //
+            ))
     {
         return;
     }
@@ -120,8 +111,8 @@ inline void afterGetChassisPath(
 
     if (value)
     {
-        sdbusplus::asio::getProperty<bool>(
-            *crow::connections::systemBus, "xyz.openbmc_project.Settings",
+        dbus::utility::getProperty<bool>(
+            "xyz.openbmc_project.Settings",
             "/xyz/openbmc_project/control/host0/power_cap",
             "xyz.openbmc_project.Control.Power.Cap", "PowerCapEnable",
             std::bind_front(afterGetPowerCapEnable, sensorsAsyncResp, *value));
@@ -274,8 +265,8 @@ inline void afterGetChassis(
         return;
     }
 
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, "xyz.openbmc_project.Settings",
+    dbus::utility::getAllProperties(
+        "xyz.openbmc_project.Settings",
         "/xyz/openbmc_project/control/host0/power_cap",
         "xyz.openbmc_project.Control.Power.Cap",
         [sensorAsyncResp](const boost::system::error_code& ec,
@@ -333,9 +324,11 @@ inline void
     std::optional<std::vector<nlohmann::json::object_t>> voltageCollections;
     std::optional<std::vector<nlohmann::json::object_t>> powerCtlCollections;
 
-    if (!json_util::readJsonPatch(req, sensorAsyncResp->asyncResp->res,
-                                  "PowerControl", powerCtlCollections,
-                                  "Voltages", voltageCollections))
+    if (!json_util::readJsonPatch( //
+            req, sensorAsyncResp->asyncResp->res, //
+            "PowerControl", powerCtlCollections, //
+            "Voltages", voltageCollections //
+            ))
     {
         return;
     }

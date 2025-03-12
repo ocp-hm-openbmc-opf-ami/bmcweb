@@ -1,18 +1,6 @@
-/*
-// Copyright (c) 2018 Intel Corporation
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-*/
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
+// SPDX-FileCopyrightText: Copyright 2018 Intel Corporation
 #pragma once
 
 #include "bmcweb_config.h"
@@ -105,26 +93,27 @@ inline void handleServiceRootGetImpl(
         "#OemServiceRoot.v1_0_0.Ami";
     asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.id"] =
         "/redfish/v1/#Oem/Ami";
+    #if BMCWEB_AST2600_EVB_MACRO
     asyncResp->res.jsonValue["Oem"]["Ami"]["PcieSwitch"] = {
         {"@odata.id", "/redfish/v1/Oem/Ami/PcieSwitch"}};
-
+    #endif
     asyncResp->res.jsonValue["Oem"]["Ami"]["LicenseControl"] = {
         {"@odata.id", "/redfish/v1/Oem/Ami/LicenseControl"}};
 
-    #if BMCWEB_AMI_ACD_MACRO
-        asyncResp->res.jsonValue["Oem"]["Ami"]["AutonomousCrashDump"]["@odata.id"] =
-            "/redfish/v1/Oem/Ami/AutonomousCrashDump";
-    #endif
+#if BMCWEB_AMI_ACD_MACRO
+    asyncResp->res.jsonValue["Oem"]["Ami"]["AutonomousCrashDump"]["@odata.id"] =
+        "/redfish/v1/Oem/Ami/AutonomousCrashDump";
+#endif
 
-    #if BMCWEB_AMI_ASD_MACRO
-        asyncResp->res.jsonValue["Oem"]["Ami"]["AtScaleDebug"]["@odata.id"] =
-            "/redfish/v1/Oem/Ami/AtScaleDebug";
-    #endif
-    
-    #if BMCWEB_AMI_REDEBUG_MACRO
-        asyncResp->res.jsonValue["Oem"]["Ami"]["AmdReDebug"]["@odata.id"] =
-            "/redfish/v1/Oem/Ami/AmdReDebug";
-    #endif
+#if BMCWEB_AMI_ASD_MACRO
+    asyncResp->res.jsonValue["Oem"]["Ami"]["AtScaleDebug"]["@odata.id"] =
+        "/redfish/v1/Oem/Ami/AtScaleDebug";
+#endif
+
+#if BMCWEB_AMI_REDEBUG_MACRO
+    asyncResp->res.jsonValue["Oem"]["Ami"]["AmdReDebug"]["@odata.id"] =
+        "/redfish/v1/Oem/Ami/AmdReDebug";
+#endif
 
     asyncResp->res.jsonValue["Links"]["ManagerProvidingService"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Managers/{}",
@@ -147,7 +136,7 @@ inline void handleServiceRootGetImpl(
         BMCWEB_INSECURE_ENABLE_REDFISH_QUERY;
     protocolFeatures["ExpandQuery"]["NoLinks"] =
         BMCWEB_INSECURE_ENABLE_REDFISH_QUERY;
-     protocolFeatures["FilterQuery"] = false;
+    protocolFeatures["FilterQuery"] = BMCWEB_INSECURE_ENABLE_REDFISH_QUERY;
     protocolFeatures["OnlyMemberQuery"] = true;
     protocolFeatures["SelectQuery"] = true;
     protocolFeatures["DeepOperations"]["DeepPOST"] = false;
