@@ -340,7 +340,7 @@ nlohmann::json propertyMissing(std::string_view arg1)
 void propertyMissing(crow::Response& res, std::string_view arg1)
 {
     res.result(boost::beast::http::status::bad_request);
-    addMessageToJson(res.jsonValue, propertyMissing(arg1), arg1);
+    addMessageToErrorJson(res.jsonValue, propertyMissing(arg1));
 }
 
 /**
