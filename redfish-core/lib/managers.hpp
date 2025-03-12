@@ -2369,6 +2369,9 @@ inline void handleManagersInstanceGet(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& managerId)
 {
+    asyncResp->res.clearHeader(boost::beast::http::field::allow);
+    asyncResp->res.addHeader("Allow", "GET,PATCH");
+
     std::string uuid = persistent_data::getConfig().systemUuid;
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -2688,6 +2691,10 @@ inline void requestRoutesManager(App& app)
                            const crow::Request& req,
                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                            const std::string& managerId) {
+	    
+	    asyncResp->res.clearHeader(boost::beast::http::field::allow);
+            asyncResp->res.addHeader("Allow", "GET,PATCH");
+
             if (!redfish::setUpRedfishRoute(app, req, asyncResp))
             {
                 return;
@@ -2796,6 +2803,27 @@ inline void requestRoutesManager(App& app)
                                                  *locationIndicatorActive);
             }
         });
+
+    BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/")
+        .privileges(redfish::privileges::getManager)
+        .methods(boost::beast::http::verb::post,boost::beast::http::verb::delete_)(
+            [&app](const crow::Request& req,
+                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                const std::string& managerId)
+            {
+               asyncResp->res.clearHeader(boost::beast::http::field::allow);
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
+                if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
+                {
+                    messages::resourceNotFound(asyncResp->res, "Manager", managerId);
+                    return;
+                }
+                messages::operationNotAllowed(asyncResp->res);
+                return;
+           });
 }
 
 inline void requestRoutesManagerCollection(App& app)

@@ -580,6 +580,9 @@ inline void handleSystemsLogServicesPostCodesEntriesEntryGet(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& systemName, const std::string& targetID)
 {
+    asyncResp->res.clearHeader(boost::beast::http::field::allow);
+    asyncResp->res.addHeader("Allow", "GET");
+
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
@@ -628,6 +631,28 @@ inline void requestRoutesSystemsLogServicesPostCode(App& app)
         .privileges(redfish::privileges::getLogEntry)
         .methods(boost::beast::http::verb::get)(std::bind_front(
             handleSystemsLogServicesPostCodesEntriesEntryGet, std::ref(app)));
+
+    BMCWEB_ROUTE(
+        app, "/redfish/v1/Systems/<str>/LogServices/PostCodes/Entries/<str>/")
+        .privileges(redfish::privileges::getLogEntry)
+        .methods(boost::beast::http::verb::patch,boost::beast::http::verb::post,boost::beast::http::verb::delete_)(
+            [&app]([[maybe_unused]] const crow::Request& req,
+            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+            [[maybe_unused]] const std::string& systemName, const std::string& targetID)
+        {
+            asyncResp->res.clearHeader(boost::beast::http::field::allow);
+            
+            uint16_t bootIndex = 0;
+            uint64_t codeIndex = 0;
+            if (!parsePostCode(targetID, codeIndex, bootIndex))
+                {
+                    // Requested ID was not found
+                    messages::resourceNotFound(asyncResp->res, "LogEntry", targetID);
+                    return;
+                }
+            messages::operationNotAllowed(asyncResp->res);
+            return;
+        });
 
     BMCWEB_ROUTE(
         app,

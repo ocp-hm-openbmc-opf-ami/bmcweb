@@ -43,7 +43,8 @@ constexpr const char* dbusPropertyInterface = "org.freedesktop.DBus.Properties";
 
 using PropertyValue = std::variant<uint8_t, uint16_t, uint64_t, std::string,
                                    std::vector<std::string>, bool>;
-// inline bool ishandleChassisGetSubTree = false;
+bool ishandleChassisGetSubTree = false;
+bool checkinvalidURIPatch = true;
 
 inline chassis::ChassisType
     translateChassisTypeToRedfish(const std::string_view& chassisType)
@@ -592,6 +593,81 @@ inline void handleChassisProperties(
     }
 }
 
+inline void handleChassisPatchSubTree(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreeResponse& subtree)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("DBUS response error {}", ec);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    // Iterate over all retrieved ObjectPaths.
+    for (const std::pair<
+        std::string,
+        std::vector<std::pair<std::string, std::vector<std::string>>>>&
+        object : subtree)
+    {
+        const std::string& path = object.first;
+        const std::vector<std::pair<std::string, std::vector<std::string>>>&
+        connectionNames = object.second;
+
+        sdbusplus::message::object_path objPath(path);
+        if (objPath.filename() != chassisId)
+        {
+                continue;
+        }
+        if (connectionNames.empty())
+        {
+            BMCWEB_LOG_ERROR("Got 0 Connection names");
+            continue;
+        }
+        checkinvalidURIPatch = false;
+        return;
+        }
+        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
+        return;
+}
+
+inline void handleChassisPostSubTree(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreeResponse& subtree)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("DBUS response error {}", ec);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    for (const std::pair<
+        std::string,
+        std::vector<std::pair<std::string, std::vector<std::string>>>>&
+        object : subtree)
+    {
+    const std::string& path = object.first;
+    const std::vector<std::pair<std::string, std::vector<std::string>>>&
+        connectionNames = object.second;
+
+            sdbusplus::message::object_path objPath(path);
+            if (objPath.filename() != chassisId)
+            {
+                    continue;
+            }
+            if (connectionNames.empty())
+            {
+                BMCWEB_LOG_ERROR("Got 0 Connection names");
+                continue;
+            }
+            messages::operationNotAllowed(asyncResp->res);
+            return;
+        }
+        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);  
+    return;
+}
+
 inline void handleChassisGetSubTree(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, const boost::system::error_code& ec,
@@ -774,6 +850,10 @@ void handleChassisGet(App& app, const crow::Request& req,
                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                       const std::string& chassisId)
 {
+    
+    asyncResp->res.clearHeader(boost::beast::http::field::allow);
+    asyncResp->res.addHeader("Allow", "GET, PATCH");
+
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
@@ -802,10 +882,29 @@ void
                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                        const std::string& param)
 {
+    asyncResp->res.clearHeader(boost::beast::http::field::allow);
+    asyncResp->res.addHeader("Allow", "GET, PATCH");
+
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
     }
+    constexpr std::array<std::string_view, 2> interfaces = {
+        "xyz.openbmc_project.Inventory.Item.Board",
+        "xyz.openbmc_project.Inventory.Item.Chassis"};
+
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/inventory", 0, interfaces,
+        [asyncResp,
+            param,req,interfaces](const boost::system::error_code& ecs,
+                const dbus::utility::MapperGetSubTreeResponse& subtrees) 
+  {
+    handleChassisPatchSubTree(asyncResp, param, ecs, subtrees);
+       
+   if (!checkinvalidURIPatch)
+   {
+    checkinvalidURIPatch = true;
+
     std::optional<bool> locationIndicatorActive;
     std::optional<std::string> indicatorLed;
     std::optional<std::string> vId;
@@ -845,10 +944,6 @@ void
             boost::beast::http::field::warning,
             "299 - \"IndicatorLED is deprecated. Use LocationIndicatorActive instead.\"");
     }
-
-    constexpr std::array<std::string_view, 2> interfaces = {
-        "xyz.openbmc_project.Inventory.Item.Board",
-        "xyz.openbmc_project.Inventory.Item.Chassis"};
 
     const std::string& chassisId = param;
 
@@ -934,6 +1029,8 @@ void
 
             messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
         });
+       }
+    });
 }
 
 /**
@@ -951,6 +1048,26 @@ inline void requestRoutesChassis(App& app)
         .privileges(redfish::privileges::patchChassis)
         .methods(boost::beast::http::verb::patch)(
             std::bind_front(handleChassisPatch, std::ref(app)));
+
+   BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/")
+        .privileges(redfish::privileges::getChassis)
+        .methods(boost::beast::http::verb::post,boost::beast::http::verb::delete_)(
+            [&app](const crow::Request& req,
+                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                const std::string& chassisId) {
+                    asyncResp->res.clearHeader(boost::beast::http::field::allow);
+
+                    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                    {
+                        return;
+                    }
+                    constexpr std::array<std::string_view, 2> interfaces = {
+                        "xyz.openbmc_project.Inventory.Item.Board",
+                        "xyz.openbmc_project.Inventory.Item.Chassis"};
+                    dbus::utility::getSubTree(
+                        "/xyz/openbmc_project/inventory", 0, interfaces,
+                        std::bind_front(handleChassisPostSubTree, asyncResp, chassisId));
+                });
 }
 
 inline void

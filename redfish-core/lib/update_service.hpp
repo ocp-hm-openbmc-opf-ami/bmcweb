@@ -2726,6 +2726,9 @@ inline void handleUpdateServiceFirmwareInventoryGet(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& param)
 {
+    asyncResp->res.clearHeader(boost::beast::http::field::allow);
+    asyncResp->res.addHeader("Allow", "GET");
+
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
@@ -2826,6 +2829,71 @@ inline void requestRoutesUpdateService(App& app)
         .privileges(redfish::privileges::getSoftwareInventoryCollection)
         .methods(boost::beast::http::verb::get)(std::bind_front(
             handleUpdateServiceFirmwareInventoryCollectionGet, std::ref(app)));
+    
+    BMCWEB_ROUTE(app, "/redfish/v1/UpdateService/FirmwareInventory/<str>/")
+        .privileges(redfish::privileges::getSoftwareInventory)
+        .methods(boost::beast::http::verb::post,
+            boost::beast::http::verb::patch,
+            boost::beast::http::verb::delete_)(
+            [&app](const crow::Request& req,
+                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                const std::string& param)
+            {
+		asyncResp->res.clearHeader(boost::beast::http::field::allow);
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+            {
+                return;
+            }
+            std::shared_ptr<std::string> swId = std::make_shared<std::string>(param);
+        
+            asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
+                "/redfish/v1/UpdateService/FirmwareInventory/{}", *swId);
+        
+            constexpr std::array<std::string_view, 1> interfaces = {
+                "xyz.openbmc_project.Software.Version"};
+            dbus::utility::getSubTree(
+                "/", 0, interfaces,
+                [asyncResp,
+                swId](const boost::system::error_code& ec,
+                    const dbus::utility::MapperGetSubTreeResponse& subtree) {
+                    BMCWEB_LOG_DEBUG("doGet callback...");
+                    if (ec)
+                    {
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+        
+                    // Ensure we find our input swId, otherwise return an error
+                    bool found = false;
+                    for (const std::pair<std::string,
+                                        std::vector<std::pair<
+                                            std::string, std::vector<std::string>>>>&
+                            obj : subtree)
+                    {
+                        if (!obj.first.ends_with(*swId))
+                        {
+                            continue;
+                        }
+        
+                        if (obj.second.empty())
+                        {
+                            continue;
+                        }
+        
+                        found = true;
+                    }
+                    if (!found)
+                    {
+                        BMCWEB_LOG_WARNING("Input swID {} not found!", *swId);
+                            messages::resourceNotFound(
+                            asyncResp->res,"FirmwareInventory",
+                                *swId);
+                        return;
+                    }
+                    messages::operationNotAllowed(asyncResp->res);
+                    return;
+                });
+    });
 }
 
 } // namespace redfish

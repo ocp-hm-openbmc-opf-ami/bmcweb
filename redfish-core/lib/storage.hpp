@@ -177,6 +177,35 @@ inline void afterSystemsStorageGetSubtree(
                             BMCWEB_REDFISH_SYSTEM_URI_NAME, storageId);
 }
 
+inline void afterSystemsStoragePostSubtree(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& storageId, const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreeResponse& subtree)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_DEBUG("requestRoutesStorage DBUS response error");
+        messages::resourceNotFound(asyncResp->res, "#Storage.v1_13_0.Storage",
+                                   storageId);
+        return;
+    }
+    auto storage = std::ranges::find_if(
+        subtree,
+        [&storageId](const std::pair<std::string,
+                                     dbus::utility::MapperServiceMap>& object) {
+            return sdbusplus::message::object_path(object.first).filename() ==
+                   storageId;
+        });
+    if (storage == subtree.end())
+    {
+        messages::resourceNotFound(asyncResp->res, "#Storage.v1_13_0.Storage",
+                                   storageId);
+        return;
+    }
+    messages::operationNotAllowed(asyncResp->res);
+    return;
+}
+
 inline void handleSystemsStorageGetSingleInstance(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
@@ -197,6 +226,9 @@ inline void handleSystemsStorageGet(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& systemName, const std::string& storageId)
 {
+    asyncResp->res.clearHeader(boost::beast::http::field::allow);
+    asyncResp->res.addHeader("Allow", "GET");
+
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
@@ -316,6 +348,26 @@ inline void requestRoutesStorage(App& app)
         .privileges(redfish::privileges::getStorage)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleSystemsStorageGet, std::ref(app)));
+
+    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Storage/<str>/")
+        .privileges(redfish::privileges::getStorage)
+        .methods(boost::beast::http::verb::patch,boost::beast::http::verb::post,boost::beast::http::verb::delete_)(
+            [&app] (const crow::Request& req,
+            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+            [[maybe_unused]] const std::string& systemName, const std::string& storageId)
+            {
+		        asyncResp->res.clearHeader(boost::beast::http::field::allow); 
+
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
+                constexpr std::array<std::string_view, 1> interfaces = {
+                    "xyz.openbmc_project.Inventory.Item.Storage"};
+                dbus::utility::getSubTree(
+                    "/xyz/openbmc_project/inventory", 0, interfaces,
+                    std::bind_front(afterSystemsStoragePostSubtree, asyncResp, storageId));
+            });
 
     BMCWEB_ROUTE(app, "/redfish/v1/Storage/<str>/")
         .privileges(redfish::privileges::getStorage)

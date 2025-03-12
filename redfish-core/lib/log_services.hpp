@@ -2284,6 +2284,10 @@ inline void requestRoutesDBusEventLogEntry(App& app)
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& systemName, const std::string& entryId) {
+
+		asyncResp->res.clearHeader(boost::beast::http::field::allow);
+                asyncResp->res.addHeader("Allow", "GET,PATCH,DELETE");
+
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
                     return;
@@ -2312,6 +2316,10 @@ inline void requestRoutesDBusEventLogEntry(App& app)
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& systemName, const std::string& entryId) {
+
+		asyncResp->res.clearHeader(boost::beast::http::field::allow);
+                asyncResp->res.addHeader("Allow", "GET,PATCH,DELETE");
+
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
                     return;
@@ -2329,7 +2337,20 @@ inline void requestRoutesDBusEventLogEntry(App& app)
                                                systemName);
                     return;
                 }
-                dBusEventLogEntryPatch(req, asyncResp, entryId);
+
+                dbus::utility::getAllProperties(
+                    "xyz.openbmc_project.Logging",
+                    "/xyz/openbmc_project/logging/entry/" + entryId, "",
+                    [asyncResp, entryId,req](const boost::system::error_code& ec,
+                        [[maybe_unused]] const dbus::utility::DBusPropertiesMap& resp) {
+                        if (ec.value() == EBADR)
+                        {
+                            messages::resourceNotFound(asyncResp->res, "EventLogEntry",
+                                                       entryId);
+                            return;
+                        }
+                        dBusEventLogEntryPatch(req, asyncResp, entryId);
+                    });
             });
 
     BMCWEB_ROUTE(
@@ -2340,6 +2361,10 @@ inline void requestRoutesDBusEventLogEntry(App& app)
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& systemName, const std::string& param) {
+
+		asyncResp->res.clearHeader(boost::beast::http::field::allow);
+                asyncResp->res.addHeader("Allow", "GET,PATCH,DELETE");
+
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
                     return;
@@ -2358,6 +2383,35 @@ inline void requestRoutesDBusEventLogEntry(App& app)
                     return;
                 }
                 dBusEntryDelete(asyncResp, "default", param);
+            });
+	
+	BMCWEB_ROUTE(
+        app, "/redfish/v1/Systems/<str>/LogServices/EventLog/Entries/<str>/")
+        .privileges(redfish::privileges::getLogEntry)
+        .methods(boost::beast::http::verb::post)(
+            [&app](const crow::Request& req,
+                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                    [[maybe_unused]] const std::string& systemName, [[maybe_unused]] const std::string& entryId) 
+            {
+		asyncResp->res.clearHeader(boost::beast::http::field::allow);
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
+                dbus::utility::getAllProperties(
+                    "xyz.openbmc_project.Logging",
+                    "/xyz/openbmc_project/logging/entry/" + entryId, "",
+                    [asyncResp, entryId](const boost::system::error_code& ec,
+                        [[maybe_unused]] const dbus::utility::DBusPropertiesMap& resp) {
+                        if (ec.value() == EBADR)
+                        {
+                            messages::resourceNotFound(asyncResp->res, "EventLogEntry",
+                                                       entryId);
+                            return;
+                        }
+                        messages::operationNotAllowed(asyncResp->res);
+                        return;
+                    });
             });
 }
 
