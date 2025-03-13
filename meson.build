@@ -387,13 +387,13 @@ srcfiles_bmcweb = files(
 
 if get_option('ami-rep').enabled()
     srcfiles_bmcweb += files(
-        'ext/Rep/ext.cpp',
-        'ext/ami_errors.cpp',
+        'ext/src/rep.cpp',
+        'ext/include/ami_errors.cpp',
     )
 endif
 
 if get_option('ami-nic').enabled()
-    srcfiles_bmcweb += 'ext/nic/nic.cpp'
+    srcfiles_bmcweb += 'ext/src/nic.cpp'
 endif
 
 bmcweblib = static_library(

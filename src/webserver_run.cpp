@@ -18,14 +18,14 @@
 #include "obmc_console.hpp"
 #include "openbmc_dbus_rest.hpp"
 #include "redfish.hpp"
-#include "ext/Rep/ext.hpp"
+#if (BMCWEB_AMI_REP_MACRO)
+#include "ext/src/rep.hpp"
+#endif
 #if (BMCWEB_AMI_NIC_MACRO)
-#include "ext/nic/nic.hpp"
+#include "ext/src/nic.hpp"
 #endif
 //#include <redfish_v1.hpp>
 #if (BMCWEB_AMI_REP_MACRO) || (BMCWEB_AMI_NIC_MACRO)
-//#include <boost/dll/import.hpp>
-//#include <redfish/ami/extension/service.hpp>
 #include <redfish_v1.hpp>
 #endif
 #include "redfish_aggregator.hpp"
@@ -89,7 +89,9 @@ int run()
     if constexpr (BMCWEB_REDFISH)
     {
         redfish::RedfishService redfish(app);
-        redfish::ExtService rep(app);
+        #if (BMCWEB_AMI_REP_MACRO)
+            redfish::RepService rep(app);
+        #endif
         #if (BMCWEB_AMI_NIC_MACRO)
             redfish::NicService nic(app);
         #endif
