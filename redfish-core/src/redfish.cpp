@@ -47,9 +47,7 @@
 #include "power_supply.hpp"
 #include "processor.hpp"
 #include "redfish_sessions.hpp"
-#if (!BMCWEB_AMI_REP_MACRO) && (!BMCWEB_AMI_NIC_MACRO)
 #include "redfish_v1.hpp"
-#endif
 #include "roles.hpp"
 #include "sensor_patching.hpp"
 #include "sensors.hpp"
@@ -67,6 +65,14 @@
 #include "update_service.hpp"
 #include "virtual_media.hpp"
 
+#if BMCWEB_AMI_NIC_MACRO
+#include "ext/src/nic.hpp"
+#endif
+
+#if BMCWEB_AMI_REP_MACRO
+#include "ext/src/rep.hpp"
+#endif
+
 #if BMCWEB_AMI_RAIDBRCM_MACRO
 #include "ext/lib/brcm/storage_brcm.hpp"
 #endif
@@ -79,7 +85,8 @@
 #include "ext/lib/nvme/storage_nvme.hpp"
 #endif
 
-#if (BMCWEB_AMI_RAIDBRCM_MACRO) || (BMCWEB_AMI_RAIDMSCC_MACRO) || (BMCWEB_AMI_NVME_MACRO)
+#if (BMCWEB_AMI_RAIDBRCM_MACRO) || (BMCWEB_AMI_RAIDMSCC_MACRO) ||              \
+    (BMCWEB_AMI_NVME_MACRO)
 #include "ext/include/storage_ext.hpp"
 #endif
 
@@ -87,17 +94,16 @@
 #include "redfish-core/lib/ext/pciesw/oem_pcie_switch.hpp"
 #endif
 
-
 #if BMCWEB_AMI_ACD_MACRO
-    #include "redfish-core/lib/ext/acd/acd_service.hpp"
+#include "redfish-core/lib/ext/acd/acd_service.hpp"
 #endif
 
 #if BMCWEB_AMI_ASD_MACRO
-    #include "redfish-core/lib/ext/asd/asd_service.hpp"
+#include "redfish-core/lib/ext/asd/asd_service.hpp"
 #endif
 
 #if BMCWEB_AMI_REDEBUG_MACRO
-    #include "redfish-core/lib/ext/redebugserv/redebugserv.hpp"
+#include "redfish-core/lib/ext/redebugserv/redebugserv.hpp"
 #endif
 
 namespace redfish
@@ -105,18 +111,17 @@ namespace redfish
 
 RedfishService::RedfishService(App& app)
 {
+#if BMCWEB_AMI_ACD_MACRO
+    redfish::ami::core::resource::requestRoutesACDService(app);
+#endif
 
-    #if BMCWEB_AMI_ACD_MACRO
-        redfish::ami::core::resource::requestRoutesACDService(app);
-    #endif
+#if BMCWEB_AMI_ASD_MACRO
+    redfish::ami::core::resource::requestRoutesASDService(app);
+#endif
 
-    #if BMCWEB_AMI_ASD_MACRO
-        redfish::ami::core::resource::requestRoutesASDService(app);
-    #endif
-
-    #if BMCWEB_AMI_REDEBUG_MACRO
-        redfish::ami::core::resource::requestRoutesReDebugService(app);
-    #endif
+#if BMCWEB_AMI_REDEBUG_MACRO
+    redfish::ami::core::resource::requestRoutesReDebugService(app);
+#endif
 
     requestRoutesMetadata(app);
     requestRoutesOdata(app);
@@ -143,7 +148,7 @@ RedfishService::RedfishService(App& app)
     if constexpr (BMCWEB_REDFISH_ALLOW_DEPRECATED_POWER_THERMAL)
     {
         requestRoutesThermal(app);
-	requestRoutesPower(app);
+        requestRoutesPower(app);
     }
     if constexpr (BMCWEB_REDFISH_NEW_POWERSUBSYSTEM_THERMALSUBSYSTEM)
     {
@@ -173,62 +178,10 @@ RedfishService::RedfishService(App& app)
     requestRoutesChassisDrive(app);
     requestRoutesChassisDriveName(app);
     requestRoutesUpdateService(app);
-    //requestRoutesStorageCollection(app);
-    //requestRoutesStorage(app);
+    // requestRoutesStorageCollection(app);
+    // requestRoutesStorage(app);
     requestRoutesStorageControllerCollection(app);
     requestRoutesStorageController(app);
-
-    #if (BMCWEB_AMI_NVME_MACRO) || (BMCWEB_AMI_RAIDMSCC_MACRO) || (BMCWEB_AMI_RAIDBRCM_MACRO)
-    {
-         redfish::ext::core::resource::requestStorageCollectionRoutes(app);
-         redfish::ext::core::resource::requestRoutesStorage(app);
-    }
-    #else
-    {
-        requestRoutesStorageCollection(app);
-        requestRoutesStorage(app);
-    }
-    #endif
-    #if BMCWEB_AMI_NVME_MACRO
-    {
-        requestRoutesNvmeControllers(app);
-        requestRoutesNvmeControllersInstance(app);
-        requestRoutesNvmePorts(app);
-        requestRoutesNvmePortsInstance(app);
-        requestRoutesNvmeDrive(app);
-    }
-    #endif 
-    #if BMCWEB_AMI_RAIDMSCC_MACRO
-    {
-        requestRoutesRaidLogicalMSCC(app);
-        requestRoutesRaidLogicalDriveMSCC(app);
-        requestRoutesPhysicalDriveMSCC(app);
-        requestRoutesMSCCCreateLogicalDriveAction(app);
-        requestRoutesMSCCDeleteLogicalDriveAction(app);
-        requestRoutesMSCCCreateLogicalDriveOnArrayDriveAction(app);
-        requestRoutesMSCCCreateLuCacheDriveAction(app);
-        requestRoutesMSCCDeleteArrayDriveAction(app);
-        requestRoutesMSCCSetControllerPropertiesAction(app);
-        requestRoutesMSCCAddPhysicalDriveToArrayDriveAction(app);
-        requestRoutesMSCCRemovePhysicalDriveFromArrayDriveAction(app);
-        requestRoutesMSCCAddSpareDriveToArrayDriveAction(app);
-        requestRoutesMSCCRemoveSpareDriveFromArrayDriveAction(app);
-        requestRoutesMSCCStartLocatePhysicalDriveAction(app);
-        requestRoutesMSCCStartLocateArrayDriveAction(app);
-        requestRoutesMSCCStartLocateLogicalDriveAction(app);
-        requestRoutesMSCCStopLocatePhysicalDriveAction(app);
-        requestRoutesMSCCStopLocateArrayDriveAction(app);
-        requestRoutesMSCCStopLocateLogicalDriveAction(app);
-        requestRoutesArrayDriveInstance(app);
-	 requestRoutesMSCCImportConfigFileAction(app);
-	 requestRoutesMSCCExportConfigFileAction(app);
-    }
-    #endif
-    #if BMCWEB_AMI_RAIDBRCM_MACRO
-    {
-        requestRoutesBRCMStorageDevices(app);
-    }
-    #endif
 
     requestRoutesDrive(app);
     requestRoutesCable(app);
@@ -296,8 +249,8 @@ RedfishService::RedfishService(App& app)
     requestRoutesBiosService(app);
     requestRoutesBiosReset(app);
     requestRoutesBiosSettings(app);
-    //requestRoutesBiosAttributeRegistry(app);
-    //requestRoutesBiosAttrRegistryService(app);
+    // requestRoutesBiosAttributeRegistry(app);
+    // requestRoutesBiosAttrRegistryService(app);
     requestRoutesBiosChangePassword(app);
 
     if constexpr (BMCWEB_VM_NBDPROXY)
@@ -324,20 +277,9 @@ RedfishService::RedfishService(App& app)
         requestRoutesSystemsLogServiceHostlogger(app);
     }
 
-   #if BMCWEB_AMI_PCIESW_MACRO
-   requestRoutesPcieSwitchCollection(app);
-   requestRoutesPcieSwitchInstanceCollection(app);
-   requestRoutesPcieSwitchPortsCollection(app);
-   requestRoutesPcieSwitchPortsInstanceCollection(app);
-   requestRoutesPcieSwitchRefresh(app);
-   requestRoutesPcieSwitchCoreDump(app);
-   requestRoutesPcieSwitchTraseBuffer(app);
-   requestRoutesPcieSwitchFWUpdate(app);
-   #endif
-
     requestRoutesMessageRegistryFileCollection(app);
     requestRoutesMessageRegistryFile(app);
-    //requestRoutesMessageRegistry(app);
+    // requestRoutesMessageRegistry(app);
 
     requestRoutesCertificateService(app);
     requestRoutesHTTPSCertificate(app);
@@ -395,10 +337,77 @@ RedfishService::RedfishService(App& app)
 
     requestRoutesPefService(app);
     requestRoutesSendTrap(app);
-    // Note, this must be the last route registered
-#if (!BMCWEB_AMI_REP_MACRO) && (!BMCWEB_AMI_NIC_MACRO)
-    requestRoutesRedfish(app);
+
+    // All Extention packs routing table added here
+#if BMCWEB_AMI_REP_MACRO
+    registerRepRoutes(app);
 #endif
+#if BMCWEB_AMI_NIC_MACRO
+    registerNicRoutes(app);
+#endif
+
+#if (BMCWEB_AMI_NVME_MACRO) || (BMCWEB_AMI_RAIDMSCC_MACRO) ||                  \
+    (BMCWEB_AMI_RAIDBRCM_MACRO)
+    {
+        redfish::ext::core::resource::requestStorageCollectionRoutes(app);
+        redfish::ext::core::resource::requestRoutesStorage(app);
+    }
+#else
+    {
+        requestRoutesStorageCollection(app);
+        requestRoutesStorage(app);
+    }
+#endif
+#if BMCWEB_AMI_NVME_MACRO
+    {
+        requestRoutesNvmeControllers(app);
+        requestRoutesNvmeControllersInstance(app);
+        requestRoutesNvmePorts(app);
+        requestRoutesNvmePortsInstance(app);
+        requestRoutesNvmeDrive(app);
+    }
+#endif
+#if BMCWEB_AMI_RAIDMSCC_MACRO
+    {
+        requestRoutesRaidLogicalMSCC(app);/*  */
+        requestRoutesRaidLogicalDriveMSCC(app);
+        requestRoutesPhysicalDriveMSCC(app);
+        requestRoutesMSCCCreateLogicalDriveAction(app);
+        requestRoutesMSCCDeleteLogicalDriveAction(app);
+        requestRoutesMSCCCreateLogicalDriveOnArrayDriveAction(app);
+        requestRoutesMSCCCreateLuCacheDriveAction(app);
+        requestRoutesMSCCDeleteArrayDriveAction(app);
+        requestRoutesMSCCSetControllerPropertiesAction(app);
+        requestRoutesMSCCAddPhysicalDriveToArrayDriveAction(app);
+        requestRoutesMSCCRemovePhysicalDriveFromArrayDriveAction(app);
+        requestRoutesMSCCAddSpareDriveToArrayDriveAction(app);
+        requestRoutesMSCCRemoveSpareDriveFromArrayDriveAction(app);
+        requestRoutesMSCCStartLocatePhysicalDriveAction(app);
+        requestRoutesMSCCStartLocateArrayDriveAction(app);
+        requestRoutesMSCCStartLocateLogicalDriveAction(app);
+        requestRoutesMSCCStopLocatePhysicalDriveAction(app);
+        requestRoutesMSCCStopLocateArrayDriveAction(app);
+        requestRoutesMSCCStopLocateLogicalDriveAction(app);
+        requestRoutesArrayDriveInstance(app);
+        requestRoutesMSCCImportConfigFileAction(app);
+        requestRoutesMSCCExportConfigFileAction(app);
+    }
+#endif
+#if BMCWEB_AMI_RAIDBRCM_MACRO
+        requestRoutesBRCMStorageDevices(app);
+#endif
+#if BMCWEB_AMI_PCIESW_MACRO
+    requestRoutesPcieSwitchCollection(app);
+    requestRoutesPcieSwitchInstanceCollection(app);
+    requestRoutesPcieSwitchPortsCollection(app);
+    requestRoutesPcieSwitchPortsInstanceCollection(app);
+    requestRoutesPcieSwitchRefresh(app);
+    requestRoutesPcieSwitchCoreDump(app);
+    requestRoutesPcieSwitchTraseBuffer(app);
+    requestRoutesPcieSwitchFWUpdate(app);
+#endif
+    // Note, this must be the last route registered
+    requestRoutesRedfish(app);
 }
 
 } // namespace redfish

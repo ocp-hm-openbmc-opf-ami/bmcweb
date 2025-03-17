@@ -18,16 +18,6 @@
 #include "obmc_console.hpp"
 #include "openbmc_dbus_rest.hpp"
 #include "redfish.hpp"
-#if (BMCWEB_AMI_REP_MACRO)
-#include "ext/src/rep.hpp"
-#endif
-#if (BMCWEB_AMI_NIC_MACRO)
-#include "ext/src/nic.hpp"
-#endif
-//#include <redfish_v1.hpp>
-#if (BMCWEB_AMI_REP_MACRO) || (BMCWEB_AMI_NIC_MACRO)
-#include <redfish_v1.hpp>
-#endif
 #include "redfish_aggregator.hpp"
 #include "user_monitor.hpp"
 #include "vm_websocket.hpp"
@@ -89,52 +79,6 @@ int run()
     if constexpr (BMCWEB_REDFISH)
     {
         redfish::RedfishService redfish(app);
-        #if (BMCWEB_AMI_REP_MACRO)
-            redfish::RepService rep(app);
-        #endif
-        #if (BMCWEB_AMI_NIC_MACRO)
-            redfish::NicService nic(app);
-        #endif
-
-/* #if (BMCWEB_AMI_NIC_MACRO)
-        try
-        {
-            // Create AMI Redfish extension service and initialize Config
-            boost::dll::import_symbol<
-                redfish::ami::extension::Service<crow::App>>(
-                "/usr/lib/redfish/core/libnic.so.1", "service",
-                boost::dll::load_mode::rtld_lazy |
-                    boost::dll::load_mode::rtld_global)
-                ->requestRoutes(app);
-        }
-        catch (const std::system_error& e)
-        {
-            std::cerr << e.what() << std::endl;
-        }
-#endif */
-/* #if (BMCWEB_AMI_REP_MACRO)
-        try
-        {
-            BMCWEB_LOG_ERROR("Inside BMCWEB_ENABLE_AMI_REP");
-            // Create AMI Redfish extension service and initialize Config
-            boost::dll::import_symbol<
-                redfish::ami::extension::Service<crow::App>>(
-                "/usr/lib/redfish/core/libami.so.1", "service",
-                boost::dll::load_mode::rtld_lazy |
-                    boost::dll::load_mode::rtld_global)
-                ->requestRoutes(app);
-        }
-        catch (const std::system_error& e)
-        {
-            std::cerr << e.what() << std::endl;
-        }
-#endif */
-
-#if (BMCWEB_AMI_REP_MACRO) || (BMCWEB_AMI_NIC_MACRO)
-
-        // Note, this must be the last route registered
-        redfish::requestRoutesRedfish(app);
-#endif
         // Create EventServiceManager instance and initialize Config
         redfish::EventServiceManager::getInstance(&*io);
 
