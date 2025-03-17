@@ -32,7 +32,7 @@ static bool matchService(const sdbusplus::message::object_path& objPath,
     return fullUnitName.substr(0, pos) == serviceName;
 }
 
-void getSerialConsoleSshMasked(
+inline void getSerialConsoleSshMasked(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& serviceName, const std::string& ObjectName,
     const std::string& subObjectName, const std::string& propertyName)
@@ -57,7 +57,7 @@ void getSerialConsoleSshMasked(
         });
 }
 
-void getMasked(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+inline void getMasked(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                const std::string& serviceName, const std::string& ObjectName,
                const std::string& propertyName)
 {
@@ -113,7 +113,7 @@ inline void getMaskedStatus(
         });
 }
 
-void getRunning(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+inline void getRunning(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 const std::string& serviceName,
                 const nlohmann::json::json_pointer& valueJsonPtr)
 {
@@ -173,7 +173,7 @@ void getRunning(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         serviceManagerService, "/xyz/openbmc_project/control/service",
         "org.freedesktop.DBus.ObjectManager", "GetManagedObjects");
 }
-void getEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+inline void getEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 const std::string& serviceName,
                 const nlohmann::json::json_pointer& valueJsonPtr)
 {
@@ -244,7 +244,7 @@ void getEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         "org.freedesktop.DBus.ObjectManager", "GetManagedObjects");
 }
 
-void getPortNumber(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+inline void getPortNumber(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& serviceName,
                    const nlohmann::json::json_pointer& valueJsonPtr)
 {
@@ -320,7 +320,7 @@ static inline void
         interface, property, dbus::utility::DbusVariantType{value});
 }
 
-void setMasked(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+inline void setMasked(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                const std::string& serviceName, const bool enabled)
 {
     sdbusplus::asio::setProperty(
@@ -336,7 +336,7 @@ void setMasked(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         });
 }
 
-void setEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+inline void setEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 const std::string& serviceName, const bool enabled)
 {
     crow::connections::systemBus->async_method_call(
@@ -374,7 +374,7 @@ void setEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         "org.freedesktop.DBus.ObjectManager", "GetManagedObjects");
 }
 
-void setPortNumber(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+inline void setPortNumber(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& serviceName, const uint16_t portNumber)
 {
     crow::connections::systemBus->async_method_call(
