@@ -252,7 +252,7 @@ inline void getSessionInfo(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
                     "/redfish/v1/SessionService/"
                     "Sessions/" +
                     sessionId;
-                asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("Session");
+		asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("Session");
                 asyncResp->res.jsonValue["Name"] = "User Session";
                 asyncResp->res.jsonValue["Description"] =
                     "Manager User Session";
@@ -421,7 +421,7 @@ inline void handleSessionGet(
                             "/redfish/v1/SessionService/"
                             "Sessions/" +
                             sessionId;
-                        asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("Session");
+			asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("Session");
                         asyncResp->res.jsonValue["Name"] = "User Session";
                         asyncResp->res.jsonValue["Description"] =
                             "Manager User Session";
@@ -505,7 +505,8 @@ inline void handleSessionDelete(
 
         // Unregister session
         crow::connections::systemBus->async_method_call(
-            [asyncResp](const boost::system::error_code& ec, bool value) {
+            [asyncResp, sessType, SessId,
+             req](const boost::system::error_code& ec, bool value) {
                 if (ec)
                 {
                     BMCWEB_LOG_DEBUG("Failed to unRegister: {}", ec);
@@ -514,6 +515,28 @@ inline void handleSessionDelete(
                 }
                 if (value)
                 {
+                    if (sessType == 1)
+                    {
+                        auto session =
+                            persistent_data::SessionStore::getInstance()
+                                .getSessionByUid(
+                                    persistent_data::getUniqueIdFromSessionID(
+                                        static_cast<uint8_t>(SessId)));
+                        // If session type is Web, clear the session cookies
+                        if (session)
+                        {
+                            if (req.session != nullptr &&
+                                req.session->uniqueId ==
+                                    (persistent_data::getUniqueIdFromSessionID(
+                                        static_cast<uint8_t>(SessId))) &&
+                                session->cookieAuth)
+                            {
+                                bmcweb::clearSessionCookies(asyncResp->res);
+                            }
+                            persistent_data::SessionStore::getInstance()
+                                .removeSession(session);
+                        }
+                    }
                     asyncResp->res.result(
                         boost::beast::http::status::no_content);
                     return;
@@ -611,16 +634,40 @@ inline void handleSessionDelete(
 
 inline nlohmann::json getSessionCollectionMembers()
 {
-    std::vector<std::string> sessionIds =
-        persistent_data::SessionStore::getInstance().getAllUniqueIds();
+    auto& store = persistent_data::SessionStore::getInstance();
+    const std::vector<std::string> sessionIds = store.getAllUniqueIds();
+    const auto& sessions = store.getSessions();
+
     nlohmann::json ret = nlohmann::json::array();
+
     for (const std::string& uid : sessionIds)
     {
-        nlohmann::json::object_t session;
-        session["@odata.id"] =
+        std::shared_ptr<persistent_data::UserSession> session = nullptr;
+
+        for (const auto& s : sessions)
+        {
+            if (s && s->uniqueId == uid)
+            {
+                session = s;
+                break;
+            }
+        }
+
+        if (session == nullptr)
+        {
+            continue;
+        }
+
+        if (session->AMIsessionType != "Redfish")
+        {
+            continue;
+        }
+        nlohmann::json::object_t sessionJson;
+        sessionJson["@odata.id"] =
             boost::urls::format("/redfish/v1/SessionService/Sessions/{}", uid);
-        ret.emplace_back(std::move(session));
+        ret.emplace_back(std::move(sessionJson));
     }
+
     return ret;
 }
 
@@ -875,7 +922,7 @@ inline void handleSessionServiceGet(
     asyncResp->res.addHeader(
         boost::beast::http::field::link,
         "</redfish/v1/JsonSchemas/SessionService/SessionService.json>; rel=describedby");
-
+    
     asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("SessionService");
     asyncResp->res.jsonValue["@odata.id"] = "/redfish/v1/SessionService";
     asyncResp->res.jsonValue["Name"] = "Session Service";
@@ -958,8 +1005,8 @@ inline void handleSessionServiceGet(
             const uint16_t* s = std::get_if<uint16_t>(&value);
             asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.id"] =
                 "/redfish/v1/SessionService#/Oem/Ami";
-            asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] = json_util::odataType("AMISessionService", "Ami");
-            asyncResp->res.jsonValue["Oem"]["Ami"]["KVMPort"] = *s;
+	    asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] = json_util::odataType("AMISessionService", "Ami");
+	    asyncResp->res.jsonValue["Oem"]["Ami"]["KVMPort"] = *s;
         },
         "xyz.openbmc_project.Control.Service.Manager",
         "/xyz/openbmc_project/control/service/start_2dipkvm",

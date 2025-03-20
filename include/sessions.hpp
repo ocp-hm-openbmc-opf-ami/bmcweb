@@ -22,7 +22,18 @@
 
 namespace persistent_data
 {
-
+inline std::unordered_map<std::string, uint8_t> sessionMap;
+inline std::string getUniqueIdFromSessionID(uint8_t sessionID)
+{
+    for (const auto& pair : sessionMap)
+    {
+        if (pair.second == sessionID)
+        {
+            return pair.first; // Return the corresponding Unique ID
+        }
+    }
+    return "Not Found"; // Handle case where Session ID isn't mapped
+}
 // entropy: 20 characters, 62 possibilities.  log2(62^20) = 119 bits of
 // entropy.  OWASP recommends at least 64
 // https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html#session-id-entropy
