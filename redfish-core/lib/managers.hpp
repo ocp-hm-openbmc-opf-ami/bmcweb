@@ -37,7 +37,6 @@
 #include <string>
 #include <string_view>
 #include <variant>
-//#include "managers_header.hpp"
 
 namespace redfish
 {
