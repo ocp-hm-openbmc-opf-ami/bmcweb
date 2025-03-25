@@ -276,6 +276,7 @@ RedfishService::RedfishService(App& app)
     requestRoutesAcpiEntryCollection(app);
     requestRoutesAcpiEntry(app);
     requestRoutesAcpiFile(app);
+    requestRoutesSystemRsyslog(app);
 
     requestRoutesProcessorCollection(app);
     requestRoutesProcessor(app);
