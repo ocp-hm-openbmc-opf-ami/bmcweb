@@ -4231,6 +4231,8 @@ handleSyslogCertificatePatch(App& app, const crow::Request& req,
                     }
                     if(remoteserverport)
                     {
+		      	if(remoteserverport >= 0 && remoteserverport <= 65535)
+		    	{
                         sdbusplus::asio::setProperty(
                         *crow::connections::systemBus, syslogServicePath,
                         syslogObjectPath, syslogInterface, "Port",
@@ -4244,6 +4246,14 @@ handleSyslogCertificatePatch(App& app, const crow::Request& req,
                             messages::success(asyncResp->res);
                             BMCWEB_LOG_DEBUG("Patch Authentication Success");
                         });
+		       	{
+			else
+                        {
+                            messages::propertyValueOutOfRange(
+                                asyncResp->res, *remoteserverport,
+                                "Port");
+                                return;
+                        }
                     }
                     if(remotelogserver)
                     {
@@ -4325,7 +4335,7 @@ handleSyslogCertificatePatch(App& app, const crow::Request& req,
                     }
                     if(filesize)
                     {
-                        if(filesize <=50000)
+                        if(filesize >= 0 && filesize <= 65535)
                         {
                         sdbusplus::asio::setProperty(
                             *crow::connections::systemBus, syslogServicePath,
