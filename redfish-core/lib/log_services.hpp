@@ -4246,7 +4246,7 @@ handleSyslogCertificatePatch(App& app, const crow::Request& req,
                             messages::success(asyncResp->res);
                             BMCWEB_LOG_DEBUG("Patch Authentication Success");
                         });
-		       	{
+		       	}
 			else
                         {
                             messages::propertyValueOutOfRange(
