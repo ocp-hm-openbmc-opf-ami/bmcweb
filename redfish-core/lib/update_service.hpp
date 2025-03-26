@@ -2264,6 +2264,12 @@ inline void handleUpdateServicePatch(
                 std::optional<bool> sel;
                 std::optional<bool> snmp;
                 std::optional<bool> uboot;
+                std::optional<bool> ipmi;
+                std::optional<bool> ntp;
+                std::optional<bool> sol;
+                std::optional<bool> syslog;
+		std::optional<bool> boot_override;
+                std::optional<bool> extlog;
                 std::size_t preserveconfiguration_size =
                     preserveconfiguration.value().size();
                 if (preserveconfiguration_size == 0)
@@ -2276,79 +2282,124 @@ inline void handleUpdateServicePatch(
                         "AUTHENTICATION", authentication, "FRU", fru, "KVM",
                         kvm, "SMTP", smtp, "NETWORK", network, "REDFISH",
                         redfish, "SDR", sdr, "SEL", sel, "SNMP", snmp,
-                        "U_BOOT_ENV", uboot))
+                        "U_BOOT_ENV", uboot, "IPMI", ipmi, "NTP" ,ntp, "SOL",
+                        sol, "SYSLOG" , syslog ,"Boot_Override", boot_override, "EXTLOG", extlog))
                 {
                     return;
                 }
+                std::string preserve_config = "/xyz/openbmc_project/inventory/system/configuration/Preserve_Configuration/";
+                std::string network_config = "/xyz/openbmc_project/inventory/system/configuration/Network_Configuration/";
                 if (authentication)
                 {
                     setPreserveConfigEnable(
                         asyncResp,
-                        "/xyz/openbmc_project/inventory/system/configuration/Preserve_Configuration/AUTHENTICATION",
+                        preserve_config+"AUTHENTICATION",
                         *authentication);
                 }
                 if (fru)
                 {
                     setPreserveConfigEnable(
                         asyncResp,
-                        "/xyz/openbmc_project/inventory/system/configuration/Preserve_Configuration/FRU",
+                        preserve_config+"FRU",
                         *fru);
                 }
                 if (kvm)
                 {
                     setPreserveConfigEnable(
                         asyncResp,
-                        "/xyz/openbmc_project/inventory/system/configuration/Preserve_Configuration/KVM",
+                        preserve_config+"KVM",
                         *kvm);
                 }
                 if (smtp)
                 {
                     setPreserveConfigEnable(
                         asyncResp,
-                        "/xyz/openbmc_project/inventory/system/configuration/Preserve_Configuration/SMTP",
+                        preserve_config+"SMTP",
                         *smtp);
                 }
                 if (network)
                 {
                     setPreserveConfigEnable(
                         asyncResp,
-                        "/xyz/openbmc_project/inventory/system/configuration/Network_Configuration/NETWORK",
+                        network_config+"NETWORK",
                         *network);
                 }
                 if (redfish)
                 {
                     setPreserveConfigEnable(
                         asyncResp,
-                        "/xyz/openbmc_project/inventory/system/configuration/Preserve_Configuration/REDFISH",
+                        preserve_config+"REDFISH",
                         *redfish);
                 }
                 if (sdr)
                 {
                     setPreserveConfigEnable(
                         asyncResp,
-                        "/xyz/openbmc_project/inventory/system/configuration/Preserve_Configuration/SDR",
+                        preserve_config+"SDR",
                         *sdr);
                 }
                 if (sel)
                 {
                     setPreserveConfigEnable(
                         asyncResp,
-                        "/xyz/openbmc_project/inventory/system/configuration/Preserve_Configuration/SEL",
+                        preserve_config+"SEL",
                         *sel);
                 }
                 if (snmp)
                 {
                     setPreserveConfigEnable(
                         asyncResp,
-                        "/xyz/openbmc_project/inventory/system/configuration/Preserve_Configuration/SNMP",
+                        preserve_config+"SNMP",
                         *snmp);
                 }
                 if (uboot)
                 {
                     setPreserveConfigEnable(
                         asyncResp,
-                        "/xyz/openbmc_project/inventory/system/configuration/Network_Configuration/U_BOOT_ENV",
+                        network_config+"U_BOOT_ENV",
                         *uboot);
+                }
+                if (ipmi)
+                {
+                    setPreserveConfigEnable(
+                        asyncResp,
+                        network_config+"IPMI",
+                        *ipmi);
+                }
+                if (ntp)
+                {
+                    setPreserveConfigEnable(
+                        asyncResp,
+                        network_config+"NTP",
+                        *ntp);
+                }
+                if (sol)
+                {
+                    setPreserveConfigEnable(
+                        asyncResp,
+                        network_config+"SOL",
+                        *sol);
+                }
+                if (syslog)
+                {
+                    setPreserveConfigEnable(
+                        asyncResp,
+                        network_config+"SYSLOG",
+                        *syslog);
+                }
+		if (boot_override)
+                {
+                    setPreserveConfigEnable(
+                        asyncResp,
+                        network_config+"Boot_Override",
+                        *boot_override);
+                }
+                if (extlog)
+                {
+                    setPreserveConfigEnable(
+                        asyncResp,
+                        network_config+"EXTLOG",
+                        *extlog);
                 }
             }
         }
