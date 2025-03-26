@@ -1247,7 +1247,7 @@ inline void handleServiceEnablePatch(
             {
                 BMCWEB_LOG_DEBUG(
                     "Error Occurred in Updating the service enable");
-                messages::internalError(asyncResp->res);
+                messages::conflictOnPropertyPatch(asyncResp->res, "ServiceEnabled", "true");
                 return;
             }
             asyncResp->res.jsonValue[ldapServerElementName]["ServiceEnabled"] =

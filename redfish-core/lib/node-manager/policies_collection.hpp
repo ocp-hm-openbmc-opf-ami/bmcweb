@@ -332,7 +332,6 @@ inline void updatePolicyParamsWithJsonValues(
             powerCorrectionType, "LimitException", limitException,
             "ComponentId", componentId, "Trigger", trigger))
     {
-        messages::malformedJSON(asyncResp->res);
         return;
     }
 

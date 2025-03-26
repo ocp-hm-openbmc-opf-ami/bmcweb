@@ -412,6 +412,8 @@ inline void
                      const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                      const std::string& strParam)
 {
+    asyncResp->res.clearHeader(boost::beast::http::field::allow);
+    asyncResp->res.addHeader("Allow", "GET,DELETE");
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
@@ -447,6 +449,40 @@ inline void
     ptr->deleteTasks(asyncResp, strParam);
     asyncResp->res.result(boost::beast::http::status::no_content);
 }
+
+inline void
+    handleTaskDeleteMonitor(App& app, const crow::Request& req,
+                     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                     const std::string& strParam)
+{
+    asyncResp->res.clearHeader(boost::beast::http::field::allow);
+    auto find =
+        std::find_if(task::tasks.begin(), task::tasks.end(),
+                     [&strParam](const std::shared_ptr<task::TaskData>& task) {
+                         if (!task)
+                         {
+                             return false;
+                         }
+
+                         // we compare against the string version as on failure
+                         // strtoul returns 0
+                         return std::to_string(task->index) == strParam;
+    });
+    std::shared_ptr<task::TaskData>& ptr = *find;
+    std::string statusval = ptr->state;
+    if(statusval == "Completed")
+    {
+        asyncResp->res.addHeader("Allow", "");
+        messages::resourceNotFound(asyncResp->res, "Task", strParam);
+        return;
+    }
+    else
+    {
+        asyncResp->res.addHeader("Allow", "GET,DELETE");
+        handleTaskDelete(app, req, asyncResp, strParam);
+    }
+}
+
 inline void requestRoutesTaskMonitor(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/TaskService/TaskMonitors/<str>/")
@@ -455,7 +491,9 @@ inline void requestRoutesTaskMonitor(App& app)
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& strParam) {
-                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+ 		asyncResp->res.clearHeader(boost::beast::http::field::allow);
+                asyncResp->res.addHeader("Allow", "GET,DELETE");
+		if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
                     return;
                 }
@@ -488,6 +526,39 @@ inline void requestRoutesTaskMonitor(App& app)
                     return;
                 }
             });
+    BMCWEB_ROUTE(app, "/redfish/v1/TaskService/TaskMonitors/<str>/")
+    .methods(boost::beast::http::verb::post, boost::beast::http::verb::patch)(
+     [&app](const crow::Request& ,
+            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+            const std::string& strParam) {
+                asyncResp->res.clearHeader(boost::beast::http::field::allow);
+                auto find =
+                std::find_if(task::tasks.begin(), task::tasks.end(),
+                     [&strParam](const std::shared_ptr<task::TaskData>& task) {
+                         if (!task)
+                         {
+                             return false;
+                         }
+
+                         // we compare against the string version as on failure
+                         // strtoul returns 0
+                         return std::to_string(task->index) == strParam;
+                        });
+                std::shared_ptr<task::TaskData>& ptr = *find;
+                std::string statusval = ptr->state;
+                if(statusval == "Completed")
+                {
+                        asyncResp->res.addHeader("Allow", "");
+                        messages::resourceNotFound(asyncResp->res, "Task", strParam);
+                        return;
+                }
+                else
+                {
+                        asyncResp->res.addHeader("Allow", "GET,DELETE");
+                        messages::operationNotAllowed(asyncResp->res);
+                        return;
+                }
+        });
 }
 
 inline void requestRoutesTask(App& app)
@@ -546,13 +617,7 @@ inline void requestRoutesTask(App& app)
                 asyncResp->res.jsonValue["Messages"] = ptr->messages;
                 asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
                     "/redfish/v1/TaskService/Tasks/{}", strParam);
-                if (!ptr->taskCompleted)
-                {
-                    asyncResp->res.jsonValue["TaskMonitor"] =
-                        boost::urls::format(
-                            "/redfish/v1/TaskService/TaskMonitors/{}",
-                            strParam);
-                }
+		std::string status = ptr->state;                                                                                                     if(status != "Completed")                                                                                                            {                                                                                                                                            asyncResp->res.jsonValue["TaskMonitor"] =                                                                                            boost::urls::format(                                                                                                                     "/redfish/v1/TaskService/TaskMonitors/{}",                                                                                           strParam);                                                                                                               }
 
                 asyncResp->res.jsonValue["HidePayload"] = !ptr->payload;
 
@@ -710,9 +775,9 @@ inline void requestRoutesTaskDelete(App& app)
         .methods(boost::beast::http::verb::delete_)(
             std::bind_front(handleTaskDelete, std::ref(app)));
 
-    BMCWEB_ROUTE(app, "/redfish/v1/TaskService/Tasks/<str>/Monitor")
+    BMCWEB_ROUTE(app, "/redfish/v1/TaskService/TaskMonitors/<str>")
         .privileges(redfish::privileges::deleteTask)
         .methods(boost::beast::http::verb::delete_)(
-            std::bind_front(handleTaskDelete, std::ref(app)));
+            std::bind_front(handleTaskDeleteMonitor, std::ref(app)));
 }
 } // namespace redfish

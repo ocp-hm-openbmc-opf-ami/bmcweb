@@ -647,10 +647,89 @@ inline void handleError(const std::string_view dbusErrorName,
         messages::propertyValueIncorrect(asyncResp->res, "Certificate",
                                          certificate);
     }
+    else if (dbusErrorName == certs::CertificateFileExpiredError)
+    {
+        messages::certificateFileExpired(asyncResp->res);
+    }
+    else if (dbusErrorName == certs::CertificateFileUntrustedError)
+    {
+        messages::certificateFileUntrusted(asyncResp->res);
+    }
+    else if (dbusErrorName == certs::PrivateKeyFileEncryptedError)
+    {
+        messages::privateKeyFileEncrypted(asyncResp->res);
+    }
+    else if (dbusErrorName == certs::PrivateKeyCertificateFileNotMatchError)
+    {
+        messages::privateKeyCertificateFileNotMatch(asyncResp->res);
+    }
+    else if (dbusErrorName == certs::VerifyCertificateFileFailedError)
+    {
+        messages::verifyCertificateFileFailed(asyncResp->res);
+    }
+    else if (dbusErrorName == certs::CertificateFileSizeExceededError)
+    {
+        messages::certificateFileSizeExceeded(asyncResp->res);
+    }
+    else if (dbusErrorName == certs::PrivateKeyFileSizeExceededError)
+    {
+        messages::privateKeyFileSizeExceeded(asyncResp->res);
+    }
+    else if (dbusErrorName == certs::CertificateKeyLengthTooSmallError)
+    {
+        messages::certificateKeyLengthTooSmall(asyncResp->res);
+    }
     else
     {
         messages::internalError(asyncResp->res);
     }
+}
+
+inline void setCertificateType(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    std::string service,
+    std::string objectPath,
+    std::string certificateType)
+{
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus,
+        service, objectPath,
+        certs::certPropIntf, "CertificateType",
+        certificateType, [asyncResp](const boost::system::error_code& ec) {
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG("set property failed.",
+                                 "/xyz/openbmc_project/certs/server/https/1",
+                                 ec);
+                if (ec.value() != EBADR)
+                {
+                    messages::internalError(asyncResp->res);
+                }
+                return;
+            }
+        });
+}
+
+inline void getCertificateType(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    std::string service,
+    std::string objectPath,
+    std::function<void(std::string)> callback)
+{
+    sdbusplus::asio::getProperty<std::string>(
+        *crow::connections::systemBus,
+        service, objectPath,
+        certs::certPropIntf, "CertificateType",
+        [asyncResp, callback](const boost::system::error_code& ec,
+                    const std::string &certificateType) {
+            if (ec)
+            {
+                callback("");
+                return;
+            }
+
+            callback(certificateType);
+        });
 }
 
 inline void handleReplaceCertificateAction(
@@ -665,11 +744,11 @@ inline void handleReplaceCertificateAction(
     std::string certURI;
     std::optional<std::string> certificateType;
 
-    if (!json_util::readJsonAction( //
-            req, asyncResp->res, //
-            "CertificateString", certificate, //
-            "CertificateUri/@odata.id", certURI, //
-            "CertificateType", certificateType //
+    if (!json_util::readJsonAction(
+            req, asyncResp->res,
+            "CertificateString", certificate,
+            "CertificateUri/@odata.id", certURI,
+            "CertificateType", certificateType
             ))
     {
         BMCWEB_LOG_ERROR("Required parameters are missing");
@@ -774,53 +853,57 @@ inline void handleReplaceCertificateAction(
         return;
     }
 
-    sdbusplus::asio::setProperty(
-        *crow::connections::systemBus,
-        service,    // "xyz.openbmc_project.Certs.Manager.Server.Https",
-        objectPath, // "/xyz/openbmc_project/certs/server/https/1",
-        "xyz.openbmc_project.Certs.Certificate", "CertificateType",
-        *certificateType, [asyncResp](const boost::system::error_code& ec) {
-            if (ec)
-            {
-                BMCWEB_LOG_DEBUG("set property failed.",
-                                 "/xyz/openbmc_project/certs/server/https/1",
-                                 ec);
-                if (ec.value() != EBADR)
-                {
-                    messages::internalError(asyncResp->res);
-                }
-                return;
-            }
-        });
+    /**
+     * Since the backend validates the certificate only after the Replace operation,
+     * this mechanism ensures that when replacing a certificate via Redfish,
+     * the system correctly restores the original CertificateType if the
+     * backend determines that the new certificate is invalid and has changed the CertificateType.
+     *
+     * 1. getCertificateType -> Retrieve the current CertificateType (pre_certificateType).
+     * 2. setCertificateType -> If the certificate is invalid and the CertificateType has changed, restore it to pre_certificateType.
+     */
+    getCertificateType(asyncResp, service, objectPath,
+        [asyncResp, service, objectPath, certificateType, parsedUrl, id, name, certURI, certificate]
+        (std::string pre_certificateType)
+        {
+            setCertificateType(asyncResp, service, objectPath, *certificateType);
 
-    std::shared_ptr<CertificateFile> certFile =
-        std::make_shared<CertificateFile>(certificate);
-    crow::connections::systemBus->async_method_call(
-        [asyncResp, certFile, objectPath, service, url{*parsedUrl}, id, name,
-         certURI, certificate](const boost::system::error_code& ec,
-                               sdbusplus::message_t& m) {
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
-                const sd_bus_error* dbusError = m.get_error();
-                if ((dbusError != nullptr) && (dbusError->name != nullptr))
-                {
-                    handleError(dbusError->name, id, certificate, asyncResp);
-                }
-                else
-                {
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-            }
-            BMCWEB_LOG_DEBUG("HTTPS certificate install file={}",
-                             certFile->getCertFilePath());
-            asyncResp->res.addHeader(boost::beast::http::field::location,
-                                     certURI);
-            asyncResp->res.result(boost::beast::http::status::no_content);
-        },
-        service, objectPath, certs::certReplaceIntf, "Replace",
-        certFile->getCertFilePath());
+            std::shared_ptr<CertificateFile> certFile =
+                std::make_shared<CertificateFile>(certificate);
+            crow::connections::systemBus->async_method_call(
+                [asyncResp, certFile, objectPath, service, url{*parsedUrl}, id, name,
+                    certURI, certificate, certificateType, pre_certificateType](const boost::system::error_code& ec,
+                                        sdbusplus::message_t& m) {
+                    if (ec)
+                    {
+                        BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
+                        const sd_bus_error* dbusError = m.get_error();
+                        if ((dbusError != nullptr) && (dbusError->name != nullptr))
+                        {
+                            handleError(dbusError->name, id, certificate, asyncResp);
+
+                            if (certificateType != pre_certificateType)
+                            {
+                                setCertificateType(asyncResp, service, objectPath, pre_certificateType);
+                            }
+
+                            return;
+                        }
+                        else
+                        {
+                            messages::internalError(asyncResp->res);
+                            return;
+                        }
+                    }
+                    BMCWEB_LOG_DEBUG("HTTPS certificate install file={}",
+                                        certFile->getCertFilePath());
+                    asyncResp->res.addHeader(boost::beast::http::field::location,
+                                                certURI);
+                    asyncResp->res.result(boost::beast::http::status::no_content);
+                },
+                service, objectPath, certs::certReplaceIntf, "Replace",
+                certFile->getCertFilePath());
+        });
 }
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)

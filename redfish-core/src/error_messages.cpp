@@ -340,7 +340,7 @@ nlohmann::json propertyMissing(std::string_view arg1)
 void propertyMissing(crow::Response& res, std::string_view arg1)
 {
     res.result(boost::beast::http::status::bad_request);
-    addMessageToJson(res.jsonValue, propertyMissing(arg1), arg1);
+    addMessageToErrorJson(res.jsonValue, propertyMissing(arg1));
 }
 
 /**
@@ -1780,6 +1780,22 @@ void propertyValueExternalConflict(crow::Response& res, std::string_view arg1,
     res.result(boost::beast::http::status::conflict);
     addMessageToErrorJson(res.jsonValue,
                           propertyValueExternalConflict(arg1, arg2));
+}
+
+/**
+ * @internal
+ * @brief Formats conflictOnPropertyPatch message into JSON for partial success PATCH  
+ *
+ * See header file for more information
+ * @endinternal
+ */
+
+void conflictOnPropertyPatch(crow::Response& res, std::string_view arg1,
+    const nlohmann::json& arg2)
+{
+    res.result(boost::beast::http::status::ok);
+    addMessageToJsonRoot(res.jsonValue,
+        propertyValueExternalConflict(arg1, arg2));
 }
 
 /**
