@@ -1784,6 +1784,22 @@ void propertyValueExternalConflict(crow::Response& res, std::string_view arg1,
 
 /**
  * @internal
+ * @brief Formats conflictOnPropertyPatch message into JSON for partial success PATCH  
+ *
+ * See header file for more information
+ * @endinternal
+ */
+
+void conflictOnPropertyPatch(crow::Response& res, std::string_view arg1,
+    const nlohmann::json& arg2)
+{
+    res.result(boost::beast::http::status::ok);
+    addMessageToJsonRoot(res.jsonValue,
+        propertyValueExternalConflict(arg1, arg2));
+}
+
+/**
+ * @internal
  * @brief Formats PropertyValueIncorrect message into JSON
  *
  * See header file for more information
