@@ -62,8 +62,35 @@
                         "null"
                     ]
                 },
+                "Boot_Override": {
+                    "description": "To preserve ServiceManager.",
+                    "longDescription": "To preserve config of Boot_Override",
+                    "readonly": false,
+                    "type": [
+                        "boolean",
+                        "null"
+                    ]
+                },
+                "EXTLOG": {
+                    "description": "To preserve ServiceManager.",
+                    "longDescription": "To preserve config of EXTLOG",
+                    "readonly": false,
+                    "type": [
+                        "boolean",
+                        "null"
+                    ]
+                },
                 "FRU": {
                     "description": "To preserve FRU.",
+                    "readonly": false,
+                    "type": [
+                        "boolean",
+                        "null"
+                    ]
+                },
+                "IPMI": {
+                    "description": "To preserve ServiceManager.",
+                    "longDescription": "To preserve config of IPMI",
                     "readonly": false,
                     "type": [
                         "boolean",
@@ -81,6 +108,15 @@
                 "NETWORK": {
                     "description": "To preserve Network.",
                     "longDescription": "To preserve config of Network. It will preserve IPMI automatically if preserve Network",
+                    "readonly": false,
+                    "type": [
+                        "boolean",
+                        "null"
+                    ]
+                },
+                "NTP": {
+                    "description": "To preserve ServiceManager.",
+                    "longDescription": "To preserve config of NTP",
                     "readonly": false,
                     "type": [
                         "boolean",
@@ -122,6 +158,24 @@
                 },
                 "SNMP": {
                     "description": "To preserve SNMP.",
+                    "readonly": false,
+                    "type": [
+                        "boolean",
+                        "null"
+                    ]
+                },
+                "SOL": {
+                    "description": "To preserve ServiceManager.",
+                    "longDescription": "To preserve config of SOL",
+                    "readonly": false,
+                    "type": [
+                        "boolean",
+                        "null"
+                    ]
+                },
+                "SYSLOG": {
+                    "description": "To preserve ServiceManager.",
+                    "longDescription": "To preserve config of SYSLOG",
                     "readonly": false,
                     "type": [
                         "boolean",
