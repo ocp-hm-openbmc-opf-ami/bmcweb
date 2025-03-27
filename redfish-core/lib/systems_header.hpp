@@ -19,7 +19,9 @@ void afterPortRequest(
     const boost::system::error_code& ec,
     const std::vector<std::tuple<std::string, std::string, bool>>& socketData);
 void getHostState(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp);
-void getBootProperties(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp);
+//void getBootProperties(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp);
+void getBootOverrideSource(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp);
+void getBootOverrideType(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp);
 void getBootProgress(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp);
 void getBootProgressLastStateTime(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp);
