@@ -24,6 +24,8 @@
 #include "utils/time_utils.hpp"
 #include "multipart_parser.hpp"
 #include "ethernet.hpp"
+#include "event_service.hpp"
+
 
 #include <systemd/sd-id128.h>
 #include <tinyxml2.h>
@@ -69,25 +71,25 @@ static const char* acpiFilePath = "/var/lib/acpi/acpi2";
 static const char* acpiFileName = "acpi2";
 
 //Rsyslog Feature changes
-const char* commandLines("systemctl restart rsyslog.service");
-std::string SyslogFileName("");
+std::string syslogFileName("");
 
 std::string syslogCacertFileName = "rsyslog_cacert.pem";
 std::string syslogServerCRTFileName = "rsyslog_server.crt";
 std::string syslogServerKeyFileName = "rsyslog_server.key";
 namespace fs = std::filesystem;
-fs::path SyslogcertsPath = "/etc/ssl/certs/rsyslog/";
+fs::path syslogCertsPath = "/etc/ssl/certs/rsyslog/";
 
-fs::path syslogCACERTFilePath = SyslogcertsPath / syslogCacertFileName;
-fs::path syslogServerCRTFilePath = SyslogcertsPath / syslogServerCRTFileName;
-fs::path syslogserverKeyFilePath = SyslogcertsPath / syslogServerKeyFileName;
+fs::path syslogCACERTFilePath = syslogCertsPath / syslogCacertFileName;
+fs::path syslogServerCRTFilePath = syslogCertsPath / syslogServerCRTFileName;
+fs::path syslogServerKeyFilePath = syslogCertsPath / syslogServerKeyFileName;
 
-std::string SyslogCACERTFile(syslogCACERTFilePath);
-std::string SyslogServerCRTFile(syslogServerCRTFilePath);
-std::string SyslogServerKeyFile(syslogserverKeyFilePath);
+std::string syslogCACERTFile(syslogCACERTFilePath);
+std::string syslogServerCRTFile(syslogServerCRTFilePath);
+std::string syslogServerKeyFile(syslogServerKeyFilePath);
 
 constexpr const char* syslogServicePath = "xyz.openbmc_project.Syslog.Config";
-constexpr const char* syslogObjectPath = "/xyz/openbmc_project/logging/config/remote";
+constexpr const char* syslogObjectPath =
+    "/xyz/openbmc_project/logging/config/remote";
 constexpr const char* syslogInterface = "xyz.openbmc_project.Network.Client";
 
 
@@ -1331,7 +1333,7 @@ inline void requestRoutesSystemLogServiceCollection(App& app)
                                 BMCWEB_REDFISH_SYSTEM_URI_NAME);
                 logServiceArray.emplace_back(std::move(hostlogger));
             }
-	    nlohmann::json::object_t syslog;
+	        nlohmann::json::object_t syslog;
             syslog["@odata.id"] =
                 std::format("/redfish/v1/Systems/{}/LogServices/Syslog",
                             BMCWEB_REDFISH_SYSTEM_URI_NAME);
@@ -4138,9 +4140,29 @@ static void
 }
 
 //Rsyslog feature changes
-inline void
-handleSyslogCertificatePatch(App& app, const crow::Request& req,
-                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,const std::string& systemName)
+template <typename T>
+void setSyslogCertificatePatch(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& propertyName, const std::optional<T>& propertyValue)
+{
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus, syslogServicePath, syslogObjectPath,
+        syslogInterface, propertyName, *propertyValue,
+        [asyncResp](const boost::system::error_code& ec) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            messages::success(asyncResp->res);
+        });
+}
+
+void handleSyslogCertificatePatch(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& systemName)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -4152,211 +4174,137 @@ handleSyslogCertificatePatch(App& app, const crow::Request& req,
                                    systemName);
         return;
     }
-   std::optional<uint16_t> filesize;
-   std::optional<uint16_t> remoteserverport;
-   std::optional<bool> rotatecount;
-   std::optional<std::string> remotelogserver;
-   std::optional<std::string> porttype; 
+    std::optional<uint16_t> filesize;
+    std::optional<uint16_t> remoteserverport;
+    std::optional<bool> rotatecount;
+    std::optional<std::string> remotelogserver;
+    std::optional<std::string> porttype;
 
-   std::optional<nlohmann::json> oem;
-   
-   if (!json_util::readJsonPatch(
-    req, asyncResp->res, "Oem", oem))
+    std::optional<nlohmann::json> oem;
+
+    if (!json_util::readJsonPatch(req, asyncResp->res, "Oem", oem))
     {
-    BMCWEB_LOG_DEBUG("Radius Service doPatch: Invalid request body");
-    return;
+        BMCWEB_LOG_DEBUG("Syslog Service doPatch: Invalid request body");
+        return;
     }
-    
+
     if (oem)
     {
         std::optional<nlohmann::json> ami;
-        std::size_t oem_size = oem.value().size();
-        if (oem_size == 0)
-        {
-            messages::propertyNotWritable(asyncResp->res, "Oem");
-            return;
-        }
-
         if (!json_util::readJson(*oem, asyncResp->res, "Ami", ami))
         {
             return;
         }
-        if(ami)
+        if (ami)
         {
             std::optional<nlohmann::json> syslog;
-            std::size_t ami_size = ami.value().size();
-            if (ami_size == 0)
-            {
-                messages::propertyNotWritable(asyncResp->res, "Ami");
-                return;
-            }
-    
             if (!json_util::readJson(*ami, asyncResp->res, "SysLog", syslog))
             {
                 return;
             }
 
-            if(syslog)
+            if (syslog)
             {
                 std::optional<nlohmann::json> configuration;
-                std::size_t syslog_size = syslog.value().size();
-                if (syslog_size == 0)
-                {
-                    messages::propertyNotWritable(asyncResp->res, "SysLog");
-                    return;
-                }
-                if (!json_util::readJson(*syslog, asyncResp->res, "Configuration", configuration))
+                if (!json_util::readJson(*syslog, asyncResp->res,
+                                         "Configuration", configuration))
                 {
                     return;
                 }
-                if(configuration)
+                if (configuration)
                 {
-                    std::size_t configuration_size = configuration.value().size();
+                    std::size_t configuration_size =
+                        configuration.value().size();
                     if (configuration_size == 0)
                     {
-                        messages::propertyNotWritable(asyncResp->res, "Configuration");
+                        messages::propertyNotWritable(asyncResp->res,
+                                                      "Configuration");
                         return;
                     }
 
                     if (!json_util::readJson( //
-                        *configuration, asyncResp->res, //
-                        "RemoteServerPort", remoteserverport, //
-                        "RemoteLogServer", remotelogserver, //
-                        "PortType", porttype,
-                        "FileSize",filesize,
-                        "RotateCount",rotatecount
-                        ))
+                            *configuration, asyncResp->res, //
+                            "RemoteServerPort", remoteserverport, //
+                            "RemoteLogServer", remotelogserver, //
+                            "PortType", porttype, "FileSize", filesize,
+                            "RotateCount", rotatecount))
                     {
                         return;
                     }
-                    if(remoteserverport)
+                    if (remoteserverport)
                     {
-		      	if(remoteserverport >= 0 && remoteserverport <= 65535)
-		    	{
-                        sdbusplus::asio::setProperty(
-                        *crow::connections::systemBus, syslogServicePath,
-                        syslogObjectPath, syslogInterface, "Port",
-                        *remoteserverport, [asyncResp,remoteserverport](const boost::system::error_code& ec) {
-                            if (ec)
-                            {
-                                BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
-                                messages::internalError(asyncResp->res);
-                                return;
-                            }
-                            messages::success(asyncResp->res);
-                            BMCWEB_LOG_DEBUG("Patch Authentication Success");
-                        });
-		       	}
-			else
+                        if (remoteserverport >= 0 && remoteserverport <= 65535)
+                        {
+                            setSyslogCertificatePatch(asyncResp, "Port",
+                                                      remoteserverport);
+                        }
+                        else
                         {
                             messages::propertyValueOutOfRange(
-                                asyncResp->res, *remoteserverport,
-                                "Port");
-                                return;
+                                asyncResp->res, *remoteserverport, "Port");
+                            return;
                         }
                     }
-                    if(remotelogserver)
+                    if (remotelogserver)
                     {
                         const std::string& ipAddress = *remotelogserver;
 
                         if (!ip_util::isValidIPv4Addr(
-                            ipAddress,
-                            ip_util::Type::IP4_ADDRESS)) // checking the IPv4
-                                                         // Address
-                            {
-                                messages::invalidip(asyncResp->res, "Address", ipAddress);
-                            }
-                        sdbusplus::asio::setProperty(
-                            *crow::connections::systemBus, syslogServicePath,
-                            syslogObjectPath, syslogInterface, "Address",
-                            *remotelogserver, [asyncResp](const boost::system::error_code& ec) {
-                                if (ec)
-                                {
-                                    BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
-                                    messages::internalError(asyncResp->res);
-                                    return;
-                                }
-                                messages::success(asyncResp->res);
-                                BMCWEB_LOG_DEBUG("Patch Authentication Success");
-                            });
-                    }
-                   
-                    if(porttype)
-                    {
-                        std::string portvalue="";
-                        if (porttype == "xyz.openbmc_project.Network.Client.TransportProtocol.TCP")
-                            {
-                                portvalue = "TCP";
-                            }
-                            else if(porttype == "xyz.openbmc_project.Network.Client.TransportProtocol.UDP")
-                            {
-                                portvalue = "UDP";
-                            }
-
-                        if (portvalue == "TCP" || portvalue == "UDP" )
+                                ipAddress,
+                                ip_util::Type::IP4_ADDRESS)) // checking the
+                                                             // IPv4 Address
                         {
-                        sdbusplus::asio::setProperty(
-                            *crow::connections::systemBus, syslogServicePath,
-                            syslogObjectPath, syslogInterface, "TransportProtocol",
-                            *porttype, [asyncResp](const boost::system::error_code& ec) {
-                                if (ec)
-                                {
-                                    BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
-                                    messages::internalError(asyncResp->res);
-                                    return;
-                                }
-                                messages::success(asyncResp->res);
-                                BMCWEB_LOG_DEBUG("Patch Authentication Success");
-                            });
+                            messages::invalidip(asyncResp->res, "Address",
+                                                ipAddress);
+                        }
+                        setSyslogCertificatePatch(asyncResp, "Address",
+                                                  remotelogserver);
+                    }
+
+                    if (porttype)
+                    {
+                        std::optional<std::string> portvalue;
+                        if (porttype == "TCP" || porttype == "Tcp")
+                        {
+                            portvalue =
+                                "xyz.openbmc_project.Network.Client.TransportProtocol.TCP";
+                        }
+                        else if (porttype == "UDP" || porttype == "Udp")
+                        {
+                            portvalue =
+                                "xyz.openbmc_project.Network.Client.TransportProtocol.UDP";
+                        }
+
+                        if (porttype == "TCP" || porttype == "Tcp" ||
+                            porttype == "UDP" || porttype == "Udp")
+                        {
+                            setSyslogCertificatePatch(
+                                asyncResp, "TransportProtocol", portvalue);
                         }
                         else
                         {
                             messages::actionParameterValueNotInList(
-                                asyncResp->res, portvalue,
-                                "TCP", "UDP");
+                                asyncResp->res, *portvalue, "TCP", "UDP");
                             return;
                         }
                     }
-                    if(rotatecount)
+                    if (rotatecount)
                     {
-                        sdbusplus::asio::setProperty(
-                            *crow::connections::systemBus, syslogServicePath,
-                            syslogObjectPath, syslogInterface, "RotateCount",
-                            *rotatecount, [asyncResp,rotatecount](const boost::system::error_code& ec) {
-                                if (ec)
-                                {
-                                    BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
-                                    messages::internalError(asyncResp->res);
-                                    return;
-                                }
-                                messages::success(asyncResp->res);
-                                BMCWEB_LOG_DEBUG("Patch Authentication Success");
-                            });
+                        setSyslogCertificatePatch(asyncResp, "RotateCount",
+                                                  rotatecount);
                     }
-                    if(filesize)
+                    if (filesize)
                     {
-                        if(filesize >= 0 && filesize <= 65535)
+                        if (filesize >= 0 && filesize <= 65535)
                         {
-                        sdbusplus::asio::setProperty(
-                            *crow::connections::systemBus, syslogServicePath,
-                            syslogObjectPath, syslogInterface, "FileSize",
-                            *filesize, [asyncResp,filesize](const boost::system::error_code& ec) {
-                                if (ec)
-                                {
-                                    BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
-                                    messages::internalError(asyncResp->res);
-                                    return;
-                                }
-                                messages::success(asyncResp->res);
-                                BMCWEB_LOG_DEBUG("Patch Authentication Success");
-                            });
+                            setSyslogCertificatePatch(asyncResp, "FileSize",
+                                                      filesize);
                         }
                         else
                         {
                             messages::propertyValueOutOfRange(
-                                asyncResp->res, *filesize,
-                                "FileSize");
-                                return;
+                                asyncResp->res, *filesize, "FileSize");
+                            return;
                         }
                     }
                 }
@@ -4364,8 +4312,8 @@ handleSyslogCertificatePatch(App& app, const crow::Request& req,
         }
     }
 }
-inline void
-    getSyslogCertificates(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+
+void getSyslogCertificates(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     bool isSyslogCACERT = true;
     bool isSyslogServerKey = true;
@@ -4373,23 +4321,22 @@ inline void
 
     /* Syslog Certificate */
 
-    std::cerr << "Syslog CACERT Context file= "
-              << SyslogCACERTFile.c_str() << "\n";
-    std::cerr << "Syslog CRT Context file= "
-              << SyslogServerCRTFile.c_str() << "\n";
-    std::cerr << "Syslog Key Context file= "
-              << SyslogServerKeyFile.c_str() << "\n";
+    BMCWEB_LOG_DEBUG("Syslog CACERT Context file= {}",
+                     syslogCACERTFile.c_str());
+    BMCWEB_LOG_DEBUG("Syslog CRT Context file= {}",
+                     syslogServerCRTFile.c_str());
+    BMCWEB_LOG_DEBUG("Syslog Key Context file=  {}",
+                     syslogServerKeyFile.c_str());
 
-    isSyslogCACERT = ensureOpensslKeyPresentAndValid(SyslogCACERTFile);
-    asyncResp->res.jsonValue["Oem"]["Ami"]["SysLog"]["Configuration"]
-                            ["isCACERTExist"] = isSyslogCACERT;
-                            isSyslogServerCRT =
-                            ensureOpensslKeyPresentAndValid(SyslogServerCRTFile);
+    isSyslogCACERT = ensureOpensslKeyPresentAndValid(syslogCACERTFile);
+    asyncResp->res
+        .jsonValue["Oem"]["Ami"]["SysLog"]["Configuration"]["isCACERTExist"] =
+        isSyslogCACERT;
+    isSyslogServerCRT = ensureOpensslKeyPresentAndValid(syslogServerCRTFile);
 
     asyncResp->res.jsonValue["Oem"]["Ami"]["SysLog"]["Configuration"]
                             ["isServerCRTExist"] = isSyslogServerCRT;
-                            isSyslogServerKey =
-                            ensureOpensslKeyPresentAndValid(SyslogServerKeyFile);
+    isSyslogServerKey = ensureOpensslKeyPresentAndValid(syslogServerKeyFile);
 
     asyncResp->res.jsonValue["Oem"]["Ami"]["SysLog"]["Configuration"]
                             ["isServerKeyExist"] = isSyslogServerKey;
@@ -4397,43 +4344,30 @@ inline void
     if (isSyslogCACERT)
     {
         std::string syslogCACERTModifiedDate =
-            modifiedDateTime(SyslogCACERTFile);
-
-        std::cerr << "Modified date and time for Syslog CACERT "
-                  << syslogCACERTModifiedDate << "\n";
-
-        asyncResp->res
-            .jsonValue["Oem"]["Ami"]["SysLog"]["Configuration"]
-                      ["syslogCACERTModifiedDate"] = syslogCACERTModifiedDate;
+            modifiedDateTime(syslogCACERTFile);
+        asyncResp->res.jsonValue["Oem"]["Ami"]["SysLog"]["Configuration"]
+                                ["syslogCACERTModifiedDate"] =
+            syslogCACERTModifiedDate;
     }
     if (isSyslogServerCRT)
     {
         std::string syslogCACERTModifiedDate =
-            modifiedDateTime(SyslogServerCRTFile);
-
-        std::cerr << "Modified date and time for Syslog CACERT "
-                  << syslogCACERTModifiedDate << "\n";
-
-        asyncResp->res
-            .jsonValue["Oem"]["Ami"]["SysLog"]["Configuration"]
-                      ["syslogserverCRTModifiedDate"] =
-                      syslogCACERTModifiedDate;
+            modifiedDateTime(syslogServerCRTFile);
+        asyncResp->res.jsonValue["Oem"]["Ami"]["SysLog"]["Configuration"]
+                                ["syslogserverCRTModifiedDate"] =
+            syslogCACERTModifiedDate;
     }
     if (isSyslogServerKey)
     {
         std::string syslogCACERTModifiedDate =
-            modifiedDateTime(SyslogServerKeyFile);
-
-        std::cerr << "Modified date and time for Syslog CACERT "
-                  << syslogCACERTModifiedDate << "\n";
-
-        asyncResp->res
-            .jsonValue["Oem"]["Ami"]["SysLog"]["Configuration"]
-                      ["syslogServerKeyModifiedDate"] =
-                      syslogCACERTModifiedDate;
+            modifiedDateTime(syslogServerKeyFile);
+        asyncResp->res.jsonValue["Oem"]["Ami"]["SysLog"]["Configuration"]
+                                ["syslogServerKeyModifiedDate"] =
+            syslogCACERTModifiedDate;
     }
 }
-inline void handleSyslogCertificateGet(
+
+void handleSyslogCertificateGet(
     crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& systemName)
@@ -4449,61 +4383,63 @@ inline void handleSyslogCertificateGet(
         return;
     }
     asyncResp->res.jsonValue["@odata.id"] =
-    std::format("/redfish/v1/Systems/{}/LogServices/Syslog",
-                BMCWEB_REDFISH_SYSTEM_URI_NAME);
-    asyncResp->res.jsonValue["@odata.type"] =
-        "#LogService.v1_2_0.LogService";
-    asyncResp->res.jsonValue["Name"] = "Open BMC Oem Syslog Service";
+        std::format("/redfish/v1/Systems/{}/LogServices/Syslog",
+                    BMCWEB_REDFISH_SYSTEM_URI_NAME);
+    asyncResp->res.jsonValue["@odata.type"] = "#LogService.v1_2_0.LogService";
+    asyncResp->res.jsonValue["Name"] = "OpenBMC Oem Syslog Service";
     asyncResp->res.jsonValue["Description"] = "Oem Syslog Service";
     asyncResp->res.jsonValue["Id"] = "Syslog";
 
-    dbus::utility::getProperty<std::string>(
-        syslogServicePath, syslogObjectPath, syslogInterface, "Address",
-        [asyncResp](const boost::system::error_code& ec2,
-                                const std::string& Address) {
-            if (ec2)
+    dbus::utility::getAllProperties(
+        syslogServicePath, syslogObjectPath, syslogInterface,
+        [asyncResp](const boost::system::error_code& ec,
+                    const dbus::utility::DBusPropertiesMap& propertiesList) {
+            if (ec)
             {
-                BMCWEB_LOG_ERROR(
-                    "DBus response error for Version: {}", ec2);
+                BMCWEB_LOG_ERROR("DBus response error for Version: {}", ec);
                 messages::internalError(asyncResp->res);
                 return;
             }
-            asyncResp->res
-            .jsonValue["Oem"]["Ami"]["SysLog"]["Configuration"]
-                      ["RemoteLogServer"] = Address;
-        });
-        dbus::utility::getProperty<uint16_t>(
-            syslogServicePath, syslogObjectPath, syslogInterface, "Port",
-            [asyncResp](const boost::system::error_code& ec2,
-                const uint16_t& RemoteServerPort) {
-                if (ec2)
-                {
-                    BMCWEB_LOG_ERROR(
-                        "DBus response error for Version: {}", ec2);
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                asyncResp->res
-                .jsonValue["Oem"]["Ami"]["SysLog"]["Configuration"]
-                          ["RemoteServerPort"] = RemoteServerPort;
-        });
-        dbus::utility::getProperty<std::string>(
-            syslogServicePath, syslogObjectPath, syslogInterface, "TransportProtocol",
-            [asyncResp](const boost::system::error_code& ec2,
-                                    const std::string& TransportProtocol) {
-                std::string porttype=" ";
-                if (ec2)
-                {
-                    BMCWEB_LOG_ERROR(
-                        "DBus response error for Version: {}", ec2);
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                if (TransportProtocol == "xyz.openbmc_project.Network.Client.TransportProtocol.TCP")
+            const std::string* remoteLogServer = nullptr;
+            const uint16_t* remoteServerPort = nullptr;
+            const std::string* transportProtocol = nullptr;
+            const bool* rotateCount = nullptr;
+            const uint16_t* fileSize = nullptr;
+
+            const bool success = sdbusplus::unpackPropertiesNoThrow(
+                dbus_utils::UnpackErrorPrinter(), propertiesList, "Address",
+                remoteLogServer, "Port", remoteServerPort, "RotateCount",
+                rotateCount, "FileSize", fileSize, "TransportProtocol",
+                transportProtocol);
+
+            if (!success)
+            {
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            if (remoteLogServer != nullptr)
+            {
+                asyncResp->res.jsonValue["Oem"]["Ami"]["SysLog"]
+                                        ["Configuration"]["RemoteLogServer"] =
+                    *remoteLogServer;
+            }
+            if (remoteServerPort != nullptr)
+            {
+                asyncResp->res.jsonValue["Oem"]["Ami"]["SysLog"]
+                                        ["Configuration"]["RemoteServerPort"] =
+                    *remoteServerPort;
+            }
+            if (transportProtocol != nullptr)
+            {
+                std::string porttype = " ";
+                if (*transportProtocol ==
+                    "xyz.openbmc_project.Network.Client.TransportProtocol.TCP")
                 {
                     porttype = "TCP";
                 }
-                else if(TransportProtocol == "xyz.openbmc_project.Network.Client.TransportProtocol.UDP")
+                else if (
+                    *transportProtocol ==
+                    "xyz.openbmc_project.Network.Client.TransportProtocol.UDP")
                 {
                     porttype = "UDP";
                 }
@@ -4512,47 +4448,30 @@ inline void handleSyslogCertificateGet(
                     messages::internalError(asyncResp->res);
                     return;
                 }
-                asyncResp->res
-                .jsonValue["Oem"]["Ami"]["SysLog"]["Configuration"]
-                          ["PortType"] = porttype;
+                asyncResp->res.jsonValue["Oem"]["Ami"]["SysLog"]
+                                        ["Configuration"]["PortType"] =
+                    porttype;
+            }
+            if (rotateCount != nullptr)
+            {
+                asyncResp->res.jsonValue["Oem"]["Ami"]["SysLog"]
+                                        ["Configuration"]["RotateCount"] =
+                    *rotateCount;
+            }
+            if (fileSize != nullptr)
+            {
+                asyncResp->res.jsonValue["Oem"]["Ami"]["SysLog"]
+                                        ["Configuration"]["FileSize"] =
+                    *fileSize;
+            }
         });
-        dbus::utility::getProperty<bool>(
-            syslogServicePath, syslogObjectPath, syslogInterface, "RotateCount",
-            [asyncResp](const boost::system::error_code& ec2,
-                                    const bool& RotateCount) {
-                if (ec2)
-                {
-                    BMCWEB_LOG_ERROR(
-                        "DBus response error for Version: {}", ec2);
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                asyncResp->res
-                .jsonValue["Oem"]["Ami"]["SysLog"]["Configuration"]
-                          ["RotateCount"] = RotateCount;
-        });
-        dbus::utility::getProperty<uint16_t>(
-            syslogServicePath, syslogObjectPath, syslogInterface, "FileSize",
-            [asyncResp](const boost::system::error_code& ec2,
-                                    const uint16_t& FileSize) {
-                if (ec2)
-                {
-                    BMCWEB_LOG_ERROR(
-                        "DBus response error for Version: {}", ec2);
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                asyncResp->res
-                .jsonValue["Oem"]["Ami"]["SysLog"]["Configuration"]
-                          ["FileSize"] = FileSize;
-        });
-
     getSyslogCertificates(asyncResp);
 }
-inline void uploadSyslogFile(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                          std::string_view body, const std::string& fileName)
+
+void uploadSyslogFile(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                      std::string_view body, const std::string& fileName)
 {
-    fs::create_directories(SyslogcertsPath);
+    fs::create_directories(syslogCertsPath);
 
     if (fileName == syslogCacertFileName)
     {
@@ -4560,9 +4479,6 @@ inline void uploadSyslogFile(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp
         std::ofstream out(path, std::ofstream::out | std::ofstream::binary |
                                     std::ofstream::trunc);
         out << body;
-        //out.close();
-        std::cout << out.rdbuf();
-        std::cerr << "Read SSl files " << out.rdbuf() << "\n";
         if (out.bad())
         {
             messages::internalError(asyncResp->res);
@@ -4570,16 +4486,7 @@ inline void uploadSyslogFile(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp
         }
         else
         {
-            int systemRet = system(commandLines);
-            if (systemRet == -1)
-            {
-                std::cerr << "Failed to restart the service " << systemRet
-                          << "\n";
-            }
-            else
-            {
-                messages::success(asyncResp->res);
-            }
+            messages::success(asyncResp->res);
         }
         out.close();
     }
@@ -4589,9 +4496,6 @@ inline void uploadSyslogFile(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp
         std::ofstream out(path, std::ofstream::out | std::ofstream::binary |
                                     std::ofstream::trunc);
         out << body;
-       // out.close();
-        std::cout << out.rdbuf();
-        std::cerr << "Read SSl files " << out.rdbuf() << "\n";
         if (out.bad())
         {
             messages::internalError(asyncResp->res);
@@ -4599,28 +4503,16 @@ inline void uploadSyslogFile(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp
         }
         else
         {
-            int systemRet = system(commandLines);
-            if (systemRet == -1)
-            {
-                std::cerr << "Failed to restart the service " << systemRet
-                          << "\n";
-            }
-            else
-            {
-                messages::success(asyncResp->res);
-            }
+            messages::success(asyncResp->res);
         }
         out.close();
     }
     else if (fileName == syslogServerKeyFileName)
     {
-        std::filesystem::path path = syslogserverKeyFilePath;
+        std::filesystem::path path = syslogServerKeyFilePath;
         std::ofstream out(path, std::ofstream::out | std::ofstream::binary |
                                     std::ofstream::trunc);
         out << body;
-        //out.close();
-        std::cout << out.rdbuf();
-        std::cerr << "Read SSl files " << out.rdbuf() << "\n";
         if (out.bad())
         {
             messages::internalError(asyncResp->res);
@@ -4628,23 +4520,15 @@ inline void uploadSyslogFile(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp
         }
         else
         {
-            int systemRet = system(commandLines);
-            if (systemRet == -1)
-            {
-                std::cerr << "Failed to restart the service " << systemRet
-                          << "\n";
-            }
-            else
-            {
-                messages::success(asyncResp->res);
-            }
+            messages::success(asyncResp->res);
         }
         out.close();
     }
 }
-inline void readSyslogContext(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                           const MultipartParser& parser,
-                           const std::string& configurationType)
+
+void readSyslogContext(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                       const MultipartParser& parser,
+                       const std::string& configurationType)
 {
     const std::string* uploadData = nullptr;
     for (const FormPart& formpart : parser.mime_fields)
@@ -4656,11 +4540,8 @@ inline void readSyslogContext(const std::shared_ptr<bmcweb::AsyncResp>& asyncRes
             BMCWEB_LOG_ERROR("Couldn't find Content-Disposition");
             return;
         }
-        BMCWEB_LOG_INFO("Parsing value", it->value());
-
         // The construction parameters of param_list must start with `;`
         size_t index = it->value().find(';');
-        BMCWEB_LOG_INFO("Parsing value", index);
         if (index == std::string::npos)
         {
             continue;
@@ -4675,49 +4556,51 @@ inline void readSyslogContext(const std::shared_ptr<bmcweb::AsyncResp>& asyncRes
             }
             else
             {
-                SyslogFileName = param.second;
-                std::cerr << "Read Syslog Original files Name " << SyslogFileName
-                          << "\n";
-                if (SyslogFileName.substr(SyslogFileName.find_last_of(".") + 1) ==
-                    "crt")
+                syslogFileName = param.second;
+                BMCWEB_LOG_DEBUG("Read Syslog Original files Name {}",
+                                 syslogFileName);
+                if (syslogFileName.substr(
+                        syslogFileName.find_last_of(".") + 1) == "crt")
                 {
                     uploadData = &(formpart.content);
-                    SyslogFileName = configurationType + "_server.crt";
+                    syslogFileName = configurationType + "_server.crt";
                 }
-                else if (SyslogFileName.substr(
-                    SyslogFileName.find_last_of(".") + 1) == "pem")
+                else if (syslogFileName.substr(
+                             syslogFileName.find_last_of(".") + 1) == "pem")
                 {
                     uploadData = &(formpart.content);
-                    SyslogFileName = configurationType + "_cacert.pem";
+                    syslogFileName = configurationType + "_cacert.pem";
                 }
-                else if (SyslogFileName.substr(
-                    SyslogFileName.find_last_of(".") + 1) == "key")
+                else if (syslogFileName.substr(
+                             syslogFileName.find_last_of(".") + 1) == "key")
                 {
                     uploadData = &(formpart.content);
-                    SyslogFileName = configurationType + "_server.key";
+                    syslogFileName = configurationType + "_server.key";
                 }
                 else
                 {
                     messages::propertyValueTypeError(
-                        asyncResp->res, SyslogFileName, "InValid Format");
-                    }
-
-                std::cerr << "Read Syslog Rename files Name " << SyslogFileName
-                          << "\n";
+                        asyncResp->res, syslogFileName, "InValid Format");
+                }
+                BMCWEB_LOG_DEBUG("Read Syslog Renamed files Name {}",
+                                 syslogFileName);
             }
         }
     }
 
     if (uploadData == nullptr)
     {
-        messages::propertyMissing(asyncResp->res, "Syslog Certificates Missing");
+        messages::propertyMissing(asyncResp->res,
+                                  "Syslog Certificates Missing");
         return;
     }
-    uploadSyslogFile(asyncResp, *uploadData, SyslogFileName);
+    uploadSyslogFile(asyncResp, *uploadData, syslogFileName);
 }
-inline void handleSyslogCertificateUploadAction(
+
+void handleSyslogCertificateUploadAction(
     App& app, const crow::Request& req,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,const std::string& systemName)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& systemName)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -4744,22 +4627,26 @@ inline void handleSyslogCertificateUploadAction(
             return;
         }
         dbus::utility::getProperty<std::string>(
-            syslogServicePath, syslogObjectPath, syslogInterface, "TransportProtocol",
-            [asyncResp,parser](const boost::system::error_code& ec2,
-                                    const std::string& TransportProtocol) {
+            syslogServicePath, syslogObjectPath, syslogInterface,
+            "TransportProtocol",
+            [asyncResp, parser](const boost::system::error_code& ec2,
+                                const std::string& transportProtocol) {
                 std::string porttype;
                 if (ec2)
                 {
-                    BMCWEB_LOG_ERROR(
-                        "DBus response error for Version: {}", ec2);
+                    BMCWEB_LOG_ERROR("DBus response error for Version: {}",
+                                     ec2);
                     messages::internalError(asyncResp->res);
                     return;
                 }
-                if (TransportProtocol == "xyz.openbmc_project.Network.Client.TransportProtocol.TCP")
+                if (transportProtocol ==
+                    "xyz.openbmc_project.Network.Client.TransportProtocol.TCP")
                 {
                     porttype = "TCP";
                 }
-                else if(TransportProtocol == "xyz.openbmc_project.Network.Client.TransportProtocol.UDP")
+                else if (
+                    transportProtocol ==
+                    "xyz.openbmc_project.Network.Client.TransportProtocol.UDP")
                 {
                     porttype = "UDP";
                 }
@@ -4768,17 +4655,22 @@ inline void handleSyslogCertificateUploadAction(
                     messages::internalError(asyncResp->res);
                     return;
                 }
-                if(porttype == "TCP")
-               { 
+                if (porttype == "TCP")
+                {
                     readSyslogContext(asyncResp, parser, "rsyslog");
-               }
-               else
-               {
-                messages::propertyValueTypeError(
-                    asyncResp->res, porttype, "InValid Port Type");
-                return;
-               }
+                }
+                else
+                {
+                    messages::propertyValueTypeError(asyncResp->res, porttype,
+                                                     "InValid Port Type");
+                    return;
+                }
             });
+    }
+    else
+    {
+        BMCWEB_LOG_ERROR("InValid Content Type");
+        return;
     }
 }
 
