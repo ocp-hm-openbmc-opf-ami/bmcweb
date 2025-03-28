@@ -148,6 +148,11 @@ inline std::pair<std::string, std::string>
     {
         sensorType.insert(3, 1, '_');
     }
+    // pump_pwm and pump_tach need special handling
+    if (sensorType == "pumptach" || sensorType == "pumppwm")
+    {
+        sensorType.insert(4, 1, '_');
+    }
     return std::make_pair(sensorType, sensorName);
 }
 
@@ -186,11 +191,32 @@ inline std::string_view toReadingUnits(std::string_view sensorType)
     }
     if (sensorType == "airflow")
     {
-        return "cft_i/min";
+        //return "cft_i/min";
+        return "cft/min";
     }
     if (sensorType == "energy")
     {
         return "J";
+    }
+    if (sensorType == "pressurekpa")
+    {
+        return "kPa";
+    }
+    if (sensorType == "flowrate")
+    {
+        return "L/min";
+    }
+    if (sensorType == "tach" || sensorType == "pump_tach")
+    {
+        return "RPM";
+    }
+    if (sensorType == "pwm" || sensorType == "pump_pwm")
+    {
+        return "%";
+    }
+    if (sensorType == "hours")
+    {
+        return "hours";
     }
     return "";
 }
@@ -235,6 +261,22 @@ inline sensor::ReadingType toReadingType(std::string_view sensorType)
     if (sensorType == "energy")
     {
         return sensor::ReadingType::EnergyJoules;
+    }
+    if (sensorType == "pwm" || sensorType == "pump_pwm")
+    {
+        return sensor::ReadingType::Percent;
+    }
+    if (sensorType == "tach" || sensorType == "pump_tach")
+    {
+        return sensor::ReadingType::Rotational;
+    }
+    if (sensorType == "flowrate")
+    {
+        return sensor::ReadingType::LiquidFlowLPM;
+    }
+    if (sensorType == "pressurekpa")
+    {
+        return sensor::ReadingType::PressurekPa;
     }
     return sensor::ReadingType::Invalid;
 }
