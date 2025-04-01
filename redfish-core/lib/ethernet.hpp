@@ -146,7 +146,7 @@ struct DHCPParameters
     std::optional<std::string> dhcpv6OperatingMode;
 };
 
-std::optional<std::string> defaultGatewayValue;
+inline std::optional<std::string> defaultGatewayValue;
 
 // Helper function that changes bits netmask notation (i.e. /24)
 // into full dot notation
@@ -2399,7 +2399,7 @@ inline void parseInterfaceData(
     }
 }
 
-nlohmann::json::array_t convertToJSONArray(
+inline nlohmann::json::array_t convertToJSONArray(
     const std::optional<std::vector<
         std::variant<nlohmann::json::object_t, std::nullptr_t>>>& addresses)
 {
@@ -2583,7 +2583,7 @@ inline void afterVlanCreate(
     asyncResp->res.addHeader("Location", vlanInterfaceUri.buffer());
 }
 
-bool isIfaceIdusb0(const std::string& ifaceId,
+inline bool isIfaceIdusb0(const std::string& ifaceId,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     if (ifaceId == "usb0")
@@ -2597,7 +2597,7 @@ bool isIfaceIdusb0(const std::string& ifaceId,
     return false;
 }
 
-IPType checkIPTypes(const std::vector<std::string>& ipAddresses)
+inline IPType checkIPTypes(const std::vector<std::string>& ipAddresses)
 {
     bool hasIPv4 = false;
     bool hasIPv6 = false;
@@ -2648,7 +2648,7 @@ IPType checkIPTypes(const std::vector<std::string>& ipAddresses)
     return IPType::None;
 }
 
-bool validateVlanPriority(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+inline bool validateVlanPriority(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                           uint32_t vlanPriority)
 {
     if (vlanPriority > MAX_VLANPRIORITY)

@@ -34,6 +34,7 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include "chassis_header.hpp"
 
 namespace redfish
 {
@@ -42,7 +43,7 @@ constexpr const char* dbusPropertyInterface = "org.freedesktop.DBus.Properties";
 
 using PropertyValue = std::variant<uint8_t, uint16_t, uint64_t, std::string,
                                    std::vector<std::string>, bool>;
-bool ishandleChassisGetSubTree = false;
+//inline bool ishandleChassisGetSubTree = false;
 
 inline chassis::ChassisType
     translateChassisTypeToRedfish(const std::string_view& chassisType)
@@ -768,7 +769,7 @@ inline void handleChassisGetSubTree(
     messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
 }
 
-inline void
+void
     handleChassisGet(App& app, const crow::Request& req,
                      const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                      const std::string& chassisId)

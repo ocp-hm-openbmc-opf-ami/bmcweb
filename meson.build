@@ -385,6 +385,17 @@ srcfiles_bmcweb = files(
     'src/webserver_run.cpp',
 )
 
+if get_option('ami-rep').enabled()
+    srcfiles_bmcweb += files(
+        'ext/src/rep.cpp',
+        'ext/include/ami_errors.cpp',
+    )
+endif
+
+if get_option('ami-nic').enabled()
+    srcfiles_bmcweb += 'ext/src/nic.cpp'
+endif
+
 bmcweblib = static_library(
     'bmcweblib',
     srcfiles_bmcweb,
