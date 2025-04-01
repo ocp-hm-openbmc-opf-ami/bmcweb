@@ -1337,6 +1337,8 @@ inline void requestRoutesSystemLogServiceCollection(App& app)
             syslog["@odata.id"] =
                 std::format("/redfish/v1/Systems/{}/LogServices/Syslog",
                             BMCWEB_REDFISH_SYSTEM_URI_NAME);
+            asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] =
+            "#AMISyslog.v1_0_0.Ami";
             logServiceArray.emplace_back(std::move(syslog));
 
             asyncResp->res.jsonValue["Members@odata.count"] =
@@ -4382,14 +4384,6 @@ void handleSyslogCertificateGet(
                                    systemName);
         return;
     }
-    asyncResp->res.jsonValue["@odata.id"] =
-        std::format("/redfish/v1/Systems/{}/LogServices/Syslog",
-                    BMCWEB_REDFISH_SYSTEM_URI_NAME);
-    asyncResp->res.jsonValue["@odata.type"] = "#LogService.v1_2_0.LogService";
-    asyncResp->res.jsonValue["Name"] = "OpenBMC Oem Syslog Service";
-    asyncResp->res.jsonValue["Description"] = "Oem Syslog Service";
-    asyncResp->res.jsonValue["Id"] = "Syslog";
-
     dbus::utility::getAllProperties(
         syslogServicePath, syslogObjectPath, syslogInterface,
         [asyncResp](const boost::system::error_code& ec,
@@ -4417,6 +4411,15 @@ void handleSyslogCertificateGet(
                 messages::internalError(asyncResp->res);
                 return;
             }
+            asyncResp->res.jsonValue["@odata.id"] =
+            std::format("/redfish/v1/Systems/{}/LogServices/Syslog",
+                        BMCWEB_REDFISH_SYSTEM_URI_NAME);
+            asyncResp->res.jsonValue["@odata.type"] = "#LogService.v1_2_0.LogService";
+            asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] =
+            "#AMISyslog.v1_0_0.Ami";
+            asyncResp->res.jsonValue["Name"] = "OpenBMC Oem Syslog Service";
+            asyncResp->res.jsonValue["Description"] = "Oem Syslog Service";
+            asyncResp->res.jsonValue["Id"] = "Syslog";
             if (remoteLogServer != nullptr)
             {
                 asyncResp->res.jsonValue["Oem"]["Ami"]["SysLog"]
