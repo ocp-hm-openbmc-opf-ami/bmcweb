@@ -382,28 +382,7 @@ RedfishService::RedfishService(App& app)
 #endif
 #if BMCWEB_AMI_RAIDMSCC_MACRO
     {
-        requestRoutesRaidLogicalMSCC(app); /*  */
-        requestRoutesRaidLogicalDriveMSCC(app);
-        requestRoutesPhysicalDriveMSCC(app);
-        requestRoutesMSCCCreateLogicalDriveAction(app);
-        requestRoutesMSCCDeleteLogicalDriveAction(app);
-        requestRoutesMSCCCreateLogicalDriveOnArrayDriveAction(app);
-        requestRoutesMSCCCreateLuCacheDriveAction(app);
-        requestRoutesMSCCDeleteArrayDriveAction(app);
-        requestRoutesMSCCSetControllerPropertiesAction(app);
-        requestRoutesMSCCAddPhysicalDriveToArrayDriveAction(app);
-        requestRoutesMSCCRemovePhysicalDriveFromArrayDriveAction(app);
-        requestRoutesMSCCAddSpareDriveToArrayDriveAction(app);
-        requestRoutesMSCCRemoveSpareDriveFromArrayDriveAction(app);
-        requestRoutesMSCCStartLocatePhysicalDriveAction(app);
-        requestRoutesMSCCStartLocateArrayDriveAction(app);
-        requestRoutesMSCCStartLocateLogicalDriveAction(app);
-        requestRoutesMSCCStopLocatePhysicalDriveAction(app);
-        requestRoutesMSCCStopLocateArrayDriveAction(app);
-        requestRoutesMSCCStopLocateLogicalDriveAction(app);
-        requestRoutesArrayDriveInstance(app);
-        requestRoutesMSCCImportConfigFileAction(app);
-        requestRoutesMSCCExportConfigFileAction(app);
+       requestRoutesMSCCStorageDevices(app);
     }
 #endif
 #if BMCWEB_AMI_RAIDBRCM_MACRO
