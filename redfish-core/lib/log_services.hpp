@@ -4417,6 +4417,11 @@ void handleSyslogCertificateGet(
             asyncResp->res.jsonValue["@odata.type"] = "#LogService.v1_2_0.LogService";
             asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] =
             "#AMISyslog.v1_0_0.Ami";
+            asyncResp->res.jsonValue["Oem"]["Ami"]["Actions"]
+                                    ["#Rsyslog.RemoteServerCertificateUpload"]
+                                    ["target"] = std::format(
+                "/redfish/v1/Systems/{}/LogServices/Actions/Oem/Ami/Rsyslog.RemoteServerCertificateUpload",
+                BMCWEB_REDFISH_SYSTEM_URI_NAME); 
             asyncResp->res.jsonValue["Name"] = "OpenBMC Oem Syslog Service";
             asyncResp->res.jsonValue["Description"] = "Oem Syslog Service";
             asyncResp->res.jsonValue["Id"] = "Syslog";
