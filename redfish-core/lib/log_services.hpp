@@ -1337,8 +1337,6 @@ inline void requestRoutesSystemLogServiceCollection(App& app)
             syslog["@odata.id"] =
                 std::format("/redfish/v1/Systems/{}/LogServices/Syslog",
                             BMCWEB_REDFISH_SYSTEM_URI_NAME);
-            asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] =
-            "#AMISyslog.v1_0_0.Ami";
             logServiceArray.emplace_back(std::move(syslog));
 
             asyncResp->res.jsonValue["Members@odata.count"] =
@@ -4332,23 +4330,23 @@ void getSyslogCertificates(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 
     isSyslogCACERT = ensureOpensslKeyPresentAndValid(syslogCACERTFile);
     asyncResp->res
-        .jsonValue["Oem"]["Ami"]["SysLog"]["Configuration"]["isCACERTExist"] =
+        .jsonValue["Oem"]["Ami"]["SysLog"]["Configuration"]["IsCACERTExist"] =
         isSyslogCACERT;
     isSyslogServerCRT = ensureOpensslKeyPresentAndValid(syslogServerCRTFile);
 
     asyncResp->res.jsonValue["Oem"]["Ami"]["SysLog"]["Configuration"]
-                            ["isServerCRTExist"] = isSyslogServerCRT;
+                            ["IsServerCRTExist"] = isSyslogServerCRT;
     isSyslogServerKey = ensureOpensslKeyPresentAndValid(syslogServerKeyFile);
 
     asyncResp->res.jsonValue["Oem"]["Ami"]["SysLog"]["Configuration"]
-                            ["isServerKeyExist"] = isSyslogServerKey;
+                            ["IsServerKeyExist"] = isSyslogServerKey;
 
     if (isSyslogCACERT)
     {
         std::string syslogCACERTModifiedDate =
             modifiedDateTime(syslogCACERTFile);
         asyncResp->res.jsonValue["Oem"]["Ami"]["SysLog"]["Configuration"]
-                                ["syslogCACERTModifiedDate"] =
+                                ["SyslogCACERTModifiedDate"] =
             syslogCACERTModifiedDate;
     }
     if (isSyslogServerCRT)
@@ -4356,7 +4354,7 @@ void getSyslogCertificates(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
         std::string syslogCACERTModifiedDate =
             modifiedDateTime(syslogServerCRTFile);
         asyncResp->res.jsonValue["Oem"]["Ami"]["SysLog"]["Configuration"]
-                                ["syslogserverCRTModifiedDate"] =
+                                ["SyslogserverCRTModifiedDate"] =
             syslogCACERTModifiedDate;
     }
     if (isSyslogServerKey)
@@ -4364,7 +4362,7 @@ void getSyslogCertificates(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
         std::string syslogCACERTModifiedDate =
             modifiedDateTime(syslogServerKeyFile);
         asyncResp->res.jsonValue["Oem"]["Ami"]["SysLog"]["Configuration"]
-                                ["syslogServerKeyModifiedDate"] =
+                                ["SyslogServerKeyModifiedDate"] =
             syslogCACERTModifiedDate;
     }
 }
@@ -4416,11 +4414,11 @@ void handleSyslogCertificateGet(
                         BMCWEB_REDFISH_SYSTEM_URI_NAME);
             asyncResp->res.jsonValue["@odata.type"] = "#LogService.v1_2_0.LogService";
             asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] =
-            "#AMISyslog.v1_0_0.Ami";
-            asyncResp->res.jsonValue["Oem"]["Ami"]["Actions"]
+            "#AMISyslog.v1_0_0.AMISyslog";
+            asyncResp->res.jsonValue["Actions"]["Oem"]["Ami"]
                                     ["#Rsyslog.RemoteServerCertificateUpload"]
                                     ["target"] = std::format(
-                "/redfish/v1/Systems/{}/LogServices/Actions/Oem/Ami/Rsyslog.RemoteServerCertificateUpload",
+                "/redfish/v1/Systems/{}/LogServices/Syslog/Actions/Oem/Ami/Rsyslog.RemoteServerCertificateUpload",
                 BMCWEB_REDFISH_SYSTEM_URI_NAME); 
             asyncResp->res.jsonValue["Name"] = "OpenBMC Oem Syslog Service";
             asyncResp->res.jsonValue["Description"] = "Oem Syslog Service";
@@ -4806,7 +4804,7 @@ inline void requestRoutesSystemRsyslog(App& app)
             handleSyslogCertificateGet, std::ref(app)));
 
     BMCWEB_ROUTE(app,
-        "/redfish/v1/Systems/<str>/LogServices/Actions/Oem/Ami/Rsyslog.RemoteServerCertificateUpload")
+        "/redfish/v1/Systems/<str>/LogServices/Syslog/Actions/Oem/Ami/Rsyslog.RemoteServerCertificateUpload")
         .privileges(redfish::privileges::postLogService)
         .methods(boost::beast::http::verb::post)(std::bind_front(
         handleSyslogCertificateUploadAction, std::ref(app)));
