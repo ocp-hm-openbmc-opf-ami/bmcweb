@@ -2441,10 +2441,12 @@ inline void handleAccountRadiusPatch(
     }
     if (radiusObject.enabled.has_value())
     {
-        if (!radiusObject.enabled)
-        {
-            setRadiusEnable(asyncResp, *radiusObject.enabled);
-        }
+        // Enable or disable the RADIUS service based on the value of "ServiceEnabled"
+        setRadiusEnable(asyncResp, *radiusObject.enabled);
+    }
+    else
+    {
+        BMCWEB_LOG_DEBUG("ServiceEnabled field missing or invalid");
     }
 }
 

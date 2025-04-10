@@ -1677,7 +1677,7 @@ inline void
     else
     {
         BMCWEB_LOG_DEBUG("Bad content type specified:{}", contentType);
-        asyncResp->res.result(boost::beast::http::status::bad_request);
+        asyncResp->res.result(boost::beast::http::status::unsupported_media_type);
     }
 }
 
