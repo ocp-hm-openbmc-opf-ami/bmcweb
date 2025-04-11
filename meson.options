@@ -176,6 +176,14 @@ option(
     value: 'disabled',
     description: 'Enable the EVB 2700 build.'
 )
+option(
+    'chalupa-amd',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable the AMD Chalupa build.'
+)
+
+
 
 option(
     'rest',

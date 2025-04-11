@@ -522,9 +522,12 @@ inline void handleDecoratorAssetProperties(
 #endif
 
     // Power
-    //asyncResp->res.jsonValue["Power"]["@odata.id"] =
-      //  boost::urls::format("/redfish/v1/Chassis/{}/Power", chassisId);
-
+    #if (BMCWEB_CHALUPA_AMD_MACRO)
+    {
+       asyncResp->res.jsonValue["Power"]["@odata.id"] =
+            boost::urls::format("/redfish/v1/Chassis/{}/Power", chassisId);
+    }
+    #endif
     // FRU Device
     asyncResp->res.jsonValue["Oem"]["AMI"]["FRU"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Chassis/{}/FRU", chassisId);

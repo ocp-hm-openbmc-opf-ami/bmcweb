@@ -149,7 +149,13 @@ RedfishService::RedfishService(App& app)
     {
         requestRoutesThermal(app);
         requestRoutesPower(app);
+	
     }
+    #if (BMCWEB_CHALUPA_AMD_MACRO)
+    {
+	    requestRoutesPower(app);
+    }
+    #endif    
     if constexpr (BMCWEB_REDFISH_NEW_POWERSUBSYSTEM_THERMALSUBSYSTEM)
     {
         requestRoutesEnvironmentMetrics(app);
