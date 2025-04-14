@@ -39,12 +39,11 @@ const Message* getMessage(std::string_view messageID)
     std::vector<std::string> fields;
     fields.reserve(4);
 
+    bmcweb::split(fields, messageID, '.');
     if (fields.size() != 4)
     {
         return nullptr;
     }
-
-    bmcweb::split(fields, messageID, '.');
 
     const std::string& registryName = fields[0];
     const std::string& messageKey = fields[3];

@@ -15,6 +15,14 @@ option(
     description: 'Enable Unit tests for bmcweb',
 )
 
+# BMCWEB_SBMR_EXT_MACRO
+option(
+    'sbmr-ext',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable the SBMR extension pack.'
+)
+
 # BMCWEB_VM_WEBSOCKET
 option(
     'vm-websocket',
