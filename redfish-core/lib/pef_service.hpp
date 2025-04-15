@@ -112,6 +112,7 @@ inline void setFilterEnable(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                 },
                 owner, path, pefAlertSensorNumberIface, "SetFilterEnable",
                 std::vector<uint8_t>{filterEnable});
+                messages::success(aResp->res);
         },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
@@ -180,6 +181,34 @@ inline void getPefConfParam(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
         std::array<const char*, 1>{pefConfIface});
 }
 
+inline void getDestinationType (const std::shared_ptr<bmcweb::AsyncResp>& aResp)
+{
+    dbus::utility::getProperty<uint8_t>(
+        "xyz.openbmc_project.pef.alert.manager",
+        "/xyz/openbmc_project/PefAlertManager/DestinationSelector/Entry1",
+        "xyz.openbmc_project.pef.DestinationSelectorTable", "DestinationType",
+        [aResp](const boost::system::error_code& ec, uint8_t destinationType) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("D-BUS response error on EventSeverity Get{}",
+                                 ec);
+                messages::internalError(aResp->res);
+                return;
+            }
+
+            std::string destinationTypeString;
+            if (destinationType == 1)
+            {
+                destinationTypeString = "SMTP";
+            }
+            else
+            {
+                destinationTypeString = "SnmpTrap";
+            }
+            aResp->res.jsonValue["DestinationType"] = destinationTypeString;
+    });
+}
+
 inline void setPefConfParam(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                             const std::optional<uint8_t>& pefActionGblControl)
 {
@@ -219,11 +248,44 @@ inline void setPefConfParam(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                     pefConfIface, "PEFActionGblControl",
                     dbus::utility::DbusVariantType(*pefActionGblControl));
             }
+            messages::success(aResp->res);
         },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTree", "/", 0,
         std::array<const char*, 1>{pefConfIface});
+}
+
+void setDestinationType (const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+                         const std::optional<std::string>& destinationType)
+{
+    uint8_t desType;
+    if (destinationType == "SnmpTrap")
+    {
+        desType = 0;
+    }
+    else if (destinationType == "SMTP")
+    {
+        desType = 1;
+    }
+    else {
+        messages::propertyValueIncorrect(aResp->res, "DestinationType", *destinationType);
+        return;
+    }
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus, "xyz.openbmc_project.pef.alert.manager",
+        "/xyz/openbmc_project/PefAlertManager/DestinationSelector/Entry1",
+        "xyz.openbmc_project.pef.DestinationSelectorTable", "DestinationType",
+        desType,
+        [aResp](const boost::system::error_code& ec) {
+        if (ec)
+        {
+            BMCWEB_LOG_DEBUG("D-Bus response error setting Destination Type.");
+            messages::internalError(aResp->res);
+            return;
+        }
+        messages::success(aResp->res);
+    });
 }
 
 void getEventEntries(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
@@ -364,6 +426,7 @@ inline void requestRoutesPefService(App& app)
                 getEventEntries(aResp, entriesntrollerArray);
                 getFilterEnable(aResp);
                 getPefConfParam(aResp);
+                getDestinationType(aResp);
             });
 
     BMCWEB_ROUTE(app, "/redfish/v1/PefService/")
@@ -373,11 +436,13 @@ inline void requestRoutesPefService(App& app)
                const std::shared_ptr<bmcweb::AsyncResp>& aResp) {
                 std::optional<std::vector<uint8_t>> filterEnable;
                 std::optional<uint8_t> pefActionGblControl;
+                std::optional<std::string> destinationType;
 
                 if (!json_util::readJsonPatch( //
                         req, aResp->res, //
                         "FilterEnable", filterEnable, //
-                        "PEFActionGblControl", pefActionGblControl //
+                        "PEFActionGblControl", pefActionGblControl, //
+                        "DestinationType", destinationType          //
                         ))
                 {
                     return;
@@ -390,7 +455,10 @@ inline void requestRoutesPefService(App& app)
                 {
                     setPefConfParam(aResp, pefActionGblControl);
                 }
-                messages::success(aResp->res);
+                if (destinationType)
+                {
+                    setDestinationType(aResp, destinationType);
+                }
             });
 
     BMCWEB_ROUTE(app, "/redfish/v1/PefService/<str>")

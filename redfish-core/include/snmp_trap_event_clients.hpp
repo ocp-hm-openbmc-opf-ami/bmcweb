@@ -258,20 +258,6 @@ inline void
                       std::optional<std::string>& algorithm, std::optional<std::string>& encryption)
 
 {
-    sdbusplus::asio::setProperty(
-        *crow::connections::systemBus, "xyz.openbmc_project.pef.alert.manager",
-        "/xyz/openbmc_project/PefAlertManager/DestinationSelector/Entry1",
-        "xyz.openbmc_project.pef.DestinationSelectorTable", "DestinationType",
-        static_cast<uint8_t>(0),
-        [asyncResp](const boost::system::error_code& ec1) {
-        if (ec1)
-        {
-            BMCWEB_LOG_DEBUG("D-Bus response error setting Destination Type.");
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        });
-
     crow::connections::systemBus->async_method_call(
         [asyncResp, host, subValue, password,
          algorithm, encryption, readOnlyPermission](const boost::system::error_code& ec,
