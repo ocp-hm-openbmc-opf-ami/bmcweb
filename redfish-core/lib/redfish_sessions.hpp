@@ -477,11 +477,14 @@ inline void
             {
                 break;
             }
-            else
-            {
-                messages::resourceNotFound(asyncResp->res, "Session", sessionId);
-            }
         }
+
+	if(!found)
+        {
+           messages::resourceNotFound(asyncResp->res, "Session", sessionId);
+           return;
+        }
+
         // Unregister session
         crow::connections::systemBus->async_method_call(
             [asyncResp](const boost::system::error_code& ec, bool value) {

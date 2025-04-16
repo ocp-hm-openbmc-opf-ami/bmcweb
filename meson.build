@@ -392,6 +392,10 @@ if get_option('ami-rep').enabled()
     )
 endif
 
+if get_option('sbmr-ext').enabled()
+    srcfiles_bmcweb += 'ext/sbmr/src/sbmr.cpp'
+endif
+
 if get_option('ami-nic').enabled()
     srcfiles_bmcweb += 'ext/src/nic.cpp'
 endif

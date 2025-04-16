@@ -106,6 +106,10 @@
 #include "redfish-core/lib/ext/redebugserv/redebugserv.hpp"
 #endif
 
+#if BMCWEB_SBMR_EXT_MACRO
+#include "ext/sbmr/src/sbmr.hpp"
+#endif
+
 namespace redfish
 {
 
@@ -149,7 +153,13 @@ RedfishService::RedfishService(App& app)
     {
         requestRoutesThermal(app);
         requestRoutesPower(app);
+	
     }
+    #if (BMCWEB_CHALUPA_AMD_MACRO)
+    {
+	    requestRoutesPower(app);
+    }
+    #endif    
     if constexpr (BMCWEB_REDFISH_NEW_POWERSUBSYSTEM_THERMALSUBSYSTEM)
     {
         requestRoutesEnvironmentMetrics(app);
@@ -405,6 +415,9 @@ RedfishService::RedfishService(App& app)
     requestRoutesPcieSwitchCoreDump(app);
     requestRoutesPcieSwitchTraseBuffer(app);
     requestRoutesPcieSwitchFWUpdate(app);
+#endif
+#if BMCWEB_SBMR_EXT_MACRO
+    registerSbmrRoutes(app);
 #endif
     // Note, this must be the last route registered
     requestRoutesRedfish(app);

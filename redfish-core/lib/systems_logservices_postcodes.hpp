@@ -217,8 +217,17 @@ static bool fillPostCodeEntry(
 
         // assemble messageArgs: BootIndex, TimeOffset(100us), PostCode(hex)
         std::ostringstream hexCode;
-        hexCode << "0x" << std::setfill('0') << std::setw(2) << std::hex
+#if BMCWEB_SBMR_EXT_MACRO
+        hexCode << "0x";
+        for (auto itr : std::get<1>(code.second))
+        {
+                hexCode << std::setfill('0') << std::setw(2) << std::hex << static_cast<int>(itr);
+        }
+
+#else
+	hexCode << "0x" << std::setfill('0') << std::setw(2) << std::hex
                 << std::get<0>(code.second);
+#endif
         std::ostringstream timeOffsetStr;
         // Set Fixed -Point Notation
         timeOffsetStr << std::fixed;
@@ -248,6 +257,12 @@ static bool fillPostCodeEntry(
         {
             severity = message->messageSeverity;
         }
+#if BMCWEB_SBMR_EXT_MACRO
+        if (!asyncResp->res.jsonValue.contains("Members"))
+        {
+            asyncResp->res.jsonValue["Members"] = nlohmann::json::array();
+        }
+#endif
 
         // Format entry
         nlohmann::json::object_t bmcLogEntry;
@@ -280,8 +295,13 @@ static bool fillPostCodeEntry(
             return true;
         }
 
+#if BMCWEB_SBMR_EXT_MACRO
+        asyncResp->res.jsonValue["Members"].emplace_back(std::move(bmcLogEntry));
+        asyncResp->res.jsonValue["Members@odata.count"] = asyncResp->res.jsonValue["Members"].size();
+#else
         nlohmann::json& logEntryArray = asyncResp->res.jsonValue["Members"];
         logEntryArray.emplace_back(std::move(bmcLogEntry));
+#endif
     }
 
     // Return value is always false when querying multiple entries

@@ -58,7 +58,8 @@ feature_options = [
     'ami-2fa',
     'ami-bhs',
     'ami-egs',
-    'ast2700-evb'
+    'ast2700-evb',
+    'chalupa-amd'
 ]
 
 string_options = [
@@ -119,7 +120,9 @@ foreach option_key : feature_options + string_options + int_options
             'ami-bhs',
         ) or option_key.contains(
             'ast2700-evb',
-        )            
+        ) or option_key.contains(    
+             'chalupa-amd',
+        )     
             feature_options_string += '#define ' + option_macro_config + '  ' + opt.allowed().to_string() + '\n'
         endif
         opt = opt.allowed().to_string()

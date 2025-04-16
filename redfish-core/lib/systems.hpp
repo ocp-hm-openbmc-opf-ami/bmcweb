@@ -541,7 +541,7 @@ inline void afterSystemGetSubTree(
  *
  * @return None.
  */
-inline void
+void
     getComputerSystem(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     BMCWEB_LOG_DEBUG("Get available system components.");
@@ -564,7 +564,7 @@ inline void
  *
  * @return None.
  */
-inline void getHostState(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+void getHostState(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     BMCWEB_LOG_DEBUG("Get host information.");
     dbus::utility::getProperty<std::string>(
@@ -884,7 +884,7 @@ inline void getBootProgress(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
  *
  * @return None.
  */
-inline void getBootProgressLastStateTime(
+void getBootProgressLastStateTime(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     dbus::utility::getProperty<uint64_t>(
@@ -918,7 +918,7 @@ inline void getBootProgressLastStateTime(
  *
  * @return None.
  */
-inline void getCPLDBootProgress(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
+void getCPLDBootProgress(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
 {
     BMCWEB_LOG_DEBUG("Get OEM information.");
     crow::connections::systemBus->async_method_call(
@@ -1194,7 +1194,7 @@ inline void
  *
  * @return None.
  */
-inline void
+void
     getBootProperties(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     BMCWEB_LOG_DEBUG("Get boot information.");
@@ -1216,7 +1216,7 @@ inline void
  *
  * @return None.
  */
-inline void
+void
     getLastResetTime(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     BMCWEB_LOG_DEBUG("Getting System Last Reset Time");
@@ -1312,7 +1312,7 @@ inline void getAutomaticRebootAttempts(
  *
  * @return None.
  */
-inline void
+void
     getAutomaticRetryPolicy(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     BMCWEB_LOG_DEBUG("Get Automatic Retry policy");
@@ -1412,7 +1412,7 @@ inline computer_system::PowerRestorePolicyTypes
  *
  * @return None.
  */
-inline void
+void
     getPowerRestorePolicy(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     BMCWEB_LOG_DEBUG("Get power restore policy");
@@ -1447,7 +1447,7 @@ inline void
  *
  * @return None.
  */
-inline void
+void
     getStopBootOnFault(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     BMCWEB_LOG_DEBUG("Get Stop Boot On Fault");
@@ -1488,7 +1488,7 @@ inline void
  *
  * @return None.
  */
-inline void getTrustedModuleRequiredToBoot(
+void getTrustedModuleRequiredToBoot(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     BMCWEB_LOG_DEBUG("Get TPM required to boot.");
@@ -2123,7 +2123,7 @@ inline void getPlatformState(std::shared_ptr<bmcweb::AsyncResp> aResp)
  *
  * @return None.
  */
-inline void
+void
     getProvisioningStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     BMCWEB_LOG_DEBUG("Get OEM information.");
@@ -2305,7 +2305,7 @@ inline void
  *
  * @return None.
  */
-inline void getPowerMode(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+void getPowerMode(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     BMCWEB_LOG_DEBUG("Get power mode.");
 
@@ -2563,7 +2563,7 @@ inline std::string rfToDbusWDTTimeOutAct(const std::string& rfAction)
  *
  * @return None.
  */
-inline void
+void
     getHostWatchdogTimer(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     BMCWEB_LOG_DEBUG("Get host watchodg");
@@ -2740,7 +2740,7 @@ inline bool
  *
  * @return None.
  */
-inline void
+void
     getIdlePowerSaver(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     BMCWEB_LOG_DEBUG("Get idle power saver parameters");
@@ -2947,7 +2947,7 @@ inline void setIdlePowerSaver(
  * @param[in] aResp     Shared pointer for completing asynchronous calls.
 + * @return None.
  */
-inline void getSerialConsoleSshStatus(
+void getSerialConsoleSshStatus(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     service_util::getEnabled(
@@ -2970,7 +2970,7 @@ inline void getSerialConsoleSshStatus(
  *
  * @return None.
  */
-inline void
+void
     getVirtualMediaConfig(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     service_util::getEnabled(
@@ -2987,7 +2987,7 @@ inline void
  *
  * @return None.
  */
-inline void getKvmConfig(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+void getKvmConfig(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     service_util::getEnabled(
         asyncResp, kvmServiceName,
