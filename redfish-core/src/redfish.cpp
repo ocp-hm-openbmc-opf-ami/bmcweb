@@ -95,15 +95,15 @@
 #endif
 
 #if BMCWEB_AMI_ACD_MACRO
-#include "redfish-core/lib/ext/acd/acd_service.hpp"
+#include "ext/lib/acd/acd_service.hpp"
 #endif
 
 #if BMCWEB_AMI_ASD_MACRO
-#include "redfish-core/lib/ext/asd/asd_service.hpp"
+#include "ext/lib/asd/asd_service.hpp"
 #endif
 
 #if BMCWEB_AMI_REDEBUG_MACRO
-#include "redfish-core/lib/ext/redebugserv/redebugserv.hpp"
+#include "ext/lib/redebugserv/redebugserv.hpp"
 #endif
 
 #if BMCWEB_SBMR_EXT_MACRO
