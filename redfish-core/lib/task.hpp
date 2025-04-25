@@ -485,7 +485,16 @@ inline void
     asyncResp->res.result(boost::beast::http::status::no_content);
 
     // Delete the dump initiated process
-    stopDumpProcess();
+    std::string dumpUri;
+    if (ptr->payload)
+    {
+	    const task::Payload& p = *(ptr->payload);
+	    dumpUri = p.targetUri;
+    }
+    if(dumpUri == "/redfish/v1/Managers/bmc/LogServices/Dump/Actions/LogService.CollectDiagnosticData")
+    {
+    	stopDumpProcess();
+    }
 }
 
 inline void
