@@ -195,7 +195,7 @@ void propertyValueTypeError(crow::Response& res, const nlohmann::json& arg1,
                             std::string_view arg2)
 {
     res.result(boost::beast::http::status::bad_request);
-    addMessageToJson(res.jsonValue, propertyValueTypeError(arg1, arg2), arg2);
+    addMessageToErrorJson(res.jsonValue, propertyValueTypeError(arg1, arg2));
 }
 
 /**
@@ -302,7 +302,7 @@ nlohmann::json propertyNotWritable(std::string_view arg1)
 void propertyNotWritable(crow::Response& res, std::string_view arg1)
 {
     res.result(boost::beast::http::status::bad_request);
-    addMessageToJson(res.jsonValue, propertyNotWritable(arg1), arg1);
+    addMessageToErrorJson(res.jsonValue, propertyNotWritable(arg1));
 }
 
 /**
