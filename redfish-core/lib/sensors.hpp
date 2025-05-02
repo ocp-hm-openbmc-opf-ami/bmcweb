@@ -548,7 +548,9 @@ inline void sensorState(uint16_t value, std::string objPath,
     std::map<std::string, std::string> type = {
         {"cpu", "Cpustatus"},         {"watchdog", "watchdog"},
         {"acpisystem", "ACPISystem"}, {"powersupply", "Powersupply"},
-        {"powerunit", "Powerunit"},   {"os", "OSCritical"}};
+        {"powerunit", "Powerunit"},   {"os", "OSCritical"},
+        {"acpidevice", "ACPIDevice"}, {"battery", "Battery"},
+        {"bmcfirmwarehealth", "BMCFirwareHealth"}, {"chassisstate", "Digital"}};
     auto it = type.find(std::string(sensorType));
     if (it != type.end())
     {
@@ -2798,7 +2800,7 @@ inline void
     path = path.parent_path();
     std::string type = path.filename();
     std::set<std::string> discreteSensorTypes = {
-        "cpu", "watchdog", "acpisystem", "powersupply", "powerunit", "os"};
+        "cpu", "watchdog", "acpisystem", "powersupply", "powerunit", "os","acpidevice","battery","bmcfirmwarehealth","chassisstate"};
     ::dbus::utility::getAllProperties(
         connectionName, sensorPath, "",
         [asyncResp, sensorPath, name, type, discreteSensorTypes](
@@ -2866,7 +2868,7 @@ inline void
                                         .jsonValue["Oem"]["Ami"]["States"] =
                                         stateArray;
                                     asyncResp->res
-                                        .jsonValue["Oem"]["Ami"]["ReadingTye"] =
+                                        .jsonValue["Oem"]["Ami"]["ReadingType"] =
                                         "Discrete";
                                 });
                         }
