@@ -2017,8 +2017,10 @@ inline void requestRoutesEventDestinationCollection(App& app)
                 boost::urls::parse_absolute_uri(destUrl);
             if (!url)
             {
-                messages::propertyValueNotInList(asyncResp->res, *retryPolicy,
-                                                 "DeliveryRetryPolicy");
+                BMCWEB_LOG_WARNING(
+                    "Failed to validate and split destination url");
+                messages::propertyValueFormatError(asyncResp->res, destUrl,
+                                                    "Destination");
                 return;
             }
 
