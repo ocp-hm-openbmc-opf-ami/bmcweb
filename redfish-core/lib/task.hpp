@@ -573,6 +573,8 @@ inline void requestRoutesTask(App& app)
                {
                     return;
                 }
+                asyncResp->res.clearHeader(boost::beast::http::field::allow);
+                asyncResp->res.addHeader("Allow", "GET, DELETE");
                 auto find = std::ranges::find_if(
                     task::tasks,
                     [&strParam](const std::shared_ptr<task::TaskData>& task) {
@@ -674,6 +676,8 @@ inline void requestRoutesTask(App& app)
                 {
                     return;
                 }
+                asyncResp->res.clearHeader(boost::beast::http::field::allow);
+                asyncResp->res.addHeader("Allow", "GET, DELETE");
                 auto find = std::ranges::find_if(
                     task::tasks,
                     [&strParam](const std::shared_ptr<task::TaskData>& task) {
