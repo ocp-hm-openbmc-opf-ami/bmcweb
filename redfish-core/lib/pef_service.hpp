@@ -685,8 +685,8 @@ inline void requestRoutesSendTrap(App& app)
                                     return;
                                 }
                                 dbus::utility::getProperty<bool>(
-                                    "xyz.openbmc_project.Snmp",
-                                    "/xyz/openbmc_project/Snmp",
+                                    "xyz.openbmc_project.Snmp.Conf",
+                                    "/xyz/openbmc_project/snmp/SnmpUtils",
                                     "xyz.openbmc_project.Snmp.SnmpUtils",
                                     "SnmpTrapStatus",
                                     [aResp,
@@ -718,7 +718,7 @@ inline void requestRoutesSendTrap(App& app)
                             });
                     }
                 },
-                "xyz.openbmc_project.Snmp", "/xyz/openbmc_project/Snmp",
+                "xyz.openbmc_project.Snmp.Conf", "/xyz/openbmc_project/snmp/SnmpUtils",
                 "xyz.openbmc_project.Snmp.SnmpUtils", "SendSNMPTrap");
         });
 }

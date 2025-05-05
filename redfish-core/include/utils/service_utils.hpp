@@ -70,24 +70,14 @@ inline void getMasked(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             {
                 BMCWEB_LOG_ERROR("D-BUS response error on EventSeverity Get{}",
                                  ec);
-                // messages::internalError(asyncResp->res);
                 return;
             }
             asyncResp->res
+                    .jsonValue["Oem"]["OpenBmc"]["@odata.type"] =
+                    "#AMIManagerNetworkProtocol.v1_0_0.AMIManagerNetworkProtocol";
+            asyncResp->res
                 .jsonValue["Oem"]["OpenBmc"][ObjectName][propertyName] =
                 eventValue;
-            if (ObjectName == "IPMB")
-            {
-                asyncResp->res
-                    .jsonValue["Oem"]["OpenBmc"][ObjectName]["@odata.type"] =
-                    "#AMIManagerNetworkProtocol.v1_0_0.AMIIPMB";
-            }
-            else
-            {
-                asyncResp->res
-                    .jsonValue["Oem"]["OpenBmc"][ObjectName]["@odata.type"] =
-                    "#AMIManagerNetworkProtocol.v1_0_0.AMIManagerNetworkProtocol";
-            }
         });
 }
 

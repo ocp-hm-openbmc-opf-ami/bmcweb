@@ -169,7 +169,7 @@ inline void
     getSNMPProtocolEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     dbus::utility::getProperty<bool>(
-        "xyz.openbmc_project.Snmp", "/xyz/openbmc_project/Snmp",
+        "xyz.openbmc_project.Snmp.Conf", "/xyz/openbmc_project/snmp/SnmpUtils",
         "xyz.openbmc_project.Snmp.SnmpUtils", "SnmpTrapStatus",
         [asyncResp](const boost::system::error_code& ec, bool protocolEnabled) {
             if (ec)
@@ -189,8 +189,8 @@ inline void
     getSNMPVersionEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     dbus::utility::getProperty<bool>(
-        "xyz.openbmc_project.Snmp", "/xyz/openbmc_project/Snmp",
-        "xyz.openbmc_project.Snmp.SnmpConf", "disableSNMPv1",
+        "xyz.openbmc_project.Snmp.Conf", "/xyz/openbmc_project/snmp/SnmpUtils",
+        "xyz.openbmc_project.Snmp.SnmpUtils", "EnableSNMPV1",
         [asyncResp](const boost::system::error_code& ec, bool enableSNMPv1) {
             if (ec)
             {
@@ -199,12 +199,12 @@ inline void
                 messages::internalError(asyncResp->res);
                 return;
             }
-            asyncResp->res.jsonValue["SNMP"]["EnableSNMPv1"] = !enableSNMPv1;
+            asyncResp->res.jsonValue["SNMP"]["EnableSNMPv1"] = enableSNMPv1;
         });
 
     dbus::utility::getProperty<bool>(
-        "xyz.openbmc_project.Snmp", "/xyz/openbmc_project/Snmp",
-        "xyz.openbmc_project.Snmp.SnmpConf", "disableSNMPv2c",
+        "xyz.openbmc_project.Snmp.Conf", "/xyz/openbmc_project/snmp/SnmpUtils",
+        "xyz.openbmc_project.Snmp.SnmpUtils", "EnableSNMPV2",
         [asyncResp](const boost::system::error_code& ec, bool enableSNMPv2c) {
             if (ec)
             {
@@ -213,12 +213,12 @@ inline void
                 messages::internalError(asyncResp->res);
                 return;
             }
-            asyncResp->res.jsonValue["SNMP"]["EnableSNMPv2c"] = !enableSNMPv2c;
+            asyncResp->res.jsonValue["SNMP"]["EnableSNMPv2c"] = enableSNMPv2c;
         });
 
     dbus::utility::getProperty<bool>(
-        "xyz.openbmc_project.Snmp", "/xyz/openbmc_project/Snmp",
-        "xyz.openbmc_project.Snmp.SnmpConf", "disableSNMPv3",
+        "xyz.openbmc_project.Snmp.Conf", "/xyz/openbmc_project/snmp/SnmpUtils",
+        "xyz.openbmc_project.Snmp.SnmpUtils", "EnableSNMPV3",
         [asyncResp](const boost::system::error_code& ec, bool enableSNMPv3) {
             if (ec)
             {
@@ -227,8 +227,107 @@ inline void
                 messages::internalError(asyncResp->res);
                 return;
             }
-            asyncResp->res.jsonValue["SNMP"]["EnableSNMPv3"] = !enableSNMPv3;
+            asyncResp->res.jsonValue["SNMP"]["EnableSNMPv3"] = enableSNMPv3;
         });
+}
+
+inline void
+    getSNMPCommunityString(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    sdbusplus::message::object_path path("/xyz/openbmc_project/snmp/CommunityStrManager");
+    dbus::utility::getManagedObjects(
+    "xyz.openbmc_project.Snmp.Conf", path,
+    [asyncResp](const boost::system::error_code& ec,
+                const dbus::utility::ManagedObjectType& resp) 
+    {
+        nlohmann::json::array_t CommunityStrings;
+        nlohmann::json::array_t oem_CommunityStrings;
+        nlohmann::json::object_t CommunityStringData;
+        nlohmann::json::object_t oem_CommunityStringData;
+        const std::string *communityString = nullptr;
+        const std::string *readwritepermission = nullptr;
+        const std::string *communityprofile = nullptr;
+
+        bool snmpflag = false;
+        bool oemsnmpflag = false;
+
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        if (resp.empty())
+        {
+            asyncResp->res.jsonValue["SNMP"]["CommunityStrings"] = {nullptr};
+            asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SNMP"]["CommunityStrings"] = {nullptr};
+        }
+        else
+        {
+            for (const auto& objectPath : resp) 
+            {
+                for (const auto& interfaceMap : objectPath.second)
+                {
+                    if(interfaceMap.first == "xyz.openbmc_project.Snmp.CommunityStrManager")
+                    {
+                        for (const auto& propertyMap : interfaceMap.second)
+                        {
+                            if(propertyMap.first == "CommunityString")
+                            {
+                                communityString = std::get_if<std::string>(&propertyMap.second);
+                                if(communityString != nullptr &&  *communityString != "")
+                                {
+                                    CommunityStringData["CommunityString"] = *communityString;
+                                    snmpflag = true;
+                                }
+                            }
+                            else if(propertyMap.first == "CommunityProfile")
+                            {
+                                communityprofile = std::get_if<std::string>(&propertyMap.second);
+                                if (communityprofile != nullptr && *communityprofile != "")
+                                {
+                                    oem_CommunityStringData["AllowedMiBs"] = *communityprofile;
+                                    auto it = CommunityStringData.find("CommunityString");
+                                    if (it != CommunityStringData.end()) {
+                                        oem_CommunityStringData["CommunityString"] = CommunityStringData["CommunityString"];
+                                        oemsnmpflag = true;
+                                    }
+                                }
+                            }
+                            else if (propertyMap.first == "ReadWritePermission")
+                            {
+                                readwritepermission = std::get_if<std::string>(&propertyMap.second);
+                                if(readwritepermission != nullptr)
+                                {
+                                    if (*readwritepermission == "rwcommunity")
+                                    {
+                                        CommunityStringData["AccessMode"] = "Full";
+                                        snmpflag = true;
+                                    }
+                                    else if(*readwritepermission == "rocommunity")
+                                    {
+                                        CommunityStringData["AccessMode"] = "Limited";
+                                        snmpflag = true;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                if(snmpflag == true){
+                    CommunityStrings.emplace_back(std::move(CommunityStringData));
+                    snmpflag = false;
+                }
+                if(oemsnmpflag == true){
+                    oem_CommunityStrings.emplace_back(std::move(oem_CommunityStringData));
+                    oemsnmpflag = false;
+                }
+            }
+            asyncResp->res.jsonValue["SNMP"]["CommunityStrings"] = std::move(CommunityStrings);
+            asyncResp->res.jsonValue["Oem"]["OpenBmc"]["@odata.type"] = "#AMIManagerNetworkProtocol.v1_0_0.AMIManagerNetworkProtocol";
+            asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SNMP"]["CommunityStrings"] = std::move(oem_CommunityStrings);
+        }
+    });
 }
 
 inline void getNetworkData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -299,6 +398,7 @@ inline void getNetworkData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     getNTPProtocolEnabled(asyncResp);
     getSNMPProtocolEnabled(asyncResp);
     getSNMPVersionEnabled(asyncResp);
+    getSNMPCommunityString(asyncResp);
 
     getEthernetIfaceData([hostName, asyncResp](
                              const bool& success,
@@ -728,6 +828,547 @@ inline std::string encodeServiceObjectPath(std::string_view serviceName)
     return objPath.str;
 }
 
+inline void patchsnmpcommunitystring(std::optional<std::vector<std::variant<nlohmann::json::object_t, std::nullptr_t>>>& communityStrings, std::optional<std::vector<std::variant<nlohmann::json::object_t, std::nullptr_t>>>& oem_communityStrings, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    sdbusplus::message::object_path path("/xyz/openbmc_project/snmp/CommunityStrManager");
+    dbus::utility::getManagedObjects(
+        "xyz.openbmc_project.Snmp.Conf", path,
+        [asyncResp, communityStrings, oem_communityStrings](const boost::system::error_code& ec,
+                    const dbus::utility::ManagedObjectType& resp) 
+    {
+        nlohmann::json::array_t communitystr_jsonArray;
+        nlohmann::json::array_t oem_communitystr_jsonArray;
+        nlohmann::json::array_t dbus_communitystr_array;
+        nlohmann::json::object_t dbus_communitystrdata;
+        nlohmann::json::array_t commstr_array;
+        nlohmann::json::array_t comstr;
+        nlohmann::json::array_t oemcomstr;
+        nlohmann::json::array_t remove_index_array;
+        std::vector<std::string> CommunityProfile_vec = {"all", "smtp", "system"};
+        int index = 0;
+        int oem_index = 0;
+
+        for (const auto& communityStr : *communityStrings)
+        {
+            if (std::holds_alternative<nlohmann::json::object_t>(communityStr))
+            {
+                communitystr_jsonArray.push_back(
+                    std::get<nlohmann::json::object_t>(communityStr));
+            }
+            else if (std::holds_alternative<std::nullptr_t>(communityStr))
+            {
+                // Handle nullptr_t case if necessary
+                communitystr_jsonArray.push_back(
+                    std::get<std::nullptr_t>(communityStr));
+            }
+        }
+
+        for (const auto& communityStr : *oem_communityStrings)
+        {
+            if (std::holds_alternative<nlohmann::json::object_t>(communityStr))
+            {
+                oem_communitystr_jsonArray.push_back(
+                    std::get<nlohmann::json::object_t>(communityStr));
+            }
+            else if (std::holds_alternative<std::nullptr_t>(communityStr))
+            {
+                // Handle nullptr_t case if necessary
+                oem_communitystr_jsonArray.push_back(
+                    std::get<std::nullptr_t>(communityStr));
+            }
+        }
+
+        if(communitystr_jsonArray.size() == oem_communitystr_jsonArray.size())
+        {
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG(
+                    "dbus error");
+                messages::internalError(asyncResp->res);                        
+            }
+            else //patching and delete block
+            {
+                int exist_success_flag = 0;
+                int create_success_flag = 0;
+                int null_success_flag = 0;
+                int empty_success_flag = 0;
+                int update_oem_success_flag = 0;
+                int create_oem_success_flag = 0;
+                int null_oem_success_flag = 0;
+                int empty_oem_success_flag = 0;
+                nlohmann::json::array_t setdbus_communitystr_array;
+                nlohmann::json::object_t setdbus_communitystrdata;
+                for (const auto& objectPath : resp) 
+                {
+                    std::string objectPathStr(objectPath.first);
+                    for (const auto& interfaceMap : objectPath.second)
+                    {
+                        if(interfaceMap.first == "xyz.openbmc_project.Snmp.CommunityStrManager")
+                        {
+                            for (const auto& propertyMap : interfaceMap.second)
+                            {
+                                if(propertyMap.first == "CommunityString")
+                                {
+                                    const std::string *communityString = std::get_if<std::string>(&propertyMap.second);
+                                    if(communityString != nullptr &&  *communityString != "")
+                                    {
+                                        dbus_communitystrdata["CommunityString"] = *communityString;
+                                    }
+                                }
+                                else if(propertyMap.first == "CommunityProfile")
+                                {
+                                    const std::string *communityprofile = std::get_if<std::string>(&propertyMap.second);
+                                    if (communityprofile != nullptr && *communityprofile != "")
+                                    {
+                                        dbus_communitystrdata["CommunityProfile"] = *communityprofile;
+                                    }
+                                }
+                                else if (propertyMap.first == "ReadWritePermission")
+                                {
+                                    const std::string *readwritepermission = std::get_if<std::string>(&propertyMap.second);
+                                    //CommunityStringData["AccessMode"] = nullptr;
+                                    if(readwritepermission != nullptr)
+                                    {
+                                        if (*readwritepermission == "rwcommunity")
+                                        {
+                                            dbus_communitystrdata["ReadWritePermission"] = "Full";
+                                        }
+                                        else if(*readwritepermission == "rocommunity")
+                                        {
+                                            dbus_communitystrdata["ReadWritePermission"] = "Full";
+                                        }
+                                    }
+                                }
+                            }
+                            dbus_communitystrdata["ObjectPath"] = objectPathStr;
+                            dbus_communitystr_array.emplace_back(std::move(dbus_communitystrdata));
+                        }
+                    }
+                }
+
+                for (const auto& communityStringData : communitystr_jsonArray)
+                {
+                    if (communityStringData.is_object() || communityStringData.is_null()) {
+                        bool valid_commstrdata = true;
+                        bool dmtf_missing_flag = false;
+                        bool dmtf_unknown_flag = false;
+                        if (communityStringData.is_object() && !(communityStringData.empty()))
+                        {  
+                            bool commstr_flag = false;
+                            bool access_flag = false; 
+                            for (auto it_5 = communityStringData.begin(); it_5 != communityStringData.end(); ++it_5) {
+                                if (it_5.key() != "CommunityString" && it_5.key() != "AccessMode") {
+                                    messages::propertyUnknown(asyncResp->res, it_5.key());
+                                    dmtf_unknown_flag = true;
+                                }
+                                else if(it_5.key() == "CommunityString"){
+                                    commstr_flag = true;
+                                }
+                                else if(it_5.key() == "AccessMode")
+                                {
+                                    access_flag = true;
+                                }
+                            }
+                            if (commstr_flag == false){
+                                messages::propertyMissing(asyncResp->res,"SNMP/CommunityStrings/" + std::to_string(index) + "/CommunityString");
+                                dmtf_missing_flag = true;
+                            }
+                            else if (access_flag == false){
+                                messages::propertyMissing(asyncResp->res,"SNMP/CommunityStrings/" + std::to_string(index) + "/AccessMode");
+                                dmtf_missing_flag = true;
+                            }
+                        }
+                        if ((dmtf_unknown_flag == false) && (dmtf_missing_flag == false) && !(communityStringData.is_null()) && !(communityStringData.empty())){
+                            std::string commstring = communityStringData["CommunityString"].get<std::string>();
+                            bool commstr_present = false;
+                            std::string lowerCase_Commstr = commstring;
+                            std::transform(lowerCase_Commstr.begin(), lowerCase_Commstr.end(), lowerCase_Commstr.begin(), ::tolower);
+                            if (lowerCase_Commstr != "private" && lowerCase_Commstr != "public"){
+                                auto it_6 = std::find(comstr.begin(), comstr.end(), commstring);
+                                if (it_6 != comstr.end()) {
+                                    size_t it_index = static_cast<size_t>(std::distance(comstr.begin(), it_6));
+                                    messages::propertyValueConflict(asyncResp->res, "SNMP/CommunityStrings/" + std::to_string(index) + "/CommunityString", "SNMP/CommunityStrings/" + std::to_string(it_index) + "/CommunityString");
+                                    valid_commstrdata = false;
+                                }
+                                else
+                                {
+                                    comstr.push_back(commstring);
+                                }
+                            }
+                            else{
+                                messages::propertyValueError(asyncResp->res, "SNMP/CommunityStrings/" + std::to_string(index) + "/CommunityString");
+                                valid_commstrdata = false;
+                            }
+                            bool valid_accessdata = true;
+                            std::string accessdata = communityStringData["AccessMode"].get<std::string>();
+                            if (accessdata == "Full")
+                            {
+                                accessdata = "rwcommunity";
+                            }
+                            else if (accessdata == "Limited")
+                            {
+                                accessdata = "rocommunity";
+                            }
+                            else
+                            {
+                                messages::propertyValueNotInList(asyncResp->res, accessdata, "SNMP/CommunityStrings/" + std::to_string(index) + "/AccessMode");
+                                valid_accessdata = false;
+                            }
+                            if(valid_commstrdata == true && valid_accessdata == true)
+                            {
+                                for (const auto& dbus_commstr : dbus_communitystr_array)
+                                {
+                                    auto it_7 = dbus_commstr.find("CommunityString");
+                                    if (it_7 != dbus_commstr.end() ){
+                                        std::string dbuscommstr= it_7.value().get<std::string>();
+                                        if (dbuscommstr == commstring) {
+                                            auto objpathIt = dbus_commstr.find("ObjectPath");
+                                            if (objpathIt != dbus_commstr.end()) {
+
+                                                if(dbus_commstr["ReadWritePermission"] != accessdata){
+                                                    std::string commstr_objectpath = objpathIt.value().get<std::string>();
+                                                    setdbus_communitystrdata["ObjectPath"] = commstr_objectpath;
+                                                    setdbus_communitystrdata["AccessMode"] = accessdata;
+                                                    setdbus_communitystr_array.emplace_back(std::move(setdbus_communitystrdata));
+                                                }
+                                                commstr_present = true;
+                                                exist_success_flag++;
+                                            }
+                                            break;
+                                        }
+                                    }
+                                }
+                                if (commstr_present == false)
+                                {
+                                    commstr_array.emplace_back(std::move(communityStringData));
+                                    create_success_flag++;
+                                }
+                            }
+                        }
+
+                        if (communityStringData.is_null()){
+                            if (index >= 0 && static_cast<size_t>(index) < dbus_communitystr_array.size())
+                            {
+                                std::string commstr_objectpath = dbus_communitystr_array[static_cast<size_t>(index)]["ObjectPath"];
+                                if (!(commstr_objectpath.empty())){
+                                    const boost::urls::url commstr_objPath = boost::urls::format("{}", commstr_objectpath);
+                                    crow::connections::systemBus->async_method_call(
+                                        [asyncResp, &null_success_flag](const boost::system::error_code& ec_1) {
+                                            if (ec_1)
+                                            {
+                                                BMCWEB_LOG_DEBUG(
+                                                    "Failed to delete community string");
+                                                messages::internalError(asyncResp->res);
+                                                return;
+                                            }
+                                            null_success_flag++;
+                                    },
+                                    "xyz.openbmc_project.Snmp.Conf",
+                                    commstr_objPath.data(),
+                                    "xyz.openbmc_project.Object.Delete",
+                                    "Delete");
+                                }
+                            }   
+                        }
+
+                        if (communityStringData.empty()){
+                            empty_success_flag++;
+                        }
+                    }
+                    else
+                    {
+                        messages::propertyValueError(asyncResp->res, "SNMP/CommunityStrings/" + std::to_string(index));
+                    }
+                    index++;
+                }
+
+                for (const auto& oem_communityStringData : oem_communitystr_jsonArray)
+                {
+                    if (oem_communityStringData.is_object() || oem_communityStringData.is_null()) 
+                    {
+                        bool valid_allowedmibs = true;
+                        bool valid_oemcommstr  = true; 
+                        bool allowedmibs_flag = false;
+                        bool comstr_flag = false;
+                        bool oem_missing_flag = false;
+                        bool oem_unknown_flag = false; 
+                        if (oem_communityStringData.is_object() && !(oem_communityStringData.empty()))
+                        {
+                            for (auto it_8 = oem_communityStringData.begin(); it_8 != oem_communityStringData.end(); ++it_8) {
+                                if (it_8.key() != "AllowedMiBs" && it_8.key() != "CommunityString") {
+                                    messages::propertyUnknown(asyncResp->res, it_8.key());
+                                    oem_unknown_flag = true;
+                                }
+                                else if(it_8.key() == "CommunityString"){
+                                    comstr_flag = true;
+                                }
+                                else if(it_8.key() == "AllowedMiBs")
+                                {
+                                    allowedmibs_flag = true;
+                                }
+
+                            }
+                            if (comstr_flag == false){
+                                messages::propertyMissing(asyncResp->res, "Oem/OpenBmc/SNMP/CommunityStrings/" + std::to_string(oem_index) + "/CommunityString");
+                                oem_missing_flag = true;
+                            }
+                            else if (allowedmibs_flag == false){
+                                messages::propertyMissing(asyncResp->res, "Oem/OpenBmc/SNMP/CommunityStrings/" + std::to_string(oem_index) + "/AllowedMiBs");
+                                oem_missing_flag = true;
+                            }
+
+                        }
+                        if ((oem_unknown_flag == false) && (oem_missing_flag == false) && !(oem_communityStringData.is_null()) && !(oem_communityStringData.empty()))
+                        {
+                            std::string oem_commstr = oem_communityStringData["CommunityString"].get<std::string>();
+                            bool oem_commstr_present = false;
+                            std::string lowerCase_OemCommstr = oem_commstr;
+                            std::transform(lowerCase_OemCommstr.begin(), lowerCase_OemCommstr.end(), lowerCase_OemCommstr.begin(), ::tolower);
+                            if (lowerCase_OemCommstr != "private" && lowerCase_OemCommstr != "public"){
+                                auto it_4 = std::find(comstr.begin(), comstr.end(), oem_commstr);
+                                if (it_4 == comstr.end()) {
+                                    messages::propertyValueIncorrect(asyncResp->res, "Oem/OpenBmc/SNMP/CommunityStrings/" + std::to_string(oem_index) + "/CommunityString", oem_commstr);
+                                    valid_oemcommstr = false;
+                                }
+                                else
+                                {
+                                    auto it_9 = std::find(oemcomstr.begin(), oemcomstr.end(), oem_commstr);
+                                    if (it_9 != oemcomstr.end()) {
+                                        size_t it_index = static_cast<size_t>(std::distance(oemcomstr.begin(), it_9));
+                                        messages::propertyValueConflict(asyncResp->res, "Oem/OpenBmc/SNMP/CommunityStrings/" + std::to_string(oem_index) + "/CommunityString", "Oem/OpenBmc/SNMP/CommunityStrings/" + std::to_string(it_index) + "/CommunityString");
+                                        valid_oemcommstr = false;
+                                    }
+                                    else
+                                    {
+                                        oemcomstr.push_back(oem_commstr);
+                                    }
+                                }
+                            }
+                            else{
+                                messages::propertyValueError(asyncResp->res, "Oem/OpenBmc/SNMP/CommunityStrings/" + std::to_string(oem_index) + "/CommunityString");
+                                valid_oemcommstr = false;
+                            }
+                            std::string allowedmibs = oem_communityStringData["AllowedMiBs"].get<std::string>();
+                            auto it_11 = std::find(CommunityProfile_vec.begin(), CommunityProfile_vec.end(), allowedmibs);
+                            if (it_11 == CommunityProfile_vec.end()) {
+                                messages::propertyValueNotInList(asyncResp->res, allowedmibs, "Oem/OpenBmc/SNMP/CommunityStrings/" + std::to_string(oem_index) + "/AllowedMiBs");
+                                valid_allowedmibs = false;
+                            }
+                            if (valid_oemcommstr == true && valid_allowedmibs == true)
+                            {
+                                for (const auto& dbus_commstr : dbus_communitystr_array)
+                                {
+                                    auto it_10 = dbus_commstr.find("CommunityString");
+                                    if (it_10 != dbus_commstr.end()){
+                                        std::string dbusoemcommstr = it_10.value().get<std::string>();
+                                        if (dbusoemcommstr == oem_commstr) {
+                                            auto objpathIt = dbus_commstr.find("ObjectPath");
+                                            if (objpathIt != dbus_commstr.end()) {
+                                                if(dbus_commstr["CommunityProfile"] != allowedmibs)
+                                                {
+                                                    std::string oemcommstr_objectpath = objpathIt.value().get<std::string>();
+                                                    setdbus_communitystrdata["ObjectPath"] = oemcommstr_objectpath;
+                                                    setdbus_communitystrdata["allowedmibs"] = allowedmibs;
+                                                    setdbus_communitystr_array.emplace_back(std::move(setdbus_communitystrdata));
+                                                }
+                                                oem_commstr_present = true;
+                                                update_oem_success_flag++;
+                                            }
+                                            break;
+                                        }
+                                    }
+                                }
+                                if (oem_commstr_present == false)
+                                {
+                                    for (auto& commstrdata : commstr_array)
+                                    {
+                                        auto it_12 = commstrdata.find("CommunityString");
+                                        if (it_12 != commstrdata.end()){
+                                            std::string new_oemcommstr = it_12.value().get<std::string>();
+                                            if(new_oemcommstr == oem_commstr) 
+                                            {
+                                                commstrdata["AllowedMiBs"] = allowedmibs;
+                                                create_oem_success_flag++;
+                                                break;
+                                            }
+                                        }
+                                    }
+
+                                }
+                            }
+                        }
+
+                        if (oem_communityStringData.is_null())
+                        {
+                            if (oem_index >= 0 && static_cast<size_t>(oem_index) < dbus_communitystr_array.size())
+                            {
+                                std::string commstr_objectpath = dbus_communitystr_array[static_cast<size_t>(oem_index)]["ObjectPath"];
+                                if (!(commstr_objectpath.empty())){
+                                    const boost::urls::url commstr_objPath = boost::urls::format("{}", commstr_objectpath);
+                                    crow::connections::systemBus->async_method_call(
+                                        [asyncResp, &null_oem_success_flag](const boost::system::error_code& ec_2) {
+                                            if (ec_2)
+                                            {
+                                                BMCWEB_LOG_DEBUG(
+                                                    "Already objectpath is deleted");
+                                            }
+                                            null_oem_success_flag++;
+                                    },
+                                    "xyz.openbmc_project.Snmp.Conf",
+                                    commstr_objPath.data(),
+                                    "xyz.openbmc_project.Object.Delete",
+                                    "Delete");
+                                }
+                            }
+                        }
+
+                        if (oem_communityStringData.empty()){
+                            empty_oem_success_flag++;
+                        }
+                    }
+                    else
+                    {
+                        messages::propertyValueError(asyncResp->res, "CommunityString/" + std::to_string(index));
+                    }
+                    oem_index++;
+                }
+                if ((static_cast<size_t>(exist_success_flag + null_success_flag + create_success_flag + empty_success_flag) == communitystr_jsonArray.size()) && (static_cast<size_t>(update_oem_success_flag + null_oem_success_flag + create_oem_success_flag + empty_oem_success_flag) == oem_communitystr_jsonArray.size()))
+                {
+                    if (commstr_array.size() > 0 ){
+                        for (const auto& commstrdata : commstr_array)
+                        {
+                            std::string comstrdata = commstrdata["CommunityString"].get<std::string>();
+                            std::string accessdata = commstrdata["AccessMode"].get<std::string>();
+                            if (accessdata == "Full")
+                            {
+                                accessdata = "rwcommunity";
+                            }
+                            else
+                            {
+                                accessdata = "rocommunity";
+                            }
+                            std::string allowedmibsdata = commstrdata["AllowedMiBs"].get<std::string>();
+                            if (!comstrdata.empty() && !accessdata.empty() && !allowedmibsdata.empty())
+                            {
+                                crow::connections::systemBus->async_method_call(
+                                    [asyncResp](const boost::system::error_code& ec_3) {
+                                        if (ec_3)
+                                        {
+                                            BMCWEB_LOG_DEBUG(
+                                                "Failed to create community string");
+                                            messages::internalError(asyncResp->res);
+                                            return;
+                                        }
+                                },
+                                "xyz.openbmc_project.Snmp.Conf",
+                                "/xyz/openbmc_project/snmp/CommunityStrManager",
+                                "xyz.openbmc_project.Snmp.CommunityStrManager.Create",
+                                "Client", comstrdata, accessdata, allowedmibsdata);
+                            }
+                        }
+                    }
+
+                    if (setdbus_communitystr_array.size() > 0)
+                    {
+                        for (const auto& setdbus_communitystr : setdbus_communitystr_array)
+                        {
+                            auto it_13 = setdbus_communitystr.find("AccessMode");
+                            if (it_13 != setdbus_communitystr.end()) {
+                                std::string accessdata = setdbus_communitystr["AccessMode"].get<std::string>();
+                                auto objpathIt = setdbus_communitystr.find("ObjectPath");
+                                if (objpathIt != setdbus_communitystr.end()) {
+                                    const std::string objPathString = objpathIt.value().get<std::string>();
+                                    const boost::urls::url objPath = boost::urls::format("{}", objPathString);
+                                    sdbusplus::asio::setProperty(
+                                        *crow::connections::systemBus, "xyz.openbmc_project.Snmp.Conf",
+                                        objPath.data(),
+                                        "xyz.openbmc_project.Snmp.CommunityStrManager", "ReadWritePermission",
+                                        accessdata,
+                                        [asyncResp](const boost::system::error_code& ec_4) {
+                                        if (ec_4)
+                                        {
+                                            BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec_4);
+                                            return;
+                                        }
+                                    });
+                                }
+                            }
+                            
+                            auto allowedMibsIt = setdbus_communitystr.find("allowedmibs");
+                            if (allowedMibsIt != setdbus_communitystr.end()) {
+                                std::string allowedmibs = setdbus_communitystr["allowedmibs"].get<std::string>();
+                                auto objpathIt = setdbus_communitystr.find("ObjectPath");
+                                if (objpathIt != setdbus_communitystr.end()) {
+                                    const std::string objPathString = objpathIt.value().get<std::string>();
+                                    const boost::urls::url objPath = boost::urls::format("{}", objPathString);
+                                    sdbusplus::asio::setProperty(
+                                        *crow::connections::systemBus, "xyz.openbmc_project.Snmp.Conf",
+                                        objPath.data(),
+                                        "xyz.openbmc_project.Snmp.CommunityStrManager", "CommunityProfile",
+                                        allowedmibs,
+                                        [asyncResp](const boost::system::error_code& ec_5) {
+                                        if (ec_5)
+                                        {
+                                            BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec_5);
+                                            return;
+                                        }
+                                    });
+                                }
+                            }
+                        }
+                    }
+                    if (((communitystr_jsonArray.size() < dbus_communitystr_array.size()) || (communitystr_jsonArray.size() == 1 && dbus_communitystr_array.size() == 1)) && dbus_communitystr_array.size() > 0){
+                        int removeindex = 0;
+                        for (const auto& dbus_communitystring : dbus_communitystr_array)
+                        {
+                            if (dbus_communitystring.contains("CommunityString"))
+                            {
+                                std::string dbuscommunitystring = dbus_communitystring["CommunityString"].get<std::string>();
+                                auto it_14 = std::find(comstr.begin(), comstr.end(), dbuscommunitystring);
+                                if (it_14 == comstr.end()) {
+                                    remove_index_array.push_back(removeindex);
+                                }
+                            }
+                            removeindex++;
+                        }
+                        for(const auto& remove_index : remove_index_array)
+                        {
+                            std::string commstr_objectpath = dbus_communitystr_array[remove_index]["ObjectPath"];
+                            const boost::urls::url commstr_objPath = boost::urls::format("{}", commstr_objectpath);
+                            crow::connections::systemBus->async_method_call(
+                                [asyncResp, &null_oem_success_flag](const boost::system::error_code& ec_6) {
+                                    if (ec_6)
+                                    {
+                                        BMCWEB_LOG_DEBUG(
+                                            "Already objectpath is deleted");
+                                    }
+                            },
+                            "xyz.openbmc_project.Snmp.Conf",
+                            commstr_objPath.data(),
+                            "xyz.openbmc_project.Object.Delete",
+                            "Delete");
+                        }
+                    }
+                    asyncResp->res.result(boost::beast::http::status::no_content);
+                }
+            }
+        }
+        else if (communitystr_jsonArray.size() > oem_communitystr_jsonArray.size())
+        {
+            for(size_t i = oem_communitystr_jsonArray.size(); i < 5; i++){
+                messages::propertyMissing(asyncResp->res,"Oem/OpenBmc/SNMP/CommunityStrings/" + std::to_string(i));
+            }
+        }
+        else
+        {
+            for(size_t i = communitystr_jsonArray.size(); i < 5; i++){
+                messages::propertyMissing(asyncResp->res,"SNMP/CommunityStrings/" + std::to_string(i));
+            }
+        }
+
+    });
+}
+
 inline void handleBmcNetworkProtocolHead(
     crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
@@ -773,6 +1414,7 @@ inline void handleManagersNetworkProtocolPatch(
     std::optional<bool> bmcwebRunning;
     std::optional<bool> sshRunning;
     std::optional<bool> ipmbRunning;
+    std::optional<nlohmann::json> oem_snmp;
 
     // clang-format off
         if (!json_util::readJsonPatch(
@@ -792,7 +1434,8 @@ inline void handleManagersNetworkProtocolPatch(
                 "Oem/OpenBmc/IPMI/Running",ipmiRunning,
                 "Oem/OpenBmc/HTTPS/Running",bmcwebRunning,
                 "Oem/OpenBmc/SSH/Running",sshRunning,
-                "Oem/OpenBmc/IPMB/Running",ipmbRunning))
+                "Oem/OpenBmc/IPMB/Running",ipmbRunning,
+                "Oem/OpenBmc/SNMP",oem_snmp))
         {
             return;
         }
@@ -929,6 +1572,7 @@ inline void handleManagersNetworkProtocolPatch(
         std::optional<bool> enableSNMPv2c;
         std::optional<bool> enableSNMPv3;
         std::optional<bool> snmpEnabled;
+        std::optional<std::vector<std::variant<nlohmann::json::object_t, std::nullptr_t>>> communityStrings;
         std::size_t snmp_size = snmp.value().size();
         if (snmp_size == 0)
         {
@@ -941,7 +1585,8 @@ inline void handleManagersNetworkProtocolPatch(
                 "ProtocolEnabled", snmpEnabled, //
                 "EnableSNMPv1", enableSNMPv1, //
                 "EnableSNMPv2c", enableSNMPv2c, //
-                "EnableSNMPv3", enableSNMPv3 //
+                "EnableSNMPv3", enableSNMPv3, //
+                "CommunityStrings", communityStrings //
                 ))
         {
             return;
@@ -950,10 +1595,10 @@ inline void handleManagersNetworkProtocolPatch(
         if (enableSNMPv1)
         {
             sdbusplus::asio::setProperty(
-                *crow::connections::systemBus, "xyz.openbmc_project.Snmp",
-                "/xyz/openbmc_project/Snmp",
-                "xyz.openbmc_project.Snmp.SnmpConf", "disableSNMPv1",
-                !(*enableSNMPv1),
+                *crow::connections::systemBus, "xyz.openbmc_project.Snmp.Conf",
+                "/xyz/openbmc_project/snmp/SnmpUtils",
+                "xyz.openbmc_project.Snmp.SnmpUtils", "EnableSNMPV1",
+                (*enableSNMPv1),
                 [asyncResp](const boost::system::error_code& ec) {
                     if (ec)
                     {
@@ -966,10 +1611,10 @@ inline void handleManagersNetworkProtocolPatch(
         if (enableSNMPv2c)
         {
             sdbusplus::asio::setProperty(
-                *crow::connections::systemBus, "xyz.openbmc_project.Snmp",
-                "/xyz/openbmc_project/Snmp",
-                "xyz.openbmc_project.Snmp.SnmpConf", "disableSNMPv2c",
-                !(*enableSNMPv2c),
+                *crow::connections::systemBus, "xyz.openbmc_project.Snmp.Conf",
+                "/xyz/openbmc_project/snmp/SnmpUtils",
+                "xyz.openbmc_project.Snmp.SnmpUtils", "EnableSNMPV2",
+                (*enableSNMPv2c),
                 [asyncResp](const boost::system::error_code& ec) {
                     if (ec)
                     {
@@ -982,10 +1627,10 @@ inline void handleManagersNetworkProtocolPatch(
         if (enableSNMPv3)
         {
             sdbusplus::asio::setProperty(
-                *crow::connections::systemBus, "xyz.openbmc_project.Snmp",
-                "/xyz/openbmc_project/Snmp",
-                "xyz.openbmc_project.Snmp.SnmpConf", "disableSNMPv3",
-                !(*enableSNMPv3),
+                *crow::connections::systemBus, "xyz.openbmc_project.Snmp.Conf",
+                "/xyz/openbmc_project/snmp/SnmpUtils",
+                "xyz.openbmc_project.Snmp.SnmpUtils", "EnableSNMPV3",
+                (*enableSNMPv3),
                 [asyncResp](const boost::system::error_code& ec) {
                     if (ec)
                     {
@@ -999,8 +1644,8 @@ inline void handleManagersNetworkProtocolPatch(
         if (snmpEnabled)
         {
             sdbusplus::asio::setProperty(
-                *crow::connections::systemBus, "xyz.openbmc_project.Snmp",
-                "/xyz/openbmc_project/Snmp",
+                *crow::connections::systemBus, "xyz.openbmc_project.Snmp.Conf",
+                "/xyz/openbmc_project/snmp/SnmpUtils",
                 "xyz.openbmc_project.Snmp.SnmpUtils", "SnmpTrapStatus",
                 *snmpEnabled, [asyncResp](const boost::system::error_code& ec) {
                     if (ec)
@@ -1010,6 +1655,24 @@ inline void handleManagersNetworkProtocolPatch(
                         return;
                     }
                 });
+        }
+
+        if (communityStrings) {
+            if(oem_snmp){
+                std::optional<std::vector<std::variant<nlohmann::json::object_t, std::nullptr_t>>> oem_communityStrings;
+                std::size_t oem_snmp_size = oem_snmp.value().size();
+                if (oem_snmp_size == 0)
+                {
+                    messages::propertyValueTypeError(asyncResp->res, oem_snmp.value(),
+                                                    "Oem/OpenBmc/SNMP");
+                }
+                if (!json_util::readJson(*oem_snmp, asyncResp->res, "CommunityStrings", oem_communityStrings))
+                {
+                    syslog(LOG_WARNING,"ReadJson Failed");
+                    return;
+                }
+                patchsnmpcommunitystring(communityStrings,oem_communityStrings,asyncResp);
+            }
         }
     }
     if (ipmiMasked)
@@ -1166,7 +1829,6 @@ inline void handleManagersNetworkProtocolGet(
         messages::resourceNotFound(asyncResp->res, "Manager", managerId);
         return;
     }
-
     getNetworkData(asyncResp, req);
     getIpmiMasked(asyncResp);
     getSSHMasked(asyncResp);
