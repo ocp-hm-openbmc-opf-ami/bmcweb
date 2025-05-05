@@ -708,7 +708,14 @@ inline void requestRoutesTask(App& app)
                         });
             }
         }
-        asyncResp->res.jsonValue["PercentComplete"] = ptr->percentComplete;
+	else if(ptr->state == "Completed")
+	{
+		asyncResp->res.jsonValue["PercentComplete"] = 100;
+	}
+	else
+	{
+	        asyncResp->res.jsonValue["PercentComplete"] = ptr->percentComplete;
+	}
     });
 
     BMCWEB_ROUTE(app, "/redfish/v1/TaskService/Tasks/<str>/")
