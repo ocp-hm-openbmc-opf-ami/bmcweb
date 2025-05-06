@@ -2125,6 +2125,7 @@ inline void handleUpdateServicePatch(
                         }
 
                         bool swInvObjFound = false;
+			size_t uriCount = 0;
                         
                         for (const std::string& path : swInvPaths)
                         {
@@ -2139,7 +2140,6 @@ inline void handleUpdateServicePatch(
                             std::string swId = path.substr(idPos + 1);
                             #if (BMCWEB_AMI_EGS_MACRO || BMCWEB_AMI_BHS_MACRO || BMCWEB_AST2700_EVB_MACRO || BMCWEB_AST2600_EVB_MACRO)
 
-                            size_t uriCount = 0;
                             for (const std::string& target : uriTargets)
                             {
                                 if (swId == target)
@@ -2160,6 +2160,7 @@ inline void handleUpdateServicePatch(
                             }
                             #endif
                         }
+			BMCWEB_LOG_DEBUG("HttpPushUri count value {}", uriCount);
                         if (!swInvObjFound)
                         {
                             messages::invalidObject(

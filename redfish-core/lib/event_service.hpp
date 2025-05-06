@@ -814,6 +814,43 @@ inline void setRecipient(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
             BMCWEB_LOG_DEBUG("Patch Recipient Success");
         });
 }
+bool validateMsgId(std::string messageId)
+{
+    std::string msgPrefix;
+    std::string msgSuffix;
+    std::size_t pos = messageId.find('.');
+    std::size_t posLast = messageId.find_last_of('.');
+    if (pos != std::string::npos && posLast != std::string::npos &&
+        pos != posLast)
+    {
+        msgPrefix = messageId.substr(0, pos);
+        msgSuffix = messageId.substr(posLast + 1);
+        msgSuffix.erase(
+            0, msgSuffix.find_first_not_of(' ')); // Remove leading spaces
+        msgSuffix.erase(
+            msgSuffix.find_last_not_of(' ') + 1); // Remove trailing spaces
+    }
+    else
+    {
+        return false;
+    }
+
+    const std::span<const redfish::registries::MessageEntry> registry =
+        redfish::registries::getRegistryFromPrefix(msgPrefix);
+
+    if (std::any_of(registry.begin(), registry.end(),
+                    [&msgSuffix](
+                        const redfish::registries::MessageEntry& messageEntry) {
+                        BMCWEB_LOG_DEBUG(
+                            "msgSuffix : {}, messageEntry.first : {}",
+                            msgSuffix, messageEntry.first);
+                        return msgSuffix == messageEntry.first;
+                    }))
+    {
+        return true;
+    }
+    return false; // No matcing found the Message Entry
+}
 
 inline void handleauthenticationpatch(
     const std::shared_ptr<bmcweb::AsyncResp> aResp, std::string interfaces,
@@ -1786,6 +1823,14 @@ inline void requestRoutesSubmitTestEvent(App& app)
                 {
                     return;
                 }
+                if (testEvent.messageId.has_value())
+                {
+                     if(!validateMsgId(testEvent.messageId.value()))
+                    {
+                    messages::propertyValueNotInList(asyncResp->res,*testEvent.messageId, "MessageId");
+                    return;
+                    }
+                }
                 // clang-format on
                 if (!EventServiceManager::getInstance().sendTestEventLog(
                         testEvent))
@@ -2012,8 +2057,10 @@ inline void requestRoutesEventDestinationCollection(App& app)
                 boost::urls::parse_absolute_uri(destUrl);
             if (!url)
             {
-                messages::propertyValueNotInList(asyncResp->res, *retryPolicy,
-                                                 "DeliveryRetryPolicy");
+                BMCWEB_LOG_WARNING(
+                    "Failed to validate and split destination url");
+                messages::propertyValueFormatError(asyncResp->res, destUrl,
+                                                    "Destination");
                 return;
             }
 
