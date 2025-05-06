@@ -94,10 +94,10 @@ inline void handleServiceRootGetImpl(
         "#OemServiceRoot.v1_0_0.Ami";
     asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.id"] =
         "/redfish/v1/#Oem/Ami";
-    #if BMCWEB_AST2600_EVB_MACRO
+#if BMCWEB_AST2600_EVB_MACRO
     asyncResp->res.jsonValue["Oem"]["Ami"]["PcieSwitch"] = {
         {"@odata.id", "/redfish/v1/Oem/Ami/PcieSwitch"}};
-    #endif
+#endif
     asyncResp->res.jsonValue["Oem"]["Ami"]["LicenseControl"] = {
         {"@odata.id", "/redfish/v1/Oem/Ami/LicenseControl"}};
 
@@ -119,6 +119,10 @@ inline void handleServiceRootGetImpl(
     asyncResp->res.jsonValue["Links"]["ManagerProvidingService"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Managers/{}",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
+#if BMCWEB_SPDM_URIS_MACRO
+    asyncResp->res.jsonValue["ComponentIntegrity"]["@odata.id"] =
+        "/redfish/v1/ComponentIntegrity";
+#endif
 
     nlohmann::json& protocolFeatures =
         asyncResp->res.jsonValue["ProtocolFeaturesSupported"];

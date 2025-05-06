@@ -138,6 +138,22 @@ void propertyValueNotInList(crow::Response& res, const nlohmann::json& arg1,
                             std::string_view arg2);
 
 /**
+ * @brief Formats ResourceErrorsDetected message into JSON
+ * Message body: "The resource property <arg1> has detected errors of type
+ * '<arg2>'."
+ *
+ * @param[in] arg1 Parameter of message that will replace <arg1> in its body.
+ * @param[in] arg2 Parameter of message that will replace <arg2> in its body.
+ *
+ * @returns Message ResourceErrorsDetected formatted to JSON */
+nlohmann::json resourceErrorsDetectedFormatError(const std::string& arg1,
+                                                 const std::string& arg2);
+
+void resourceErrorsDetectedFormatError(
+    crow::Response& res, const std::string& arg1, const std::string& arg2,
+    const std::string& resolution = {});
+
+/**
  * @brief Formats PropertyValueOutOfRange message into JSON
  * Message body: "The value <arg1> for the property <arg2> is not in the
  * supported range of acceptable values."
@@ -1100,10 +1116,10 @@ void propertyValueExternalConflict(crow::Response& res, std::string_view arg1,
                                    const nlohmann::json& arg2);
 
 /**
- * @brief Formats conflictOnPropertyPatch message into JSON for partial success PATCH
- * Message body: "The property <arg1> with the requested value of <arg2> could
- * not be written because the value is not available due to a configuration
- * conflict."
+ * @brief Formats conflictOnPropertyPatch message into JSON for partial success
+ * PATCH Message body: "The property <arg1> with the requested value of <arg2>
+ * could not be written because the value is not available due to a
+ * configuration conflict."
  *
  * @param[in] arg1 Parameter of message that will replace %1 in its body.
  * @param[in] arg2 Parameter of message that will replace %2 in its body.
@@ -1111,7 +1127,7 @@ void propertyValueExternalConflict(crow::Response& res, std::string_view arg1,
  * @returns Message PropertyValueExternalConflict formatted to JSON */
 
 void conflictOnPropertyPatch(crow::Response& res, std::string_view arg1,
-                                    const nlohmann::json& arg2);
+                             const nlohmann::json& arg2);
 
 /**
  * @brief Formats PropertyValueIncorrect message into JSON

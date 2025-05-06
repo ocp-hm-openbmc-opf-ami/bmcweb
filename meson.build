@@ -91,7 +91,6 @@ if (cxx.get_id() == 'clang')
         '-Wno-global-constructors',
         '-Wno-newline-eof',
         '-Wno-padded',
-        '-Wno-shadow',
         '-Wno-used-but-marked-unused',
         '-Wno-weak-vtables',
         '-Wno-switch-enum',
@@ -103,6 +102,7 @@ if (cxx.get_id() == 'clang')
         language: 'cpp',
     )
 endif
+add_project_arguments('-Wno-error=deprecated-declarations', language: 'cpp')
 
 if (cxx.get_id() == 'gcc')
     if (cxx.version().version_compare('<13.0'))
@@ -122,7 +122,6 @@ if (cxx.get_id() == 'gcc')
         '-Wnull-dereference',
         '-Wunused-parameter',
         '-Wdouble-promotion',
-        '-Wshadow',
         '-Wno-psabi',
         '-Wno-attributes',
         language: 'cpp',
@@ -398,6 +397,10 @@ endif
 
 if get_option('ami-nic').enabled()
     srcfiles_bmcweb += 'ext/src/nic.cpp'
+endif
+
+if get_option('spdm-uris').enabled()
+    srcfiles_bmcweb += 'ext/spdm/src/spdm.cpp'
 endif
 
 bmcweblib = static_library(
