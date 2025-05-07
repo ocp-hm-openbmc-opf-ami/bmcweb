@@ -40,7 +40,6 @@ const Message* getMessage(std::string_view messageID)
     fields.reserve(4);
     bmcweb::split(fields, messageID, '.');
 
-    bmcweb::split(fields, messageID, '.');
     if (fields.size() != 4)
     {
         return nullptr;
