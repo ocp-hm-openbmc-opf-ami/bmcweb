@@ -407,7 +407,7 @@ struct TaskData : std::enable_shared_from_this<TaskData>
 
 } // namespace task
 
-void stopDumpProcess()
+inline void stopLogDumpProcess()
 {
     int pid = -1;
     std::string command =
@@ -493,7 +493,7 @@ inline void
     }
     if(dumpUri == "/redfish/v1/Managers/bmc/LogServices/Dump/Actions/LogService.CollectDiagnosticData")
     {
-    	stopDumpProcess();
+    	stopLogDumpProcess();
     }
 }
 
