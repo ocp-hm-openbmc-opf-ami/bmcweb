@@ -44,6 +44,7 @@ namespace redfish
 	"AMIWebSession",
 	"AMISessionService",
 	"AMISensor",
+	"AMIMemoryMetrics",
         "Assembly",
         "AttributeRegistry",
         "Bios",
