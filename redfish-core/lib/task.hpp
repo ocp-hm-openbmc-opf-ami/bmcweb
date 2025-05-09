@@ -407,6 +407,41 @@ struct TaskData : std::enable_shared_from_this<TaskData>
 
 } // namespace task
 
+inline void stopLogDumpProcess()
+{
+    int pid = -1;
+    std::string command =
+        "pgrep -f '/bin/bash /usr/bin/dreport -d /var/lib/phosphor-debug-collector/dumps/'";
+    FILE* pipe = popen(command.c_str(), "r");
+    if (!pipe)
+    {
+        return;
+    }
+    char buffer[128];
+    if (fgets(buffer, sizeof(buffer), pipe) != nullptr)
+    {
+        pid = std::stoi(buffer);
+        if (pid != -1)
+        {
+            if (kill(pid, SIGKILL) == 0)
+            {
+                BMCWEB_LOG_DEBUG(
+                    "Successfully stopped dump process with PID:{}", pid);
+            }
+            else
+            {
+                BMCWEB_LOG_DEBUG("Failed to stop dump process with PID:{}",
+                                 pid);
+            }
+        }
+        else
+        {
+            BMCWEB_LOG_DEBUG("Dump process not found");
+        }
+        pclose(pipe);
+    }
+}
+
 inline void
     handleTaskDelete(App& app, const crow::Request& req,
                      const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -448,6 +483,18 @@ inline void
 
     ptr->deleteTasks(asyncResp, strParam);
     asyncResp->res.result(boost::beast::http::status::no_content);
+
+    // Delete the dump initiated process
+    std::string dumpUri;
+    if (ptr->payload)
+    {
+	    const task::Payload& p = *(ptr->payload);
+	    dumpUri = p.targetUri;
+    }
+    if(dumpUri == "/redfish/v1/Managers/bmc/LogServices/Dump/Actions/LogService.CollectDiagnosticData")
+    {
+    	stopLogDumpProcess();
+    }
 }
 
 inline void

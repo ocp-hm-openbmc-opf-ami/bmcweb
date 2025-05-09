@@ -3,6 +3,8 @@
 #include <cstdint>
 #include <string_view>
 
+#define PLATFORMSYSTEMID @PLATFORM_SYSTEM_ID@
+#define PLATFORMBMCID @PLATFORM_BMC_ID@
 // clang-format off
 // NOLINTBEGIN(readability-identifier-naming)
 

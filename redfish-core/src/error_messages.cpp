@@ -1784,18 +1784,19 @@ void propertyValueExternalConflict(crow::Response& res, std::string_view arg1,
 
 /**
  * @internal
- * @brief Formats conflictOnPropertyPatch message into JSON for partial success PATCH  
+ * @brief Formats conflictOnPropertyPatch message into JSON for partial success
+ * PATCH
  *
  * See header file for more information
  * @endinternal
  */
 
 void conflictOnPropertyPatch(crow::Response& res, std::string_view arg1,
-    const nlohmann::json& arg2)
+                             const nlohmann::json& arg2)
 {
     res.result(boost::beast::http::status::ok);
     addMessageToJsonRoot(res.jsonValue,
-        propertyValueExternalConflict(arg1, arg2));
+                         propertyValueExternalConflict(arg1, arg2));
 }
 
 /**
@@ -2406,6 +2407,39 @@ nlohmann::json invalidip(std::string_view arg1, std::string_view arg2)
                   std::to_array({arg1, arg2}));
 }
 
+/**
+ * @internal
+ * @brief Formats ResourceErrorsDetected into JSON
+ *
+ * See header file for more information
+ * @endinternal
+ */
+nlohmann::json resourceErrorsDetectedFormatError(const std::string& arg1,
+                                                 const std::string& arg2)
+{
+    return nlohmann::json{
+        {"@odata.type", "#Message.v1_1_1.Message"},
+        {"MessageId", "ResourceEvent.1.0.3.ResourceErrorsDetected"},
+        {"Message", "The resource property " + arg1 +
+                        " has detected errors of type '" + arg2 + "'."},
+        {"MessageArgs", {arg1, arg2}},
+        {"MessageSeverity", "Warning"},
+        {"Resolution", "Resolution dependent upon error type."}};
+}
+void resourceErrorsDetectedFormatError(
+    crow::Response& res, const std::string& arg1, const std::string& arg2,
+    const std::string& resolution)
+{
+    res.result(boost::beast::http::status::internal_server_error);
+    nlohmann::json responseMessage =
+        resourceErrorsDetectedFormatError(arg1, arg2);
+    if (!resolution.empty())
+    {
+        responseMessage["Resolution"] = resolution;
+    }
+    addMessageToErrorJson(res.jsonValue, responseMessage);
+}
+
 void invalidip(crow::Response& res, std::string_view arg1,
                std::string_view arg2)
 {
@@ -2692,8 +2726,9 @@ void certificateKeyLengthTooSmall(crow::Response& res)
  */
 nlohmann::json invalidTypeForCertificateString(std::string_view arg1)
 {
-    return getLog(redfish::registries::certificate::Index::invalidTypeForCertificateString,
-                    std::to_array({arg1}));
+    return getLog(redfish::registries::certificate::Index::
+                      invalidTypeForCertificateString,
+                  std::to_array({arg1}));
 }
 
 void invalidTypeForCertificateString(crow::Response& res, std::string_view arg1)
@@ -2701,7 +2736,6 @@ void invalidTypeForCertificateString(crow::Response& res, std::string_view arg1)
     res.result(boost::beast::http::status::bad_request);
     addMessageToErrorJson(res.jsonValue, invalidTypeForCertificateString(arg1));
 }
-
 
 } // namespace messages
 } // namespace redfish

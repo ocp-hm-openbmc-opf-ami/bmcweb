@@ -1020,15 +1020,14 @@ inline void
 
     std::string objectPath;
     std::string service;
-    if (certURI.starts_with(std::format(
+    if (certURI == std::format(
             "/redfish/v1/Managers/{}/NetworkProtocol/HTTPS/Certificates",
-            BMCWEB_REDFISH_MANAGER_URI_NAME)))
+            BMCWEB_REDFISH_MANAGER_URI_NAME))
     {
         objectPath = certs::httpsObjectPath;
         service = certs::httpsServiceName;
     }
-    else if (certURI.starts_with(
-                 "/redfish/v1/AccountService/LDAP/Certificates"))
+    else if (certURI == "/redfish/v1/AccountService/LDAP/Certificates")
     {
         objectPath = certs::ldapObjectPath;
         service = certs::ldapServiceName;
@@ -1066,9 +1065,9 @@ inline void
     }
 
     // validate KeyUsage supporting only 1 type based on URL
-    if (certURI.starts_with(std::format(
+    if (certURI == std::format(
             "/redfish/v1/Managers/{}/NetworkProtocol/HTTPS/Certificates",
-            BMCWEB_REDFISH_MANAGER_URI_NAME)))
+            BMCWEB_REDFISH_MANAGER_URI_NAME))
     {
         if (optKeyUsage->empty())
         {
@@ -1090,8 +1089,7 @@ inline void
             return;
         }
     }
-    else if (certURI.starts_with(
-                 "/redfish/v1/AccountService/LDAP/Certificates"))
+    else if (certURI == "/redfish/v1/AccountService/LDAP/Certificates")
     {
         if (optKeyUsage->empty())
         {

@@ -66,6 +66,15 @@ option(
     description: 'Enable the AMI redfish extension pack.'
 )
 
+
+# BMCWEB_SPDM_URIS_MACRO
+option(
+    'spdm-uris',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable the SPDM Uris.'
+)
+
 # BMCWEB_AMI_NVME_MACRO
 option(
     'ami-nvme',

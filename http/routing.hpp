@@ -287,7 +287,8 @@ class Trie
             url.remove_prefix(1);
         }
         Node& node = nodes[idx];
-#if (!BMCWEB_AMI_REP_MACRO) && (!BMCWEB_AMI_NIC_MACRO)
+#if (!BMCWEB_AMI_REP_MACRO) && (!BMCWEB_AMI_NIC_MACRO) &&                      \
+    (!BMCWEB_SPDM_URIS_MACRO)
         if (node.ruleIndex != 0U)
         {
             BMCWEB_LOG_CRITICAL("handler already exists for \"{}\"", urlIn);
