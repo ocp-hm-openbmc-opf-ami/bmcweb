@@ -1636,6 +1636,9 @@ inline void handleTrustStoreCertificateGet(
         return;
     }
 
+    asyncResp->res.clearHeader(boost::beast::http::field::allow);
+    asyncResp->res.addHeader("Allow", "GET, DELETE");
+
     if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
     {
         messages::resourceNotFound(asyncResp->res, "Manager", managerId);
@@ -1661,6 +1664,9 @@ inline void handleTrustStoreCertificateDelete(
     {
         return;
     }
+
+    asyncResp->res.clearHeader(boost::beast::http::field::allow);
+    asyncResp->res.addHeader("Allow", "GET, DELETE");
 
     if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
     {
@@ -1698,5 +1704,51 @@ inline void requestRoutesTrustStoreCertificate(App& app)
         .privileges(redfish::privileges::deleteCertificate)
         .methods(boost::beast::http::verb::delete_)(
             std::bind_front(handleTrustStoreCertificateDelete, std::ref(app)));
+
+    BMCWEB_ROUTE(app,
+                "/redfish/v1/Managers/<str>/Truststore/Certificates/<str>/")
+        .methods(boost::beast::http::verb::post, boost::beast::http::verb::patch,
+            boost::beast::http::verb::put)(
+                [&app](const crow::Request& req,
+                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                const std::string& managerId, const std::string& certId) {
+
+                    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                    {
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+
+                    if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
+                    {
+                        messages::resourceNotFound(asyncResp->res, "Manager", managerId);
+                        return;
+                    }
+
+                    const boost::urls::url certURL = boost::urls::format("/redfish/v1/Managers/{}/Truststore/Certificates/{}", BMCWEB_REDFISH_MANAGER_URI_NAME, certId);
+                    const boost::urls::url objPath = boost::urls::format("/xyz/openbmc_project/certs/authority/truststore/{}", certId);
+                    std::string objectPath = objPath.data();
+
+                    sdbusplus::asio::getAllProperties(
+                        *crow::connections::systemBus, certs::authorityServiceName, objectPath, certs::certPropIntf,
+                        [asyncResp, certId](const boost::system::error_code ec,
+                                            const dbus::utility::DBusPropertiesMap &)
+                        {
+                            if (ec)
+                            {
+                                BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
+                                messages::resourceNotFound(asyncResp->res, "Certificate", certId);
+                                return;
+                            }
+                            else
+                            {
+                                BMCWEB_LOG_ERROR("Method Not Allowed");
+                                messages::operationNotAllowed(asyncResp->res);
+                                return;
+                            }
+                        });
+
+                       asyncResp->res.addHeader("Allow", "GET, DELETE");
+                });
 } // requestRoutesTrustStoreCertificate
 } // namespace redfish
