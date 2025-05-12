@@ -1391,7 +1391,7 @@ inline void
 
         return;
     }
-    /*if (req.session->username != "root")
+    if (req.session->username != "root")
     {
         auto result = find(req.session->userGroups.begin(),
                            req.session->userGroups.end(), "media");
@@ -1401,7 +1401,7 @@ inline void
             messages::insufficientPrivilege(asyncResp->res);
             return;
         }
-    }*/
+    }
 
     dbus::utility::getDbusObject(
         "/xyz/openbmc_project/VirtualMedia", {},
