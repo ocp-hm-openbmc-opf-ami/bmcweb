@@ -194,7 +194,7 @@ struct TaskData : std::enable_shared_from_this<TaskData>
                 boost::urls::format("/redfish/v1/TaskService/Tasks/{}", strIdx);
 
             res.jsonValue["@odata.id"] = uri;
-            res.jsonValue["@odata.type"] = "#Task.v1_4_3.Task";
+            res.jsonValue["@odata.type"] = "#Task.v1_7_4.Task";
             res.jsonValue["Id"] = strIdx;
             res.jsonValue["TaskState"] = state;
 
@@ -644,7 +644,7 @@ inline void requestRoutesTask(App& app)
 
                 const std::shared_ptr<task::TaskData>& ptr = *find;
 
-                asyncResp->res.jsonValue["@odata.type"] = "#Task.v1_4_3.Task";
+                asyncResp->res.jsonValue["@odata.type"] = "#Task.v1_7_4.Task";
                 asyncResp->res.jsonValue["Id"] = strParam;
                 asyncResp->res.jsonValue["Name"] = "Task " + strParam;
                 asyncResp->res.jsonValue["TaskState"] = ptr->state;
