@@ -14,6 +14,9 @@
 #include "registries/privilege_registry.hpp"
 #include "utils/ip_utils.hpp"
 #include "utils/json_utils.hpp"
+#if BMCWEB_AMI_REP_MACRO
+    #include "ext/include/ami_errors.hpp"
+#endif
 
 #include <boost/system/error_code.hpp>
 #include <boost/url/format.hpp>
@@ -90,6 +93,7 @@ struct IPv6AddressData
     std::string address;
     std::string origin;
     uint8_t prefixLength = 0;
+    uint8_t ipv6Index  = 0;
 };
 
 /**
@@ -135,6 +139,8 @@ struct EthernetInterfaceData
     std::vector<std::string> nameServers;
     std::vector<std::string> staticNameServers;
     std::vector<std::string> domainnames;
+    bool ipv4Enable;
+    bool ipv6Enable;
 };
 
 struct DHCPParameters
@@ -147,6 +153,15 @@ struct DHCPParameters
 };
 
 inline std::optional<std::string> defaultGatewayValue;
+inline size_t completedOperations = 0;
+inline size_t totalOperations = 0;
+inline size_t interfacesChecked = 0; // Use atomic for thread safety
+
+struct InterfaceState {
+    bool hasIP = false;
+    bool isEnabled = false;
+};
+inline std::map<std::string, InterfaceState> interfaceStates;
 
 // Helper function that changes bits netmask notation (i.e. /24)
 // into full dot notation
@@ -417,18 +432,26 @@ inline bool extractEthernetInterfaceData(
                                 std::get_if<std::string>(&propertyPair.second);
                             if (defaultGateway6 != nullptr)
                             {
-                                std::string defaultGateway6Str =
-                                    *defaultGateway6;
-                                if (defaultGateway6Str.empty())
-                                {
-                                    ethData.ipv6DefaultGateway =
-                                        "0:0:0:0:0:0:0:0";
-                                }
-                                else
-                                {
-                                    ethData.ipv6DefaultGateway =
-                                        defaultGateway6Str;
-                                }
+                                std::string defaultGateway6Str = *defaultGateway6;
+                                ethData.ipv6DefaultGateway = defaultGateway6Str;
+                            }
+                        }
+                        else if (propertyPair.first == "IPv4Enable")
+                        {
+                            const bool* ipv4Enable =
+                                std::get_if<bool>(&propertyPair.second);
+                            if (ipv4Enable != nullptr)
+                            {
+                                ethData.ipv4Enable = *ipv4Enable;
+                            }
+                        }
+                        else if (propertyPair.first == "IPv6Enable")
+                        {
+                            const bool* ipv6Enable =
+                                std::get_if<bool>(&propertyPair.second);
+                            if (ipv6Enable != nullptr)
+                            {
+                                ethData.ipv6Enable = *ipv6Enable;
                             }
                         }
                     }
@@ -635,7 +658,13 @@ inline void extractIPV6Data(const std::string& ethifaceId,
                         }
                         else if (property.first == "Idx")
                         {
-                            // Type & Gateway is not used
+                            const uint8_t* ipindex =
+                                std::get_if<uint8_t>(&property.second);
+
+                            if (ipindex != nullptr)
+                            {
+				                ipv6Address.ipv6Index = *ipindex;
+                            }
                         }
                         else if (property.first == "Type" ||
                                  property.first == "Gateway")
@@ -653,6 +682,15 @@ inline void extractIPV6Data(const std::string& ethifaceId,
             }
         }
     }
+    // **Sort the entire ipv6Config vector** in ascending order based on 'ipv6Index'
+    #if (BMCWEB_AMI_REP_MACRO)
+    {
+        std::sort(ipv6Config.begin(), ipv6Config.end(), 
+            [](const IPv6AddressData& a, const IPv6AddressData& b) {
+                return a.ipv6Index < b.ipv6Index;  // Ascending order
+            });
+    }
+    #endif
 }
 
 // Helper function that extracts data for single ethernet ipv4 address
@@ -954,13 +992,14 @@ inline bool extractIPv6DefaultGatewayData(
  */
 inline void createIPv6(const std::string& ifaceId, uint8_t prefixLength,
                        const std::string& address,
-                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                       std::function<void(bool)> completionHandler)
 {
     sdbusplus::message::object_path path("/xyz/openbmc_project/network");
     path /= ifaceId;
 
     auto createIpHandler =
-        [asyncResp, address](const boost::system::error_code& ec) {
+        [asyncResp, address, completionHandler](const boost::system::error_code& ec) {
             if (ec)
             {
                 if (ec == boost::system::errc::io_error)
@@ -971,6 +1010,11 @@ inline void createIPv6(const std::string& ifaceId, uint8_t prefixLength,
                 {
                     messages::internalError(asyncResp->res);
                 }
+                completionHandler(false);
+            }
+            else
+            {
+                completionHandler(true); // Notify completion with success
             }
         };
     // Passing null for gateway, as per redfish spec IPv6StaticAddresses
@@ -1479,6 +1523,156 @@ inline void setEthernetInterfaceBoolProperty(
             }
             messages::success(asyncResp->res);
         });
+}
+
+inline void handleInterfacePatch(
+    const std::string& ifaceId,const std::optional<bool>& interfaceEnabled,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    interfacesChecked = 0;
+    interfaceStates.clear();
+
+    auto fetchInterfaceCountAndIPCheck = [asyncResp{std::move(asyncResp)}, ifaceId, interfaceEnabled]() { 
+        // Lambda to start after ActiveSlave check (or directly)
+        sdbusplus::asio::getProperty<uint8_t>(
+            *crow::connections::systemBus, "xyz.openbmc_project.Network",
+            "/xyz/openbmc_project/network/config",
+            "xyz.openbmc_project.Network.SystemConfiguration", "InterfaceCount",
+            [asyncResp, ifaceId, interfaceEnabled](
+                const boost::system::error_code, const uint8_t& interfaceCount) {
+
+                constexpr std::array<std::string_view, 1> Interface = {
+                    "xyz.openbmc_project.Network.EthernetInterface",
+                };
+                dbus::utility::getSubTreePaths(
+                    "/xyz/openbmc_project/network", 0, Interface,
+                    [asyncResp, ifaceId, interfaceEnabled, interfaceCount]
+                    (const boost::system::error_code&, const dbus::utility::MapperGetSubTreePathsResponse& resps) {
+
+                        std::vector<std::string> interfaceNames;
+                        for (const auto& path : resps)
+                        {
+                            size_t lastSlash = path.rfind('/');
+                            if (lastSlash != std::string::npos)
+                            {
+                                std::string interfaceName = path.substr(lastSlash + 1);
+                                interfaceNames.push_back(interfaceName);
+                            }
+                        }
+
+                        // This will be called when all interfaces are processed
+                        auto finalCheck = [asyncResp, ifaceId, interfaceEnabled, interfaceCount]() {
+                            if (interfacesChecked == interfaceCount)
+                            {
+                                // Same validation as above for when interface is being disabled
+                                if (*interfaceEnabled == false)
+                                {
+                                    bool otherEnabledWithIP = false;
+                                    for (const auto& [iface, state] : interfaceStates)
+                                    {
+                                        if (iface != ifaceId && state.isEnabled && state.hasIP)
+                                        {
+                                            otherEnabledWithIP = true;
+                                            break;
+                                        }
+                                    }
+
+                                    if (!otherEnabledWithIP)
+                                    {
+                                        #if (BMCWEB_AMI_REP_MACRO)
+                                        {
+                                            messages::singleEthernetEnabled(asyncResp->res,
+                                                                           "InterfaceEnabled");
+                                            return; // Exit the entire handleInterfacePatch function
+                                        }
+                                        #else
+                                        {
+                                            messages::propertyValueExternalConflict(
+                                                asyncResp->res, "InterfaceEnabled",
+                                                *interfaceEnabled);
+                                            return; // Exit the entire handleInterfacePatch function
+                                        }
+                                        #endif
+                                    }
+                                }
+                                setEthernetInterfaceBoolProperty(
+                                    ifaceId, "NICEnabled", *interfaceEnabled,
+                                    asyncResp);
+                            }
+                        };
+
+                        for (uint8_t i = 0; i < interfaceCount; ++i)
+                        {
+                            std::string ethIface = interfaceNames[i];
+                            interfaceStates[ethIface] = InterfaceState{};
+
+                            // First check if interface is enabled
+                            sdbusplus::asio::getProperty<bool>(
+                                *crow::connections::systemBus, "xyz.openbmc_project.Network",
+                                "/xyz/openbmc_project/network/" + ethIface,
+                                "xyz.openbmc_project.Network.EthernetInterface", "NICEnabled",
+                                [asyncResp, ethIface, ifaceId, interfaceEnabled, interfaceCount, finalCheck]
+                                (const boost::system::error_code, const bool& nicEnabled) {
+
+                                    interfaceStates[ethIface].isEnabled = nicEnabled;
+                                    if (nicEnabled)
+                                    {
+                                        // Check if this enabled interface has IP addresses
+                                        constexpr std::array<std::string_view, 1> interfacesIP = {
+                                            "xyz.openbmc_project.Network.IP",
+                                        };
+                                        dbus::utility::getSubTreePaths(
+                                            "/xyz/openbmc_project/network/" + ethIface, 0, interfacesIP,
+                                            [asyncResp, ethIface, ifaceId, interfaceEnabled, interfaceCount, finalCheck]
+                                            (const boost::system::error_code&, const dbus::utility::MapperGetSubTreePathsResponse& resp) {
+
+                                                if (!resp.empty())
+                                                {
+                                                    interfaceStates[ethIface].hasIP = true;
+                                                }
+                                                interfacesChecked++;
+                                                finalCheck();
+                                            });
+                                    }
+                                    else
+                                    {
+                                        interfacesChecked++;
+                                        finalCheck();
+                                    }
+                                });
+                        }
+                    });
+            });
+    };
+
+    #if(BMCWEB_AMI_REP_MACRO)
+        sdbusplus::asio::getProperty<std::string>(
+            *crow::connections::systemBus, "xyz.openbmc_project.Network",
+            "/xyz/openbmc_project/network/bond0",
+            "xyz.openbmc_project.Network.Bond", "ActiveSlave",
+            [asyncResp, ifaceId, interfaceEnabled, fetchInterfaceCountAndIPCheck]
+            (const boost::system::error_code&, const std::string& activeSlave) {
+                
+                if (ifaceId == "bond0" && *interfaceEnabled == false)
+                {
+                    messages::singleEthernetEnabled(asyncResp->res,
+                        "InterfaceEnabled");
+                    return; // Exit the entire handleInterfacePatch function
+                }
+                if (ifaceId == activeSlave && *interfaceEnabled == false)
+                {
+                    messages::BondActiveSlaveDisable(asyncResp->res,
+                                                    ifaceId);
+                    return; // Exit the entire handleInterfacePatch function
+                }
+                // Proceed with the rest of the logic after the ActiveSlave check
+                fetchInterfaceCountAndIPCheck();
+                
+            });
+    #else
+        // If the macro is not defined, directly fetch the interface count and proceed
+        fetchInterfaceCountAndIPCheck();
+    #endif
 }
 
 inline void setDHCPConfig(const std::string& propertyName, const bool& value,
@@ -2056,6 +2250,25 @@ inline void handleIPv6StaticAddressesPatch(
     size_t entryIdx = 1;
     std::vector<IPv6AddressData>::const_iterator nicIpEntry =
         getNextStaticIpEntry(ipv6Data.cbegin(), ipv6Data.cend());
+    totalOperations = 0;
+    completedOperations = 0;
+    bool hasError = false;
+    // Capture completedOperations by reference
+    auto completionHandler = [asyncResp, &hasError](bool success) 
+    {
+        if (!success)
+        {
+            hasError = true;
+        }
+        else
+        {
+            completedOperations++; 
+        }
+        if (completedOperations == totalOperations && !hasError)
+        {
+            messages::success(asyncResp->res);
+        }
+    };
     for (std::variant<nlohmann::json::object_t, std::nullptr_t>& thisJson :
          input)
     {
@@ -2074,15 +2287,6 @@ inline void handleIPv6StaticAddressesPatch(
                     "PrefixLength", prefixLength //
                     ))
             {
-                messages::propertyValueFormatError(asyncResp->res, thisJsonCopy,
-                                                   pathString);
-                return;
-            }
-
-            if (prefixLength && prefixLength == 0)
-            {
-                messages::propertyValueFormatError(
-                    asyncResp->res, "0", pathString + "/PrefixLength");
                 return;
             }
 
@@ -2092,23 +2296,11 @@ inline void handleIPv6StaticAddressesPatch(
             // current request.
             if (!address)
             {
-                if (nicIpEntry == ipv6Data.end())
-                {
-                    messages::propertyMissing(asyncResp->res,
-                                              pathString + "/Address");
-                    return;
-                }
                 address = nicIpEntry->address;
             }
 
             if (!prefixLength)
             {
-                if (nicIpEntry == ipv6Data.end())
-                {
-                    messages::propertyMissing(asyncResp->res,
-                                              pathString + "/PrefixLength");
-                    return;
-                }
                 prefixLength = nicIpEntry->prefixLength;
             }
             if (nicIpEntry != ipv6Data.end())
@@ -2120,7 +2312,8 @@ inline void handleIPv6StaticAddressesPatch(
                         getNextStaticIpEntry(++nicIpEntry, ipv6Data.cend());
                 }
                 triggerDHCPDisable(ifaceId, asyncResp, false);
-                createIPv6(ifaceId, *prefixLength, *address, asyncResp);
+                totalOperations ++;
+                createIPv6(ifaceId, *prefixLength, *address, asyncResp, completionHandler);
             }
             else
             {
@@ -2128,27 +2321,13 @@ inline void handleIPv6StaticAddressesPatch(
                 {
                     triggerDHCPDisable(ifaceId, asyncResp, false);
                 }
-                createIPv6(ifaceId, *prefixLength, *address, asyncResp);
+                totalOperations ++;
+                createIPv6(ifaceId, *prefixLength, *address, asyncResp, completionHandler);
             }
             entryIdx++;
         }
         else
         {
-            if (nicIpv6Entry == ipv6Data.end())
-            {
-                // Requesting a DELETE/DO NOT MODIFY action for an item
-                // that isn't present on the eth(n) interface. Input JSON is
-                // in error, so bail out.
-                if (obj == nullptr)
-                {
-                    messages::resourceCannotBeDeleted(asyncResp->res);
-                    return;
-                }
-                messages::propertyValueFormatError(asyncResp->res, *obj,
-                                                   pathString);
-                return;
-            }
-
             if (obj == nullptr && nicIpEntry != ipv6Data.cend())
             {
                 deleteIPAddress(ifaceId, nicIpEntry->id, asyncResp);
@@ -2187,159 +2366,180 @@ inline void parseInterfaceData(
             ethData.linkUp ? ethernet_interface::LinkStatus::LinkUp
                            : ethernet_interface::LinkStatus::LinkDown;
         jsonResponse["Status"]["State"] = resource::State::Enabled;
+    
+        jsonResponse["LinkStatus"] = ethernet_interface::LinkStatus::NoLink;
+        jsonResponse["Status"]["State"] = resource::State::Disabled;
+
+        jsonResponse["SpeedMbps"] = ethData.speed;
+        jsonResponse["MTUSize"] = ethData.mtuSize;
+        if (ethData.macAddress)
+        {
+            jsonResponse["MACAddress"] = *ethData.macAddress;
+        }
+        jsonResponse["DHCPv4"]["DHCPEnabled"] =
+            translateDhcpEnabledToBool(ethData.dhcpEnabled, true);
+        jsonResponse["DHCPv4"]["UseNTPServers"] = ethData.ntpv4Enabled;
+        jsonResponse["DHCPv4"]["UseDNSServers"] = ethData.dnsv4Enabled;
+        jsonResponse["DHCPv4"]["UseDomainName"] = ethData.domainv4Enabled;
+        // jsonResponse["DHCPv6"]["OperatingMode"] =
+        //     translateDhcpEnabledToBool(ethData.dhcpEnabled, false) ? "Enabled"
+        //                                                            : "Disabled";
+        std::string dhcpv6OperatingMode =
+            translateDhcpEnabledToBool(ethData.dhcpEnabled, false)
+                ? "Enabled"
+                : "Disabled";
+        jsonResponse["DHCPv6"]["OperatingMode"] = dhcpv6OperatingMode;
+        jsonResponse["DHCPv6"]["UseNTPServers"] = ethData.ntpv6Enabled;
+        jsonResponse["DHCPv6"]["UseDNSServers"] = ethData.dnsv6Enabled;
+        jsonResponse["DHCPv6"]["UseDomainName"] = ethData.domainv6Enabled;
+        jsonResponse["StatelessAddressAutoConfig"]["IPv6AutoConfigEnabled"] =
+            ethData.ipv6AcceptRa;
+
+        if (!ethData.hostName.empty())
+        {
+            jsonResponse["HostName"] = ethData.hostName;
+
+            // When domain name is empty then it means, that it is a network
+            // without domain names, and the host name itself must be treated as
+            // FQDN
+            std::string fqdn = ethData.hostName;
+            if (!ethData.domainnames.empty())
+            {
+                fqdn += "." + ethData.domainnames[0];
+            }
+            jsonResponse["FQDN"] = fqdn;
+        }
+
+        if (ethData.vlanId)
+        {
+            jsonResponse["EthernetInterfaceType"] =
+                ethernet_interface::EthernetDeviceType::Virtual;
+            jsonResponse["VLAN"]["VLANEnable"] = true;
+            jsonResponse["VLAN"]["VLANId"] = *ethData.vlanId;
+            jsonResponse["VLAN"]["VLANPriority"] = *ethData.vlanPriority;
+            jsonResponse["VLAN"]["Tagged"] = true;
+
+            nlohmann::json::array_t relatedInterfaces;
+            nlohmann::json& parentInterface = relatedInterfaces.emplace_back();
+            parentInterface["@odata.id"] =
+                boost::urls::format("/redfish/v1/Managers/{}/EthernetInterfaces/{}",
+                                    BMCWEB_REDFISH_MANAGER_URI_NAME,
+                                    extractParentInterfaceName(ifaceId));
+            jsonResponse["Links"]["RelatedInterfaces"] =
+                std::move(relatedInterfaces);
+        }
+        else
+        {
+            jsonResponse["EthernetInterfaceType"] =
+                ethernet_interface::EthernetDeviceType::Physical;
+        }
+
+        jsonResponse["NameServers"] = ethData.nameServers;
+        jsonResponse["StaticNameServers"] = ethData.staticNameServers;
+
+        nlohmann::json& ipv4Array = jsonResponse["IPv4Addresses"];
+        nlohmann::json& ipv4StaticArray = jsonResponse["IPv4StaticAddresses"];
+        ipv4Array = nlohmann::json::array();
+        ipv4StaticArray = nlohmann::json::array();
+        for (const auto& ipv4Config : ipv4Data)
+        {
+            std::string gatewayStr = ipv4Config.gateway;
+            if (gatewayStr.empty())
+            {
+                gatewayStr = "0.0.0.0";
+            }
+            nlohmann::json::object_t ipv4;
+            ipv4["AddressOrigin"] = ipv4Config.origin;
+            ipv4["SubnetMask"] = ipv4Config.netmask;
+            ipv4["Address"] = ipv4Config.address;
+            ipv4["Gateway"] = gatewayStr;
+
+            if (ipv4Config.origin == "Static")
+            {
+                ipv4StaticArray.push_back(ipv4);
+            }
+
+            ipv4Array.emplace_back(std::move(ipv4));
+        }
+
+        std::string ipv6GatewayStr = ethData.ipv6DefaultGateway;
+        if (ipv6GatewayStr.empty())
+        {
+            jsonResponse["IPv6DefaultGateway"] = nullptr;
+        }
+        else
+        {
+            jsonResponse["IPv6DefaultGateway"] = ipv6GatewayStr;
+        }
+
+        nlohmann::json::array_t ipv6StaticGatewayArray;
+        for (const auto& ipv6GatewayConfig : ipv6GatewayData)
+        {
+            nlohmann::json::object_t ipv6Gateway;
+            ipv6Gateway["Address"] = ipv6GatewayConfig.gateway;
+            ipv6StaticGatewayArray.emplace_back(std::move(ipv6Gateway));
+        }
+        // jsonResponse["IPv6StaticDefaultGateways"] =
+        //     std::move(ipv6StaticGatewayArray);
+        if (dhcpv6OperatingMode == "Disabled")
+        {
+            if (ipv6GatewayStr.empty())
+            {
+                jsonResponse["IPv6StaticDefaultGateways"] = 
+                    std::move(ipv6StaticGatewayArray);;
+            }
+            else
+            {
+                nlohmann::json::object_t ipv6Gatewayobject;
+                ipv6Gatewayobject["Address"] = std::move(ipv6GatewayStr);
+
+                ipv6StaticGatewayArray.emplace_back(std::move(ipv6Gatewayobject));
+                jsonResponse["IPv6StaticDefaultGateways"] =
+                    std::move(ipv6StaticGatewayArray);
+            }
+        }
+        else
+        {
+            jsonResponse["IPv6StaticDefaultGateways"] =
+                std::move(ipv6StaticGatewayArray);
+        }
+
+        nlohmann::json& ipv6Array = jsonResponse["IPv6Addresses"];
+        nlohmann::json& ipv6StaticArray = jsonResponse["IPv6StaticAddresses"];
+        ipv6Array = nlohmann::json::array();
+        ipv6StaticArray = nlohmann::json::array();
+        nlohmann::json& ipv6AddrPolicyTable =
+            jsonResponse["IPv6AddressPolicyTable"];
+        ipv6AddrPolicyTable = nlohmann::json::array();
+        for (const auto& ipv6Config : ipv6Data)
+        {
+            nlohmann::json::object_t ipv6;
+            ipv6["Address"] = ipv6Config.address;
+            ipv6["PrefixLength"] = ipv6Config.prefixLength;
+            ipv6["AddressOrigin"] = ipv6Config.origin;
+
+            ipv6Array.emplace_back(std::move(ipv6));
+            if (ipv6Config.origin == "Static")
+            {
+                nlohmann::json::object_t ipv6Static;
+                ipv6Static["Address"] = ipv6Config.address;
+                ipv6Static["PrefixLength"] = ipv6Config.prefixLength;
+                ipv6StaticArray.emplace_back(std::move(ipv6Static));
+            }
+        }
     }
     else
     {
         jsonResponse["LinkStatus"] = ethernet_interface::LinkStatus::NoLink;
         jsonResponse["Status"]["State"] = resource::State::Disabled;
-    }
-
-    jsonResponse["SpeedMbps"] = ethData.speed;
-    jsonResponse["MTUSize"] = ethData.mtuSize;
-    if (ethData.macAddress)
-    {
-        jsonResponse["MACAddress"] = *ethData.macAddress;
-    }
-    jsonResponse["DHCPv4"]["DHCPEnabled"] =
-        translateDhcpEnabledToBool(ethData.dhcpEnabled, true);
-    jsonResponse["DHCPv4"]["UseNTPServers"] = ethData.ntpv4Enabled;
-    jsonResponse["DHCPv4"]["UseDNSServers"] = ethData.dnsv4Enabled;
-    jsonResponse["DHCPv4"]["UseDomainName"] = ethData.domainv4Enabled;
-    // jsonResponse["DHCPv6"]["OperatingMode"] =
-    //     translateDhcpEnabledToBool(ethData.dhcpEnabled, false) ? "Enabled"
-    //                                                            : "Disabled";
-    std::string dhcpv6OperatingMode =
-        translateDhcpEnabledToBool(ethData.dhcpEnabled, false)
-            ? "Enabled"
-            : "Disabled";
-    jsonResponse["DHCPv6"]["OperatingMode"] = dhcpv6OperatingMode;
-    jsonResponse["DHCPv6"]["UseNTPServers"] = ethData.ntpv6Enabled;
-    jsonResponse["DHCPv6"]["UseDNSServers"] = ethData.dnsv6Enabled;
-    jsonResponse["DHCPv6"]["UseDomainName"] = ethData.domainv6Enabled;
-    jsonResponse["StatelessAddressAutoConfig"]["IPv6AutoConfigEnabled"] =
-        ethData.ipv6AcceptRa;
-
-    if (!ethData.hostName.empty())
-    {
-        jsonResponse["HostName"] = ethData.hostName;
-
-        // When domain name is empty then it means, that it is a network
-        // without domain names, and the host name itself must be treated as
-        // FQDN
-        std::string fqdn = ethData.hostName;
-        if (!ethData.domainnames.empty())
-        {
-            fqdn += "." + ethData.domainnames[0];
-        }
-        jsonResponse["FQDN"] = fqdn;
-    }
-
-    if (ethData.vlanId)
-    {
-        jsonResponse["EthernetInterfaceType"] =
-            ethernet_interface::EthernetDeviceType::Virtual;
-        jsonResponse["VLAN"]["VLANEnable"] = true;
-        jsonResponse["VLAN"]["VLANId"] = *ethData.vlanId;
-        jsonResponse["VLAN"]["VLANPriority"] = *ethData.vlanPriority;
-        jsonResponse["VLAN"]["Tagged"] = true;
-
-        nlohmann::json::array_t relatedInterfaces;
-        nlohmann::json& parentInterface = relatedInterfaces.emplace_back();
-        parentInterface["@odata.id"] =
-            boost::urls::format("/redfish/v1/Managers/{}/EthernetInterfaces/{}",
-                                BMCWEB_REDFISH_MANAGER_URI_NAME,
-                                extractParentInterfaceName(ifaceId));
-        jsonResponse["Links"]["RelatedInterfaces"] =
-            std::move(relatedInterfaces);
-    }
-    else
-    {
-        jsonResponse["EthernetInterfaceType"] =
-            ethernet_interface::EthernetDeviceType::Physical;
-    }
-
-    jsonResponse["NameServers"] = ethData.nameServers;
-    jsonResponse["StaticNameServers"] = ethData.staticNameServers;
-
-    nlohmann::json& ipv4Array = jsonResponse["IPv4Addresses"];
-    nlohmann::json& ipv4StaticArray = jsonResponse["IPv4StaticAddresses"];
-    ipv4Array = nlohmann::json::array();
-    ipv4StaticArray = nlohmann::json::array();
-    for (const auto& ipv4Config : ipv4Data)
-    {
-        std::string gatewayStr = ipv4Config.gateway;
-        if (gatewayStr.empty())
-        {
-            gatewayStr = "0.0.0.0";
-        }
-        nlohmann::json::object_t ipv4;
-        ipv4["AddressOrigin"] = ipv4Config.origin;
-        ipv4["SubnetMask"] = ipv4Config.netmask;
-        ipv4["Address"] = ipv4Config.address;
-        ipv4["Gateway"] = gatewayStr;
-
-        if (ipv4Config.origin == "Static")
-        {
-            ipv4StaticArray.push_back(ipv4);
-        }
-
-        ipv4Array.emplace_back(std::move(ipv4));
-    }
-
-    std::string ipv6GatewayStr = ethData.ipv6DefaultGateway;
-    if (ipv6GatewayStr.empty())
-    {
-        ipv6GatewayStr = "0:0:0:0:0:0:0:0";
-    }
-
-    jsonResponse["IPv6DefaultGateway"] = ipv6GatewayStr;
-
-    nlohmann::json::array_t ipv6StaticGatewayArray;
-    for (const auto& ipv6GatewayConfig : ipv6GatewayData)
-    {
-        nlohmann::json::object_t ipv6Gateway;
-        ipv6Gateway["Address"] = ipv6GatewayConfig.gateway;
-        ipv6StaticGatewayArray.emplace_back(std::move(ipv6Gateway));
-    }
-    // jsonResponse["IPv6StaticDefaultGateways"] =
-    //     std::move(ipv6StaticGatewayArray);
-    if (dhcpv6OperatingMode == "Disabled")
-    {
-        nlohmann::json::object_t ipv6Gatewayobject;
-        ipv6Gatewayobject["Address"] = std::move(ipv6GatewayStr);
-
-        ipv6StaticGatewayArray.emplace_back(std::move(ipv6Gatewayobject));
-        jsonResponse["IPv6StaticDefaultGateways"] =
-            std::move(ipv6StaticGatewayArray);
-    }
-    else
-    {
-        jsonResponse["IPv6StaticDefaultGateways"] =
-            std::move(ipv6StaticGatewayArray);
-    }
-
-    nlohmann::json& ipv6Array = jsonResponse["IPv6Addresses"];
-    nlohmann::json& ipv6StaticArray = jsonResponse["IPv6StaticAddresses"];
-    ipv6Array = nlohmann::json::array();
-    ipv6StaticArray = nlohmann::json::array();
-    nlohmann::json& ipv6AddrPolicyTable =
-        jsonResponse["IPv6AddressPolicyTable"];
-    ipv6AddrPolicyTable = nlohmann::json::array();
-    for (const auto& ipv6Config : ipv6Data)
-    {
-        nlohmann::json::object_t ipv6;
-        ipv6["Address"] = ipv6Config.address;
-        ipv6["PrefixLength"] = ipv6Config.prefixLength;
-        ipv6["AddressOrigin"] = ipv6Config.origin;
-
-        ipv6Array.emplace_back(std::move(ipv6));
-        if (ipv6Config.origin == "Static")
-        {
-            nlohmann::json::object_t ipv6Static;
-            ipv6Static["Address"] = ipv6Config.address;
-            ipv6Static["PrefixLength"] = ipv6Config.prefixLength;
-            ipv6StaticArray.emplace_back(std::move(ipv6Static));
-        }
+        jsonResponse["IPv4Addresses"] = nlohmann::json::array();
+        jsonResponse["IPv4StaticAddresses"] = nlohmann::json::array();
+        jsonResponse["IPv6AddressPolicyTable"] = nlohmann::json::array();
+        jsonResponse["IPv6Addresses"] = nlohmann::json::array();
+        jsonResponse["IPv6StaticAddresses"] = nlohmann::json::array();
+        jsonResponse["IPv6StaticDefaultGateways"] = nlohmann::json::array();
+        jsonResponse["NameServers"] = nlohmann::json::array();
+        jsonResponse["StaticNameServers"] = nlohmann::json::array();
     }
 }
 
@@ -2404,11 +2604,17 @@ inline void afterDelete(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
 inline bool
     validateipv6AddressJson(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                            const nlohmann::json::array_t& input)
+                            std::vector<std::variant<nlohmann::json::object_t, std::nullptr_t>>& input,
+                            const std::vector<IPv6AddressData>& ipv6Data)
 {
+    size_t entryIdx = 1;
+    std::vector<IPv6AddressData>::const_iterator nicIpEntry =
+        getNextStaticIpEntry(ipv6Data.cbegin(), ipv6Data.cend());
+    std::set<std::string> patchAddresses;
+
     if (input.empty())
     {
-        messages::propertyValueTypeError(asyncResp->res, input,
+        messages::propertyValueTypeError(asyncResp->res, "[]",
                                          "IPv6StaticAddresses");
         return false;
     }
@@ -2419,39 +2625,90 @@ inline bool
         return false;
     }
 
-    for (const nlohmann::json& thisJson : input)
+    for (std::variant<nlohmann::json::object_t, std::nullptr_t>& thisJson : input)
     {
-        if (thisJson.is_null() || thisJson.empty())
+        std::string pathString = "IPv6StaticAddresses/" + std::to_string(entryIdx);
+        nlohmann::json::object_t* obj = std::get_if<nlohmann::json::object_t>(&thisJson);
+
+        if (obj != nullptr && !obj->empty())
         {
-            continue; // Skip null or empty JSON entries
-        }
-
-        std::optional<std::string> address;
-        std::optional<uint8_t> prefixLength;
-
-        nlohmann::json thisJsonCopy = thisJson;
-
-        if (!json_util::readJson( //
-                thisJsonCopy, asyncResp->res, //
-                "Address", address, //
-                "PrefixLength", prefixLength //
-                ))
-        {
-            return false;
-        }
-
-        if (address)
-        {
-            const std::string& ipAddress = *address;
-            if (!(ip_util::validateIPv6address(ipAddress,
-                                               ip_util::Type::IP6_ADDRESS)))
+            std::optional<std::string> address;
+            std::optional<uint8_t> prefixLength;
+            nlohmann::json::object_t thisJsonCopy = *obj;
+            if (!json_util::readJsonObject( //
+                    thisJsonCopy, asyncResp->res, //
+                    "Address", address, //
+                    "PrefixLength", prefixLength //
+                    ))
             {
-                messages::invalidip(asyncResp->res, "Address", ipAddress);
+                messages::propertyValueFormatError(asyncResp->res, thisJsonCopy,
+                    pathString);
+                return false;
+            }
+            if (prefixLength && prefixLength == 0)
+            {
+                messages::propertyValueFormatError(
+                    asyncResp->res, "0", pathString + "/PrefixLength");
+                return false;
+            }
+            if (!address)
+            {
+                if (nicIpEntry == ipv6Data.end())
+                {
+                    messages::propertyMissing(asyncResp->res,
+                                              pathString + "/Address");
+                    return false;
+                }
+                address = nicIpEntry->address;
+            }
+            if (!prefixLength)
+            {
+                if (nicIpEntry == ipv6Data.end())
+                {
+                    messages::propertyMissing(asyncResp->res,
+                                              pathString + "/PrefixLength");
+                    return false;
+                }
+                prefixLength = nicIpEntry->prefixLength;
+            }
+
+            if (address)
+            {
+                const std::string& ipAddress = *address;
+                if (!(ip_util::validateIPv6address(ipAddress,
+                                                ip_util::Type::IP6_ADDRESS)))
+                {
+                    messages::invalidip(asyncResp->res, "Address", ipAddress);
+                    return false;
+                }
+
+                // AddressDuplicatedInRequest: Check for address
+                if (patchAddresses.find(ipAddress)  != patchAddresses.end())
+                {
+                    messages::propertyValueIncorrect(asyncResp->res, "Address", ipAddress);
+                    return false;
+                }
+                patchAddresses.insert(ipAddress);
+            }
+        }
+        else
+        {
+            if (nicIpEntry == ipv6Data.end())
+            {
+                if (obj == nullptr)
+                {
+                    messages::resourceCannotBeDeleted(asyncResp->res);
+                    asyncResp->res.result(boost::beast::http::status::bad_request);
+                    return false;
+                }
+                messages::propertyValueFormatError(asyncResp->res, *obj,
+                                                   pathString);
                 return false;
             }
         }
+        nicIpEntry = getNextStaticIpEntry(++nicIpEntry, ipv6Data.cend());
 
-        [[maybe_unused]] uint8_t prefix = prefixLength.value_or(0);
+        //[[maybe_unused]] uint8_t prefix = prefixLength.value_or(0);
     }
 
     return true;
@@ -2983,39 +3240,8 @@ inline void requestEthernetInterfacesRoutes(App& app)
 
                     if (interfaceEnabled.has_value() && (!hasMixedAttributes))
                     {
-                        dbus::utility::getProperty<uint8_t>(
-                            "xyz.openbmc_project.Network",
-                            "/xyz/openbmc_project/network/config",
-                            "xyz.openbmc_project.Network.SystemConfiguration",
-                            "InterfaceCount",
-                            [asyncResp{std::move(asyncResp)}, &isNicEnabled,
-                             ifaceId, &interfaceEnabled](
-                                const boost::system::error_code& ec,
-                                const uint8_t& Interface_Count) {
-                                if (ec)
-                                {
-                                    BMCWEB_LOG_DEBUG("DBUS response error");
-                                    messages::internalError(asyncResp->res);
-                                    return;
-                                }
-
-                                BMCWEB_LOG_DEBUG("InterfaceCount: {}",
-                                                 Interface_Count);
-                                if (Interface_Count <= 1)
-                                {
-                                    messages::propertyValueExternalConflict(
-                                        asyncResp->res, "InterfaceEnabled",
-                                        *interfaceEnabled);
-                                    return;
-                                }
-                                else
-                                {
-                                    isNicEnabled = *interfaceEnabled;
-                                    setEthernetInterfaceBoolProperty(
-                                        ifaceId, "NICEnabled",
-                                        *interfaceEnabled, asyncResp);
-                                }
-                            });
+                        handleInterfacePatch(ifaceId, interfaceEnabled, asyncResp);
+                        isNicEnabled = *interfaceEnabled;
                     }
                     if (!isNicEnabled)
                     {
@@ -3054,8 +3280,8 @@ inline void requestEthernetInterfacesRoutes(App& app)
                     if (ipv6StaticAddresses) // IPv6StaticAddresses attribute is
                                              // present
                     {
-                        IPv6Static = convertToJSONArray(*ipv6StaticAddresses);
-                        if (!(validateipv6AddressJson(asyncResp, IPv6Static)))
+                        //IPv6Static = convertToJSONArray(*ipv6StaticAddresses);
+                        if (!(validateipv6AddressJson(asyncResp, *ipv6StaticAddresses,ipv6Data)))
                         {
                             // Invalid IPv6 address provided
                             ipv6AddressValid = false;
@@ -3252,7 +3478,7 @@ inline void requestEthernetInterfacesRoutes(App& app)
                             // nlohmann::json::array_t ipv4Static =
                             // *ipv4StaticAddresses;
                             handleIPv4StaticPatch(ifaceId, *ipv4StaticAddresses,
-                                                  ipv4Data, v4dhcpParms, 
+                                                  ipv4Data, v4dhcpParms,
                                                   ipv6AcceptRA, asyncResp);
                         }
                     }
@@ -3314,8 +3540,7 @@ inline void requestEthernetInterfacesRoutes(App& app)
                         {
                             handleIPv6StaticAddressesPatch(
                                 ifaceId, *ipv6StaticAddresses, ipv6Data,
-                                ipv6AcceptRA,
-                                asyncResp);
+                                ipv6AcceptRA, asyncResp);
                         }
                     }
 

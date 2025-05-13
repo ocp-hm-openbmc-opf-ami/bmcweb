@@ -212,6 +212,21 @@ inline bool validateIPv6address(std::string addr, Type type)
     }
 }
 
+inline std::string normalizeIPv6(const std::string& ipv6)
+{
+    try
+    {
+        boost::asio::ip::address_v6 addr(boost::asio::ip::make_address_v6(ipv6));
+        return addr.to_string();
+    }
+    catch (const boost::system::system_error& e)
+    {
+        // Handle invalid IPv6 address format
+        BMCWEB_LOG_ERROR("invalid IPv6 address format: {}",ipv6);
+        return ipv6; // Or throw a more specific error/log message
+    }
+}
+
 inline bool isValidIPv4Address(in_addr* addr, Type type)
 {
     uint8_t ip[4];

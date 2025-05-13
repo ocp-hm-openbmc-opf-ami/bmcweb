@@ -1411,14 +1411,14 @@ constexpr std::array registry =
     MessageEntry{
         "InterfaceDisabled",
         {
-            "Indicates that the requested write of a property value could not be completed, because of the interface for given patch is disabled.",
-            "The property could not be written because its value would conflict with the value of the property %1 which is disabled.",
+            "Indicates that the requested write of a property value could not be completed, because the applicable interface for the request is in Disabled state.",
+            "The property value could not be written because the applicable interface for the request, is in Disabled state, which is indicated by the property %1 .",
             "Warning",
             1,
             {
                 "string",
             },
-            "Enable interface and try patch.",
+            "Please make sure that the Interface is in Enabled state and resubmit the request.",
         }},
     MessageEntry{
         "InvalidLicenseKeyFileFormat",

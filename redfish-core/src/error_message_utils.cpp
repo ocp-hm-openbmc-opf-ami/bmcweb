@@ -42,9 +42,12 @@ void addMessageToErrorJson(nlohmann::json& target,
     else
     {
         // More than 1 error occurred, so the message has to be generic
-        error["code"] = std::string(messageVersionPrefix) + "GeneralError";
-        error["message"] = "A general error has occurred. See Resolution for "
-                           "information on how to resolve the error.";
+        if (error["code"] != message["MessageId"] || error["message"] != message["Message"])
+        {
+            error["code"] = std::string(messageVersionPrefix) + "GeneralError";
+            error["message"] = "A general error has occurred. See Resolution for "
+                            "information on how to resolve the error.";
+        }
     }
 
     // This check could technically be done in the default construction
