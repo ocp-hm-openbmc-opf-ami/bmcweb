@@ -376,7 +376,7 @@ inline void getCertificateProperties(
                      objectPath, certId, certURL);
     dbus::utility::getAllProperties(
         service, objectPath, certs::certPropIntf,
-        [asyncResp, certURL, certId,
+        [asyncResp, certURL, certId, service,
          name](const boost::system::error_code& ec,
                const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
@@ -411,13 +411,37 @@ inline void getCertificateProperties(
 
             asyncResp->res.jsonValue["@odata.id"] = certURL;
             asyncResp->res.jsonValue["@odata.type"] =
-                "#Certificate.v1_0_0.Certificate";
+                "#Certificate.v1_4_0.Certificate";
             asyncResp->res.jsonValue["Id"] = certId;
             asyncResp->res.jsonValue["Name"] = name;
             asyncResp->res.jsonValue["Description"] = name;
             asyncResp->res.jsonValue["CertificateString"] = "";
             asyncResp->res.jsonValue["CertificateType"] = "";
             asyncResp->res.jsonValue["KeyUsage"] = nlohmann::json::array();
+
+            #if BMCWEB_AMI_REP_MACRO
+                constexpr const char* securebootServiceName =
+                    "xyz.openbmc_project.OOBInventoryConfig";
+                constexpr const char* asdServiceName =
+                    "xyz.openbmc_project.Certs.Manager.Server.Asd";
+                // ASD certificate not support rekey/renew action
+                if (service != securebootServiceName &&
+                        service != asdServiceName)
+                {
+                    BMCWEB_LOG_DEBUG("Certificate Actions URI, service {}",
+                                     service);
+                    std::string url(certURL.data(), certURL.size());
+                    nlohmann::json& actions = asyncResp->res.jsonValue["Actions"];
+                    actions["#Certificate.Renew"]["target"] =
+                        url + "/Actions/Certificate.Renew";
+                    actions["#Certificate.Renew"]["@Redfish.ActionInfo"] =
+                        url + "/Certificate.RenewActionInfo";
+                    actions["#Certificate.Rekey"]["target"] =
+                        url + "/Actions/Certificate.Rekey";
+                    actions["#Certificate.Rekey"]["@Redfish.ActionInfo"] =
+                        url + "/Certificate.RekeyActionInfo";
+                }
+            #endif
 
             if (certificateString != nullptr)
             {
