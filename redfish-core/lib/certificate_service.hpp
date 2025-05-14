@@ -1242,7 +1242,7 @@ inline void handleCertificateReplaceCertificateActionInfo(
     }
     asyncResp->res.jsonValue["@odata.id"] =
         "/redfish/v1/CertificateService/CertificateService.ReplaceCertificateActionInfo";
-    asyncResp->res.jsonValue["@odata.type"] = "#ActionInfo.v1_1_2.ActionInfo";
+    asyncResp->res.jsonValue["@odata.type"] = "#ActionInfo.v1_4_2.ActionInfo";
     asyncResp->res.jsonValue["Name"] = "CertificateService.ReplaceCertificate";
     asyncResp->res.jsonValue["Id"] = "CertificateService.ReplaceCertificate";
     asyncResp->res.jsonValue["Description"] =
