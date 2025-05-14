@@ -194,7 +194,7 @@ struct TaskData : std::enable_shared_from_this<TaskData>
                 boost::urls::format("/redfish/v1/TaskService/Tasks/{}", strIdx);
 
             res.jsonValue["@odata.id"] = uri;
-            res.jsonValue["@odata.type"] = "#Task.v1_4_3.Task";
+            res.jsonValue["@odata.type"] = "#Task.v1_7_4.Task";
             res.jsonValue["Id"] = strIdx;
             res.jsonValue["TaskState"] = state;
 
@@ -644,7 +644,7 @@ inline void requestRoutesTask(App& app)
 
                 const std::shared_ptr<task::TaskData>& ptr = *find;
 
-                asyncResp->res.jsonValue["@odata.type"] = "#Task.v1_4_3.Task";
+                asyncResp->res.jsonValue["@odata.type"] = "#Task.v1_7_4.Task";
                 asyncResp->res.jsonValue["Id"] = strParam;
                 asyncResp->res.jsonValue["Name"] = "Task " + strParam;
                 asyncResp->res.jsonValue["TaskState"] = ptr->state;
@@ -708,7 +708,14 @@ inline void requestRoutesTask(App& app)
                         });
             }
         }
-        asyncResp->res.jsonValue["PercentComplete"] = ptr->percentComplete;
+	else if(ptr->state == "Completed")
+	{
+		asyncResp->res.jsonValue["PercentComplete"] = 100;
+	}
+	else
+	{
+	        asyncResp->res.jsonValue["PercentComplete"] = ptr->percentComplete;
+	}
     });
 
     BMCWEB_ROUTE(app, "/redfish/v1/TaskService/Tasks/<str>/")

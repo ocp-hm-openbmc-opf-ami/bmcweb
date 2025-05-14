@@ -111,7 +111,7 @@ inline nlohmann::json::object_t
     }
 
     nlohmann::json::object_t response;
-    response["@odata.type"] = "#Message.v1_1_1.Message";
+    response["@odata.type"] = "#Message.v1_3_0.Message";
     response["MessageId"] = std::move(msgId);
     response["Message"] = std::move(msg);
     response["MessageArgs"] = std::move(jArgs);
