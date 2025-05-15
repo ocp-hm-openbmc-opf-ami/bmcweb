@@ -273,6 +273,10 @@ inline void updateCertIssuerOrSubject(nlohmann::json& out,
         {
             out["State"] = val;
         }
+        else if (key == "emailAddress")
+        {
+            out["Email"] = val;
+        }
         // skip comma character
         if (i != value.end())
         {
