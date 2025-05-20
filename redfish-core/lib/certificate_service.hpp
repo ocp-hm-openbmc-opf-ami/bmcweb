@@ -68,6 +68,8 @@ constexpr std::string_view PrivateKeyFileSizeExceededError =
     "xyz.openbmc_project.Certs.Error.PrivateKeyFileSizeExceeded";
 constexpr std::string_view CertificateKeyLengthTooSmallError =
     "xyz.openbmc_project.Certs.Error.CertificateKeyLengthTooSmall";
+constexpr std::string_view PrivateKeyNotFound =
+    "xyz.openbmc_project.Certs.Error.PrivateKeyNotFound";
 } // namespace certs
 
 /**
@@ -558,6 +560,10 @@ inline void
     {
         messages::certificateKeyLengthTooSmall(asyncResp->res);
     }
+    else if (e->name == certs::PrivateKeyNotFound)
+    {
+        messages::privateKeyNotFound(asyncResp->res);
+    }
     else
     {
         messages::propertyValueIncorrect(asyncResp->res, "CertificateString",
@@ -646,6 +652,10 @@ inline void handleError(const std::string_view dbusErrorName,
     {
         messages::propertyValueIncorrect(asyncResp->res, "Certificate",
                                          certificate);
+    }
+    else if (dbusErrorName == certs::PrivateKeyNotFound)
+    {
+        messages::privateKeyNotFound(asyncResp->res);
     }
     else if (dbusErrorName == certs::CertificateFileExpiredError)
     {

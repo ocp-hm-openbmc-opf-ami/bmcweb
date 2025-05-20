@@ -2737,5 +2737,24 @@ void invalidTypeForCertificateString(crow::Response& res, std::string_view arg1)
     addMessageToErrorJson(res.jsonValue, invalidTypeForCertificateString(arg1));
 }
 
+/**
+ * @internal
+ * @brief Formats privateKeyNotFound message into JSON
+ *
+ * See header file for more information
+ * @endinternal
+ */
+nlohmann::json privateKeyNotFound(void)
+{
+    return getLog(
+        redfish::registries::certificate::Index::privateKeyNotFound,
+        {});
+}
+
+void privateKeyNotFound(crow::Response& res)
+{
+    res.result(boost::beast::http::status::bad_request);
+    addMessageToErrorJson(res.jsonValue, privateKeyNotFound());
+}
 } // namespace messages
 } // namespace redfish
