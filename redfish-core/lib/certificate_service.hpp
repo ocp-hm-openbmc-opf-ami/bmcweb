@@ -611,7 +611,7 @@ inline void handleCertificateServiceGet(
     }
 
     asyncResp->res.jsonValue["@odata.type"] =
-        "#CertificateService.v1_0_0.CertificateService";
+        "#CertificateService.v1_0_6.CertificateService";
     asyncResp->res.jsonValue["@odata.id"] = "/redfish/v1/CertificateService";
     asyncResp->res.jsonValue["Id"] = "CertificateService";
     asyncResp->res.jsonValue["Name"] = "Certificate Service";
