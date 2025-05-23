@@ -4,6 +4,7 @@
 #pragma once
 
 #include "app.hpp"
+#include "chassis_header.hpp"
 #include "dbus_utility.hpp"
 #include "generated/enums/action_info.hpp"
 #include "generated/enums/chassis.hpp"
@@ -34,7 +35,6 @@
 #include <sstream>
 #include <string>
 #include <string_view>
-#include "chassis_header.hpp"
 
 namespace redfish
 {
@@ -43,7 +43,7 @@ constexpr const char* dbusPropertyInterface = "org.freedesktop.DBus.Properties";
 
 using PropertyValue = std::variant<uint8_t, uint16_t, uint64_t, std::string,
                                    std::vector<std::string>, bool>;
-//inline bool ishandleChassisGetSubTree = false;
+// inline bool ishandleChassisGetSubTree = false;
 
 inline chassis::ChassisType
     translateChassisTypeToRedfish(const std::string_view& chassisType)
@@ -515,19 +515,19 @@ inline void handleDecoratorAssetProperties(
     }
 
 #if (BMCWEB_AMI_NIC_MACRO)
-    
+
     asyncResp->res.jsonValue["NetworkAdapters"]["@odata.id"] =
-    boost::urls::format("/redfish/v1/Chassis/{}/NetworkAdapters",
-                        chassisId); 
+        boost::urls::format("/redfish/v1/Chassis/{}/NetworkAdapters",
+                            chassisId);
 #endif
 
-    // Power
-    #if (BMCWEB_CHALUPA_AMD_MACRO)
+// Power
+#if (BMCWEB_CHALUPA_AMD_MACRO)
     {
-       asyncResp->res.jsonValue["Power"]["@odata.id"] =
+        asyncResp->res.jsonValue["Power"]["@odata.id"] =
             boost::urls::format("/redfish/v1/Chassis/{}/Power", chassisId);
     }
-    #endif
+#endif
     // FRU Device
     asyncResp->res.jsonValue["Oem"]["AMI"]["FRU"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Chassis/{}/FRU", chassisId);
@@ -772,10 +772,9 @@ inline void handleChassisGetSubTree(
     messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
 }
 
-void
-    handleChassisGet(App& app, const crow::Request& req,
-                     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                     const std::string& chassisId)
+void handleChassisGet(App& app, const crow::Request& req,
+                      const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                      const std::string& chassisId)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -1224,7 +1223,7 @@ void createImmediateResetTask(
                     taskData->state = "Completed";
                     return task::completed;
                 }
-                taskData->extendTimer(std::chrono::minutes(5));
+                taskData->extendTimer(std::chrono::minutes(10));
             }
             return !task::completed;
         },
@@ -1354,7 +1353,9 @@ void createMaintenanceWindowTask(
                         return task::completed;
                     }
                 }
-                taskData->extendTimer(std::chrono::minutes(5));
+                taskData->extendTimer(
+                    std::chrono::seconds(reqchassisHostTransitionTimeOut) +
+                    (std::chrono::minutes(10)));
             }
             return !task::completed;
         },
