@@ -483,7 +483,6 @@ inline void afterSetNTP(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         messages::internalError(asyncResp->res);
         return;
     }
-    asyncResp->res.result(boost::beast::http::status::ok);
 }
 
 inline void handleNTPProtocolEnabled(
@@ -555,6 +554,7 @@ inline void handleNTPServersPatch(
         BMCWEB_LOG_DEBUG("out of Limit");
         messages::propertyValueOutOfRange(asyncResp->res, ntpServerJsonObjects,
                                           "NTP/NTPServers");
+        asyncResp->res.result(boost::beast::http::status::bad_request);
         return;
     }
 
@@ -599,6 +599,7 @@ inline void handleNTPServersPatch(
                 messages::propertyValueNotInList(
                     asyncResp->res, "null",
                     "NTP/NTPServers/" + std::to_string(index));
+                asyncResp->res.result(boost::beast::http::status::bad_request);
 
                 return;
             }
@@ -615,6 +616,7 @@ inline void handleNTPServersPatch(
                 messages::propertyValueNotInList(
                     asyncResp->res, *ntpServerObject,
                     "NTP/NTPServers/" + std::to_string(index));
+                asyncResp->res.result(boost::beast::http::status::bad_request);
                 return;
             }
             // Can't retain an item that doesn't exist
@@ -623,6 +625,7 @@ inline void handleNTPServersPatch(
                 messages::propertyValueOutOfRange(
                     asyncResp->res, *ntpServerObject,
                     "NTP/NTPServers/" + std::to_string(index));
+                asyncResp->res.result(boost::beast::http::status::bad_request);
 
                 return;
             }
@@ -651,6 +654,7 @@ inline void handleNTPServersPatch(
             BMCWEB_LOG_DEBUG("Invalid character found in NTP server address.");
             messages::propertyValueFormatError(asyncResp->res, *ntpServerStr,
                                                "NTPServers");
+            asyncResp->res.result(boost::beast::http::status::bad_request);
             return;
         }
 
