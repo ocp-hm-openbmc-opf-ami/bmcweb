@@ -2830,7 +2830,15 @@ inline void handleManagerSerialInterfaceGet(
                 messages::internalError(asyncResp->res);
                 return;
             }
-
+            asyncResp->res.jsonValue["@odata.type"] =
+                "#SerialInterface.v1_1_8.SerialInterface";
+            asyncResp->res.jsonValue["Id"] = "IPMI-SOL";
+            asyncResp->res.jsonValue["Name"] = "Manager Serial Interface";
+            asyncResp->res.jsonValue["Description"] =
+                "Management for Serial Interface";
+            asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
+                "/redfish/v1/Managers/{}/SerialInterfaces/IPMI-SOL",
+                BMCWEB_REDFISH_MANAGER_URI_NAME);
             asyncResp->res.jsonValue["BitRate"] = std::to_string(val);
         });
 }
@@ -2839,7 +2847,6 @@ inline void requestRoutesManagerSerialInterface(App& app)
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/SerialInterfaces/")
         .privileges(redfish::privileges::getSerialInterfaceCollection)
         .methods(boost::beast::http::verb::get)(
-
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& managerId) {
@@ -2877,7 +2884,6 @@ inline void requestRoutesManagerSerialInterface(App& app)
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/SerialInterfaces/IPMI-SOL")
         .privileges(redfish::privileges::getSerialInterface)
         .methods(boost::beast::http::verb::get)(
-
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& managerId) {
@@ -2892,16 +2898,6 @@ inline void requestRoutesManagerSerialInterface(App& app)
                                                managerId);
                     return;
                 }
-
-                asyncResp->res.jsonValue["@odata.type"] =
-                    "#SerialInterface.v1_1_8.SerialInterface";
-                asyncResp->res.jsonValue["Id"] = "IPMI-SOL";
-                asyncResp->res.jsonValue["Name"] = "Manager Serial Interface";
-                asyncResp->res.jsonValue["Description"] =
-                    "Management for Serial Interface";
-                asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
-                    "/redfish/v1/Managers/{}/SerialInterfaces/IPMI-SOL",
-                    BMCWEB_REDFISH_MANAGER_URI_NAME);
                 handleManagerSerialInterfaceGet(app, req, asyncResp);
             });
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/SerialInterfaces/IPMI-SOL")
@@ -2942,10 +2938,21 @@ inline void requestRoutesManagerSerialInterface(App& app)
                         bitRate == "115200")
                     {
                         uint64_t baudRate = std::stoull(*bitRate);
-                        setDbusProperty(
-                            asyncResp, "BitRate", consoleDbusService,
-                            sdbusplus::message::object_path(consoleDbusObject),
-                            consoleDbusInterface, "Baud", baudRate);
+                        sdbusplus::asio::setProperty(
+                            *crow::connections::systemBus, consoleDbusService,
+                            consoleDbusObject, consoleDbusInterface, "Baud",
+                            baudRate,
+                            [&app, asyncResp,
+                             &req](const boost::system::error_code& ec) {
+                                if (ec)
+                                {
+                                    BMCWEB_LOG_DEBUG("Unable to set BitRate");
+                                    messages::internalError(asyncResp->res);
+                                    return;
+                                }
+                                handleManagerSerialInterfaceGet(app, req,
+                                                                asyncResp);
+                            });
                     }
                     else
                     {
