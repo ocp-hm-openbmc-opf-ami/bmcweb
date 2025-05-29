@@ -140,7 +140,6 @@ inline std::string getCertificateFromReqBody(
             ))
     {
         BMCWEB_LOG_ERROR("Required parameters are missing");
-        messages::internalError(asyncResp->res);
         return {};
     }
 
@@ -1362,9 +1361,6 @@ inline void handleHTTPSCertificateCollectionPost(
 
     BMCWEB_LOG_DEBUG("HTTPSCertificateCollection::doPost");
 
-    asyncResp->res.jsonValue["Name"] = "HTTPS Certificate";
-    asyncResp->res.jsonValue["Description"] = "HTTPS Certificate";
-
     std::string certHttpBody = getCertificateFromReqBody(asyncResp, req);
 
     if (certHttpBody.empty())
@@ -1374,6 +1370,8 @@ inline void handleHTTPSCertificateCollectionPost(
         return;
     }
 
+    asyncResp->res.jsonValue["Name"] = "HTTPS Certificate";
+    asyncResp->res.jsonValue["Description"] = "HTTPS Certificate";
     std::shared_ptr<CertificateFile> certFile =
         std::make_shared<CertificateFile>(certHttpBody);
 
