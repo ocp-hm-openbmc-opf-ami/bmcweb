@@ -1658,6 +1658,17 @@ nlohmann::json invalidTypeForCertificateString(std::string_view arg1);
 void invalidTypeForCertificateString(crow::Response& res,
                                      std::string_view arg1);
 
+
+/**
+ * @internal
+ * @brief Formats privateKeyNotFound message into JSON
+ *
+ * See header file for more information
+ * @endinternal
+ */
+nlohmann::json privateKeyNotFound();
+
+void privateKeyNotFound(crow::Response& res);                                     
 } // namespace messages
 
 } // namespace redfish

@@ -218,7 +218,7 @@ void propertyValueFormatError(crow::Response& res, const nlohmann::json& arg1,
                               std::string_view arg2)
 {
     res.result(boost::beast::http::status::bad_request);
-    addMessageToJson(res.jsonValue, propertyValueFormatError(arg1, arg2), arg2);
+    addMessageToErrorJson(res.jsonValue, propertyValueFormatError(arg1, arg2));
 }
 
 /**
@@ -2737,5 +2737,24 @@ void invalidTypeForCertificateString(crow::Response& res, std::string_view arg1)
     addMessageToErrorJson(res.jsonValue, invalidTypeForCertificateString(arg1));
 }
 
+/**
+ * @internal
+ * @brief Formats privateKeyNotFound message into JSON
+ *
+ * See header file for more information
+ * @endinternal
+ */
+nlohmann::json privateKeyNotFound(void)
+{
+    return getLog(
+        redfish::registries::certificate::Index::privateKeyNotFound,
+        {});
+}
+
+void privateKeyNotFound(crow::Response& res)
+{
+    res.result(boost::beast::http::status::bad_request);
+    addMessageToErrorJson(res.jsonValue, privateKeyNotFound());
+}
 } // namespace messages
 } // namespace redfish

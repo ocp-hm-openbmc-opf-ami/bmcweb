@@ -68,6 +68,8 @@ constexpr std::string_view PrivateKeyFileSizeExceededError =
     "xyz.openbmc_project.Certs.Error.PrivateKeyFileSizeExceeded";
 constexpr std::string_view CertificateKeyLengthTooSmallError =
     "xyz.openbmc_project.Certs.Error.CertificateKeyLengthTooSmall";
+constexpr std::string_view PrivateKeyNotFound =
+    "xyz.openbmc_project.Certs.Error.PrivateKeyNotFound";
 } // namespace certs
 
 /**
@@ -138,7 +140,6 @@ inline std::string getCertificateFromReqBody(
             ))
     {
         BMCWEB_LOG_ERROR("Required parameters are missing");
-        messages::internalError(asyncResp->res);
         return {};
     }
 
@@ -271,6 +272,10 @@ inline void updateCertIssuerOrSubject(nlohmann::json& out,
         {
             out["State"] = val;
         }
+        else if (key == "emailAddress")
+        {
+            out["Email"] = val;
+        }
         // skip comma character
         if (i != value.end())
         {
@@ -374,7 +379,7 @@ inline void getCertificateProperties(
                      objectPath, certId, certURL);
     dbus::utility::getAllProperties(
         service, objectPath, certs::certPropIntf,
-        [asyncResp, certURL, certId,
+        [asyncResp, certURL, certId, service,
          name](const boost::system::error_code& ec,
                const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
@@ -409,13 +414,37 @@ inline void getCertificateProperties(
 
             asyncResp->res.jsonValue["@odata.id"] = certURL;
             asyncResp->res.jsonValue["@odata.type"] =
-                "#Certificate.v1_0_0.Certificate";
+                "#Certificate.v1_4_0.Certificate";
             asyncResp->res.jsonValue["Id"] = certId;
             asyncResp->res.jsonValue["Name"] = name;
             asyncResp->res.jsonValue["Description"] = name;
             asyncResp->res.jsonValue["CertificateString"] = "";
             asyncResp->res.jsonValue["CertificateType"] = "";
             asyncResp->res.jsonValue["KeyUsage"] = nlohmann::json::array();
+
+            #if BMCWEB_AMI_REP_MACRO
+                constexpr const char* securebootServiceName =
+                    "xyz.openbmc_project.OOBInventoryConfig";
+                constexpr const char* asdServiceName =
+                    "xyz.openbmc_project.Certs.Manager.Server.Asd";
+                // ASD certificate not support rekey/renew action
+                if (service != securebootServiceName &&
+                        service != asdServiceName)
+                {
+                    BMCWEB_LOG_DEBUG("Certificate Actions URI, service {}",
+                                     service);
+                    std::string url(certURL.data(), certURL.size());
+                    nlohmann::json& actions = asyncResp->res.jsonValue["Actions"];
+                    actions["#Certificate.Renew"]["target"] =
+                        url + "/Actions/Certificate.Renew";
+                    actions["#Certificate.Renew"]["@Redfish.ActionInfo"] =
+                        url + "/Certificate.RenewActionInfo";
+                    actions["#Certificate.Rekey"]["target"] =
+                        url + "/Actions/Certificate.Rekey";
+                    actions["#Certificate.Rekey"]["@Redfish.ActionInfo"] =
+                        url + "/Certificate.RekeyActionInfo";
+                }
+            #endif
 
             if (certificateString != nullptr)
             {
@@ -558,6 +587,10 @@ inline void
     {
         messages::certificateKeyLengthTooSmall(asyncResp->res);
     }
+    else if (e->name == certs::PrivateKeyNotFound)
+    {
+        messages::privateKeyNotFound(asyncResp->res);
+    }
     else
     {
         messages::propertyValueIncorrect(asyncResp->res, "CertificateString",
@@ -581,7 +614,7 @@ inline void handleCertificateServiceGet(
     }
 
     asyncResp->res.jsonValue["@odata.type"] =
-        "#CertificateService.v1_0_0.CertificateService";
+        "#CertificateService.v1_0_6.CertificateService";
     asyncResp->res.jsonValue["@odata.id"] = "/redfish/v1/CertificateService";
     asyncResp->res.jsonValue["Id"] = "CertificateService";
     asyncResp->res.jsonValue["Name"] = "Certificate Service";
@@ -646,6 +679,10 @@ inline void handleError(const std::string_view dbusErrorName,
     {
         messages::propertyValueIncorrect(asyncResp->res, "Certificate",
                                          certificate);
+    }
+    else if (dbusErrorName == certs::PrivateKeyNotFound)
+    {
+        messages::privateKeyNotFound(asyncResp->res);
     }
     else if (dbusErrorName == certs::CertificateFileExpiredError)
     {
@@ -1208,7 +1245,7 @@ inline void handleCertificateReplaceCertificateActionInfo(
     }
     asyncResp->res.jsonValue["@odata.id"] =
         "/redfish/v1/CertificateService/CertificateService.ReplaceCertificateActionInfo";
-    asyncResp->res.jsonValue["@odata.type"] = "#ActionInfo.v1_1_2.ActionInfo";
+    asyncResp->res.jsonValue["@odata.type"] = "#ActionInfo.v1_4_2.ActionInfo";
     asyncResp->res.jsonValue["Name"] = "CertificateService.ReplaceCertificate";
     asyncResp->res.jsonValue["Id"] = "CertificateService.ReplaceCertificate";
     asyncResp->res.jsonValue["Description"] =
@@ -1324,9 +1361,6 @@ inline void handleHTTPSCertificateCollectionPost(
 
     BMCWEB_LOG_DEBUG("HTTPSCertificateCollection::doPost");
 
-    asyncResp->res.jsonValue["Name"] = "HTTPS Certificate";
-    asyncResp->res.jsonValue["Description"] = "HTTPS Certificate";
-
     std::string certHttpBody = getCertificateFromReqBody(asyncResp, req);
 
     if (certHttpBody.empty())
@@ -1336,6 +1370,8 @@ inline void handleHTTPSCertificateCollectionPost(
         return;
     }
 
+    asyncResp->res.jsonValue["Name"] = "HTTPS Certificate";
+    asyncResp->res.jsonValue["Description"] = "HTTPS Certificate";
     std::shared_ptr<CertificateFile> certFile =
         std::make_shared<CertificateFile>(certHttpBody);
 

@@ -1765,15 +1765,48 @@ inline void handleSubmitTestEventActionGet(
     asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
         "/redfish/v1/EventService/SubmitTestEventActionInfo");
     asyncResp->res.jsonValue["Name"] = "SubmitTestEvent Action Info";
-
     asyncResp->res.jsonValue["Id"] = "SubmitTestEventActionInfo";
+    nlohmann::json::object_t MessageId;
+    MessageId["Datatype"] = "String";
+    MessageId["Name"] = "MessageId";
+    MessageId["Required"] = true;
+    nlohmann::json::object_t EventId;
+    EventId["Datatype"] = "String";
+    EventId["Name"] = "EventId";
+    EventId["Required"] = false;
+    nlohmann::json::object_t EventTimestamp;
+    EventTimestamp["Datatype"] = "String";
+    EventTimestamp["Name"] = "EventTimestamp";
+    EventTimestamp["Required"] = false;
+    nlohmann::json::object_t MessageArgs;
+    MessageArgs["Datatype"] = "StringArray";
+    MessageArgs["Name"] = "MessageArgs";
+    MessageArgs["Required"] = false;
+    nlohmann::json::object_t OriginOfCondition;
+    OriginOfCondition["Datatype"] = "String";
+    OriginOfCondition["Name"] = "OriginOfCondition";
+    OriginOfCondition["Required"] = false;
+    nlohmann::json::object_t Message;
+    Message["Datatype"] = "String";
+    Message["Name"] = "Message";
+    Message["Required"] = false;
+    nlohmann::json::object_t EventGroupId;
+    EventGroupId["Datatype"] = "Integer";
+    EventGroupId["Name"] = "EventGroupId";
+    EventGroupId["Required"] = false;
+    nlohmann::json::object_t Severity;
+    Severity["Datatype"] = "String";
+    Severity["Name"] = "Severity";
+    Severity["Required"] = false;
     nlohmann::json::array_t parameters;
-    // nlohmann::json::object_t parameter;
-    // parameter["Required"] = false;
-    // nlohmann::json::array_t allowed;
-    // allowed.emplace_back(nullptr);
-    // parameter["AllowableValues"] = std::move(allowed);
-    // parameters.emplace_back(std::move(parameter));
+    parameters.push_back(std::move(MessageId));
+    parameters.push_back(std::move(EventId));
+    parameters.push_back(std::move(EventTimestamp));
+    parameters.push_back(std::move(MessageArgs));
+    parameters.push_back(std::move(OriginOfCondition));
+    parameters.push_back(std::move(Message));
+    parameters.push_back(std::move(EventGroupId));
+    parameters.push_back(std::move(Severity));
     asyncResp->res.jsonValue["Parameters"] = std::move(parameters);
 }
 

@@ -116,6 +116,17 @@ constexpr std::array registry = {
             "Please make sure the CertificateType is correct and match to the given CertificateString."
         }
     },
+    MessageEntry{
+        "PrivateKeyNotFound",
+        {
+            "Indicates that the private key file is not found.",
+            "The private key file is not found.",
+            "Critical",
+            0,
+            {},
+            "Please ensure the private key file is present and correctly specified."
+        }
+    },
 };
 
 enum class Index {
@@ -128,5 +139,6 @@ enum class Index {
     privateKeyFileSizeExceeded          = 6,
     certificateKeyLengthTooSmall        = 7,
     invalidTypeForCertificateString     = 8,
+    privateKeyNotFound     = 9,
 };
 } // namespace redfish::registries::certificate

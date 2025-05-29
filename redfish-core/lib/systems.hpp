@@ -240,14 +240,12 @@ inline void
     };
 
     // Get the Presence of CPU
-    dbus::utility::getProperty<bool>(
-        service, path,
-        "xyz.openbmc_project.Inventory.Item", "Present",
-        std::move(getCpuPresenceState));
+    dbus::utility::getProperty<bool>(service, path,
+                                     "xyz.openbmc_project.Inventory.Item",
+                                     "Present", std::move(getCpuPresenceState));
 
     dbus::utility::getAllProperties(
-        service, path,
-        "xyz.openbmc_project.Inventory.Item.Cpu",
+        service, path, "xyz.openbmc_project.Inventory.Item.Cpu",
         [asyncResp, service,
          path](const boost::system::error_code& ec2,
                const dbus::utility::DBusPropertiesMap& properties) {
@@ -325,8 +323,7 @@ inline void
                      const std::string& service, const std::string& path)
 {
     dbus::utility::getAllProperties(
-        service, path,
-        "xyz.openbmc_project.Inventory.Item.Dimm",
+        service, path, "xyz.openbmc_project.Inventory.Item.Dimm",
         [asyncResp, service,
          path](const boost::system::error_code& ec2,
                const dbus::utility::DBusPropertiesMap& properties) {
@@ -502,7 +499,7 @@ inline void afterSystemGetSubTree(
                     BMCWEB_LOG_DEBUG("Found UUID, now get its properties.");
 
                     dbus::utility::getAllProperties(
-                       connection.first, path,
+                        connection.first, path,
                         "xyz.openbmc_project.Common.UUID",
                         [asyncResp](const boost::system::error_code& ec3,
                                     const dbus::utility::DBusPropertiesMap&
@@ -541,8 +538,7 @@ inline void afterSystemGetSubTree(
  *
  * @return None.
  */
-void
-    getComputerSystem(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+void getComputerSystem(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     BMCWEB_LOG_DEBUG("Get available system components.");
     constexpr std::array<std::string_view, 5> interfaces = {
@@ -568,9 +564,8 @@ void getHostState(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     BMCWEB_LOG_DEBUG("Get host information.");
     dbus::utility::getProperty<std::string>(
-        "xyz.openbmc_project.State.Host",
-        "/xyz/openbmc_project/state/host0", "xyz.openbmc_project.State.Host",
-        "CurrentHostState",
+        "xyz.openbmc_project.State.Host", "/xyz/openbmc_project/state/host0",
+        "xyz.openbmc_project.State.Host", "CurrentHostState",
         [asyncResp](const boost::system::error_code& ec,
                     const std::string& hostState) {
             if (ec)
@@ -858,8 +853,7 @@ inline int assignBootParameters(const std::string& rfSource,
 inline void getBootProgress(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     dbus::utility::getProperty<std::string>(
-        "xyz.openbmc_project.State.Host",
-        "/xyz/openbmc_project/state/host0",
+        "xyz.openbmc_project.State.Host", "/xyz/openbmc_project/state/host0",
         "xyz.openbmc_project.State.Boot.Progress", "BootProgress",
         [asyncResp](const boost::system::error_code& ec,
                     const std::string& bootProgressStr) {
@@ -888,8 +882,7 @@ void getBootProgressLastStateTime(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     dbus::utility::getProperty<uint64_t>(
-        "xyz.openbmc_project.State.Host",
-        "/xyz/openbmc_project/state/host0",
+        "xyz.openbmc_project.State.Host", "/xyz/openbmc_project/state/host0",
         "xyz.openbmc_project.State.Boot.Progress", "BootProgressLastUpdate",
         [asyncResp](const boost::system::error_code& ec,
                     const uint64_t lastStateTime) {
@@ -1194,8 +1187,7 @@ inline void
  *
  * @return None.
  */
-void
-    getBootProperties(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+void getBootProperties(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     BMCWEB_LOG_DEBUG("Get boot information.");
 
@@ -1216,8 +1208,7 @@ void
  *
  * @return None.
  */
-void
-    getLastResetTime(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+void getLastResetTime(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     BMCWEB_LOG_DEBUG("Getting System Last Reset Time");
 
@@ -1261,8 +1252,7 @@ inline void getAutomaticRebootAttempts(
     BMCWEB_LOG_DEBUG("Get Automatic Retry policy");
 
     dbus::utility::getAllProperties(
-        "xyz.openbmc_project.State.Host",
-        "/xyz/openbmc_project/state/host0",
+        "xyz.openbmc_project.State.Host", "/xyz/openbmc_project/state/host0",
         "xyz.openbmc_project.Control.Boot.RebootAttempts",
         [asyncResp{asyncResp}](
             const boost::system::error_code& ec,
@@ -1412,8 +1402,7 @@ inline computer_system::PowerRestorePolicyTypes
  *
  * @return None.
  */
-void
-    getPowerRestorePolicy(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+void getPowerRestorePolicy(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     BMCWEB_LOG_DEBUG("Get power restore policy");
 
@@ -1447,14 +1436,12 @@ void
  *
  * @return None.
  */
-void
-    getStopBootOnFault(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+void getStopBootOnFault(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     BMCWEB_LOG_DEBUG("Get Stop Boot On Fault");
 
     dbus::utility::getProperty<bool>(
-        "xyz.openbmc_project.Settings",
-        "/xyz/openbmc_project/logging/settings",
+        "xyz.openbmc_project.Settings", "/xyz/openbmc_project/logging/settings",
         "xyz.openbmc_project.Logging.Settings", "QuiesceOnHwError",
         [asyncResp](const boost::system::error_code& ec, bool value) {
             if (ec)
@@ -1538,8 +1525,8 @@ void getTrustedModuleRequiredToBoot(
 
             // Valid TPM Enable object found, now reading the current value
             dbus::utility::getProperty<bool>(
-                serv, path,
-                "xyz.openbmc_project.Control.TPM.Policy", "TPMEnable",
+                serv, path, "xyz.openbmc_project.Control.TPM.Policy",
+                "TPMEnable",
                 [asyncResp](const boost::system::error_code& ec2,
                             bool tpmRequired) {
                     if (ec2)
@@ -2123,13 +2110,12 @@ inline void getPlatformState(std::shared_ptr<bmcweb::AsyncResp> aResp)
  *
  * @return None.
  */
-void
-    getProvisioningStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+void getProvisioningStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     BMCWEB_LOG_DEBUG("Get OEM information.");
     dbus::utility::getAllProperties(
-       "xyz.openbmc_project.PFR.Manager",
-        "/xyz/openbmc_project/pfr", "xyz.openbmc_project.PFR.Attributes",
+        "xyz.openbmc_project.PFR.Manager", "/xyz/openbmc_project/pfr",
+        "xyz.openbmc_project.PFR.Attributes",
         [asyncResp](const boost::system::error_code& ec,
                     const dbus::utility::DBusPropertiesMap& propertiesList) {
             nlohmann::json& oemPFR =
@@ -2356,9 +2342,8 @@ void getPowerMode(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
             }
 
             // Valid Power Mode object found, now read the mode properties
-           dbus::utility::getAllProperties(
-                service, path,
-                "xyz.openbmc_project.Control.Power.Mode",
+            dbus::utility::getAllProperties(
+                service, path, "xyz.openbmc_project.Control.Power.Mode",
                 [asyncResp](
                     const boost::system::error_code& ec2,
                     const dbus::utility::DBusPropertiesMap& properties) {
@@ -2563,13 +2548,11 @@ inline std::string rfToDbusWDTTimeOutAct(const std::string& rfAction)
  *
  * @return None.
  */
-void
-    getHostWatchdogTimer(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+void getHostWatchdogTimer(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     BMCWEB_LOG_DEBUG("Get host watchodg");
     dbus::utility::getAllProperties(
-        "xyz.openbmc_project.Watchdog",
-        "/xyz/openbmc_project/watchdog/host0",
+        "xyz.openbmc_project.Watchdog", "/xyz/openbmc_project/watchdog/host0",
         "xyz.openbmc_project.State.Watchdog",
         [asyncResp](const boost::system::error_code& ec,
                     const dbus::utility::DBusPropertiesMap& properties) {
@@ -2740,8 +2723,7 @@ inline bool
  *
  * @return None.
  */
-void
-    getIdlePowerSaver(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+void getIdlePowerSaver(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     BMCWEB_LOG_DEBUG("Get idle power saver parameters");
 
@@ -2970,8 +2952,7 @@ void getSerialConsoleSshStatus(
  *
  * @return None.
  */
-void
-    getVirtualMediaConfig(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+void getVirtualMediaConfig(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     service_util::getEnabled(
         asyncResp, virtualMediaServiceName,
@@ -3240,7 +3221,9 @@ void createResetMaintenanceWindowTask(
                         return task::completed;
                     }
                 }
-                taskData->extendTimer(std::chrono::minutes(5));
+                taskData->extendTimer(
+                    std::chrono::seconds(requestedHostTransition) +
+                    (std::chrono::minutes(10)));
             }
             return !task::completed;
         },
@@ -3369,7 +3352,9 @@ void createSystemMaintenanceWindowTask(
                     taskData->state = "Completed";
                     return task::completed;
                 }
-                taskData->extendTimer(std::chrono::minutes(5));
+                taskData->extendTimer(
+                    std::chrono::seconds(requestedPowerTransition) +
+                    (std::chrono::minutes(10)));
             }
             return !task::completed;
         },
@@ -3497,7 +3482,7 @@ void SystemsImmediateResetTask(
                     taskData->state = "Completed";
                     return task::completed;
                 }
-                taskData->extendTimer(std::chrono::minutes(5));
+                taskData->extendTimer(std::chrono::minutes(10));
             }
             return !task::completed;
         },
@@ -4069,12 +4054,12 @@ inline void
         "/redfish/v1/Systems/{}/Storage", BMCWEB_REDFISH_SYSTEM_URI_NAME);
     asyncResp->res.jsonValue["FabricAdapters"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Systems/{}/FabricAdapters",
-                            BMCWEB_REDFISH_SYSTEM_URI_NAME);   
-#if (BMCWEB_AMI_NIC_MACRO)        
-    asyncResp->res.jsonValue["NetworkInterfaces"]["@odata.id"] = boost::urls::format(
-            "/redfish/v1/Systems/{}/NetworkInterfaces", BMCWEB_REDFISH_SYSTEM_URI_NAME);            
-#endif    
-   
+                            BMCWEB_REDFISH_SYSTEM_URI_NAME);
+#if (BMCWEB_AMI_NIC_MACRO)
+    asyncResp->res.jsonValue["NetworkInterfaces"]["@odata.id"] =
+        boost::urls::format("/redfish/v1/Systems/{}/NetworkInterfaces",
+                            BMCWEB_REDFISH_SYSTEM_URI_NAME);
+#endif
 
     asyncResp->res.jsonValue["Actions"]["#ComputerSystem.Reset"]["target"] =
         boost::urls::format(
@@ -4561,9 +4546,8 @@ inline void handleSystemCollectionResetActionGet(
 
     // Look to see if system defines AllowedHostTransitions
     dbus::utility::getProperty<std::vector<std::string>>(
-        "xyz.openbmc_project.State.Host",
-        "/xyz/openbmc_project/state/host0", "xyz.openbmc_project.State.Host",
-        "AllowedHostTransitions",
+        "xyz.openbmc_project.State.Host", "/xyz/openbmc_project/state/host0",
+        "xyz.openbmc_project.State.Host", "AllowedHostTransitions",
         [asyncResp](const boost::system::error_code& ec,
                     const std::vector<std::string>& allowedHostTransitions) {
             afterGetAllowedHostTransitions(asyncResp, ec,
