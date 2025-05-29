@@ -552,8 +552,7 @@ inline void handleNTPServersPatch(
     if (ntpServerObjects.size() > limit)
     {
         BMCWEB_LOG_DEBUG("out of Limit");
-        messages::propertyValueOutOfRange(asyncResp->res, ntpServerJsonObjects,
-                                          "NTP/NTPServers");
+        messages::arraySizeTooLong(asyncResp->res, "NTP/NTPServers/", 3);
         asyncResp->res.result(boost::beast::http::status::bad_request);
         return;
     }
@@ -600,7 +599,6 @@ inline void handleNTPServersPatch(
                     asyncResp->res, "null",
                     "NTP/NTPServers/" + std::to_string(index));
                 asyncResp->res.result(boost::beast::http::status::bad_request);
-
                 return;
             }
             currentNtpServer = currentNtpServers.erase(currentNtpServer);
