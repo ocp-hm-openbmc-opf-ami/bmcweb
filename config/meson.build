@@ -60,7 +60,8 @@ feature_options = [
     'ami-egs',
     'ast2700-evb',
     'chalupa-amd',
-    'spdm-uris'
+    'spdm-uris',
+    'sbmr-ext'
 ]
 
 string_options = [
@@ -125,6 +126,8 @@ foreach option_key : feature_options + string_options + int_options
              'chalupa-amd',
         ) or option_key.contains(
           'spdm-uris',
+        ) or option_key.contains(
+           'sbmr-ext',
         )
             feature_options_string += '#define ' + option_macro_config + '  ' + opt.allowed().to_string() + '\n'
         endif
