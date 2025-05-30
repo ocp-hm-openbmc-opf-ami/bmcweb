@@ -552,7 +552,7 @@ inline void handleNTPServersPatch(
     if (ntpServerObjects.size() > limit)
     {
         BMCWEB_LOG_DEBUG("out of Limit");
-        messages::arraySizeTooLong(asyncResp->res, "NTP/NTPServers/", 3);
+        messages::arraySizeTooLong(asyncResp->res, "NTP/NTPServers", 3);
         asyncResp->res.result(boost::beast::http::status::bad_request);
         return;
     }
