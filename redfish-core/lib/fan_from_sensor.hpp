@@ -230,7 +230,7 @@ inline void doFanGet(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                          fanId](const std::string& service,
                                 const std::string& fanPath,
                                 const std::vector<std::string>& interfaces) {
-        asyncResp->res.jsonValue["@odata.type"] = "#Fan.v1_3_0.Fan";
+        asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("Fan");
         asyncResp->res.jsonValue["Name"] = fanId;
         asyncResp->res.jsonValue["Id"] = fanId;
         asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(

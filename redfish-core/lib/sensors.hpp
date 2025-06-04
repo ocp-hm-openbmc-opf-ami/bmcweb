@@ -375,7 +375,7 @@ inline void populateChassisNode(nlohmann::json& jsonValue,
 {
     if (chassisSubNode == sensors::thermalNodeStr)
     {
-        jsonValue["@odata.type"] = "#Thermal.v1_4_0.Thermal";
+        jsonValue["@odata.type"] = json_util::odataType("Thermal");
         jsonValue["Fans"] = nlohmann::json::array();
         jsonValue["Temperatures"] = nlohmann::json::array();
         jsonValue["Id"] = chassisSubNode;
@@ -794,8 +794,7 @@ inline void populateFanRedundancy(
                                     ("/Redundancy"_json_pointer / jResp.size())
                                         .to_string());
                                 redundancy["@odata.id"] = std::move(url);
-                                redundancy["@odata.type"] =
-                                    "#Redundancy.v1_3_2.Redundancy";
+                                redundancy["@odata.type"] = json_util::odataType("Redundancy");
                                 redundancy["MinNumNeeded"] = minNumNeeded;
                                 redundancy["Mode"] =
                                     redundancy::RedundancyType::NPlusM;
@@ -2036,7 +2035,7 @@ inline nlohmann::json& getPowerSupply(nlohmann::json& powerSupplyArray,
     powerSupply["@odata.id"] =
         "/redfish/v1/Chassis/" + chassisId + "/PowerSubsystem/PowerSupplies/" +
         inventoryItem.name;
-    powerSupply["@odata.type"] = "#PowerSupply.v1_5_0.PowerSupply";
+    powerSupply["@odata.type"] = json_util::odataType("PowerSupply");
     powerSupply["Id"] = inventoryItem.name;
 
     std::string escaped;
@@ -2843,8 +2842,7 @@ inline void
                     }
                     if (pass == 2)
                     {
-                        asyncResp->res.jsonValue["@odata.type"] =
-                            "#Sensor.v1_2_0.Sensor";
+                        asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("Sensor");
                         std::string nameSensor = name;
                         std::replace(nameSensor.begin(), nameSensor.end(), '_',
                                      ' ');
@@ -2877,8 +2875,7 @@ inline void
                             asyncResp->res.jsonValue["Oem"]["Ami"]["States"] =
                                 nullptr;
                         }
-                        asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] =
-                            "#AMISensor.v1_0_0.AMISensor";
+                        asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] = json_util::odataType("AMISensor");
                         asyncResp->res.jsonValue["Status"]["State"] =
                             sensor_utils::getState(nullptr, true);
                         asyncResp->res.jsonValue["Status"]["Health"] =

@@ -324,7 +324,7 @@ inline void
                 }
             }
             asyncResp->res.jsonValue["SNMP"]["CommunityStrings"] = std::move(CommunityStrings);
-            asyncResp->res.jsonValue["Oem"]["OpenBmc"]["@odata.type"] = "#AMIManagerNetworkProtocol.v1_0_0.AMIManagerNetworkProtocol";
+            asyncResp->res.jsonValue["Oem"]["OpenBmc"]["@odata.type"] = json_util::odataType("AMIManagerNetworkProtocol");
             asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SNMP"]["CommunityStrings"] = std::move(oem_CommunityStrings);
         }
     });
@@ -342,8 +342,7 @@ inline void getNetworkData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     asyncResp->res.addHeader(
         boost::beast::http::field::link,
         "</redfish/v1/JsonSchemas/ManagerNetworkProtocol/NetworkProtocol.json>; rel=describedby");
-    asyncResp->res.jsonValue["@odata.type"] =
-        "#ManagerNetworkProtocol.v1_9_0.ManagerNetworkProtocol";
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("ManagerNetworkProtocol");
     asyncResp->res.jsonValue["@odata.id"] =
         boost::urls::format("/redfish/v1/Managers/{}/NetworkProtocol",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);

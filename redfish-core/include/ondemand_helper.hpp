@@ -53,7 +53,7 @@ inline void fillOnDemandOemObject(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
                 asyncResp->res.jsonValue["Id"] = processorId;
                 nlohmann::json& oem = asyncResp->res.jsonValue["Oem"];
                 nlohmann::json& oemIntel = oem["Intel"];
-                oemIntel["@odata.type"] = "#OemProcessor.v1_0_0.Processor";
+                oemIntel["@odata.type"] = json_util::odataType("OemProcessor", "Processor");
                 oemIntel["MeteringFeature"]["@odata.id"] =
                     "/redfish/v1/Systems/system/Processors/" + processorId +
                     "/Oem/Intel/MeteringFeature";

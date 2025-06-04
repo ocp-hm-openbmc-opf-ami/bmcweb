@@ -1006,8 +1006,7 @@ static void getPowerControlComponentNode(
         {{"@odata.id", json["PowerControl"][powerControlIdx]["@odata.id"]}});
     json["PowerControl"][powerControlIdx]["RelatedItem"] =
         nlohmann::json::array();
-    json["PowerControl"][powerControlIdx]["@odata.type"] =
-        "#Power.v1_1_0.PowerControl";
+    json["PowerControl"][powerControlIdx]["@odata.type"] = json_util::odataType("Power", "PowerControl");
 
     std::shared_ptr<FinalCallback> finalCallback =
         std::make_shared<FinalCallback>([callback]() {
@@ -1057,8 +1056,7 @@ static void getPowerControlAggregateNode(
     json["PowerControl"][powerControlIdx]["@odata.id"] =
         "/redfish/v1/Chassis/" + sensorAsyncResp->chassisId +
         "/Power/PowerControl/" + aggregatorName;
-    json["PowerControl"][powerControlIdx]["@odata.type"] =
-        "#Power.v1_1_0.PowerControl";
+    json["PowerControl"][powerControlIdx]["@odata.type"] = json_util::odataType("Power", "PowerControl");
     json["PowerControl"][powerRootNode]["RelatedItem"].push_back(
         {{"@odata.id", json["PowerControl"][powerControlIdx]["@odata.id"]}});
 
@@ -1131,8 +1129,7 @@ static void
     json["PowerControl"][powerRootNode]["@odata.id"] =
         "/redfish/v1/Chassis/" + sensorAsyncResp->chassisId +
         "/Power/PowerControl/0";
-    json["PowerControl"][powerRootNode]["@odata.type"] =
-        "#Power.v1_1_0.PowerControl";
+    json["PowerControl"][powerRootNode]["@odata.type"] = json_util::odataType("Power", "PowerControl");
     getAllocatedAndRequestedWatts(sensorAsyncResp, dcTotalPowerDomainId,
                                   dmtfPowerPolicyId, powerRootNode,
                                   nmServiceName);

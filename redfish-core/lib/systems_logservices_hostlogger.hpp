@@ -22,7 +22,7 @@ inline void fillHostLoggerEntryJson(std::string_view logEntryID,
                                     nlohmann::json::object_t& logEntryJson)
 {
     // Fill in the log entry with the gathered data.
-    logEntryJson["@odata.type"] = "#LogEntry.v1_9_0.LogEntry";
+    logEntryJson["@odata.type"] = json_util::odataType("LogEntry");
     logEntryJson["@odata.id"] = boost::urls::format(
         "/redfish/v1/Systems/{}/LogServices/HostLogger/Entries/{}",
         BMCWEB_REDFISH_SYSTEM_URI_NAME, logEntryID);
@@ -59,7 +59,7 @@ inline void handleSystemsLogServicesHostloggerGet(
     asyncResp->res.jsonValue["@odata.id"] =
         std::format("/redfish/v1/Systems/{}/LogServices/HostLogger",
                     BMCWEB_REDFISH_SYSTEM_URI_NAME);
-    asyncResp->res.jsonValue["@odata.type"] = "#LogService.v1_2_0.LogService";
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("LogService");
     asyncResp->res.jsonValue["Name"] = "Host Logger Service";
     asyncResp->res.jsonValue["Description"] = "Host Logger Service";
     asyncResp->res.jsonValue["Id"] = "HostLogger";

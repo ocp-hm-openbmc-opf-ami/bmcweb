@@ -139,7 +139,7 @@ inline void getAttributes(const std::shared_ptr<bmcweb::AsyncResp>& response,
         response->res.jsonValue["@odata.id"] =
             "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Policies/" +
             *policyName;
-        response->res.jsonValue["@odata.type"] = "#NmPolicy.v1_2_0.NmPolicy";
+        response->res.jsonValue["@odata.type"] = json_util::odataType("NmPolicy");
         response->res.jsonValue["Actions"]["#NmPolicy.ResetStatistics"] = {
             {"target",
              "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Policies/" +

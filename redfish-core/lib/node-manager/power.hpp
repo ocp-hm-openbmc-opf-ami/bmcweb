@@ -197,7 +197,7 @@ inline void doPowerHeader(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     asyncResp->res.addHeader(
         boost::beast::http::field::link,
         "</redfish/v1/JsonSchemas/Power/Power.json>; rel=describedby");
-    asyncResp->res.jsonValue["@odata.type"] = "#Power.v1_5_2.Power";
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("Power");
     asyncResp->res.jsonValue["Name"] = "Power";
     asyncResp->res.jsonValue["Id"] = "Power";
     #if (BMCWEB_CHALUPA_AMD_MACRO)

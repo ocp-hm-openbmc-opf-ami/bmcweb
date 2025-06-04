@@ -771,7 +771,7 @@ inline void handleBiosServiceGet(
     const crow::Request&, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     asyncResp->res.jsonValue["@odata.id"] = "/redfish/v1/Systems/system/Bios";
-    asyncResp->res.jsonValue["@odata.type"] = "#Bios.v1_2_0.Bios";
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("Bios");
     asyncResp->res.jsonValue["Name"] = "BIOS Configuration";
     asyncResp->res.jsonValue["Description"] = "BIOS Configuration Service";
     asyncResp->res.jsonValue["Id"] = "BIOS";
@@ -780,8 +780,7 @@ inline void handleBiosServiceGet(
     asyncResp->res.jsonValue["Actions"]["#Bios.ChangePassword"] = {
         {"target", "/redfish/v1/Systems/system/Bios/Actions/"
                    "Bios.ChangePassword"}};
-    asyncResp->res.jsonValue["@Redfish.Settings"]["@odata.type"] =
-        "#Settings.v1_2_2.Settings";
+    asyncResp->res.jsonValue["@Redfish.Settings"]["@odata.type"] = json_util::odataType("Settings");
     asyncResp->res.jsonValue["@Redfish.Settings"]["SettingsObject"] = {
         {"@odata.id", "/redfish/v1/Systems/system/Bios/Settings"}};
     // Get the ActiveSoftwareImage and SoftwareImages
@@ -833,7 +832,7 @@ inline void handleBiosSettingsGet(
 {
     asyncResp->res.jsonValue["@odata.id"] =
         "/redfish/v1/Systems/system/Bios/Settings";
-    asyncResp->res.jsonValue["@odata.type"] = "#Bios.v1_1_0.Bios";
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("Bios");
     asyncResp->res.jsonValue["Name"] = "BIOS Configuration";
     asyncResp->res.jsonValue["Description"] = "BIOS Settings";
     asyncResp->res.jsonValue["Id"] = "BIOS_Settings";

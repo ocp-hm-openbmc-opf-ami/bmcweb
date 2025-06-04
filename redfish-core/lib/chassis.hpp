@@ -531,8 +531,7 @@ inline void handleDecoratorAssetProperties(
     // FRU Device
     asyncResp->res.jsonValue["Oem"]["AMI"]["FRU"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Chassis/{}/FRU", chassisId);
-    asyncResp->res.jsonValue["Oem"]["AMI"]["@odata.type"] =
-        "OemAMIChassis.v1_0_0.OemAMIChassis";
+    asyncResp->res.jsonValue["Oem"]["AMI"]["@odata.type"] = json_util::odataType("OemAMIChassis");
     asyncResp->res.jsonValue["Oem"]["AMI"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Chassis/{}#/Oem/AMI", chassisId);
 
@@ -545,8 +544,7 @@ inline void handleDecoratorAssetProperties(
     asyncResp->res.jsonValue["Oem"]["AMI"]["SensorThreshold"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Chassis/{}/Sensors/Oem/Threshold",
                             chassisId);
-    asyncResp->res.jsonValue["Oem"]["AMI"]["SensorThreshold"]["@odata.type"] =
-        "OemAMISensor.v1_0.0.OemAMISensor";
+    asyncResp->res.jsonValue["Oem"]["AMI"]["SensorThreshold"]["@odata.type"] = json_util::odataType("OemAMISensor");
 
     nlohmann::json::array_t computerSystems;
     nlohmann::json::object_t system;
@@ -631,7 +629,7 @@ inline void handleChassisGetSubTree(
 
         ishandleChassisGetSubTree = true;
 
-        asyncResp->res.jsonValue["@odata.type"] = "#Chassis.v1_22_0.Chassis";
+        asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("Chassis");
         asyncResp->res.jsonValue["@odata.id"] =
             boost::urls::format("/redfish/v1/Chassis/{}", chassisId);
         asyncResp->res.jsonValue["Name"] = "Chassis Collection";
@@ -1096,7 +1094,7 @@ inline void
 inline void NoOperation(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     asyncResp->res.result(boost::beast::http::status::ok);
-    asyncResp->res.jsonValue["@odata.type"] = " #Message.v1_1_1.Message";
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("Message");
     asyncResp->res.jsonValue["MessageId"] = "Base.1.13.0.NoOperation";
     asyncResp->res.jsonValue["Message"] =
         "The request body submitted contain no data to act upon "
@@ -1619,7 +1617,7 @@ inline void handleChassisResetActionInfoGet(
     {
         return;
     }
-    asyncResp->res.jsonValue["@odata.type"] = "#ActionInfo.v1_1_2.ActionInfo";
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("ActionInfo");
     asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
         "/redfish/v1/Chassis/{}/ResetActionInfo", chassisId);
     asyncResp->res.jsonValue["Name"] = "Reset Action Info";

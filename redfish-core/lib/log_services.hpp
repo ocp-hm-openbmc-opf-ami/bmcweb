@@ -456,7 +456,7 @@ inline void
                     continue;
                 }
 
-                thisEntry["@odata.type"] = "#LogEntry.v1_11_0.LogEntry";
+                thisEntry["@odata.type"] = json_util::odataType("LogEntry");
                 thisEntry["@odata.id"] = entriesPath + entryID;
                 thisEntry["Id"] = entryID;
                 thisEntry["EntryType"] = "Event";
@@ -550,8 +550,7 @@ inline void
                     return;
                 }
 
-                asyncResp->res.jsonValue["@odata.type"] =
-                    "#LogEntry.v1_11_0.LogEntry";
+                asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("LogEntry");
                 asyncResp->res.jsonValue["@odata.id"] = entriesPath + entryID;
                 asyncResp->res.jsonValue["Id"] = entryID;
                 asyncResp->res.jsonValue["EntryType"] = "Event";
@@ -1362,8 +1361,7 @@ inline void requestRoutesEventLogService(App& app)
             asyncResp->res.jsonValue["@odata.id"] =
                 std::format("/redfish/v1/Systems/{}/LogServices/EventLog",
                             BMCWEB_REDFISH_SYSTEM_URI_NAME);
-            asyncResp->res.jsonValue["@odata.type"] =
-                "#LogService.v1_2_0.LogService";
+            asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("LogService");
             asyncResp->res.jsonValue["Name"] = "Event Log Service";
             asyncResp->res.jsonValue["Description"] =
                 "System Event Log Service";
@@ -1513,7 +1511,7 @@ static LogParseError fillEventLogEntryJson(
     }
 
     // Fill in the log entry with the gathered data
-    logEntryJson["@odata.type"] = "#LogEntry.v1_9_0.LogEntry";
+    logEntryJson["@odata.type"] = json_util::odataType("LogEntry");
     logEntryJson["@odata.id"] = boost::urls::format(
         "/redfish/v1/Systems/{}/LogServices/EventLog/Entries/{}",
         BMCWEB_REDFISH_SYSTEM_URI_NAME, logEntryID);
@@ -1543,7 +1541,7 @@ inline void fillEventLogLogEntryFromPropertyMap(
     }
     DbusEventLogEntry entry = optEntry.value();
 
-    objectToFillOut["@odata.type"] = "#LogEntry.v1_9_0.LogEntry";
+    objectToFillOut["@odata.type"] = json_util::odataType("LogEntry");
     objectToFillOut["@odata.id"] = boost::urls::format(
         "/redfish/v1/Systems/{}/LogServices/EventLog/Entries/{}",
         BMCWEB_REDFISH_SYSTEM_URI_NAME, std::to_string(entry.Id));
@@ -2506,7 +2504,7 @@ inline void
     }
 
     asyncResp->res.jsonValue["@odata.id"] = dumpPath;
-    asyncResp->res.jsonValue["@odata.type"] = "#LogService.v1_2_0.LogService";
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("LogService");
     asyncResp->res.jsonValue["Name"] = "Dump LogService";
     asyncResp->res.jsonValue["Description"] = dumpType + " Dump LogService";
     asyncResp->res.jsonValue["Id"] = std::filesystem::path(dumpPath).filename();
@@ -2928,8 +2926,7 @@ inline void handleLogServicesDumpConfigGet(
                 return;
             }
 
-            asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] =
-                "#AMIADDCConfiguration.v1_0_0.AMIADDCConfiguration";
+            asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] = json_util::odataType("AMIADDCConfiguration");
 
             if (apmlretries != nullptr)
             {
@@ -3267,8 +3264,7 @@ inline void requestRoutesCrashdumpService(App& app)
             asyncResp->res.jsonValue["@odata.id"] =
                 std::format("/redfish/v1/Systems/{}/LogServices/Crashdump",
                             BMCWEB_REDFISH_SYSTEM_URI_NAME);
-            asyncResp->res.jsonValue["@odata.type"] =
-                "#LogService.v1_2_0.LogService";
+            asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("LogService");
             asyncResp->res.jsonValue["Name"] = "Open BMC Oem Crashdump Service";
             asyncResp->res.jsonValue["Description"] = "Oem Crashdump Service";
             asyncResp->res.jsonValue["Id"] = "Crashdump";
@@ -3601,7 +3597,7 @@ inline void
                     BMCWEB_REDFISH_SYSTEM_URI_NAME) +
                 logID + "/" + filename;
             nlohmann::json::object_t logEntry;
-            logEntry["@odata.type"] = "#LogEntry.v1_9_0.LogEntry";
+            logEntry["@odata.type"] = json_util::odataType("LogEntry");
             logEntry["@odata.id"] = boost::urls::format(
                 "/redfish/v1/Systems/{}/LogServices/Crashdump/Entries/{}",
                 BMCWEB_REDFISH_SYSTEM_URI_NAME, logID);
@@ -4066,7 +4062,7 @@ static void
     std::string AcpiLogURI =
         "/redfish/v1/Systems/system/LogServices/acpi/Entries/0/acpi2.bin";
     nlohmann::json::object_t logEntry;
-    logEntry["@odata.type"] = "#LogEntry.v1_7_0.LogEntry";
+    logEntry["@odata.type"] = json_util::odataType("LogEntry");
     logEntry["@odata.id"] =
         "/redfish/v1/Systems/system/LogServices/acpi/Entries/0";
     logEntry["Name"] = "Acpi Log";
@@ -4107,8 +4103,7 @@ inline void requestRoutesAcpiService(App& app)
                 }
                 asyncResp->res.jsonValue["@odata.id"] =
                     "/redfish/v1/Systems/system/LogServices/acpi";
-                asyncResp->res.jsonValue["@odata.type"] =
-                    "#LogService.v1_2_0.LogService";
+                asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("LogService");
                 asyncResp->res.jsonValue["Name"] =
                     "Open BMC Oem Acpi LogService";
                 asyncResp->res.jsonValue["Description"] = "Oem Acpi LogService";

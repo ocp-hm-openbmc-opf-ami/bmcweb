@@ -173,8 +173,7 @@ inline void doPowerSubsystemCollection(
     asyncResp->res.addHeader(
         boost::beast::http::field::link,
         "</redfish/v1/JsonSchemas/PowerSubsystem/PowerSubsystem.json>; rel=describedby");
-    asyncResp->res.jsonValue["@odata.type"] =
-        "#PowerSubsystem.v1_1_0.PowerSubsystem";
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("PowerSubsystem");
     asyncResp->res.jsonValue["Name"] = "Power Subsystem";
     asyncResp->res.jsonValue["Description"] =
         "The Collection of Power Subsystem";

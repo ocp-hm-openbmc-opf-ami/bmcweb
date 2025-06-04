@@ -93,7 +93,7 @@ inline void fillCPULicenseInstance(
             asyncResp->res.jsonValue["@odata.id"] =
                 "/redfish/v1/LicenseService/Licenses/" + licenseType +
                 processorId;
-            asyncResp->res.jsonValue["@odata.type"] = "#License.v1_0_0.License";
+            asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("License");
             asyncResp->res.jsonValue["Id"] = licenseType + processorId;
             asyncResp->res.jsonValue["Name"] =
                 licenseType + " for " + processorId;
@@ -121,8 +121,7 @@ inline void fillCPULicenseInstance(
                     "/redfish/v1/Systems/system/Processors/" + processorId +
                     "/Oem/Intel/DynamicFeature";
             }
-            asyncResp->res.jsonValue["Oem"]["Intel"]["@odata.type"] =
-                "#OemLicense.v1_0_0.License";
+            asyncResp->res.jsonValue["Oem"]["Intel"]["@odata.type"] = json_util::odataType("OemLicense", "License");
         },
         service, objectPath, featureEnableInterfaceName, method);
 }
@@ -478,8 +477,7 @@ inline void
     {
         return;
     }
-    asyncResp->res.jsonValue["@odata.type"] =
-        "#LicenseService.v1_0_0.LicenseService";
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("LicenseService");
     asyncResp->res.jsonValue["@odata.id"] = "/redfish/v1/LicenseService";
     asyncResp->res.jsonValue["Id"] = "LicenseService";
     asyncResp->res.jsonValue["Name"] = "License Service";

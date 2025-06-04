@@ -934,8 +934,7 @@ inline void requestRoutesEventService(App& app)
             }
 
             asyncResp->res.jsonValue["@odata.id"] = "/redfish/v1/EventService";
-            asyncResp->res.jsonValue["@odata.type"] =
-                "#EventService.v1_5_0.EventService";
+            asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("EventService");
             asyncResp->res.jsonValue["Id"] = "EventService";
             asyncResp->res.jsonValue["Name"] = "Event Service";
             asyncResp->res.jsonValue["Description"] = "Event Service";
@@ -1761,7 +1760,7 @@ inline void handleSubmitTestEventActionGet(
     {
         return;
     }
-    asyncResp->res.jsonValue["@odata.type"] = "#ActionInfo.v1_1_2.ActionInfo";
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("ActionInfo");
     asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
         "/redfish/v1/EventService/SubmitTestEventActionInfo");
     asyncResp->res.jsonValue["Name"] = "SubmitTestEvent Action Info";
@@ -2671,8 +2670,7 @@ inline void requestRoutesEventDestination(App& app)
                 }
                 const std::string& id = param;
 
-                asyncResp->res.jsonValue["@odata.type"] =
-                    "#EventDestination.v1_14_1.EventDestination";
+                asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("EventDestination");
                 asyncResp->res.jsonValue["Protocol"] =
                     event_destination::EventDestinationProtocol::Redfish;
                 asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(

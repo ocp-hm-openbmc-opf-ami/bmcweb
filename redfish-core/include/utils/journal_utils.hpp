@@ -117,7 +117,7 @@ inline bool fillBMCJournalLogEntryJson(
     }
 
     // Fill in the log entry with the gathered data
-    bmcJournalLogEntryJson["@odata.type"] = "#LogEntry.v1_9_0.LogEntry";
+    bmcJournalLogEntryJson["@odata.type"] = json_util::odataType("LogEntry");
 
     std::string entryIdBase64 =
         crow::utility::base64encode(bmcJournalLogEntryID);

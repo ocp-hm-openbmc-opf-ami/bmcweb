@@ -74,7 +74,7 @@ inline void afterGetSnmpTrapClientdata(
     {
         asyncResp->res.jsonValue["Destination"] =
             "snmp://" + address + ":" + std::to_string(port);
-        asyncResp->res.jsonValue["Oem"]["OpenBmc"]["@odata.type"] = "#OpenBMCEventDestination.v1_0_0.OpenBMCEventDestination";
+        asyncResp->res.jsonValue["Oem"]["OpenBmc"]["@odata.type"] = json_util::odataType("OpenBMCEventDestination");
         asyncResp->res.jsonValue["Oem"]["OpenBmc"]["CommunityString"] = user;
     }
     asyncResp->res.jsonValue["Protocol"] = "SNMP" + version;
@@ -85,8 +85,7 @@ inline void
     getSnmpTrapClientdata(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                           const std::string& id, const std::string& objectPath)
 {
-    asyncResp->res.jsonValue["@odata.type"] =
-        "#EventDestination.v1_8_0.EventDestination";
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("EventDestination");
     asyncResp->res.jsonValue["@odata.id"] =
         boost::urls::format("/redfish/v1/EventService/Subscriptions/{}", id);
 

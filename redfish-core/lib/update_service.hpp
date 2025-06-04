@@ -1769,8 +1769,7 @@ inline void
     {
         return;
     }
-    asyncResp->res.jsonValue["@odata.type"] =
-        "#UpdateService.v1_11_1.UpdateService";
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("UpdateService");
     asyncResp->res.jsonValue["@odata.id"] = "/redfish/v1/UpdateService";
     asyncResp->res.jsonValue["Id"] = "UpdateService";
     asyncResp->res.jsonValue["Description"] = "Service for Software Update";
@@ -1807,8 +1806,7 @@ inline void
     }
 
     getPreserveConfig(asyncResp, "UpdateService");
-    asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] =
-        "#AMIUpdateService.v1_0_0.Ami";
+    asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] = json_util::odataType("AMIUpdateService", "Ami");
     
     #if (BMCWEB_AMI_EGS_MACRO || BMCWEB_AMI_BHS_MACRO || BMCWEB_AST2700_EVB_MACRO || BMCWEB_AST2600_EVB_MACRO)
 
@@ -2720,8 +2718,7 @@ inline void handleUpdateServiceFirmwareInventoryGet(
                         *swId));
                 return;
             }
-            asyncResp->res.jsonValue["@odata.type"] =
-                "#SoftwareInventory.v1_1_0.SoftwareInventory";
+            asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("SoftwareInventory");
             asyncResp->res.jsonValue["Name"] = "Software Inventory";
             asyncResp->res.jsonValue["Status"]["HealthRollup"] =
                 resource::Health::OK;

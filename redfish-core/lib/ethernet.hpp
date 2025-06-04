@@ -2863,8 +2863,7 @@ inline void handleEthernetInterfaceInstanceGet(
                 return;
             }
 
-            asyncResp->res.jsonValue["@odata.type"] =
-                "#EthernetInterface.v1_9_0.EthernetInterface";
+            asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("EthernetInterface");
             asyncResp->res.jsonValue["Name"] = "Manager Ethernet Interface";
             asyncResp->res.jsonValue["Description"] =
                 "Management Network Interface";

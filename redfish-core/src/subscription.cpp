@@ -127,7 +127,7 @@ void Subscription::sendHeartbeatEvent()
     nlohmann::json::array_t eventRecord;
     eventRecord.emplace_back(std::move(eventMessage));
     nlohmann::json msgJson;
-    msgJson["@odata.type"] = "#Event.v1_4_0.Event";
+    msgJson["@odata.type"] = json_util::odataType("Event");
     msgJson["Name"] = "Heartbeat";
     msgJson["Id"] = heartEventId;
     msgJson["Events"] = std::move(eventRecord);
@@ -367,7 +367,7 @@ bool Subscription::sendTestEventLog(TestEvent& testEvent)
     logEntryJson["MemberId"] = "0";
 
     nlohmann::json msg;
-    msg["@odata.type"] = "#Event.v1_4_0.Event";
+    msg["@odata.type"] = json_util::odataType("Event");
     msg["Id"] = std::to_string(eventSeqNum);
     msg["Name"] = "Event Log";
     msg["Events"] = logEntryArray;
@@ -443,7 +443,7 @@ void Subscription::filterAndSendEventLogs(
     }
 
     nlohmann::json msg;
-    msg["@odata.type"] = "#Event.v1_4_0.Event";
+    msg["@odata.type"] = json_util::odataType("Event");
     msg["Id"] = std::to_string(eventSeqNum);
     msg["Name"] = "Event Log";
     msg["Context"] = userSub->customText;

@@ -136,8 +136,7 @@ inline void
     }
     asyncResp->res.jsonValue["@odata.id"] =
         "/redfish/v1/Managers/bmc/SecurityPolicy";
-    asyncResp->res.jsonValue["@odata.type"] = "#SecurityPolicy."
-                                              "v1_0_0.SecurityPolicy";
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("SecurityPolicy");
     asyncResp->res.jsonValue["Id"] = "SecurityPolicy";
     asyncResp->res.jsonValue["Name"] = "Security Policy";
     asyncResp->res.jsonValue["Description"] = "Security Policy";
@@ -170,8 +169,7 @@ inline void
             asyncResp->res.result(boost::beast::http::status::accepted);
             asyncResp->res.jsonValue["@odata.id"] =
                 "/redfish/v1/Managers/bmc/SecurityPolicy";
-            asyncResp->res.jsonValue["@odata.type"] = "#SecurityPolicy."
-                                                      "v1_0_0.SecurityPolicy";
+            asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("SecurityPolicy");
             asyncResp->res.jsonValue["Actions"]["#Manager.Reset"]["target"] =
                 "/redfish/v1/Managers/bmc/Actions/Manager.Reset";
             asyncResp->res.jsonValue["Id"] = "SecurityPolicy";

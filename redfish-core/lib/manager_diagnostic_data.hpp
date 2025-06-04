@@ -245,8 +245,7 @@ inline void handleManagerDiagnosticDataGet(
         return;
     }
 
-    asyncResp->res.jsonValue["@odata.type"] =
-        "#ManagerDiagnosticData.v1_2_0.ManagerDiagnosticData";
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("ManagerDiagnosticData");
     asyncResp->res.jsonValue["@odata.id"] =
         boost::urls::format("/redfish/v1/Managers/{}/ManagerDiagnosticData",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);

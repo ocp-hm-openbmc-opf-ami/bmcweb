@@ -40,7 +40,7 @@ inline void handleManagersLogServiceJournalGet(
     }
      int MaxNumberOfRecords = 1000;
 
-    asyncResp->res.jsonValue["@odata.type"] = "#LogService.v1_2_0.LogService";
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("LogService");
     asyncResp->res.jsonValue["@odata.id"] =
         boost::urls::format("/redfish/v1/Managers/{}/LogServices/Journal",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);

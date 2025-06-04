@@ -269,7 +269,7 @@ inline void jsonSchemaGet(App& app, const crow::Request& req,
         nlohmann::json& json = asyncResp->res.jsonValue;
         json["@odata.id"] =
             boost::urls::format("/redfish/v1/JsonSchemas/{}", schema);
-        json["@odata.type"] = "#JsonSchemaFile.v1_0_2.JsonSchemaFile";
+        json["@odata.type"] = json_util::odataType("JsonSchemaFile");
         json["Name"] = schema + " Schema File";
         json["Description"] = schema + " Schema File Location";
         json["Id"] = schema;

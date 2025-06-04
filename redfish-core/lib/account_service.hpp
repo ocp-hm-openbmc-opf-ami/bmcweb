@@ -1991,7 +1991,7 @@ inline void
 
     nlohmann::json& json = asyncResp->res.jsonValue;
     json["@odata.id"] = "/redfish/v1/AccountService";
-    json["@odata.type"] = "#AccountService.v1_15_0.AccountService";
+    json["@odata.type"] = json_util::odataType("AccountService");
     json["Id"] = "AccountService";
     json["Name"] = "Account Service";
     json["Description"] = "Account Service";
@@ -2039,8 +2039,7 @@ inline void
         asyncResp,
         "/MultiFactorAuth/ClientCertificate/Certificates/Members"_json_pointer);
 
-    json["Oem"]["OpenBMC"]["@odata.type"] =
-        "#OpenBMCAccountService.v1_0_0.AccountService";
+    json["Oem"]["OpenBMC"]["@odata.type"] = json_util::odataType("OpenBMCAccountService", "AccountService");
     json["Oem"]["OpenBMC"]["@odata.id"] =
         "/redfish/v1/AccountService#/Oem/OpenBMC";
     json["Oem"]["OpenBMC"]["AuthMethods"]["BasicAuth"] =
@@ -2242,11 +2241,9 @@ inline void
 
     json["@odata.id"] =
         "/redfish/v1/AccountService/ExternalAccountProviders/RADIUS";
-    json["@odata.type"] =
-        "#ExternalAccountProvider.v1_8_0.ExternalAccountProvider";
+    json["@odata.type"] = json_util::odataType("ExternalAccountProvider");
     json["AccountProviderType"] = "OEM";
-    json["Oem"]["Ami"]["@odata.type"] =
-        "#AMIExternalAccountProvider.v1_0_0.Ami";
+    json["Oem"]["Ami"]["@odata.type"] = json_util::odataType("AMIExternalAccountProvider", "Ami");
     json["Id"] = "RADIUS";
     json["Name"] = "RADIUS Settings";
     json["Description"] = "RADIUS server settings";
@@ -3614,8 +3611,7 @@ inline void
                 return;
             }
 
-            asyncResp->res.jsonValue["@odata.type"] =
-                "#ManagerAccount.v1_7_0.ManagerAccount";
+            asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("ManagerAccount");
             asyncResp->res.jsonValue["Name"] = "User Account";
             asyncResp->res.jsonValue["Description"] = "User Account";
             asyncResp->res.jsonValue["Password"] = nullptr;
@@ -3712,7 +3708,7 @@ inline void
                         return;
                     }
 
-                    asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"]= "#AMIManagerAccount.v1_0_0.Ami";
+                    asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"]= json_util::odataType("AMIManagerAccount", "Ami");
 
                     if (snmpAccessEnableStatus == nullptr)
                     {

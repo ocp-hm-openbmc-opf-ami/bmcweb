@@ -42,7 +42,7 @@ inline void handleSystemsLogServicesPostCodesGet(
     asyncResp->res.jsonValue["@odata.id"] =
         std::format("/redfish/v1/Systems/{}/LogServices/PostCodes",
                     BMCWEB_REDFISH_SYSTEM_URI_NAME);
-    asyncResp->res.jsonValue["@odata.type"] = "#LogService.v1_2_0.LogService";
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("LogService");
     asyncResp->res.jsonValue["Name"] = "POST Code Log Service";
     asyncResp->res.jsonValue["Description"] = "POST Code Log Service";
     asyncResp->res.jsonValue["Id"] = "PostCodes";
@@ -266,7 +266,7 @@ static bool fillPostCodeEntry(
 
         // Format entry
         nlohmann::json::object_t bmcLogEntry;
-        bmcLogEntry["@odata.type"] = "#LogEntry.v1_9_0.LogEntry";
+        bmcLogEntry["@odata.type"] = json_util::odataType("LogEntry");
         bmcLogEntry["@odata.id"] = boost::urls::format(
             "/redfish/v1/Systems/{}/LogServices/PostCodes/Entries/{}",
             BMCWEB_REDFISH_SYSTEM_URI_NAME, postcodeEntryID);
