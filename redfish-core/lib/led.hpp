@@ -8,6 +8,7 @@
 #include "dbus_utility.hpp"
 #include "generated/enums/chassis.hpp"
 #include "redfish_util.hpp"
+#include "utils/json_utils.hpp"
 
 #include <boost/algorithm/string/predicate.hpp>
 #include <sdbusplus/asio/property.hpp>
