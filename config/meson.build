@@ -125,9 +125,9 @@ foreach option_key : feature_options + string_options + int_options
         ) or option_key.contains(    
              'chalupa-amd',
         ) or option_key.contains(
-          'spdm-uris',
-        ) or option_key.contains(
-           'sbmr-ext',
+             'spdm-uris',
+        ) or option_key.contains(   
+             'sbmr-ext',
         )
             feature_options_string += '#define ' + option_macro_config + '  ' + opt.allowed().to_string() + '\n'
         endif

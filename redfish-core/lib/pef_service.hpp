@@ -112,7 +112,6 @@ inline void setFilterEnable(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                 },
                 owner, path, pefAlertSensorNumberIface, "SetFilterEnable",
                 std::vector<uint8_t>{filterEnable});
-                messages::success(aResp->res);
         },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
@@ -248,7 +247,6 @@ inline void setPefConfParam(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                     pefConfIface, "PEFActionGblControl",
                     dbus::utility::DbusVariantType(*pefActionGblControl));
             }
-            messages::success(aResp->res);
         },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
@@ -284,7 +282,6 @@ void setDestinationType (const std::shared_ptr<bmcweb::AsyncResp>& aResp,
             messages::internalError(aResp->res);
             return;
         }
-        messages::success(aResp->res);
     });
 }
 
@@ -398,14 +395,9 @@ const PropertyValue getSmtpEnable(const std::string& interfaceName)
     return value;
 }
 
-inline void requestRoutesPefService(App& app)
+void getPefServiceInfo(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
 {
-    BMCWEB_ROUTE(app, "/redfish/v1/PefService/")
-        .privileges({{"Login"}, {"ConfigureComponents"}})
-        .methods(boost::beast::http::verb::get)(
-            [](const crow::Request&,
-               const std::shared_ptr<bmcweb::AsyncResp>& aResp) {
-                aResp->res.jsonValue = {
+    aResp->res.jsonValue = {
                     {"@odata.type", "#PefService.v1_0_0.PefService"},
                     {"@odata.id", "/redfish/v1/PefService"},
                     {"Id", "Pef Service"},
@@ -427,52 +419,14 @@ inline void requestRoutesPefService(App& app)
                 getFilterEnable(aResp);
                 getPefConfParam(aResp);
                 getDestinationType(aResp);
-            });
 
-    BMCWEB_ROUTE(app, "/redfish/v1/PefService/")
-        .privileges({{"Login"}, {"ConfigureComponents"}})
-        .methods(boost::beast::http::verb::patch)(
-            [](const crow::Request& req,
-               const std::shared_ptr<bmcweb::AsyncResp>& aResp) {
-                std::optional<std::vector<uint8_t>> filterEnable;
-                std::optional<uint8_t> pefActionGblControl;
-                std::optional<std::string> destinationType;
+}
 
-                if (!json_util::readJsonPatch( //
-                        req, aResp->res, //
-                        "FilterEnable", filterEnable, //
-                        "PEFActionGblControl", pefActionGblControl, //
-                        "DestinationType", destinationType          //
-                        ))
-                {
-                    return;
-                }
-                if (filterEnable)
-                {
-                    setFilterEnable(aResp, *filterEnable);
-                }
-                if (pefActionGblControl)
-                {
-                    setPefConfParam(aResp, pefActionGblControl);
-                }
-                if (destinationType)
-                {
-                    setDestinationType(aResp, destinationType);
-                }
-            });
-
-    BMCWEB_ROUTE(app, "/redfish/v1/PefService/<str>")
-        .privileges({{"Login"}, {"ConfigureComponents"}})
-        .methods(
-            boost::beast::http::verb::
-                get)([&app](const crow::Request& req,
-                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                            const std::string& entryId) {
-            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-            {
-                return;
-            }
-            crow::connections::systemBus->async_method_call(
+void getPefServiceInfoId(
+                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                        const std::string& entryId)
+{
+    crow::connections::systemBus->async_method_call(
                 [asyncResp,
                  entryId](const boost::system::error_code ec,
                           const std::vector<std::string>& storageList) {
@@ -522,7 +476,64 @@ inline void requestRoutesPefService(App& app)
                 "/xyz/openbmc_project/PefAlertManager/EventFilterTable/", 0,
                 std::array<const char*, 1>{
                     "xyz.openbmc_project.pef.EventFilterTable"});
-        });
+}
+
+inline void requestRoutesPefService(App& app)
+{
+    BMCWEB_ROUTE(app, "/redfish/v1/PefService/")
+        .privileges({{"Login"}, {"ConfigureComponents"}})
+        .methods(boost::beast::http::verb::get)(
+            [](const crow::Request&,
+               const std::shared_ptr<bmcweb::AsyncResp>& aResp) {
+                   getPefServiceInfo(aResp);
+            });
+
+    BMCWEB_ROUTE(app, "/redfish/v1/PefService/")
+        .privileges({{"Login"}, {"ConfigureComponents"}})
+        .methods(boost::beast::http::verb::patch)(
+            [](const crow::Request& req,
+               const std::shared_ptr<bmcweb::AsyncResp>& aResp) {
+                std::optional<std::vector<uint8_t>> filterEnable;
+                std::optional<uint8_t> pefActionGblControl;
+                std::optional<std::string> destinationType;
+
+                if (!json_util::readJsonPatch( //
+                        req, aResp->res, //
+                        "FilterEnable", filterEnable, //
+                        "PEFActionGblControl", pefActionGblControl, //
+                        "DestinationType", destinationType          //
+                        ))
+                {
+                    return;
+                }
+                if (filterEnable)
+                {
+                    setFilterEnable(aResp, *filterEnable);
+                }
+                if (pefActionGblControl)
+                {
+                    setPefConfParam(aResp, pefActionGblControl);
+                }
+                if (destinationType)
+                {
+                    setDestinationType(aResp, destinationType);
+                }
+                getPefServiceInfo(aResp);
+            });
+
+    BMCWEB_ROUTE(app, "/redfish/v1/PefService/<str>")
+        .privileges({{"Login"}, {"ConfigureComponents"}})
+        .methods(
+            boost::beast::http::verb::
+                get)([&app](const crow::Request& req,
+                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                            const std::string& entryId) {
+            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+            {
+                return;
+            }
+            getPefServiceInfoId(asyncResp,entryId);
+                    });
 
     BMCWEB_ROUTE(app, "/redfish/v1/PefService/<str>")
         .privileges({{"Login"}, {"ConfigureComponents"}})
@@ -565,9 +576,10 @@ inline void requestRoutesPefService(App& app)
                     {
                         messages::propertyValueNotInList(
                             asyncResp->res, "EventSeverity", *eventSeverity);
+                            return;
                     }
                 }
-                messages::success(asyncResp->res);
+                getPefServiceInfoId(asyncResp,entryId);
             });
 
     BMCWEB_ROUTE(app,
