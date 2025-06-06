@@ -33,8 +33,12 @@ inline void requestRoutesNodeManagerThrottlingStatus(App& app)
         app, "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/ThrottlingStatus/")
         .privileges({{"Login"}})
         .methods(boost::beast::http::verb::get)(
-            [](const crow::Request& req,
+            [&app](const crow::Request& req,
                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
         BMCWEB_LOG_DEBUG("Get Throttling Status");
         crow::connections::systemBus->async_method_call(
             [asyncResp, req](const boost::system::error_code& ec,

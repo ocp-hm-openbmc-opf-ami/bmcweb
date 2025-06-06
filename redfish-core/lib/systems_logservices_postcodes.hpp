@@ -444,6 +444,10 @@ inline void handleSystemsLogServicesPostCodesEntriesGet(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& systemName)
 {
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
     query_param::QueryCapabilities capabilities = {
         .canDelegateTop = true,
         .canDelegateSkip = true,

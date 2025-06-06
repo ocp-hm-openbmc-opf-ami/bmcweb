@@ -768,8 +768,13 @@ static void
  * BiosService class supports handle get method for bios.
  */
 inline void handleBiosServiceGet(
-    const crow::Request&, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+    crow::App& app, const crow::Request& req, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
     asyncResp->res.jsonValue["@odata.id"] = "/redfish/v1/Systems/system/Bios";
     asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("Bios");
     asyncResp->res.jsonValue["Name"] = "BIOS Configuration";
@@ -796,7 +801,8 @@ inline void requestRoutesBiosService(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/system/Bios/")
         .privileges(redfish::privileges::getBios)
-        .methods(boost::beast::http::verb::get)(handleBiosServiceGet);
+        .methods(boost::beast::http::verb::get)(std::bind_front(
+            handleBiosServiceGet, std::ref(app)));
 }
 /**
  * BiosSetting class supports handle patch method for Bios Settings.
@@ -828,8 +834,13 @@ inline void
  * BiosSetting class supports handle get method for Bios Settings.
  */
 inline void handleBiosSettingsGet(
-    const crow::Request&, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+    crow::App& app, const crow::Request& req, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
     asyncResp->res.jsonValue["@odata.id"] =
         "/redfish/v1/Systems/system/Bios/Settings";
     asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("Bios");
@@ -844,7 +855,9 @@ inline void requestRoutesBiosSettings(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/system/Bios/Settings")
         .privileges(redfish::privileges::getBios)
-        .methods(boost::beast::http::verb::get)(handleBiosSettingsGet);
+        .methods(boost::beast::http::verb::get)(std::bind_front(
+            handleBiosSettingsGet, std::ref(app)));
+        
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/system/Bios/Settings")
         .privileges(redfish::privileges::patchBios)
         .methods(boost::beast::http::verb::patch)(handleBiosSettingsPatch);

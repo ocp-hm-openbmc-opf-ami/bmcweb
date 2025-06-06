@@ -1668,7 +1668,18 @@ void invalidTypeForCertificateString(crow::Response& res,
  */
 nlohmann::json privateKeyNotFound();
 
-void privateKeyNotFound(crow::Response& res);                                     
+void privateKeyNotFound(crow::Response& res);  
+
+/**
+ * @brief Formats RequestBodyNotAllowed message into JSON
+ * Message body: "The resource was RequestBodyNotAllowed successfully."
+ *
+ *
+ * @returns Message RequestBodyNotAllowed formatted to JSON */
+nlohmann::json requestBodyNotAllowed();
+
+void requestBodyNotAllowed(crow::Response& res);
+
 } // namespace messages
 
 } // namespace redfish

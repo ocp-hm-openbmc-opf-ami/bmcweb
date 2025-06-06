@@ -1744,6 +1744,11 @@ inline void handleSystemsLogServiceEventLogLogEntryCollection(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& systemName)
 {
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
     query_param::QueryCapabilities capabilities = {
         .canDelegateTop = true,
         .canDelegateSkip = true,
@@ -3755,12 +3760,17 @@ inline void requestRoutesCrashdumpFile(App& app)
         "/redfish/v1/Systems/<str>/LogServices/Crashdump/Entries/<str>/<str>/")
         .privileges(redfish::privileges::getLogEntry)
         .methods(boost::beast::http::verb::get)(
-            [](const crow::Request& req,
+            [&app](const crow::Request& req,
                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                const std::string& systemName, const std::string& logID,
                const std::string& fileName) {
                 // Do not call getRedfishRoute here since the crashdump file is
                 // not a Redfish resource.
+
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
 
                 if constexpr (BMCWEB_EXPERIMENTAL_REDFISH_MULTI_COMPUTER_SYSTEM)
                 {
@@ -4182,6 +4192,11 @@ inline void requestRoutesAcpiFile(App& app)
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& fileName) {
+                
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
                 if (fileName != acpiFileName)
                 {
                     messages::resourceMissingAtURI(asyncResp->res, req.url());

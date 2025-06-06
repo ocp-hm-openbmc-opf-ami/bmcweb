@@ -306,10 +306,14 @@ inline void jsonSchemaGet(App& app, const crow::Request& req,
 }
 
 inline void
-    jsonSchemaGetFile(const crow::Request& /*req*/,
+    jsonSchemaGetFile(App& app, const crow::Request& req,
                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                       const std::string& schema, const std::string& schemaFile)
 {
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
     // Sanity check the filename
     if (schemaFile.find_first_not_of(
             "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-.") !=
@@ -357,7 +361,8 @@ inline void requestRoutesRedfish(App& app)
 
     BMCWEB_ROUTE(app, "/redfish/v1/JsonSchemas/<str>/<str>")
         .privileges(redfish::privileges::getJsonSchemaFile)
-        .methods(boost::beast::http::verb::get)(jsonSchemaGetFile);
+        .methods(boost::beast::http::verb::get)(
+            std::bind_front(jsonSchemaGetFile, std::ref(app)));
 
     BMCWEB_ROUTE(app, "/redfish/v1/JsonSchemas/<str>/")
         .privileges(redfish::privileges::getJsonSchemaFileCollection)

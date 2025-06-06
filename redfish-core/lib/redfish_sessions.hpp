@@ -799,7 +799,7 @@ inline void handleSessionCollectionPost(
         return;
     }
 
-    int pamrc = pamAuthenticateUser(username, password, token);
+    int pamrc = pamAuthenticateUser(username, password, token,req.ipAddress);
     bool isConfigureSelfOnly = pamrc == PAM_NEW_AUTHTOK_REQD;
     if ((pamrc != PAM_SUCCESS) && !isConfigureSelfOnly)
     {

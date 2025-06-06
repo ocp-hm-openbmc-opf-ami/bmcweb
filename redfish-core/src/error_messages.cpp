@@ -15,6 +15,7 @@
 #include "logging.hpp"
 #include "registries.hpp"
 #include "registries/base_message_registry.hpp"
+#include "registries/openbmc_message_registry.hpp"
 #include "registries/certificate_service_message_registry.hpp"
 
 #include <boost/beast/http/field.hpp>
@@ -64,6 +65,18 @@ static nlohmann::json getLog(redfish::registries::certificate::Index name,
     return getLogFromRegistry(redfish::registries::certificate::header,
                               redfish::registries::certificate::registry, index,
                               args);
+}
+
+static nlohmann::json getLog(redfish::registries::openbmc::Index name,
+                             std::span<const std::string_view> args)
+{
+    size_t index = static_cast<size_t>(name);
+    if (index >= redfish::registries::openbmc::registry.size())
+    {
+        return {};
+    }
+    return getLogFromRegistry(redfish::registries::openbmc::header,
+                              redfish::registries::openbmc::registry, index, args);
 }
 
 /**
@@ -2756,5 +2769,24 @@ void privateKeyNotFound(crow::Response& res)
     res.result(boost::beast::http::status::bad_request);
     addMessageToErrorJson(res.jsonValue, privateKeyNotFound());
 }
+
+/**
+ * @internal
+ * @brief Formats requestBodyNotAllowed message into JSON
+ *
+ * See header file for more information
+ * @endinternal
+ */
+nlohmann::json requestBodyNotAllowed()
+{
+    return getLog(redfish::registries::openbmc::Index::requestBodyNotAllowed, {});
+}
+
+void requestBodyNotAllowed(crow::Response& res)
+{    
+    res.result(boost::beast::http::status::bad_request);
+    addMessageToErrorJson(res.jsonValue, requestBodyNotAllowed());
+}
+
 } // namespace messages
 } // namespace redfish

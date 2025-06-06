@@ -538,9 +538,14 @@ inline void requestRoutesTaskMonitor(App& app)
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& strParam) {
+                    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                    {
+                        return;
+                    }
  		asyncResp->res.clearHeader(boost::beast::http::field::allow);
                 asyncResp->res.addHeader("Allow", "GET,DELETE");
-		if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                
+		        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
                     return;
                 }

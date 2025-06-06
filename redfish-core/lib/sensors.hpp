@@ -2664,6 +2664,11 @@ inline void handleSensorCollectionGet(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId)
 {
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    
     query_param::QueryCapabilities capabilities = {
         .canDelegateExpandLevel = 1,
     };

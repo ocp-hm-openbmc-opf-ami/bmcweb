@@ -1670,6 +1670,14 @@
             "ParamTypes": ["string"],
             "Resolution": "None.",
             "Severity": "Critical"
+        },
+        "RequestBodyNotAllowed": {
+            "Description": "A request body was provided with a GET request, which is not allowed.",
+            "Message": "Request body not allowed for GET method.",
+            "MessageSeverity": "Warning",
+            "NumberOfArgs": 0,
+            "Resolution": "Remove the request body and retry the GET request.",
+            "Severity": "Warning"
         }
     },
     "Name": "OpenBMC Message Registry",
