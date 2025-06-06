@@ -3489,17 +3489,38 @@ inline void requestEthernetInterfacesRoutes(App& app)
                         else if (isDnsv4Enabled && isDnsv6Enabled &&
                                  result == redfish::IPType::Both)
                         {
-                            messages::propertyValueConflict(
-                                asyncResp->res, "StaticNameServers",
-                                "DHCPv4.UseDNSServers/DHCPv6.UseDNSServers");
-                            return;
+                             if ( (isDhcpv4Enabled && isDhcpv6Enabled) )
+                            {
+                                messages::propertyValueConflict(asyncResp->res, "StaticNameServers",
+                                    "DHCPv4.UseDNSServers/DHCPv6.UseDNSServers");
+                                return;
+                            }
+                            else if ( isDhcpv4Enabled && !isDhcpv6Enabled )
+                            {
+                                messages::propertyValueConflict(asyncResp->res, "StaticNameServers",
+                                "DHCPv4.UseDNSServers");
+                                return;
+                            }
+                            else if (!isDhcpv4Enabled && isDhcpv6Enabled)
+                            {
+                                messages::propertyValueConflict(asyncResp->res, "StaticNameServers",
+                                "DHCPv6.UseDNSServers");
+                                return;
+                            }
                         }
-                        else if (result == IPType::None ||
-                                 result == IPType::Invalid)
+                        else if ((result == IPType::None || result == IPType::Invalid) && (staticNameServers->size() != 0))
                         {
-                            asyncResp->res.result(
-                                boost::beast::http::status::bad_request);
-                            return;
+                            for (const auto& ip : staticNameServers.value())
+                    {
+                        bool isIPv4 = redfish::ip_util::isValidIPv4Addr(ip, redfish::ip_util::Type::IP4_ADDRESS);
+                        bool isIPv6 = redfish::ip_util::validateIPv6address(ip, redfish::ip_util::Type::IP6_ADDRESS);
+                        if (!isIPv4 && !isIPv6)
+                        {
+                            messages::propertyValueFormatError(asyncResp->res,ip, "StaticNameServers");
+                        }
+                    }
+                    asyncResp->res.result(boost::beast::http::status::bad_request);
+                    return;
                         }
                         handleStaticNameServersPatch(
                             ifaceId, *staticNameServers, asyncResp);
