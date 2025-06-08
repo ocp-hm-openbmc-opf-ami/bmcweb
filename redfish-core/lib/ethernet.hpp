@@ -3486,22 +3486,21 @@ inline void requestEthernetInterfacesRoutes(App& app)
                                 "DHCPv6.UseDNSServers");
                             return;
                         }
-                        else if (isDnsv4Enabled && isDnsv6Enabled &&
-                                 result == redfish::IPType::Both)
+                        else if (result == redfish::IPType::Both)
                         {
-                             if ( (isDhcpv4Enabled && isDhcpv6Enabled) )
+                             if ( (isDnsv4Enabled && isDnsv6Enabled) )
                             {
                                 messages::propertyValueConflict(asyncResp->res, "StaticNameServers",
                                     "DHCPv4.UseDNSServers/DHCPv6.UseDNSServers");
                                 return;
                             }
-                            else if ( isDhcpv4Enabled && !isDhcpv6Enabled )
+                            else if ( isDnsv4Enabled && !isDnsv6Enabled )
                             {
                                 messages::propertyValueConflict(asyncResp->res, "StaticNameServers",
                                 "DHCPv4.UseDNSServers");
                                 return;
                             }
-                            else if (!isDhcpv4Enabled && isDhcpv6Enabled)
+                            else if (!isDnsv4Enabled && isDnsv6Enabled)
                             {
                                 messages::propertyValueConflict(asyncResp->res, "StaticNameServers",
                                 "DHCPv6.UseDNSServers");
