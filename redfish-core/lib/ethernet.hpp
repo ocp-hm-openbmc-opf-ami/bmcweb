@@ -3056,6 +3056,9 @@ inline void handleEthernetInterfaceInstanceGet(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& managerId, const std::string& ifaceId)
 {
+    asyncResp->res.clearHeader(boost::beast::http::field::allow);
+    asyncResp->res.addHeader("Allow", "GET,PATCH,DELETE");
+
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
@@ -3098,6 +3101,9 @@ inline void handleEthernetInterfaceInstanceDelete(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& managerId, const std::string& ifaceId)
 {
+    asyncResp->res.clearHeader(boost::beast::http::field::allow);
+    asyncResp->res.addHeader("Allow", "GET,PATCH,DELETE");
+
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
@@ -3292,6 +3298,44 @@ inline void requestEthernetInterfacesRoutes(App& app)
         .privileges(redfish::privileges::getEthernetInterface)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleEthernetInterfaceInstanceGet, std::ref(app)));
+
+    BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/EthernetInterfaces/<str>/")
+        .privileges(redfish::privileges::getEthernetInterface)
+        .methods(boost::beast::http::verb::post)(
+            [&app](const crow::Request& req,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   [[maybe_unused]] const std::string& managerId,
+                   const std::string& ifaceId) {
+                asyncResp->res.clearHeader(boost::beast::http::field::allow);
+
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
+                getEthernetIfaceData(
+                    ifaceId,
+                    [asyncResp, ifaceId](
+                        const bool& success,
+                        [[maybe_unused]] const EthernetInterfaceData& ethData,
+                        [[maybe_unused]] const std::vector<IPv4AddressData>&
+                            ipv4Data,
+                        [[maybe_unused]] const std::vector<IPv6AddressData>&
+                            ipv6Data,
+                        [[maybe_unused]] const std::vector<StaticGatewayData>&
+                            ipv6GatewayData) {
+                        if (!success)
+                        {
+                            // TODO(Pawel)consider distinguish between non
+                            // existing object, and other errors
+                            messages::resourceNotFound(
+                                asyncResp->res, "EthernetInterface", ifaceId);
+                            return;
+                        }
+                        messages::operationNotAllowed(asyncResp->res);
+                        return;
+                    });
+            });
+
 
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/EthernetInterfaces/<str>/")
         .privileges(
