@@ -79,13 +79,13 @@ int run()
     if constexpr (BMCWEB_REDFISH)
     {
         redfish::RedfishService redfish(app);
-        // Create EventServiceManager instance and initialize Config
-        redfish::EventServiceManager::getInstance(&*io);
 
         // Initialize config JSON file for SSDP service ,
         // /home/root/bmcweb_persistent_data.json
         persistent_data::getConfig().readData();
 
+        // Create EventServiceManager instance and initialize Config after loading data from bmcweb_persistent_data.json
+        redfish::EventServiceManager::getInstance(&*io);
 
         if constexpr (BMCWEB_REDFISH_AGGREGATION)
         {

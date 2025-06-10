@@ -40,7 +40,8 @@ inline std::string getProtocol(const std::string& snmpProtol)
 inline void afterGetSnmpTrapClientdata(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const boost::system::error_code& ec,
-    const dbus::utility::DBusPropertiesMap& propertiesList)
+    const dbus::utility::DBusPropertiesMap& propertiesList,
+    const std::string& id)
 {
     if (ec)
     {
@@ -67,6 +68,7 @@ inline void afterGetSnmpTrapClientdata(
         return;
     }
 
+    std::shared_ptr<Subscription> subVal = EventServiceManager::getInstance().getSubscription(id);
     if (version == "v3" && !algorithm.empty())
     {
         asyncResp->res.jsonValue["SNMP"]["AuthenticationProtocol"] = algorithm;
@@ -82,6 +84,7 @@ inline void afterGetSnmpTrapClientdata(
             "snmp://" + address + ":" + std::to_string(port);
     }
     asyncResp->res.jsonValue["Protocol"] = "SNMP" + version;
+    asyncResp->res.jsonValue["Context"] = ((subVal != nullptr) && !subVal->userSub->customText.empty()) ? subVal->userSub->customText : "Event_Sub";
 }
 
 inline void
@@ -102,9 +105,9 @@ inline void
     dbus::utility::getAllProperties(
         "xyz.openbmc_project.Network.SNMP", objectPath,
         "xyz.openbmc_project.Network.Client",
-        [asyncResp](const boost::system::error_code& ec,
+        [asyncResp, id](const boost::system::error_code& ec,
                     const dbus::utility::DBusPropertiesMap& properties) {
-            afterGetSnmpTrapClientdata(asyncResp, ec, properties);
+            afterGetSnmpTrapClientdata(asyncResp, ec, properties, id);
         });
 }
 
