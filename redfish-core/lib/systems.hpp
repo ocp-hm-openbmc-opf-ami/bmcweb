@@ -667,6 +667,11 @@ inline std::string dbusToRfBootSource(const std::string& dbusSource)
     {
         return "Usb";
     }
+    if (dbusSource ==
+        "xyz.openbmc_project.Control.Boot.Source.Sources.HTTP")
+    {
+        return "UefiHttp";
+    }
     return "";
 }
 
@@ -832,6 +837,11 @@ inline int assignBootParameters(const std::string& rfSource,
     {
         bootSource =
             "xyz.openbmc_project.Control.Boot.Source.Sources.RemovableMedia";
+    }
+    else if (rfSource == "UefiHttp")
+    {
+        bootSource =
+            "xyz.openbmc_project.Control.Boot.Source.Sources.HTTP";
     }
     else
     {
@@ -1038,6 +1048,7 @@ inline void
             allowed.emplace_back("Cd");
             allowed.emplace_back("BiosSetup");
             allowed.emplace_back("Usb");
+            allowed.emplace_back("UefiHttp");
 
             asyncResp->res
                 .jsonValue["Boot"]
