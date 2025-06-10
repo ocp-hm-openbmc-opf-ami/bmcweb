@@ -472,7 +472,7 @@ inline void
         return;
     }
 
-    asyncResp->res.jsonValue["@odata.type"] = "#AMIResetToDefaults.v1_0_0.AMIResetToDefaults";
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("AMIResetToDefaults");
     asyncResp->res.jsonValue["@odata.id"] = boost::urls::format("/redfish/v1/Managers/{}/Oem/Ami/ResetToDefaults",BMCWEB_REDFISH_MANAGER_URI_NAME);
     asyncResp->res.jsonValue["Name"]="AMI ResetToDefaults";
     asyncResp->res.jsonValue["Id"]="AMIResetToDefaults";
@@ -574,8 +574,7 @@ inline void requestRoutesManagerResetActionInfo(App& app)
                     return;
                 }
 
-                asyncResp->res.jsonValue["@odata.type"] =
-                    "#ActionInfo.v1_1_2.ActionInfo";
+                asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("ActionInfo");
                 asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
                     "/redfish/v1/Managers/{}/ResetActionInfo",
                     BMCWEB_REDFISH_MANAGER_URI_NAME);
@@ -630,22 +629,19 @@ inline void
             nlohmann::json& configRoot =
                 asyncResp->res.jsonValue["Oem"]["OpenBmc"]["Fan"];
             nlohmann::json& fans = configRoot["FanControllers"];
-            fans["@odata.type"] =
-                "#OpenBMCManager.v1_0_0.Manager.FanControllers";
+            fans["@odata.type"] = json_util::odataType("OpenBMCManager", "Manager", "FanControllers");
             fans["@odata.id"] = boost::urls::format(
                 "/redfish/v1/Managers/{}#/Oem/OpenBmc/Fan/FanControllers",
                 BMCWEB_REDFISH_MANAGER_URI_NAME);
 
             nlohmann::json& pids = configRoot["PidControllers"];
-            pids["@odata.type"] =
-                "#OpenBMCManager.v1_0_0.Manager.PidControllers";
+            pids["@odata.type"] = json_util::odataType("OpenBMCManager", "Manager", "PidControllers");
             pids["@odata.id"] = boost::urls::format(
                 "/redfish/v1/Managers/{}#/Oem/OpenBmc/Fan/PidControllers",
                 BMCWEB_REDFISH_MANAGER_URI_NAME);
 
             nlohmann::json& stepwise = configRoot["StepwiseControllers"];
-            stepwise["@odata.type"] =
-                "#OpenBMCManager.v1_0_0.Manager.StepwiseControllers";
+            stepwise["@odata.type"] = json_util::odataType("OpenBMCManager", "Manager", "StepwiseControllers");
             stepwise["@odata.id"] = boost::urls::format(
                 "/redfish/v1/Managers/{}#/Oem/OpenBmc/Fan/StepwiseControllers",
                 BMCWEB_REDFISH_MANAGER_URI_NAME);
@@ -654,11 +650,11 @@ inline void
             zones["@odata.id"] = boost::urls::format(
                 "/redfish/v1/Managers/{}#/Oem/OpenBmc/Fan/FanZones",
                 BMCWEB_REDFISH_MANAGER_URI_NAME);
-            zones["@odata.type"] = "#OpenBMCManager.v1_0_0.Manager.FanZones";
+            zones["@odata.type"] = json_util::odataType("OpenBMCManager", "Manager", "FanZones");
             configRoot["@odata.id"] =
                 boost::urls::format("/redfish/v1/Managers/{}#/Oem/OpenBmc/Fan",
                                     BMCWEB_REDFISH_MANAGER_URI_NAME);
-            configRoot["@odata.type"] = "#OpenBMCManager.v1_0_0.Manager.Fan";
+            configRoot["@odata.type"] = json_util::odataType("OpenBMCManager", "Manager", "Fan");
             configRoot["Profile@Redfish.AllowableValues"] = supportedProfiles;
 
             if (!currentProfile.empty())
@@ -753,7 +749,7 @@ inline void
                             ("/Oem/OpenBmc/Fan/FanZones"_json_pointer / name)
                                 .to_string());
                         zone["@odata.id"] = std::move(url);
-                        zone["@odata.type"] = "#OpenBMCManager.v1_0_0.FanZone";
+                        zone["@odata.type"] = json_util::odataType("OpenBMCManager", "FanZone");
                         config = &zone;
                     }
 
@@ -773,8 +769,7 @@ inline void
                              name)
                                 .to_string());
                         controller["@odata.id"] = std::move(url);
-                        controller["@odata.type"] =
-                            "#OpenBMCManager.v1_0_0.Manager.StepwiseController";
+                        controller["@odata.type"] = json_util::odataType("OpenBMCManager", "Manager", "StepwiseController");
 
                         controller["Direction"] = *classPtr;
                     }
@@ -799,8 +794,7 @@ inline void
                                  name)
                                     .to_string());
                             element["@odata.id"] = std::move(url);
-                            element["@odata.type"] =
-                                "#OpenBMCManager.v1_0_0.Manager.FanController";
+                            element["@odata.type"] = json_util::odataType("OpenBMCManager", "Manager", "FanController");
                         }
                         else
                         {
@@ -809,8 +803,7 @@ inline void
                                  name)
                                     .to_string());
                             element["@odata.id"] = std::move(url);
-                            element["@odata.type"] =
-                                "#OpenBMCManager.v1_0_0.Manager.PidController";
+                            element["@odata.type"] = json_util::odataType("OpenBMCManager", "Manager", "PidController");
                         }
                     }
                     else
@@ -939,8 +932,7 @@ inline void
                                              itemCopy)
                                                 .to_string());
                                     input["@odata.id"] = std::move(managerUrl);
-                                    input["@odata.type"] =
-                                        "#OpenBMCManager.v1_0_0.FanZone";
+                                    input["@odata.type"] = json_util::odataType("OpenBMCManager", "FanZone");
                                     data.emplace_back(std::move(input));
                                 }
                             }
@@ -2377,7 +2369,7 @@ inline void handleManagersInstanceGet(
 
     asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
         "/redfish/v1/Managers/{}", BMCWEB_REDFISH_MANAGER_URI_NAME);
-    asyncResp->res.jsonValue["@odata.type"] = "#Manager.v1_16_0.Manager";
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("Manager");
     asyncResp->res.jsonValue["Id"] = BMCWEB_REDFISH_MANAGER_URI_NAME;
     asyncResp->res.jsonValue["Name"] = "OpenBmc Manager";
     asyncResp->res.jsonValue["Description"] = "Baseboard Management Controller";
@@ -2414,7 +2406,7 @@ inline void handleManagersInstanceGet(
     nlohmann::json& oem = asyncResp->res.jsonValue["Oem"];
     nlohmann::json& oemOpenbmc = oem["OpenBmc"];
     nlohmann::json& oemIntel = oem["Intel"];
-    oemIntel["@odata.type"] = "#OpenBMCManager.v1_0_0.Intel";
+    oemIntel["@odata.type"] = json_util::odataType("OpenBMCManager", "Intel");
     oemIntel["@odata.id"] = "/redfish/v1/Managers/bmc#/Oem/Intel";
 #if (BMCWEB_AMI_NM_MACRO)
     oemIntel["NodeManager"] = {
@@ -2422,7 +2414,7 @@ inline void handleManagersInstanceGet(
 #endif
     oem["@odata.id"] = boost::urls::format("/redfish/v1/Managers/{}#/Oem",
                                            BMCWEB_REDFISH_MANAGER_URI_NAME);
-    oemOpenbmc["@odata.type"] = "#OpenBMCManager.v1_0_0.Manager";
+    oemOpenbmc["@odata.type"] = json_util::odataType("OpenBMCManager", "Manager");
     oemOpenbmc["@odata.id"] =
         boost::urls::format("/redfish/v1/Managers/{}#/Oem/OpenBmc",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
@@ -2830,7 +2822,14 @@ inline void handleManagerSerialInterfaceGet(
                 messages::internalError(asyncResp->res);
                 return;
             }
-
+            asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("SerialInterface");
+            asyncResp->res.jsonValue["Id"] = "IPMI-SOL";
+            asyncResp->res.jsonValue["Name"] = "Manager Serial Interface";
+            asyncResp->res.jsonValue["Description"] =
+                "Management for Serial Interface";
+            asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
+                "/redfish/v1/Managers/{}/SerialInterfaces/IPMI-SOL",
+                BMCWEB_REDFISH_MANAGER_URI_NAME);
             asyncResp->res.jsonValue["BitRate"] = std::to_string(val);
         });
 }
@@ -2839,7 +2838,6 @@ inline void requestRoutesManagerSerialInterface(App& app)
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/SerialInterfaces/")
         .privileges(redfish::privileges::getSerialInterfaceCollection)
         .methods(boost::beast::http::verb::get)(
-
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& managerId) {
@@ -2877,7 +2875,6 @@ inline void requestRoutesManagerSerialInterface(App& app)
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/SerialInterfaces/IPMI-SOL")
         .privileges(redfish::privileges::getSerialInterface)
         .methods(boost::beast::http::verb::get)(
-
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& managerId) {
@@ -2892,16 +2889,6 @@ inline void requestRoutesManagerSerialInterface(App& app)
                                                managerId);
                     return;
                 }
-
-                asyncResp->res.jsonValue["@odata.type"] =
-                    "#SerialInterface.v1_1_8.SerialInterface";
-                asyncResp->res.jsonValue["Id"] = "IPMI-SOL";
-                asyncResp->res.jsonValue["Name"] = "Manager Serial Interface";
-                asyncResp->res.jsonValue["Description"] =
-                    "Management for Serial Interface";
-                asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
-                    "/redfish/v1/Managers/{}/SerialInterfaces/IPMI-SOL",
-                    BMCWEB_REDFISH_MANAGER_URI_NAME);
                 handleManagerSerialInterfaceGet(app, req, asyncResp);
             });
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/SerialInterfaces/IPMI-SOL")
@@ -2942,10 +2929,21 @@ inline void requestRoutesManagerSerialInterface(App& app)
                         bitRate == "115200")
                     {
                         uint64_t baudRate = std::stoull(*bitRate);
-                        setDbusProperty(
-                            asyncResp, "BitRate", consoleDbusService,
-                            sdbusplus::message::object_path(consoleDbusObject),
-                            consoleDbusInterface, "Baud", baudRate);
+                        sdbusplus::asio::setProperty(
+                            *crow::connections::systemBus, consoleDbusService,
+                            consoleDbusObject, consoleDbusInterface, "Baud",
+                            baudRate,
+                            [&app, asyncResp,
+                             &req](const boost::system::error_code& ec) {
+                                if (ec)
+                                {
+                                    BMCWEB_LOG_DEBUG("Unable to set BitRate");
+                                    messages::internalError(asyncResp->res);
+                                    return;
+                                }
+                                handleManagerSerialInterfaceGet(app, req,
+                                                                asyncResp);
+                            });
                     }
                     else
                     {

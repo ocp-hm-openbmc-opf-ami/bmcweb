@@ -289,6 +289,8 @@ class Connection :
             }
         }
 
+        auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+        
         BMCWEB_LOG_INFO("Request:  {} HTTP/{}.{} {} {} {}", logPtr(this),
                         req->version() / 10, req->version() % 10,
                         req->methodString(), req->target(),
@@ -321,7 +323,7 @@ class Connection :
                 }
             }
         }
-        auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
+        
         BMCWEB_LOG_DEBUG("Setting completion handler");
         asyncResp->res.setCompleteRequestHandler(
             [self(shared_from_this())](crow::Response& thisRes) {

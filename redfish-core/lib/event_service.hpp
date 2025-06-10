@@ -79,8 +79,8 @@ std::string sslSecondaryServerKeyFile(secodaryServerKeyFilePath);
 std::string SSLFileName("");
 const char* commandLine("systemctl restart mail-alert-manager.service");
 
-constexpr const char* snmpProtocolSevrice = "xyz.openbmc_project.Snmp";
-constexpr const char* snmpProtocolObject = "/xyz/openbmc_project/Snmp";
+constexpr const char* snmpProtocolSevrice = "xyz.openbmc_project.Snmp.Conf";
+constexpr const char* snmpProtocolObject = "/xyz/openbmc_project/snmp/SnmpUtils";
 constexpr const char* snmpProtocolInterface =
     "xyz.openbmc_project.Snmp.SnmpUtils";
 constexpr const char* snmpProtocolProp = "SnmpTrapStatus";
@@ -814,6 +814,43 @@ inline void setRecipient(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
             BMCWEB_LOG_DEBUG("Patch Recipient Success");
         });
 }
+bool validateMsgId(std::string messageId)
+{
+    std::string msgPrefix;
+    std::string msgSuffix;
+    std::size_t pos = messageId.find('.');
+    std::size_t posLast = messageId.find_last_of('.');
+    if (pos != std::string::npos && posLast != std::string::npos &&
+        pos != posLast)
+    {
+        msgPrefix = messageId.substr(0, pos);
+        msgSuffix = messageId.substr(posLast + 1);
+        msgSuffix.erase(
+            0, msgSuffix.find_first_not_of(' ')); // Remove leading spaces
+        msgSuffix.erase(
+            msgSuffix.find_last_not_of(' ') + 1); // Remove trailing spaces
+    }
+    else
+    {
+        return false;
+    }
+
+    const std::span<const redfish::registries::MessageEntry> registry =
+        redfish::registries::getRegistryFromPrefix(msgPrefix);
+
+    if (std::any_of(registry.begin(), registry.end(),
+                    [&msgSuffix](
+                        const redfish::registries::MessageEntry& messageEntry) {
+                        BMCWEB_LOG_DEBUG(
+                            "msgSuffix : {}, messageEntry.first : {}",
+                            msgSuffix, messageEntry.first);
+                        return msgSuffix == messageEntry.first;
+                    }))
+    {
+        return true;
+    }
+    return false; // No matcing found the Message Entry
+}
 
 inline void handleauthenticationpatch(
     const std::shared_ptr<bmcweb::AsyncResp> aResp, std::string interfaces,
@@ -897,8 +934,7 @@ inline void requestRoutesEventService(App& app)
             }
 
             asyncResp->res.jsonValue["@odata.id"] = "/redfish/v1/EventService";
-            asyncResp->res.jsonValue["@odata.type"] =
-                "#EventService.v1_5_0.EventService";
+            asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("EventService");
             asyncResp->res.jsonValue["Id"] = "EventService";
             asyncResp->res.jsonValue["Name"] = "Event Service";
             asyncResp->res.jsonValue["Description"] = "Event Service";
@@ -1724,7 +1760,7 @@ inline void handleSubmitTestEventActionGet(
     {
         return;
     }
-    asyncResp->res.jsonValue["@odata.type"] = "#ActionInfo.v1_1_2.ActionInfo";
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("ActionInfo");
     asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
         "/redfish/v1/EventService/SubmitTestEventActionInfo");
     asyncResp->res.jsonValue["Name"] = "SubmitTestEvent Action Info";
@@ -1818,6 +1854,14 @@ inline void requestRoutesSubmitTestEvent(App& app)
                         "Severity", testEvent.severity))
                 {
                     return;
+                }
+                if (testEvent.messageId.has_value())
+                {
+                     if(!validateMsgId(testEvent.messageId.value()))
+                    {
+                    messages::propertyValueNotInList(asyncResp->res,*testEvent.messageId, "MessageId");
+                    return;
+                    }
                 }
                 // clang-format on
                 if (!EventServiceManager::getInstance().sendTestEventLog(
@@ -1981,9 +2025,7 @@ inline void requestRoutesEventDestinationCollection(App& app)
             std::optional<std::vector<nlohmann::json::object_t>> headers;
             std::optional<std::vector<nlohmann::json::object_t>> mrdJsonArray;
             std::optional<nlohmann::json> oemObj;
-            std::optional<std::string> password;
-            std::optional<std::string> algorithm;
-            std::optional<std::string> encryption;
+            std::optional<std::string> oemsnmpcommunitystring;
 
             if (!json_util::readJsonPatch( //
                     req, asyncResp->res, //
@@ -2002,16 +2044,13 @@ inline void requestRoutesEventDestinationCollection(App& app)
                     "MetricReportDefinitions", mrdJsonArray, //
                     "ResourceTypes", resTypes, //
                     "SendHeartbeat", sendHeartbeat, //
-                    "Password", password, //
-                    "SNMP/AuthenticationProtocol", algorithm, //
-                    "SNMP/EncryptionProtocol", encryption, //
                     "VerifyCertificate", verifyCertificate, //
+                    "Oem/OpenBmc/CommunityString", oemsnmpcommunitystring, //
                     "Oem", oemObj //
                     ))
             {
                 return;
             }
-
             if (vId)
             {
                 messages::propertyNotWritable(asyncResp->res, "Id");
@@ -2210,7 +2249,6 @@ inline void requestRoutesEventDestinationCollection(App& app)
                     std::make_shared<persistent_data::UserSubscription>(), *url,
                     app.ioContext());
 
-            bool readOnlyPermission;
             subValue->userSub->destinationUrl = *url;
             subValue->userSub->owner = req.session->username;
 
@@ -2480,51 +2518,6 @@ inline void requestRoutesEventDestinationCollection(App& app)
             // be set to "Disabled" state.
             subValue->userSub->state = "Enabled";
 
-            if (encryption)
-            {
-                if (*encryption != "AES" && *encryption != "DES")
-                {
-                    messages::propertyValueNotInList(asyncResp->res,
-                                                     *encryption, "Encryption");
-                    return;
-                }
-            }
-
-            if (algorithm)
-            {
-                if (*algorithm != "SHA" && *algorithm != "SHA-256" &&
-                    *algorithm != "SHA-512" && *algorithm != "SHA-384")
-                {
-                    messages::propertyValueNotInList(asyncResp->res, *algorithm,
-                                                     "Algorithm");
-                    return;
-                }
-            }
-
-            if (!password && protocol == "SNMPv3")
-            {
-                messages::propertyMissing(asyncResp->res, "Password");
-                return;
-            }
-            if (!algorithm && protocol == "SNMPv3")
-            {
-                messages::propertyMissing(asyncResp->res, "Algorithm");
-                return;
-            }
-            if (!encryption && protocol == "SNMPv3")
-            {
-                messages::propertyMissing(asyncResp->res, "Encryption");
-                return;
-            }
-
-            if (protocol != "SNMPv3")
-            {
-                *password = " ";
-                *algorithm = " ";
-                *encryption = " ";
-                readOnlyPermission = false;
-            }
-
             if (protocol == "SNMPv2c" || protocol == "SNMPv3" ||
                 protocol == "SNMPv1")
             {
@@ -2535,18 +2528,53 @@ inline void requestRoutesEventDestinationCollection(App& app)
                     messages::serviceDisabled(asyncResp->res, "SNMP");
                     return;
                 }
-
-                if (protocol == "SNMPv3" && url->has_userinfo() == false)
+                if(protocol == "SNMPv2c" || protocol == "SNMPv1" )
                 {
-                    BMCWEB_LOG_DEBUG("Missing UserName in Destination");
-                    messages::propertyValueFormatError(asyncResp->res, destUrl,
-                                                       "Destination");
-                    return;
+                    std::string hostaddress = url->host_address();
+                    uint16_t portnumber = url->port_number();
+                    std::string user_name = url->user();
+                    if(oemsnmpcommunitystring)
+                    {
+                        //validatecommunitystring(asyncResp, *oemsnmpcommunitystring);
+                        sdbusplus::message::object_path path("/xyz/openbmc_project/snmp/CommunityStrManager/" + *oemsnmpcommunitystring);
+                        dbus::utility::getProperty<std::string>(
+                            "xyz.openbmc_project.Snmp.Conf", path,
+                            "xyz.openbmc_project.Snmp.CommunityStrManager", "CommunityString",
+                            [asyncResp, oemsnmpcommunitystring, hostaddress, portnumber, protocol, user_name, subValue](const boost::system::error_code& ec, std::string communitystring) {
+                            if (ec)
+                            {
+                                BMCWEB_LOG_ERROR("no communitystring object path avaliable");
+                                messages::propertyValueNotInList(asyncResp->res, *oemsnmpcommunitystring, "Oem/OpenBmc/CommunityString");
+                                asyncResp->res.result(boost::beast::http::status::bad_request);
+                                return;
+                            }
+                            else if (communitystring.empty()){
+                                messages::propertyValueNotInList(asyncResp->res, *oemsnmpcommunitystring, "Oem/OpenBmc/CommunityString");
+                                asyncResp->res.result(boost::beast::http::status::bad_request);
+                                return;
+                            }
+                            else
+                            {
+                                addSnmpTrapClient(asyncResp, hostaddress,
+                                    portnumber, protocol, user_name,
+                                    subValue, *oemsnmpcommunitystring);
+                            }
+                        });
+                    }
                 }
-                addSnmpTrapClient(asyncResp, url->host_address(),
-                                  url->port_number(), protocol, url->user(),
-                                  subValue, readOnlyPermission, password,
-                                  algorithm, encryption);
+                else
+                {
+                    if (protocol == "SNMPv3" && url->has_userinfo() == false)
+                    {
+                        BMCWEB_LOG_DEBUG("Missing UserName in Destination");
+                        messages::propertyValueFormatError(asyncResp->res, destUrl,
+                                                        "Destination");
+                        return;
+                    }
+                    addSnmpTrapClient(asyncResp, url->host_address(),
+                                    url->port_number(), protocol, url->user(),
+                                    subValue, *oemsnmpcommunitystring);                    
+                }
                 return;
             }
 
@@ -2642,8 +2670,7 @@ inline void requestRoutesEventDestination(App& app)
                 }
                 const std::string& id = param;
 
-                asyncResp->res.jsonValue["@odata.type"] =
-                    "#EventDestination.v1_14_1.EventDestination";
+                asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("EventDestination");
                 asyncResp->res.jsonValue["Protocol"] =
                     event_destination::EventDestinationProtocol::Redfish;
                 asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
@@ -2722,8 +2749,6 @@ inline void requestRoutesEventDestination(App& app)
                 std::optional<uint64_t> hbIntervalMinutes;
                 std::optional<bool> verifyCertificate;
                 std::optional<std::vector<nlohmann::json::object_t>> headers;
-                std::optional<std::string> authenticationProtocol;
-                std::optional<std::string> encryption;
 
                 if (!json_util::readJsonPatch( //
                         req, asyncResp->res, //
@@ -2732,9 +2757,6 @@ inline void requestRoutesEventDestination(App& app)
                         "HeartbeatIntervalMinutes", hbIntervalMinutes, //
                         "HttpHeaders", headers, //
                         "SendHeartbeat", sendHeartbeat, //
-                        "SNMP/AuthenticationProtocol",
-                        authenticationProtocol, //
-                        "SNMP/EncryptionProtocol", encryption, //
                         "VerifyCertificate", verifyCertificate //
                         ))
                 {
@@ -2814,46 +2836,6 @@ inline void requestRoutesEventDestination(App& app)
                 if (verifyCertificate)
                 {
                     subValue->userSub->verifyCertificate = *verifyCertificate;
-                }
-
-                if (authenticationProtocol)
-                {
-                    if (validAuthProtocol(authenticationProtocol))
-                    {
-                        setSnmpTrapClient(asyncResp, param,
-                                          authenticationProtocol);
-                    }
-                    else
-                    {
-                        messages::propertyValueIncorrect(
-                            asyncResp->res, "AuthenticationProtocol",
-                            *authenticationProtocol);
-                        return;
-                    }
-                }
-                if (encryption)
-                {
-                    if (*encryption != "AES" && *encryption != "DES")
-                    {
-                        messages::propertyValueNotInList(
-                            asyncResp->res, *encryption, "Encryption");
-                        return;
-                    }
-                    sdbusplus::asio::setProperty(
-                        *crow::connections::systemBus,
-                        "xyz.openbmc_project.Network.SNMP",
-                        static_cast<std::string>(snmpPath),
-                        "xyz.openbmc_project.Network.Client", "Encryption",
-                        *encryption,
-                        [asyncResp](const boost::system::error_code& ec) {
-                            if (ec)
-                            {
-                                BMCWEB_LOG_DEBUG(
-                                    "Error occurred in Encryption");
-                                messages::internalError(asyncResp->res);
-                                return;
-                            }
-                        });
                 }
 
                 EventServiceManager::getInstance().updateSubscription(param);

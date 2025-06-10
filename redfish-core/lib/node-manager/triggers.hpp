@@ -118,8 +118,12 @@ inline void requestRoutesNodeManagerTriggers(App& app)
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Triggers/")
         .privileges(redfish::privileges::privilegeSetLogin)
         .methods(boost::beast::http::verb::get)(
-            [](const crow::Request&,
+            [&app](const crow::Request& req,
                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
         asyncResp->res.jsonValue = {
             {"@odata.type", "#NmTriggerCollection.NmTriggerCollection"},
             {"@odata.id",
@@ -143,9 +147,13 @@ inline void requestRoutesNodeManagerTriggers(App& app)
         app, "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Triggers/<str>/")
         .privileges(redfish::privileges::privilegeSetLogin)
         .methods(boost::beast::http::verb::get)(
-            [](const crow::Request&,
+            [&app](const crow::Request& req,
                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                const std::string& triggerName) {
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
         auto triggerDbusPath = "/xyz/openbmc_project/NodeManager/Trigger/" +
                                triggerName;
 

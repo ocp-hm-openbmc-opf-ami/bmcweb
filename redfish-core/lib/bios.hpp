@@ -768,10 +768,15 @@ static void
  * BiosService class supports handle get method for bios.
  */
 inline void handleBiosServiceGet(
-    const crow::Request&, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+    crow::App& app, const crow::Request& req, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
     asyncResp->res.jsonValue["@odata.id"] = "/redfish/v1/Systems/system/Bios";
-    asyncResp->res.jsonValue["@odata.type"] = "#Bios.v1_2_0.Bios";
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("Bios");
     asyncResp->res.jsonValue["Name"] = "BIOS Configuration";
     asyncResp->res.jsonValue["Description"] = "BIOS Configuration Service";
     asyncResp->res.jsonValue["Id"] = "BIOS";
@@ -780,8 +785,7 @@ inline void handleBiosServiceGet(
     asyncResp->res.jsonValue["Actions"]["#Bios.ChangePassword"] = {
         {"target", "/redfish/v1/Systems/system/Bios/Actions/"
                    "Bios.ChangePassword"}};
-    asyncResp->res.jsonValue["@Redfish.Settings"]["@odata.type"] =
-        "#Settings.v1_2_2.Settings";
+    asyncResp->res.jsonValue["@Redfish.Settings"]["@odata.type"] = json_util::odataType("Settings");
     asyncResp->res.jsonValue["@Redfish.Settings"]["SettingsObject"] = {
         {"@odata.id", "/redfish/v1/Systems/system/Bios/Settings"}};
     // Get the ActiveSoftwareImage and SoftwareImages
@@ -797,7 +801,8 @@ inline void requestRoutesBiosService(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/system/Bios/")
         .privileges(redfish::privileges::getBios)
-        .methods(boost::beast::http::verb::get)(handleBiosServiceGet);
+        .methods(boost::beast::http::verb::get)(std::bind_front(
+            handleBiosServiceGet, std::ref(app)));
 }
 /**
  * BiosSetting class supports handle patch method for Bios Settings.
@@ -829,11 +834,16 @@ inline void
  * BiosSetting class supports handle get method for Bios Settings.
  */
 inline void handleBiosSettingsGet(
-    const crow::Request&, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+    crow::App& app, const crow::Request& req, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
     asyncResp->res.jsonValue["@odata.id"] =
         "/redfish/v1/Systems/system/Bios/Settings";
-    asyncResp->res.jsonValue["@odata.type"] = "#Bios.v1_1_0.Bios";
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("Bios");
     asyncResp->res.jsonValue["Name"] = "BIOS Configuration";
     asyncResp->res.jsonValue["Description"] = "BIOS Settings";
     asyncResp->res.jsonValue["Id"] = "BIOS_Settings";
@@ -845,7 +855,9 @@ inline void requestRoutesBiosSettings(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/system/Bios/Settings")
         .privileges(redfish::privileges::getBios)
-        .methods(boost::beast::http::verb::get)(handleBiosSettingsGet);
+        .methods(boost::beast::http::verb::get)(std::bind_front(
+            handleBiosSettingsGet, std::ref(app)));
+        
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/system/Bios/Settings")
         .privileges(redfish::privileges::patchBios)
         .methods(boost::beast::http::verb::patch)(handleBiosSettingsPatch);

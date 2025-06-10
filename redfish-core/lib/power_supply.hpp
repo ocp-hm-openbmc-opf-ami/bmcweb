@@ -495,8 +495,7 @@ inline void doPowerSupplyGet(
             asyncResp->res.addHeader(
                 boost::beast::http::field::link,
                 "</redfish/v1/JsonSchemas/PowerSupply/PowerSupply.json>; rel=describedby");
-            asyncResp->res.jsonValue["@odata.type"] =
-                "#PowerSupply.v1_5_0.PowerSupply";
+            asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("PowerSupply");
             std::string powerSupplyName = powerSupplyId;
             std::replace(powerSupplyName.begin(), powerSupplyName.end(), '_',
                          ' ');

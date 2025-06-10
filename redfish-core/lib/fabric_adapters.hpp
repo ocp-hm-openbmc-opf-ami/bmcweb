@@ -170,8 +170,7 @@ inline void doAdapterGet(
     asyncResp->res.addHeader(
         boost::beast::http::field::link,
         "</redfish/v1/JsonSchemas/FabricAdapter/FabricAdapter.json>; rel=describedby");
-    asyncResp->res.jsonValue["@odata.type"] =
-        "#FabricAdapter.v1_4_0.FabricAdapter";
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("FabricAdapter");
     asyncResp->res.jsonValue["Name"] = "Fabric Adapter";
     asyncResp->res.jsonValue["Id"] = adapterId;
     asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(

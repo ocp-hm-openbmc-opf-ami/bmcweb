@@ -109,8 +109,7 @@ inline void doThermalSubsystemCollection(
     asyncResp->res.addHeader(
         boost::beast::http::field::link,
         "</redfish/v1/JsonSchemas/ThermalSubsystem/ThermalSubsystem.json>; rel=describedby");
-    asyncResp->res.jsonValue["@odata.type"] =
-        "#ThermalSubsystem.v1_0_0.ThermalSubsystem";
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("ThermalSubsystem");
     asyncResp->res.jsonValue["Name"] = "Thermal Subsystem";
     asyncResp->res.jsonValue["Id"] = "ThermalSubsystem";
 

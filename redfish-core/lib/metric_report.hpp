@@ -9,6 +9,7 @@
 #include "utils/collection.hpp"
 #include "utils/telemetry_utils.hpp"
 #include "utils/time_utils.hpp"
+#include "utils/json_utils.hpp"
 
 #include <boost/url/format.hpp>
 #include <sdbusplus/asio/property.hpp>
@@ -45,7 +46,7 @@ inline nlohmann::json toMetricValues(const Readings& readings)
 inline bool fillReport(nlohmann::json& json, const std::string& id,
                        const TimestampReadings& timestampReadings)
 {
-    json["@odata.type"] = "#MetricReport.v1_3_0.MetricReport";
+    json["@odata.type"] = json_util::odataType("MetricReport");
     json["@odata.id"] = boost::urls::format(
         "/redfish/v1/TelemetryService/MetricReports/{}", id);
     json["Id"] = id;

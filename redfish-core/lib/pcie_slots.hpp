@@ -174,7 +174,7 @@ inline void onMapperSubtreeDone(
     BMCWEB_LOG_DEBUG("Get properties for PCIeSlots associated to chassis = {}",
                      chassisID);
 
-    asyncResp->res.jsonValue["@odata.type"] = "#PCIeSlots.v1_4_1.PCIeSlots";
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("PCIeSlots");
     asyncResp->res.jsonValue["Name"] = "PCIe Slot Information";
     asyncResp->res.jsonValue["@odata.id"] =
         boost::urls::format("/redfish/v1/Chassis/{}/PCIeSlots", chassisID);

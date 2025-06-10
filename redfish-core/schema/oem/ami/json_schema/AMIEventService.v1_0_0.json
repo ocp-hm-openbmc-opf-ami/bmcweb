@@ -429,5 +429,5 @@
             "type": "object"
         }
     },
-    "title": "#AMIEventService"
+    "title": "#AMIEventService.v1_0_0"
 }

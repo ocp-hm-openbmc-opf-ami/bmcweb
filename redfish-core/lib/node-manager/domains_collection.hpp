@@ -18,7 +18,7 @@
 
 #include "nm_common.hpp"
 #include "utils/time_utils.hpp"
-
+#include "query.hpp"
 #include <app.hpp>
 #include <http_request.hpp>
 #include <http_response.hpp>
@@ -471,8 +471,12 @@ inline void requestRoutesNodeManagerDomains([[maybe_unused]] App& app)
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Domains/")
         .privileges(redfish::privileges::privilegeSetLogin)
         .methods(boost::beast::http::verb::get)(
-            [](const crow::Request&,
+            [&app](const crow::Request& req,
                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
         asyncResp->res.jsonValue = {
             {"@odata.type", "#NmDomainCollection.NmDomainCollection"},
             {"@odata.id",
@@ -496,9 +500,13 @@ inline void requestRoutesNodeManagerDomains([[maybe_unused]] App& app)
         app, "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Domains/<str>/")
         .privileges(redfish::privileges::privilegeSetLogin)
         .methods(boost::beast::http::verb::get)(
-            [](const crow::Request& req,
+            [&app](const crow::Request& req,
                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                const std::string& domainName) {
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
         getDomainObjectPath(
             req, asyncResp, domainName,
             [asyncResp, domainName](const std::string& domainObjectPath) {

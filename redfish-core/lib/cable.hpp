@@ -176,8 +176,7 @@ inline void requestRoutesCable(App& app)
                                 continue;
                             }
 
-                            asyncResp->res.jsonValue["@odata.type"] =
-                                "#Cable.v1_0_0.Cable";
+                            asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("Cable");
                             asyncResp->res.jsonValue["@odata.id"] =
                                 boost::urls::format("/redfish/v1/Cables/{}",
                                                     cableId);

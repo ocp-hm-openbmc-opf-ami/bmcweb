@@ -413,8 +413,7 @@ inline void getCertificateProperties(
             }
 
             asyncResp->res.jsonValue["@odata.id"] = certURL;
-            asyncResp->res.jsonValue["@odata.type"] =
-                "#Certificate.v1_4_0.Certificate";
+            asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("Certificate");
             asyncResp->res.jsonValue["Id"] = certId;
             asyncResp->res.jsonValue["Name"] = name;
             asyncResp->res.jsonValue["Description"] = name;
@@ -613,8 +612,7 @@ inline void handleCertificateServiceGet(
         return;
     }
 
-    asyncResp->res.jsonValue["@odata.type"] =
-        "#CertificateService.v1_0_6.CertificateService";
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("CertificateService");
     asyncResp->res.jsonValue["@odata.id"] = "/redfish/v1/CertificateService";
     asyncResp->res.jsonValue["Id"] = "CertificateService";
     asyncResp->res.jsonValue["Name"] = "Certificate Service";
@@ -653,8 +651,7 @@ inline void handleCertificateLocationsGet(
     }
     asyncResp->res.jsonValue["@odata.id"] =
         "/redfish/v1/CertificateService/CertificateLocations";
-    asyncResp->res.jsonValue["@odata.type"] =
-        "#CertificateLocations.v1_0_0.CertificateLocations";
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("CertificateLocations");
     asyncResp->res.jsonValue["Name"] = "Certificate Locations";
     asyncResp->res.jsonValue["Id"] = "CertificateLocations";
     asyncResp->res.jsonValue["Description"] =
@@ -1245,7 +1242,7 @@ inline void handleCertificateReplaceCertificateActionInfo(
     }
     asyncResp->res.jsonValue["@odata.id"] =
         "/redfish/v1/CertificateService/CertificateService.ReplaceCertificateActionInfo";
-    asyncResp->res.jsonValue["@odata.type"] = "#ActionInfo.v1_4_2.ActionInfo";
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("ActionInfo");
     asyncResp->res.jsonValue["Name"] = "CertificateService.ReplaceCertificate";
     asyncResp->res.jsonValue["Id"] = "CertificateService.ReplaceCertificate";
     asyncResp->res.jsonValue["Description"] =

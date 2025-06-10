@@ -667,6 +667,11 @@ inline std::string dbusToRfBootSource(const std::string& dbusSource)
     {
         return "Usb";
     }
+    if (dbusSource ==
+        "xyz.openbmc_project.Control.Boot.Source.Sources.HTTP")
+    {
+        return "UefiHttp";
+    }
     return "";
 }
 
@@ -833,6 +838,11 @@ inline int assignBootParameters(const std::string& rfSource,
         bootSource =
             "xyz.openbmc_project.Control.Boot.Source.Sources.RemovableMedia";
     }
+    else if (rfSource == "UefiHttp")
+    {
+        bootSource =
+            "xyz.openbmc_project.Control.Boot.Source.Sources.HTTP";
+    }
     else
     {
         BMCWEB_LOG_DEBUG(
@@ -927,8 +937,7 @@ void getCPLDBootProgress(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
             }
 
             aResp->res
-                .jsonValue["BootProgress"]["Oem"]["Intel"]["@odata.type"] =
-                "#OpenBMCComputerSystem.v1_0_0.Intel";
+                .jsonValue["BootProgress"]["Oem"]["Intel"]["@odata.type"] = json_util::odataType("OpenBMCComputerSystem", "Intel");
             const std::string* errorSource = nullptr;
             const std::string* powerState = nullptr;
             for (const std::pair<std::string, dbus::utility::DbusVariantType>&
@@ -1039,6 +1048,7 @@ inline void
             allowed.emplace_back("Cd");
             allowed.emplace_back("BiosSetup");
             allowed.emplace_back("Usb");
+            allowed.emplace_back("UefiHttp");
 
             asyncResp->res
                 .jsonValue["Boot"]
@@ -2121,8 +2131,7 @@ void getProvisioningStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
             nlohmann::json& oemPFR =
                 asyncResp->res
                     .jsonValue["Oem"]["OpenBmc"]["FirmwareProvisioning"];
-            asyncResp->res.jsonValue["Oem"]["OpenBmc"]["@odata.type"] =
-                "#OpenBMCComputerSystem.v1_0_0.OpenBmc";
+            asyncResp->res.jsonValue["Oem"]["OpenBmc"]["@odata.type"] = json_util::odataType("OpenBMCComputerSystem", "OpenBmc");
             oemPFR["@odata.type"] =
                 "#OpenBMCComputerSystem.FirmwareProvisioning";
 
@@ -4033,8 +4042,7 @@ inline void
     asyncResp->res.addHeader(
         boost::beast::http::field::link,
         "</redfish/v1/JsonSchemas/ComputerSystem/ComputerSystem.json>; rel=describedby");
-    asyncResp->res.jsonValue["@odata.type"] =
-        "#ComputerSystem.v1_22_0.ComputerSystem";
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("ComputerSystem");
     asyncResp->res.jsonValue["Name"] = BMCWEB_REDFISH_SYSTEM_URI_NAME;
     asyncResp->res.jsonValue["Id"] = BMCWEB_REDFISH_SYSTEM_URI_NAME;
     asyncResp->res.jsonValue["SystemType"] =
@@ -4540,7 +4548,7 @@ inline void handleSystemCollectionResetActionGet(
     asyncResp->res.jsonValue["@odata.id"] =
         boost::urls::format("/redfish/v1/Systems/{}/ResetActionInfo",
                             BMCWEB_REDFISH_SYSTEM_URI_NAME);
-    asyncResp->res.jsonValue["@odata.type"] = "#ActionInfo.v1_1_2.ActionInfo";
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("ActionInfo");
     asyncResp->res.jsonValue["Name"] = "Reset Action Info";
     asyncResp->res.jsonValue["Id"] = "ResetActionInfo";
 

@@ -158,7 +158,7 @@ static bool pamMaxtriescheck(std::string& userName)
  * @returns PAM error code or PAM_SUCCESS for success. */
 inline int pamAuthenticateUser(std::string_view username,
                                std::string_view password,
-                               std::optional<std::string> token)
+                               std::optional<std::string> token, const boost::asio::ip::address &ip = boost::asio::ip::address())
 {
     std::string userStr(username);
     PasswordData data;
@@ -201,6 +201,21 @@ inline int pamAuthenticateUser(std::string_view username,
             return PAM_MAXTRIES;
         }
         return retval;
+    }
+
+    if (!ip.is_unspecified())
+    {
+        auto ipaddr = ip.to_string();
+        if (ip.is_v6() && ip.to_v6().is_v4_mapped())
+        {
+            ipaddr = boost::asio::ip::make_address_v4(boost::asio::ip::v4_mapped,ip.to_v6()).to_string();
+        }
+        retval = pam_set_item(localAuthHandle, PAM_RHOST, ipaddr.c_str());
+        if (retval != PAM_SUCCESS)
+        {
+            pam_end(localAuthHandle, PAM_SUCCESS); // ignore retval
+            return retval;
+        }
     }
 
     /* check that the account is healthy */

@@ -442,7 +442,7 @@ inline nlohmann::json vmItemTemplate(const std::string& name,
     item["@odata.id"] = boost::urls::format(
         "/redfish/v1/Managers/{}/VirtualMedia/{}", name, resName);
 
-    item["@odata.type"] = "#VirtualMedia.v1_3_0.VirtualMedia";
+    item["@odata.type"] = json_util::odataType("VirtualMedia");
     item["Name"] = "Virtual Removable Media";
     item["Description"] = "Virtual Removable Media";
     item["Id"] = resName;
@@ -450,8 +450,7 @@ inline nlohmann::json vmItemTemplate(const std::string& name,
     item["ConnectedVia"] = virtual_media::ConnectedVia::NotConnected;
     item["MediaTypes"] = nlohmann::json::array_t({"CD", "USBStick"});
     item["TransferMethod"] = virtual_media::TransferMethod::Stream;
-    item["Oem"]["OpenBMC"]["@odata.type"] =
-        "#OpenBMCVirtualMedia.v1_0_0.VirtualMedia";
+    item["Oem"]["OpenBMC"]["@odata.type"] = json_util::odataType("OpenBMCVirtualMedia", "VirtualMedia");
     item["Oem"]["OpenBMC"]["@odata.id"] = boost::urls::format(
         "/redfish/v1/Managers/{}/VirtualMedia/{}#/Oem/OpenBMC", name, resName);
 

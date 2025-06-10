@@ -227,7 +227,7 @@ inline void addFanCommonProperties(crow::Response& resp,
 {
     resp.addHeader(boost::beast::http::field::link,
                    "</redfish/v1/JsonSchemas/Fan/Fan.json>; rel=describedby");
-    resp.jsonValue["@odata.type"] = "#Fan.v1_3_0.Fan";
+    resp.jsonValue["@odata.type"] = json_util::odataType("Fan");
     resp.jsonValue["Name"] = "Fan";
     resp.jsonValue["Id"] = fanId;
     resp.jsonValue["@odata.id"] = boost::urls::format(

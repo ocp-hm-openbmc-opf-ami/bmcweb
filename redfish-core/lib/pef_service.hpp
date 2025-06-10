@@ -395,8 +395,14 @@ const PropertyValue getSmtpEnable(const std::string& interfaceName)
     return value;
 }
 
-void getPefServiceInfo(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
+void getPefServiceInfo(crow::App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp)
 {
+    if (!redfish::setUpRedfishRoute(app, req, aResp))
+    {
+        return;
+    }
+
     aResp->res.jsonValue = {
                     {"@odata.type", "#PefService.v1_0_0.PefService"},
                     {"@odata.id", "/redfish/v1/PefService"},
@@ -483,15 +489,15 @@ inline void requestRoutesPefService(App& app)
     BMCWEB_ROUTE(app, "/redfish/v1/PefService/")
         .privileges({{"Login"}, {"ConfigureComponents"}})
         .methods(boost::beast::http::verb::get)(
-            [](const crow::Request&,
+            [&app](const crow::Request& req,
                const std::shared_ptr<bmcweb::AsyncResp>& aResp) {
-                   getPefServiceInfo(aResp);
+                   getPefServiceInfo(app, req, aResp);
             });
 
     BMCWEB_ROUTE(app, "/redfish/v1/PefService/")
         .privileges({{"Login"}, {"ConfigureComponents"}})
         .methods(boost::beast::http::verb::patch)(
-            [](const crow::Request& req,
+            [&app](const crow::Request& req,
                const std::shared_ptr<bmcweb::AsyncResp>& aResp) {
                 std::optional<std::vector<uint8_t>> filterEnable;
                 std::optional<uint8_t> pefActionGblControl;
@@ -518,7 +524,7 @@ inline void requestRoutesPefService(App& app)
                 {
                     setDestinationType(aResp, destinationType);
                 }
-                getPefServiceInfo(aResp);
+                getPefServiceInfo(app, req, aResp);
             });
 
     BMCWEB_ROUTE(app, "/redfish/v1/PefService/<str>")
@@ -697,8 +703,8 @@ inline void requestRoutesSendTrap(App& app)
                                     return;
                                 }
                                 dbus::utility::getProperty<bool>(
-                                    "xyz.openbmc_project.Snmp",
-                                    "/xyz/openbmc_project/Snmp",
+                                    "xyz.openbmc_project.Snmp.Conf",
+                                    "/xyz/openbmc_project/snmp/SnmpUtils",
                                     "xyz.openbmc_project.Snmp.SnmpUtils",
                                     "SnmpTrapStatus",
                                     [aResp,
@@ -730,7 +736,7 @@ inline void requestRoutesSendTrap(App& app)
                             });
                     }
                 },
-                "xyz.openbmc_project.Snmp", "/xyz/openbmc_project/Snmp",
+                "xyz.openbmc_project.Snmp.Conf", "/xyz/openbmc_project/snmp/SnmpUtils",
                 "xyz.openbmc_project.Snmp.SnmpUtils", "SendSNMPTrap");
         });
 }
