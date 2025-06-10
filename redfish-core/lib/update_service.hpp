@@ -2247,6 +2247,12 @@ inline void handleUpdateServicePatch(
                 messages::noOperation(asyncResp->res);
                 return;
             }
+	    if (!ami.has_value() || !ami->is_object())
+            {
+                BMCWEB_LOG_DEBUG("JSON value is not an object or is missing in ami");
+                messages::propertyValueTypeError(asyncResp->res, *ami, "ami");
+                return;
+            }
             if (!json_util::readJson(*ami, asyncResp->res,
                                      "PreserveConfiguration",
                                      preserveconfiguration))
@@ -2278,6 +2284,12 @@ inline void handleUpdateServicePatch(
                 {
                     messages::noOperation(asyncResp->res);
                     return;
+                }
+		if (!preserveconfiguration.has_value() || !preserveconfiguration->is_object())
+                {
+                        BMCWEB_LOG_DEBUG("JSON value is not an object or is missing in preserveconfiguration");
+                        messages::propertyValueTypeError(asyncResp->res, *preserveconfiguration ,"preserveconfiguration");
+                        return;
                 }
                 if (!json_util::readJson(
                         *preserveconfiguration, asyncResp->res,
