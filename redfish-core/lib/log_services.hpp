@@ -3573,6 +3573,7 @@ inline void requestRoutesCrashdumpCollect(App& app)
                         task->startTimer(std::chrono::minutes(30));
                         task->populateResp(asyncResp->res);
                         task->payload.emplace(std::move(payload));
+                        task->state = "Running";
                     };
 
                 crow::connections::systemBus->async_method_call(
