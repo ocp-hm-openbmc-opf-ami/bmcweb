@@ -89,6 +89,10 @@
 #include "ext/spdm/src/spdm.hpp"
 #endif
 
+#if BMCWEB_GPGPU_URIS_MACRO
+#include "ext/src/gpgpu.hpp"
+#endif
+
 #if (BMCWEB_AMI_RAIDBRCM_MACRO) || (BMCWEB_AMI_RAIDMSCC_MACRO) ||              \
     (BMCWEB_AMI_NVME_MACRO)
 #include "ext/include/storage_ext.hpp"
@@ -357,6 +361,10 @@ RedfishService::RedfishService(App& app)
 #endif
 #if BMCWEB_AMI_NIC_MACRO
     registerNicRoutes(app);
+#endif
+
+#if BMCWEB_GPGPU_URIS_MACRO
+    registerGpgpuRoutes(app);
 #endif
 
 #if (BMCWEB_AMI_NVME_MACRO) || (BMCWEB_AMI_RAIDMSCC_MACRO) ||                  \
