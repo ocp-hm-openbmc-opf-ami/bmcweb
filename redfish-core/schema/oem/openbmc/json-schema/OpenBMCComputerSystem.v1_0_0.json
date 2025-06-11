@@ -187,6 +187,10 @@
                     "description": "physical leds to display status of server.",
                     "longDescription": "physical leds to display status of server.",
                     "type": "string"
+                },
+                "BlueLED": {
+                    "description": "physical leds to display status of server.",                                                                         "longDescription": "physical leds to display status of server.",
+                    "type": "string"
                 }
             },
             "type": "object"

@@ -41,6 +41,7 @@
 #include "node-manager/triggers.hpp"
 #include "odata.hpp"
 #include "pcie.hpp"
+#include "pcie_slots.hpp"
 #include "pef_service.hpp"
 #include "power.hpp"
 #include "power_subsystem.hpp"
@@ -214,8 +215,12 @@ RedfishService::RedfishService(App& app)
     if constexpr (BMCWEB_REDFISH_DUMP_LOG)
     {
         requestRoutesSystemDumpService(app);
-        requestRoutesSystemDumpEntryCollection(app);
-        requestRoutesSystemDumpEntry(app);
+        #if(!BMCWEB_CHALUPA_AMD_MACRO)
+	{
+		requestRoutesSystemDumpEntryCollection(app);
+	        requestRoutesSystemDumpEntry(app);
+	}
+	#endif
         requestRoutesSystemDumpCreate(app);
         requestRoutesSystemDumpClear(app);
 
@@ -307,6 +312,8 @@ RedfishService::RedfishService(App& app)
     requestRoutesSystemPCIeFunction(app);
     requestRoutesSystemPCIeDeviceCollection(app);
     requestRoutesSystemPCIeDevice(app);
+
+    requestRoutesPCIeSlots(app);
 
     requestRoutesSensorCollection(app);
     requestRoutesSensor(app);

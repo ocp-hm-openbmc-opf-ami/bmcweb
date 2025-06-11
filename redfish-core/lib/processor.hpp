@@ -61,7 +61,10 @@ inline void getProcessorUUID(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
                 messages::internalError(asyncResp->res);
                 return;
             }
-            asyncResp->res.jsonValue["UUID"] = property;
+            if(!property.empty())
+            {
+                asyncResp->res.jsonValue["UUID"] = property;
+            }
         });
 }
 

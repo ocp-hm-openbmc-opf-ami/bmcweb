@@ -105,6 +105,12 @@
                     ],
                     "readonly": true
                 },
+                "DestinationType": {
+                    "description": "The DestinationType either be SMTP or SnmpTrap.",
+                    "longDescription": "This property shall contain the SMTP or SnmpTrap value of PefService.",
+                    "readonly": false,
+                    "type": "string"
+                },
                 "FilterEnable": {
                     "description": "The array of different filters required for PefService.",
                     "items": {

@@ -89,6 +89,10 @@
                     <Annotation Term="OData.Description" String="physical leds to display status of server." />
                     <Annotation Term="OData.LongDescription" String="physical leds to display status of server." />
                 </Property>
+                <Property Name="BlueLED" Type="Edm.String" Nullable="false">
+                    <Annotation Term="OData.Description" String="physical leds to display status of server." />
+                    <Annotation Term="OData.LongDescription" String="physical leds to display status of server." />
+                </Property>
             </ComplexType>
             <EnumType Name="FirmwareProvisioningStatus">
                 <Member Name="NotProvisioned">
