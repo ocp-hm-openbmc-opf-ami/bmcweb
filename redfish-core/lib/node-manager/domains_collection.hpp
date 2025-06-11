@@ -507,12 +507,68 @@ inline void requestRoutesNodeManagerDomains([[maybe_unused]] App& app)
                 {
                     return;
                 }
+        asyncResp->res.clearHeader(boost::beast::http::field::allow);
+        asyncResp->res.addHeader("Allow", "GET, PATCH");
         getDomainObjectPath(
             req, asyncResp, domainName,
             [asyncResp, domainName](const std::string& domainObjectPath) {
             getDomain(asyncResp, domainName, domainObjectPath);
             });
         });
+
+    BMCWEB_ROUTE(
+        app, "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Domains/<str>/")
+        .privileges(redfish::privileges::privilegeSetLogin)
+        .methods(boost::beast::http::verb::post,
+                 boost::beast::http::verb::delete_)(
+            [](const crow::Request& req,
+               const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+               const std::string& domainName) {
+                asyncResp->res.clearHeader(boost::beast::http::field::allow);
+
+                std::function<void(const std::string&)> handler;
+                crow::connections::systemBus->async_method_call(
+                    [req, asyncResp, domainName,
+                     handler](const boost::system::error_code ec,
+                              const std::vector<std::string>& objects) {
+                        if (ec)
+                        {
+                            BMCWEB_LOG_ERROR("respHandler DBus error: {}",
+                                             ec.message());
+                            messages::internalError(asyncResp->res);
+                        }
+
+                        auto domainObjectPath = std::find_if(
+                            objects.begin(), objects.end(),
+                            [&domainName](const std::string& objectPath) {
+                                std::smatch match;
+                                std::regex search(
+                                    getDomainDbusPath(domainName) + "$");
+                                if (std::regex_search(objectPath, match,
+                                                      search))
+                                {
+                                    return true;
+                                }
+                                return false;
+                            });
+
+                        if (objects.end() == domainObjectPath)
+                        {
+                            messages::resourceNotFound(asyncResp->res,
+                                                       "Domains", domainName);
+                            return;
+                        }
+                        else
+                        {
+                            messages::operationNotAllowed(asyncResp->res);
+                            return;
+                        }
+                    },
+                    kObjectMapperService, kObjectMapperObjectPath,
+                    kObjectMapperService, "GetSubTreePaths",
+                    kNodeManagerObjectPath, 0,
+                    std::vector<const char*>{kDomainAttributesInterface});
+    });
 
     BMCWEB_ROUTE(app,
                  "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Domains/<str>")
@@ -521,6 +577,9 @@ inline void requestRoutesNodeManagerDomains([[maybe_unused]] App& app)
             [](const crow::Request& req,
                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                const std::string& domainName) {
+        asyncResp->res.clearHeader(boost::beast::http::field::allow);
+        asyncResp->res.addHeader("Allow", "GET, PATCH");
+        
         getDomainObjectPath(
             req, asyncResp, domainName,
             [req, asyncResp, domainName](const std::string& domainObjectPath) {

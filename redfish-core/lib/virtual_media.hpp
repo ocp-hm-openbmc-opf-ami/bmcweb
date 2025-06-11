@@ -221,6 +221,12 @@ inline void
                     handler(service, resName, asyncResp, item);
                     return;
                 }
+                else
+                {
+                    messages::resourceNotFound(asyncResp->res, "VirtualMedia",
+                                               resName);
+                    return;
+                }
             }
 
             BMCWEB_LOG_DEBUG("Parent item not found");
@@ -228,6 +234,152 @@ inline void
         });
 }
 
+inline void  findAndParsePostObject(
+    const std::string& service, const std::string& resName,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    CheckItemHandler&& handler)
+{
+    sdbusplus::message::object_path path("/xyz/openbmc_project/VirtualMedia");
+    dbus::utility::getManagedObjects(
+        service, path,
+        [service, resName, asyncResp, handler = std::move(handler)](
+            const boost::system::error_code& ec,
+            const dbus::utility::ManagedObjectType& subtree) {
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG("DBUS response error");
+
+                return;
+            }
+
+            for (const auto& item : subtree)
+            {
+                VmMode mode = parseObjectPathAndGetMode(item.first, resName);
+                if (mode != VmMode::Invalid)
+                {
+                    messages::operationNotAllowed(asyncResp->res);
+                    return;
+                }
+                else
+                {
+                    messages::resourceNotFound(asyncResp->res, "VirtualMedia",
+                                               resName);
+                    return;
+                }
+            }
+        });
+    return;
+}
+
+
+inline void findAndParsePatchObject(
+    const std::string& service, const std::string& resName,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const crow::Request& req, CheckItemHandler&& handler)
+{
+    sdbusplus::message::object_path path("/xyz/openbmc_project/VirtualMedia");
+    dbus::utility::getManagedObjects(
+        service, path,
+        [service, resName, asyncResp, req, handler = std::move(handler)](
+            const boost::system::error_code& ec,
+            const dbus::utility::ManagedObjectType& subtree) {
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG("DBUS response error");
+
+                return;
+            }
+
+            for (const auto& item : subtree)
+            {
+                VmMode mode = parseObjectPathAndGetMode(item.first, resName);
+                if (mode != VmMode::Invalid)
+                {
+                    if (resName == "Slot_0" || resName == "Slot_1")
+                    {
+                        asyncResp->res.result(
+                            boost::beast::http::status::method_not_allowed);
+                        messages::operationNotAllowed(asyncResp->res);
+                        return;
+                    }
+                    std::optional<nlohmann::json> oem;
+                    if (!json_util::readJsonPatch(req, asyncResp->res, "Oem",
+                                                  oem))
+                    {
+                        return;
+                    }
+                    if (oem)
+                    {
+                        std::optional<nlohmann::json> openBMC;
+
+                        if (!json_util::readJson(*oem, asyncResp->res,
+                                                 "OpenBMC", openBMC))
+                        {
+                            return;
+                        }
+                        if (openBMC)
+                        {
+                            std::optional<uint32_t> retryCount;
+                            std::optional<uint32_t> retryInterval;
+                            bool retryFlag = true;
+
+                            if (!json_util::readJson(
+                                    *openBMC, asyncResp->res, "RetryCount",
+                                    retryCount, "RetryInterval", retryInterval))
+                            {
+                                return;
+                            }
+                            if (retryCount < 3 || retryCount > 6)
+                            {
+                                retryFlag = false;
+                                messages::propertyValueOutOfRange(
+                                    asyncResp->res, std::to_string(*retryCount),
+                                    "RetryCount");
+                            }
+                            if (retryInterval < 15 || retryInterval > 30)
+                            {
+                                retryFlag = false;
+                                messages::propertyValueOutOfRange(
+                                    asyncResp->res,
+                                    std::to_string(*retryInterval),
+                                    "RetryInterval");
+                            }
+                            if (retryFlag)
+                            {
+                                crow::connections::systemBus->async_method_call(
+                                    [asyncResp](
+                                        const boost::system::error_code ec,
+                                        std::string& ret) {
+                                        if (ec)
+                                        {
+                                            BMCWEB_LOG_ERROR(
+                                                "Error patching {}", ec);
+                                            messages::internalError(
+                                                asyncResp->res);
+                                            return;
+                                        }
+                                        if (ret == "Success")
+                                        {
+                                            messages::success(asyncResp->res);
+                                        }
+                                    },
+                                    rmediaServiceName, rmediaObjPath,
+                                    rmediaInterfaceName, "SetAll", *retryCount,
+                                    *retryInterval);
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    messages::resourceNotFound(asyncResp->res, "VirtualMedia",
+                                               resName);
+                    return;
+                }
+            }
+        });
+    return;
+}
 /**
  * @brief Function parses getManagedObject response, finds item, makes generic
  *        validation and invokes callback handler on this item.
@@ -541,6 +693,14 @@ inline void getVmData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
     findAndParseObject(service, resName, asyncResp,
                        std::bind_front(afterGetVmData, name));
+}
+
+inline void getVmPostData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                          const std::string& service, const std::string& name,
+                          const std::string& resName)
+{
+    findAndParsePostObject(service, resName, asyncResp,
+                           std::bind_front(afterGetVmData, name));
 }
 
 /**
@@ -1380,6 +1540,9 @@ inline void
                           const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                           const std::string& name, const std::string& resName)
 {
+    asyncResp->res.clearHeader(boost::beast::http::field::allow);
+    asyncResp->res.addHeader("Allow", "GET, PATCH");
+
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
@@ -1454,6 +1617,9 @@ inline void
                             const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                             const std::string& name, const std::string& resName)
 {
+    asyncResp->res.clearHeader(boost::beast::http::field::allow);
+    asyncResp->res.addHeader("Allow", "GET, PATCH");
+
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
@@ -1469,72 +1635,23 @@ inline void
         return;
     }
 
-    if (resName == "Slot_0" || resName == "Slot_1")
-    {
-        asyncResp->res.result(boost::beast::http::status::method_not_allowed);
-        messages::operationNotAllowed(asyncResp->res);
-        return;
-    }
-
-    std::optional<nlohmann::json> oem;
-    if (!json_util::readJsonPatch(req, asyncResp->res, "Oem", oem))
-    {
-        return;
-    }
-    if (oem)
-    {
-        std::optional<nlohmann::json> openBMC;
-
-        if (!json_util::readJson(*oem, asyncResp->res, "OpenBMC", openBMC))
-        {
-            return;
-        }
-        if (openBMC)
-        {
-            std::optional<uint32_t> retryCount;
-            std::optional<uint32_t> retryInterval;
-            bool retryFlag = true;
-
-            if (!json_util::readJson(*openBMC, asyncResp->res, "RetryCount",
-                                     retryCount, "RetryInterval",
-                                     retryInterval))
+   dbus::utility::getDbusObject(
+        "/xyz/openbmc_project/VirtualMedia", {},
+        [asyncResp, name, resName,
+         req](const boost::system::error_code& ec,
+              const dbus::utility::MapperGetObject& getObjectType) {
+            if (ec)
             {
+                BMCWEB_LOG_ERROR("ObjectMapper::GetObject call failed: {}", ec);
+                messages::internalError(asyncResp->res);
+
                 return;
             }
-            if (retryCount < 3 || retryCount > 6)
-            {
-                retryFlag = false;
-                messages::propertyValueOutOfRange(
-                    asyncResp->res, std::to_string(*retryCount), "RetryCount");
-            }
-            if (retryInterval < 15 || retryInterval > 30)
-            {
-                retryFlag = false;
-                messages::propertyValueOutOfRange(
-                    asyncResp->res, std::to_string(*retryInterval),
-                    "RetryInterval");
-            }
-            if (retryFlag)
-            {
-                crow::connections::systemBus->async_method_call(
-                    [asyncResp](const boost::system::error_code ec,
-                                std::string& ret) {
-                        if (ec)
-                        {
-                            BMCWEB_LOG_ERROR("Error patching {}", ec);
-                            messages::internalError(asyncResp->res);
-                            return;
-                        }
-                        if (ret == "Success")
-                        {
-                            messages::success(asyncResp->res);
-                        }
-                    },
-                    rmediaServiceName, rmediaObjPath, rmediaInterfaceName,
-                    "SetAll", *retryCount, *retryInterval);
-            }
-        }
-    }
+            std::string service = getObjectType.begin()->first;
+            BMCWEB_LOG_DEBUG("GetObjectType: {}", service);
+            findAndParsePatchObject(service, resName, asyncResp, req,
+                                    std::bind_front(afterGetVmData, name));
+        });
 }
 
 inline void insertMediaCheckMode(
@@ -1648,6 +1765,45 @@ inline void requestNBDVirtualMediaRoutes(App& app)
         .privileges(redfish::privileges::patchVirtualMedia)
         .methods(boost::beast::http::verb::patch)(
             std::bind_front(handleVirtualmediaPatch, std::ref(app)));
+
+    BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/VirtualMedia/<str>/")
+        .privileges(redfish::privileges::getVirtualMedia)
+        .methods(boost::beast::http::verb::post,
+                 boost::beast::http::verb::delete_)(
+            [&app](const crow::Request& req,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const std::string& name, const std::string& resName) {
+                asyncResp->res.clearHeader(boost::beast::http::field::allow);
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
+                if (name != "bmc")
+                {
+                    messages::resourceNotFound(asyncResp->res, "VirtualMedia",
+                                               resName);
+
+                    return;
+                }
+                dbus::utility::getDbusObject(
+                    "/xyz/openbmc_project/VirtualMedia", {},
+                    [asyncResp, name, resName](
+                        const boost::system::error_code& ec,
+                        const dbus::utility::MapperGetObject& getObjectType) {
+                        if (ec)
+                        {
+                            BMCWEB_LOG_ERROR(
+                                "ObjectMapper::GetObject call failed: {}", ec);
+                            messages::internalError(asyncResp->res);
+
+                            return;
+                        }
+                        std::string service = getObjectType.begin()->first;
+                        BMCWEB_LOG_DEBUG("GetObjectType: {}", service);
+
+                        getVmPostData(asyncResp, service, name, resName);
+                    });
+    });
 }
 
 } // namespace redfish
