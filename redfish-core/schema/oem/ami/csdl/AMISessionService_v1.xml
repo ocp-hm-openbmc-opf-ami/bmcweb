@@ -43,23 +43,23 @@
               <Annotation Term="OData.LongDescription" String="The value indicates Kvm port ."/>
             </Property>
 
-	    <Property Name="KvmMaxSession" Type="Edm.Decimal">
+	    <Property Name="KvmMaxSession" Type="Edm.Int32">
               <Annotation Term="OData.Description" String="Kvm MaxSession."/>
               <Annotation Term="OData.LongDescription" String="The value indicates Maximum kvm sessions user can access."/>
             </Property>
-	    <Property Name="RedfishMaxSession" Type="Edm.Decimal">
+	    <Property Name="RedfishMaxSession" Type="Edm.Int32">
               <Annotation Term="OData.Description" String="Redfish MaxSession."/>
               <Annotation Term="OData.LongDescription" String="The value indicates Maximum Redfish sessions user can access."/>
             </Property>
-	    <Property Name="SshMaxSession" Type="Edm.Decimal">
+	    <Property Name="SshMaxSession" Type="Edm.Int32">
               <Annotation Term="OData.Description" String="SSH MaxSession."/>
               <Annotation Term="OData.LongDescription" String="The value indicates Maximum SSH sessions user can access."/>
             </Property>
-	    <Property Name="VmMaxSession" Type="Edm.Decimal">
+	    <Property Name="VmMaxSession" Type="Edm.Int32">
               <Annotation Term="OData.Description" String="VirtualMedia MaxSession."/>
               <Annotation Term="OData.LongDescription" String="The value indicates Maximum VM sessions user can access."/>
             </Property>
-	    <Property Name="WebMaxSession" Type="Edm.Decimal">
+	    <Property Name="WebMaxSession" Type="Edm.Int32">
               <Annotation Term="OData.Description" String="Web MaxSession."/>
               <Annotation Term="OData.LongDescription" String="The value indicates Maximum Web Sessions user can access."/>
             </Property>

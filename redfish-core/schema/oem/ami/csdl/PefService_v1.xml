@@ -114,6 +114,10 @@
           <Annotation Term="OData.Description" String="The Global Action Control flag of Pef Service."/>
           <Annotation Term="OData.LongDescription" String="This property shall contain the Global Action Control flag of PefService."/>
         </Property>
+        <Property Name="DestinationType" Type="Edm.String" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="The DestinationType either be SMTP or SnmpTrap."/>                             <Annotation Term="OData.LongDescription" String="This property shall contain the SMTP or SnmpTrap value of PefService."/>
+        </Property>
         <Property Name="Actions" Type="PefService.v1_0_0.Actions" Nullable="false">
           <Annotation Term="OData.Description" String="The available actions for this resource."/>
           <Annotation Term="OData.LongDescription" String="This property shall contain the available actions for this resource."/>

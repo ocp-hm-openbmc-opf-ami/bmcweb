@@ -13,19 +13,19 @@
 #include "query.hpp"
 #include "redfish_util.hpp"
 #include "registries/privilege_registry.hpp"
+#include "update_service.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/json_utils.hpp"
 #include "utils/sw_utils.hpp"
 #include "utils/systemd_utils.hpp"
 #include "utils/time_utils.hpp"
-#include "update_service.hpp"
 
+#include <boost/date_time.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/url/format.hpp>
 #include <sdbusplus/asio/property.hpp>
 #include <sdbusplus/unpack_properties.hpp>
 #include <task.hpp>
-#include <boost/date_time.hpp>
 
 #include <algorithm>
 #include <array>
@@ -140,9 +140,9 @@ void createTimeOutTask(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
  * @param[in] interface - interface of the Property
  * @param[in] propertyName - propertyName of the Property
  */
-const managerPropertyValue
-    getProperty(const std::string& servicePath, const std::string& objectPath,
-                const std::string& interface, const std::string& propertyName)
+const managerPropertyValue getProperty(
+    const std::string& servicePath, const std::string& objectPath,
+    const std::string& interface, const std::string& propertyName)
 {
     managerPropertyValue value{};
 
@@ -156,8 +156,8 @@ const managerPropertyValue
     return value;
 }
 
-inline void
-    doBMCGracefulRestart(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void doBMCGracefulRestart(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     const char* processName = "xyz.openbmc_project.State.BMC";
     const char* objectPath = "/xyz/openbmc_project/state/bmc0";
@@ -183,8 +183,8 @@ inline void
         interfaceName, destProperty, dbusPropertyValue);
 }
 
-inline void
-    doBMCForceRestart(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void doBMCForceRestart(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     const char* processName = "xyz.openbmc_project.State.BMC";
     const char* objectPath = "/xyz/openbmc_project/state/bmc0";
@@ -339,10 +339,10 @@ inline void requestRoutesManagerResetAction(App& app)
 
             task::Payload payload(req);
 
-            if (!json_util::readJsonAction( //
-                    req, asyncResp->res, //
-                    "ResetType", resetType, //
-                    "OperationApplyTime", operationApplyTime, //
+            if (!json_util::readJsonAction(                                  //
+                    req, asyncResp->res,                                     //
+                    "ResetType", resetType,                                  //
+                    "OperationApplyTime", operationApplyTime,                //
                     "MaintenanceWindowStartTime", maintenanceWindowStartTime //
                     ))
             {
@@ -456,10 +456,10 @@ inline void requestRoutesManagerResetAction(App& app)
         });
 }
 
-inline void
-    handleFactoryDefaultGet(crow::App& app, const crow::Request& req,
-                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                            const std::string& managerId)
+inline void handleFactoryDefaultGet(
+    crow::App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& managerId)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -491,8 +491,7 @@ inline void requestRoutesManagerResetToDefaults(App& app)
      *
      * OpenBMC only supports ResetToDefaultsType "ResetAll".
      */
-    BMCWEB_ROUTE(app,
-                 "/redfish/v1/Managers/<str>/Oem/Ami/ResetToDefaults/")
+    BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/Oem/Ami/ResetToDefaults/")
         .privileges(redfish::privileges::postManager)
         .methods(boost::beast::http::verb::post)(
             [&app](const crow::Request& req,
@@ -540,10 +539,10 @@ inline void requestRoutesManagerResetToDefaults(App& app)
                     "/xyz/openbmc_project/software",
                     "xyz.openbmc_project.Common.FactoryReset", "Reset");
             });
-     BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/Oem/Ami/ResetToDefaults/")
+    BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/Oem/Ami/ResetToDefaults/")
         .privileges(redfish::privileges::getManager)
-        .methods(boost::beast::http::verb::get)(std::bind_front(
-            handleFactoryDefaultGet, std::ref(app)));
+        .methods(boost::beast::http::verb::get)(
+            std::bind_front(handleFactoryDefaultGet, std::ref(app)));
 }
 
 /**
@@ -608,11 +607,11 @@ static constexpr const char* stepwiseConfigurationIface =
 static constexpr const char* thermalModeIface =
     "xyz.openbmc_project.Control.ThermalMode";
 
-inline void
-    asyncPopulatePid(const std::string& connection, const std::string& path,
-                     const std::string& currentProfile,
-                     const std::vector<std::string>& supportedProfiles,
-                     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void asyncPopulatePid(
+    const std::string& connection, const std::string& path,
+    const std::string& currentProfile,
+    const std::vector<std::string>& supportedProfiles,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     sdbusplus::message::object_path objPath(path);
     dbus::utility::getManagedObjects(
@@ -1044,10 +1043,10 @@ enum class CreatePIDRet
     patch
 };
 
-inline bool
-    getZonesFromJsonReq(const std::shared_ptr<bmcweb::AsyncResp>& response,
-                        std::vector<nlohmann::json::object_t>& config,
-                        std::vector<std::string>& zones)
+inline bool getZonesFromJsonReq(
+    const std::shared_ptr<bmcweb::AsyncResp>& response,
+    std::vector<nlohmann::json::object_t>& config,
+    std::vector<std::string>& zones)
 {
     if (config.empty())
     {
@@ -1059,8 +1058,8 @@ inline bool
     {
         std::string path;
         if (!redfish::json_util::readJsonObject( //
-                odata, response->res, //
-                "@odata.id", path //
+                odata, response->res,            //
+                "@odata.id", path                //
                 ))
         {
             return false;
@@ -1083,9 +1082,9 @@ inline bool
     return true;
 }
 
-inline const dbus::utility::ManagedObjectType::value_type*
-    findChassis(const dbus::utility::ManagedObjectType& managedObj,
-                std::string_view value, std::string& chassis)
+inline const dbus::utility::ManagedObjectType::value_type* findChassis(
+    const dbus::utility::ManagedObjectType& managedObj, std::string_view value,
+    std::string& chassis)
 {
     BMCWEB_LOG_DEBUG("Find Chassis: {}", value);
 
@@ -1254,24 +1253,24 @@ inline CreatePIDRet createPidInterface(
         std::map<std::string, std::optional<double>> doubles;
         std::optional<std::string> setpointOffset;
         if (!redfish::json_util::readJson(
-                jsonValue, response->res, //
-                "Inputs", inputs, //
-                "Outputs", outputs, //
-                "Zones", zones, //
-                "FFGainCoefficient", doubles["FFGainCoefficient"], //
-                "FFOffCoefficient", doubles["FFOffCoefficient"], //
-                "ICoefficient", doubles["ICoefficient"], //
-                "ILimitMax", doubles["ILimitMax"], //
-                "ILimitMin", doubles["ILimitMin"], //
-                "OutLimitMax", doubles["OutLimitMax"], //
-                "OutLimitMin", doubles["OutLimitMin"], //
-                "PCoefficient", doubles["PCoefficient"], //
-                "SetPoint", doubles["SetPoint"], //
-                "SetPointOffset", setpointOffset, //
-                "SlewNeg", doubles["SlewNeg"], //
-                "SlewPos", doubles["SlewPos"], //
+                jsonValue, response->res,                            //
+                "Inputs", inputs,                                    //
+                "Outputs", outputs,                                  //
+                "Zones", zones,                                      //
+                "FFGainCoefficient", doubles["FFGainCoefficient"],   //
+                "FFOffCoefficient", doubles["FFOffCoefficient"],     //
+                "ICoefficient", doubles["ICoefficient"],             //
+                "ILimitMax", doubles["ILimitMax"],                   //
+                "ILimitMin", doubles["ILimitMin"],                   //
+                "OutLimitMax", doubles["OutLimitMax"],               //
+                "OutLimitMin", doubles["OutLimitMin"],               //
+                "PCoefficient", doubles["PCoefficient"],             //
+                "SetPoint", doubles["SetPoint"],                     //
+                "SetPointOffset", setpointOffset,                    //
+                "SlewNeg", doubles["SlewNeg"],                       //
+                "SlewPos", doubles["SlewPos"],                       //
                 "PositiveHysteresis", doubles["PositiveHysteresis"], //
-                "NegativeHysteresis", doubles["NegativeHysteresis"] //
+                "NegativeHysteresis", doubles["NegativeHysteresis"]  //
                 ))
         {
             return CreatePIDRet::fail;
@@ -1361,10 +1360,10 @@ inline CreatePIDRet createPidInterface(
         std::optional<std::string> chassisId;
         std::optional<double> failSafePercent;
         std::optional<double> minThermalOutput;
-        if (!redfish::json_util::readJson( //
-                jsonValue, response->res, //
-                "Chassis/@odata.id", chassisId, //
-                "FailSafePercent", failSafePercent, //
+        if (!redfish::json_util::readJson(           //
+                jsonValue, response->res,            //
+                "Chassis/@odata.id", chassisId,      //
+                "FailSafePercent", failSafePercent,  //
                 "MinThermalOutput", minThermalOutput //
                 ))
         {
@@ -1402,14 +1401,14 @@ inline CreatePIDRet createPidInterface(
         std::optional<double> positiveHysteresis;
         std::optional<double> negativeHysteresis;
         std::optional<std::string> direction; // upper clipping curve vs lower
-        if (!redfish::json_util::readJson( //
-                jsonValue, response->res, //
-                "Zones", zones, //
-                "Steps", steps, //
-                "Inputs", inputs, //
+        if (!redfish::json_util::readJson(    //
+                jsonValue, response->res,     //
+                "Zones", zones,               //
+                "Steps", steps,               //
+                "Inputs", inputs,             //
                 "PositiveHysteresis", positiveHysteresis, //
                 "NegativeHysteresis", negativeHysteresis, //
-                "Direction", direction //
+                "Direction", direction                    //
                 ))
         {
             return CreatePIDRet::fail;
@@ -1444,9 +1443,9 @@ inline CreatePIDRet createPidInterface(
                 double out = 0.0;
 
                 if (!redfish::json_util::readJsonObject( //
-                        step, response->res, //
-                        "Target", target, //
-                        "Output", out //
+                        step, response->res,             //
+                        "Target", target,                //
+                        "Output", out                    //
                         ))
                 {
                     return CreatePIDRet::fail;
@@ -1596,9 +1595,9 @@ struct GetPIDValues : std::enable_shared_from_this<GetPIDValues>
             });
     }
 
-    static void
-        processingComplete(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                           const CompletionValues& completion)
+    static void processingComplete(
+        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+        const CompletionValues& completion)
     {
         if (asyncResp->res.result() != boost::beast::http::status::ok)
         {
@@ -1680,7 +1679,8 @@ struct SetPIDValues : std::enable_shared_from_this<SetPIDValues>
             std::pair<std::string, std::optional<nlohmann::json::object_t>>>&&
             configurationsIn,
         std::optional<std::string>& profileIn) :
-        asyncResp(asyncRespIn), configuration(std::move(configurationsIn)),
+        asyncResp(asyncRespIn),
+        configuration(std::move(configurationsIn)),
         profile(std::move(profileIn))
     {}
 
@@ -2069,32 +2069,32 @@ inline void getCurrentDateTimeValue(
         "org.freedesktop.timedate1", "/org/freedesktop/timedate1",
         "org.freedesktop.timedate1", "TimeUSec",
         [asyncResp, timeZoneName](const boost::system::error_code& ec,
-                    const uint64_t& timeUSec)
-    {
-          if (ec)
-          {
+                                  const uint64_t& timeUSec) {
+            if (ec)
+            {
                 BMCWEB_LOG_DEBUG("D-BUS response error {}", ec);
                 return;
-          }
-          const std::chrono::time_zone* tz = std::chrono::locate_zone(timeZoneName);
-          auto now = std::chrono::system_clock::now();
-          std::chrono::sys_info tzInfo = tz->get_info(std::chrono::floor<std::chrono::seconds>(now));
-          auto offset = tzInfo.offset;
+            }
+            const std::chrono::time_zone* tz =
+                std::chrono::locate_zone(timeZoneName);
+            auto now = std::chrono::system_clock::now();
+            std::chrono::sys_info tzInfo =
+                tz->get_info(std::chrono::floor<std::chrono::seconds>(now));
+            auto offset = tzInfo.offset;
 
-          uint64_t epochTime = timeUSec / 1000000;
-          epochTime += static_cast<uint64_t>(offset.count());
-          std::time_t time = static_cast<std::time_t>(epochTime);
-          std::tm gmTime = *std::gmtime(&time);
-          std::ostringstream oss;
-          oss << std::put_time(&gmTime, "%Y-%m-%dT%H:%M:%S");
-          asyncResp->res.jsonValue["DateTime"] = oss.str();
-    });
-
+            uint64_t epochTime = timeUSec / 1000000;
+            epochTime += static_cast<uint64_t>(offset.count());
+            std::time_t time = static_cast<std::time_t>(epochTime);
+            std::tm gmTime = *std::gmtime(&time);
+            std::ostringstream oss;
+            oss << std::put_time(&gmTime, "%Y-%m-%dT%H:%M:%SZ");
+            asyncResp->res.jsonValue["DateTime"] = oss.str();
+        });
 }
 
 // avoid name collision systems.hpp
-inline void
-    managerGetLastResetTime(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void managerGetLastResetTime(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     BMCWEB_LOG_DEBUG("Getting Manager Last Reset Time");
 
@@ -2127,9 +2127,9 @@ inline void
  *
  * @return void
  */
-inline void
-    setActiveFirmwareImage(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                           const std::string& runningFirmwareTarget)
+inline void setActiveFirmwareImage(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& runningFirmwareTarget)
 {
     // Get the Id from /redfish/v1/UpdateService/FirmwareInventory/<Id>
     std::string::size_type idPos = runningFirmwareTarget.rfind('/');
@@ -2283,47 +2283,48 @@ inline void setDateTime(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         return;
     }
     dbus::utility::getProperty<std::string>(
-      "org.freedesktop.timedate1", "/org/freedesktop/timedate1",
-      "org.freedesktop.timedate1", "Timezone",
-      [asyncResp, us](const boost::system::error_code& ec,
-                  const std::string& timezone) {
-          if (ec)
-          {
-              BMCWEB_LOG_DEBUG("DBUS response error for "
-                               "TimeZoneName");
-              messages::internalError(asyncResp->res);
-              return;
-          }
-          // Set timezone
-          setenv("TZ", timezone.c_str(), 1);
-          tzset();
+        "org.freedesktop.timedate1", "/org/freedesktop/timedate1",
+        "org.freedesktop.timedate1", "Timezone",
+        [asyncResp,
+         us](const boost::system::error_code& ec, const std::string& timezone) {
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG("DBUS response error for "
+                                 "TimeZoneName");
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            // Set timezone
+            setenv("TZ", timezone.c_str(), 1);
+            tzset();
 
-          // Get current time
-          time_t now = time(nullptr);
-          struct tm localTm;
-          localtime_r(&now, &localTm);
+            // Get current time
+            time_t now = time(nullptr);
+            struct tm localTm;
+            localtime_r(&now, &localTm);
 
-          long int offset_sec = localTm.tm_gmtoff;
-          int64_t offset_microseconds = static_cast<int64_t>(offset_sec) * 1000000;
+            long int offset_sec = localTm.tm_gmtoff;
+            int64_t offset_microseconds =
+                static_cast<int64_t>(offset_sec) * 1000000;
 
-          int64_t adjustedEpochTime = us->count() - (offset_microseconds);
+            int64_t adjustedEpochTime = us->count() - (offset_microseconds);
 
-          // Set the absolute datetime
-          bool relative = false;
-          bool interactive = false;
-          crow::connections::systemBus->async_method_call(
-              [asyncResp](const boost::system::error_code& ec1,
-                          const sdbusplus::message_t& msg) {
-                  afterSetDateTime(asyncResp, ec1, msg);
-              },
-              "org.freedesktop.timedate1", "/org/freedesktop/timedate1",
-              "org.freedesktop.timedate1", "SetTime", adjustedEpochTime, relative,
-              interactive);
-    });
+            // Set the absolute datetime
+            bool relative = false;
+            bool interactive = false;
+            crow::connections::systemBus->async_method_call(
+                [asyncResp](const boost::system::error_code& ec1,
+                            const sdbusplus::message_t& msg) {
+                    afterSetDateTime(asyncResp, ec1, msg);
+                },
+                "org.freedesktop.timedate1", "/org/freedesktop/timedate1",
+                "org.freedesktop.timedate1", "SetTime", adjustedEpochTime,
+                relative, interactive);
+        });
 }
 
-inline void
-    checkForQuiesced(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void checkForQuiesced(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     dbus::utility::getProperty<std::string>(
         "org.freedesktop.systemd1",
@@ -2443,7 +2444,8 @@ inline void handleManagersInstanceGet(
     // on OpenBMC
     nlohmann::json& resetToDefaults =
         asyncResp->res.jsonValue["Oem"]["Ami"]["FactoryDefault"];
-        resetToDefaults["@odata.id"]= boost::urls::format("/redfish/v1/Managers/{}/Oem/Ami/ResetToDefaults",
+    resetToDefaults["@odata.id"] =
+        boost::urls::format("/redfish/v1/Managers/{}/Oem/Ami/ResetToDefaults",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
 
     dbus::utility::getProperty<std::string>(

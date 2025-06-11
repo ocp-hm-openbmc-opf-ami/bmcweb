@@ -307,10 +307,10 @@ inline bool getUserGroupFromAccountType(
  * @param[in] dbusObjectPath D-Bus Object Path
  * @param[in] userSelf true if User is updating OWN Account Types
  */
-inline void
-    patchAccountTypes(const std::vector<std::string>& accountTypes,
-                      const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                      const std::string& dbusObjectPath, bool userSelf)
+inline void patchAccountTypes(
+    const std::vector<std::string>& accountTypes,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& dbusObjectPath, bool userSelf)
 {
     // Check if User is disabling own Redfish Account Type
     if (userSelf &&
@@ -502,10 +502,10 @@ inline void handleRoleMapPatch(
             std::optional<std::string> remoteGroup;
             std::optional<std::string> localRole;
 
-            if (!json_util::readJsonObject( //
-                    *obj, asyncResp->res, //
+            if (!json_util::readJsonObject(     //
+                    *obj, asyncResp->res,       //
                     "RemoteGroup", remoteGroup, //
-                    "LocalRole", localRole //
+                    "LocalRole", localRole      //
                     ))
             {
                 continue;
@@ -515,17 +515,17 @@ inline void handleRoleMapPatch(
             if (index < roleMapObjData.size())
             {
                 BMCWEB_LOG_DEBUG("Update Role Map Object");
-		
-		// Check for duplicate RemoteGroup in roleMapObjData
-            	for (const auto& [path, data] : roleMapObjData)
-            	{	
-                	if (remoteGroup && *remoteGroup == data.groupName)
-                	{
-                    		BMCWEB_LOG_DEBUG("Duplicate RemoteGroup: {} found",
-                                     *remoteGroup);
-                    		messages::noOperation(asyncResp->res);
-               		 }
-            	}	
+
+                // Check for duplicate RemoteGroup in roleMapObjData
+                for (const auto& [path, data] : roleMapObjData)
+                {
+                    if (remoteGroup && *remoteGroup == data.groupName)
+                    {
+                        BMCWEB_LOG_DEBUG("Duplicate RemoteGroup: {} found",
+                                         *remoteGroup);
+                        messages::noOperation(asyncResp->res);
+                    }
+                }
 
                 // If "RemoteGroup" info is provided
                 if (remoteGroup)
@@ -681,8 +681,8 @@ inline void handleRoleMapPatch(
  * into JSON
  */
 template <typename CallbackFunc>
-inline void
-    getLDAPConfigData(const std::string& ldapType, CallbackFunc&& callback)
+inline void getLDAPConfigData(const std::string& ldapType,
+                              CallbackFunc&& callback)
 {
     constexpr std::array<std::string_view, 2> interfaces = {
         ldapEnableInterface, ldapConfigInterface};
@@ -853,8 +853,8 @@ inline void
         });
 }
 
-inline void
-    getRADIUSConfigData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void getRADIUSConfigData(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     dbus::utility::getAllProperties(
         radisuDBusService, radiusConfigObjectPath, radiusConfigInterface,
@@ -904,8 +904,8 @@ inline void
         });
 }
 
-inline void
-    getRADIUSRoleMap(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void getRADIUSRoleMap(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     dbus::utility::getAllProperties(
         radisuDBusService, radiusRoleMapObjectPath, radiusRoleMapInterface,
@@ -1119,11 +1119,11 @@ inline void handleServiceAddressPatch(
  server(openLDAP/ActiveDirectory)
  */
 
-inline void
-    handleUserNamePatch(const std::string& username,
-                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                        const std::string& ldapServerElementName,
-                        const std::string& ldapConfigObject)
+inline void handleUserNamePatch(
+    const std::string& username,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& ldapServerElementName,
+    const std::string& ldapConfigObject)
 {
     sdbusplus::asio::setProperty(
         *crow::connections::systemBus, ldapDbusService, ldapConfigObject,
@@ -1154,11 +1154,11 @@ inline void
  *        server(openLDAP/ActiveDirectory)
  */
 
-inline void
-    handlePasswordPatch(const std::string& password,
-                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                        const std::string& ldapServerElementName,
-                        const std::string& ldapConfigObject)
+inline void handlePasswordPatch(
+    const std::string& password,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& ldapServerElementName,
+    const std::string& ldapConfigObject)
 {
     sdbusplus::asio::setProperty(
         *crow::connections::systemBus, ldapDbusService, ldapConfigObject,
@@ -1186,11 +1186,11 @@ inline void
  server(openLDAP/ActiveDirectory)
  */
 
-inline void
-    handleBaseDNPatch(const std::vector<std::string>& baseDNList,
-                      const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                      const std::string& ldapServerElementName,
-                      const std::string& ldapConfigObject)
+inline void handleBaseDNPatch(
+    const std::vector<std::string>& baseDNList,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& ldapServerElementName,
+    const std::string& ldapConfigObject)
 {
     sdbusplus::asio::setProperty(
         *crow::connections::systemBus, ldapDbusService, ldapConfigObject,
@@ -1323,7 +1323,8 @@ inline void handleServiceEnablePatch(
             {
                 BMCWEB_LOG_DEBUG(
                     "Error Occurred in Updating the service enable");
-                messages::internalError(asyncResp->res);
+                messages::conflictOnPropertyPatch(asyncResp->res,
+                                                  "ServiceEnabled", "true");
                 return;
             }
             asyncResp->res.jsonValue[ldapServerElementName]["ServiceEnabled"] =
@@ -1341,9 +1342,9 @@ struct AuthMethods
     std::optional<bool> tls;
 };
 
-inline void
-    handleAuthMethodsPatch(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                           const AuthMethods& auth)
+inline void handleAuthMethodsPatch(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const AuthMethods& auth)
 {
     persistent_data::AuthConfigMethods& authMethodsConfig =
         persistent_data::SessionStore::getInstance().getAuthMethodsConfig();
@@ -1471,10 +1472,13 @@ inline void handleLDAPPatch(LdapPatchParams&& input,
     else if (serverType == "LDAP")
     {
         dbusObjectPath = ldapConfigObjectName;
-        if((input.baseDNList.has_value() || input.userNameAttribute.has_value()|| input.serviceAddressList.has_value())&& (!input.userName || !input.password))
+        if ((input.baseDNList.has_value() ||
+             input.userNameAttribute.has_value() ||
+             input.serviceAddressList.has_value()) &&
+            (!input.userName || !input.password))
         {
-             messages::propertyMissing(asyncResp->res, "Username and Password");
-             return;
+            messages::propertyMissing(asyncResp->res, "Username and Password");
+            return;
         }
     }
     else
@@ -1634,9 +1638,9 @@ inline void setOEMAccountTypes(
         dbus::utility::DbusVariantType{grpList});
 }
 
-inline void
-    afterVerifyUserExists(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                          const UserUpdateParams& params, int rc)
+inline void afterVerifyUserExists(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const UserUpdateParams& params, int rc)
 {
     if (rc <= 0)
     {
@@ -1847,9 +1851,9 @@ inline void handleAccountServiceHead(
         "</redfish/v1/JsonSchemas/AccountService/AccountService.json>; rel=describedby");
 }
 
-inline void
-    getClientCertificates(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                          const nlohmann::json::json_pointer& keyLocation)
+inline void getClientCertificates(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const nlohmann::json::json_pointer& keyLocation)
 {
     boost::urls::url url(
         "/redfish/v1/AccountService/MultiFactorAuth/ClientCertificate/Certificates");
@@ -1930,8 +1934,8 @@ inline void handleAccountServiceClientCertificatesGet(
 
 using account_service::CertificateMappingAttribute;
 using persistent_data::MTLSCommonNameParseMode;
-inline CertificateMappingAttribute
-    getCertificateMapping(MTLSCommonNameParseMode parse)
+inline CertificateMappingAttribute getCertificateMapping(
+    MTLSCommonNameParseMode parse)
 {
     switch (parse)
     {
@@ -1967,9 +1971,9 @@ inline CertificateMappingAttribute
     }
 }
 
-inline void
-    handleAccountServiceGet(App& app, const crow::Request& req,
-                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void handleAccountServiceGet(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -2210,7 +2214,6 @@ inline void handleExternalProviderGet(
     json["@odata.id"] = "/redfish/v1/AccountService/ExternalAccountProviders";
     json["@odata.type"] =
         "#ExternalAccountProviderCollection.ExternalAccountProviderCollection";
-    json["Id"] = "ExternalRedfishService";
     json["Name"] = "External Accounts Provider Collection";
     json["Description"] = "Collection for External Accounts Provider";
     nlohmann::json& memberArray = json["Members"];
@@ -2222,9 +2225,9 @@ inline void handleExternalProviderGet(
     json["Members@odata.count"] = memberArray.size();
 }
 
-inline void
-    handleAccountRadiusGet(App& app, const crow::Request& req,
-                           const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void handleAccountRadiusGet(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -2518,7 +2521,8 @@ inline void handleAccountRadiusPatch(
     }
     if (radiusObject.enabled.has_value())
     {
-        // Enable or disable the RADIUS service based on the value of "ServiceEnabled"
+        // Enable or disable the RADIUS service based on the value of
+        // "ServiceEnabled"
         setRadiusEnable(asyncResp, *radiusObject.enabled);
     }
     else
@@ -2841,7 +2845,7 @@ inline void handleAccountServicePatch(
 
     if (ldapObject.hasValue())
     {
-            handleLDAPPatch(std::move(ldapObject), asyncResp, "LDAP");
+        handleLDAPPatch(std::move(ldapObject), asyncResp, "LDAP");
     }
 
     handleAuthMethodsPatch(asyncResp, auth);
@@ -3526,10 +3530,10 @@ inline void fetchSnmpUserData(const std::string& accountName, const std::shared_
         });
 }
 
-inline void
-    handleAccountHead(App& app, const crow::Request& req,
-                      const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                      const std::string& /*accountName*/)
+inline void handleAccountHead(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& /*accountName*/)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -3540,10 +3544,10 @@ inline void
         "</redfish/v1/JsonSchemas/ManagerAccount/ManagerAccount.json>; rel=describedby");
 }
 
-inline void
-    handleAccountGet(App& app, const crow::Request& req,
-                     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                     const std::string& accountName)
+inline void handleAccountGet(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& accountName)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -3959,14 +3963,14 @@ inline void
     if (userHasConfigureUsers)
     {
         // Users with ConfigureUsers can modify for all users
-        if (!json_util::readJsonPatch( //
-                req, asyncResp->res, //
-                "UserName", newUserName, //
-                "Password", password, //
-                "RoleId", roleId, //
-                "Enabled", enabled, //
-                "Locked", locked, //
-                "AccountTypes", accountTypes, //
+        if (!json_util::readJsonPatch(                            //
+                req, asyncResp->res,                              //
+                "UserName", newUserName,                          //
+                "Password", password,                             //
+                "RoleId", roleId,                                 //
+                "Enabled", enabled,                               //
+                "Locked", locked,                                 //
+                "AccountTypes", accountTypes,                     //
                 "PasswordChangeRequired", passwordChangeRequired, //
                 "OEMAccountTypes", oemAccountTypes,
                 "Oem", oemObj
@@ -3986,8 +3990,8 @@ inline void
 
         // ConfigureSelf accounts can only modify their password
         if (!json_util::readJsonPatch( //
-                req, asyncResp->res, //
-                "Password", password //
+                req, asyncResp->res,   //
+                "Password", password   //
                 ))
         {
             return;

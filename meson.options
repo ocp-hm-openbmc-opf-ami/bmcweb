@@ -83,6 +83,14 @@ option(
     description: 'Enable the AMI NVME.'
 )
 
+# BMCWEB_GPGPU_URIS_MACRO
+option(
+    'gpgpu-uris',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable the GPGPU Uris.'
+)
+
 # BMCWEB_AMI_RAIDMSCC_MACRO
 option(
     'ami-raidmscc',

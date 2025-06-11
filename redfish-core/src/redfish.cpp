@@ -41,6 +41,7 @@
 #include "node-manager/triggers.hpp"
 #include "odata.hpp"
 #include "pcie.hpp"
+#include "pcie_slots.hpp"
 #include "pef_service.hpp"
 #include "power.hpp"
 #include "power_subsystem.hpp"
@@ -87,6 +88,10 @@
 
 #if BMCWEB_SPDM_URIS_MACRO
 #include "ext/spdm/src/spdm.hpp"
+#endif
+
+#if BMCWEB_GPGPU_URIS_MACRO
+#include "ext/src/gpgpu.hpp"
 #endif
 
 #if (BMCWEB_AMI_RAIDBRCM_MACRO) || (BMCWEB_AMI_RAIDMSCC_MACRO) ||              \
@@ -220,8 +225,12 @@ RedfishService::RedfishService(App& app)
     if constexpr (BMCWEB_REDFISH_DUMP_LOG)
     {
         requestRoutesSystemDumpService(app);
-        requestRoutesSystemDumpEntryCollection(app);
-        requestRoutesSystemDumpEntry(app);
+        #if(!BMCWEB_CHALUPA_AMD_MACRO)
+	{
+		requestRoutesSystemDumpEntryCollection(app);
+	        requestRoutesSystemDumpEntry(app);
+	}
+	#endif
         requestRoutesSystemDumpCreate(app);
         requestRoutesSystemDumpClear(app);
 
@@ -314,6 +323,8 @@ RedfishService::RedfishService(App& app)
     requestRoutesSystemPCIeDeviceCollection(app);
     requestRoutesSystemPCIeDevice(app);
 
+    requestRoutesPCIeSlots(app);
+
     requestRoutesSensorCollection(app);
     requestRoutesSensor(app);
     requestRoutesSensorPatching(app);
@@ -367,6 +378,10 @@ RedfishService::RedfishService(App& app)
 #endif
 #if BMCWEB_AMI_NIC_MACRO
     registerNicRoutes(app);
+#endif
+
+#if BMCWEB_GPGPU_URIS_MACRO
+    registerGpgpuRoutes(app);
 #endif
 
 #if (BMCWEB_AMI_NVME_MACRO) || (BMCWEB_AMI_RAIDMSCC_MACRO) ||                  \

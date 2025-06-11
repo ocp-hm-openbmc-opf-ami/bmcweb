@@ -170,7 +170,12 @@
         <Property Name="ComponentId" Type="Edm.Int16">
           <Annotation Term="OData.Description" String="Identifier of a domain's component this policy limit is to be applied to."/>
           <Annotation Term="OData.LongDescription" String="This property shall contain definition of a Identifier of a domain's component this policy limit is to be applied to."/>
-        </Property>
+  	</Property>
+
+	<Property Name="DefaultPolicy" Type="Edm.Boolean" Nullable="false">
+    	  <Annotation Term="OData.Description" String="Identifier of a domain's default policy to be applied to."/>
+    	  <Annotation Term="OData.LongDescription" String="This property shall contain definition of a default policy input  is to be applied to."/>
+  	</Property>
       </EntityType>
 
       <ComplexType Name="Status" BaseType="Resource.Status">
@@ -206,7 +211,7 @@
               </Record>
             </Collection>
           </Annotation>
-      </ComplexType>
+     </ComplexType> 
 
       <EnumType Name="NmState">
         <Member Name="Disabled">

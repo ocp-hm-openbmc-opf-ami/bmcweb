@@ -254,13 +254,16 @@ inline void getSessionInfo(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
                 asyncResp->res.jsonValue["Description"] =
                     "Manager User Session";
                 asyncResp->res.jsonValue["ClientOriginIPAddress"] = IpAddess;
-                if(SessionType == 2)
+                if (SessionType == 2)
                 {
-                    asyncResp->res.jsonValue["Oem"]["AMI_WebSession"]["MountType"] =
-                    additionalConfigValue;
+                    asyncResp->res
+                        .jsonValue["Oem"]["AMI_WebSession"]["MountType"] =
+                        additionalConfigValue;
                 }
-                else {
-                    asyncResp->res.jsonValue["Oem"]["AMI_WebSession"]["MountType"] = "";
+                else
+                {
+                    asyncResp->res
+                        .jsonValue["Oem"]["AMI_WebSession"]["MountType"] = "";
                 }
                 asyncResp->res.jsonValue["SessionType"] =
                     getSessionType(SessionType);
@@ -274,29 +277,33 @@ inline void getSessionInfo(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
     }
 }
 
-inline void
-    handleSessionHead(crow::App& app, const crow::Request& req,
-                      const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                      const std::string& /*sessionId*/)
+inline void handleSessionHead(
+    crow::App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& /*sessionId*/)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
     }
+    asyncResp->res.clearHeader(boost::beast::http::field::allow);
+    asyncResp->res.addHeader("Allow", "GET,DELETE,HEAD");
     asyncResp->res.addHeader(
         boost::beast::http::field::link,
         "</redfish/v1/JsonSchemas/Session/Session.json>; rel=describedby");
 }
 
-inline void
-    handleSessionGet(crow::App& app, const crow::Request& req,
-                     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                     const std::string& sessionId)
+inline void handleSessionGet(
+    crow::App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& sessionId)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
     }
+    asyncResp->res.clearHeader(boost::beast::http::field::allow);
+    asyncResp->res.addHeader("Allow", "GET,DELETE,HEAD");
     asyncResp->res.addHeader(
         boost::beast::http::field::link,
         "</redfish/v1/JsonSchemas/Session/Session.json>; rel=describedby");
@@ -432,16 +439,17 @@ inline void
         "xyz.openbmc_project.ObjectMapper", "GetSubTree", "/", 0, interfaces);
 }
 
-inline void
-    handleSessionDelete(crow::App& app, const crow::Request& req,
-                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                        const std::string& sessionId)
+inline void handleSessionDelete(
+    crow::App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& sessionId)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
     }
-
+    asyncResp->res.clearHeader(boost::beast::http::field::allow);
+    asyncResp->res.addHeader("Allow", "GET,DELETE,HEAD");
     if (sessionId.find('_') != std::string::npos)
     {
         size_t Pos = sessionId.find('_');
@@ -476,10 +484,10 @@ inline void
             }
         }
 
-	if(!found)
+        if (!found)
         {
-           messages::resourceNotFound(asyncResp->res, "Session", sessionId);
-           return;
+            messages::resourceNotFound(asyncResp->res, "Session", sessionId);
+            return;
         }
 
         // Unregister session
@@ -772,11 +780,11 @@ inline void handleSessionCollectionPost(
     std::optional<std::string> clientId;
     std::optional<std::string> token;
     if (!json_util::readJsonPatch( //
-            req, asyncResp->res, //
-            "UserName", username, //
-            "Password", password, //
-            "Token", token, //
-            "Context", clientId //
+            req, asyncResp->res,   //
+            "UserName", username,  //
+            "Password", password,  //
+            "Token", token,        //
+            "Context", clientId    //
             ))
     {
         return;
@@ -841,9 +849,9 @@ inline void handleSessionServiceHead(
         boost::beast::http::field::link,
         "</redfish/v1/JsonSchemas/SessionService/SessionService.json>; rel=describedby");
 }
-inline void
-    handleSessionServiceGet(crow::App& app, const crow::Request& req,
-                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void handleSessionServiceGet(
+    crow::App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
@@ -955,10 +963,10 @@ inline void handleSessionServicePatch(
     }
     std::optional<uint64_t> sessionTimeout;
     std::optional<nlohmann::json> oem;
-    if (!json_util::readJsonPatch( //
-            req, asyncResp->res, //
+    if (!json_util::readJsonPatch(            //
+            req, asyncResp->res,              //
             "SessionTimeout", sessionTimeout, //
-            "Oem", oem //
+            "Oem", oem                        //
             ))
     {
         return;
@@ -1000,9 +1008,9 @@ inline void handleSessionServicePatch(
     {
         std::optional<nlohmann::json> ami;
 
-        if (!json_util::readJson( //
+        if (!json_util::readJson(     //
                 *oem, asyncResp->res, //
-                "Ami", ami //
+                "Ami", ami            //
                 ))
         {
             return;
@@ -1107,45 +1115,49 @@ inline void requestRoutesSession(App& app)
             std::bind_front(handleSessionDelete, std::ref(app)));
 
     BMCWEB_ROUTE(app, "/redfish/v1/SessionService/Sessions/<str>/")
-    .methods(boost::beast::http::verb::post,boost::beast::http::verb::patch)(
-        [](const crow::Request&, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, const std::string& sessionId) {
-           
-        if (sessionId.find('_') != std::string::npos)
-        {
-            size_t Pos = sessionId.find('_');
-            std::string num = sessionId.substr(Pos + 1);
-            int SessId = std::stoi(num);
-            bool found = false;
-
-            // Fetching sessionType with sessionId
-            for (size_t i = 0; i < SessionInterfaces.size(); ++i)
-            {
-                propertyValue data =
-                    getSessiondata(SessionInterfaces[i], SessionProperties[i]);
-                if (std::holds_alternative<sessionRet>(data))
+        .methods(boost::beast::http::verb::post,
+                 boost::beast::http::verb::patch)(
+            [](const crow::Request&,
+               const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+               const std::string& sessionId) {
+                asyncResp->res.clearHeader(boost::beast::http::field::allow);
+                asyncResp->res.addHeader("Allow", "GET,DELETE,HEAD");
+                if (sessionId.find('_') != std::string::npos)
                 {
-                    sessionRet& vec = std::get<sessionRet>(data);
-                    for (const auto& tuple : vec)
+                    size_t Pos = sessionId.find('_');
+                    std::string num = sessionId.substr(Pos + 1);
+                    int SessId = std::stoi(num);
+                    bool found = false;
+
+                    // Fetching sessionType with sessionId
+                    for (size_t i = 0; i < SessionInterfaces.size(); ++i)
                     {
-		                uint8_t id = std::get<0>(tuple);
-                       	
-                        if (SessId == id)
+                        propertyValue data = getSessiondata(
+                            SessionInterfaces[i], SessionProperties[i]);
+                        if (std::holds_alternative<sessionRet>(data))
                         {
-                       
-                            found = true;
-                            break;
+                            sessionRet& vec = std::get<sessionRet>(data);
+                            for (const auto& tuple : vec)
+                            {
+                                uint8_t id = std::get<0>(tuple);
+
+                                if (SessId == id)
+                                {
+                                    found = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (found)
+                        {
+                            messages::operationNotAllowed(asyncResp->res);
+                            return;
                         }
                     }
                 }
-                if (found)
-                {
-                    messages::operationNotAllowed(asyncResp->res);
-                    return; 
-                }
-            }
-        }    
-            messages::resourceNotFound(asyncResp->res, "Session", sessionId);
-    });        
+                messages::resourceNotFound(asyncResp->res, "Session",
+                                           sessionId);
+            });
 
     BMCWEB_ROUTE(app, "/redfish/v1/SessionService/Sessions/")
         .privileges(redfish::privileges::headSessionCollection)

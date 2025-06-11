@@ -61,7 +61,8 @@ feature_options = [
     'ast2700-evb',
     'chalupa-amd',
     'spdm-uris',
-    'sbmr-ext'
+    'sbmr-ext',
+    'gpgpu-uris'
 ]
 
 string_options = [
@@ -128,6 +129,8 @@ foreach option_key : feature_options + string_options + int_options
              'spdm-uris',
         ) or option_key.contains(   
              'sbmr-ext',
+        ) or option_key.contains(
+             'gpgpu-uris',
         )
             feature_options_string += '#define ' + option_macro_config + '  ' + opt.allowed().to_string() + '\n'
         endif

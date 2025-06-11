@@ -50,7 +50,7 @@
                     "description": "Kvm MaxSession.",
                     "longDescription": "The value indicates Maximum kvm sessions user can access.",
                     "type": [
-                        "number",
+                        "integer",
                         "null"
                     ]
                 },
@@ -58,7 +58,7 @@
                     "description": "Redfish MaxSession.",
                     "longDescription": "The value indicates Maximum Redfish sessions user can access.",
                     "type": [
-                        "number",
+                        "integer",
                         "null"
                     ]
                 },
@@ -66,7 +66,7 @@
                     "description": "SSH MaxSession.",
                     "longDescription": "The value indicates Maximum SSH sessions user can access.",
                     "type": [
-                        "number",
+                        "integer",
                         "null"
                     ]
                 },
@@ -74,7 +74,7 @@
                     "description": "VirtualMedia MaxSession.",
                     "longDescription": "The value indicates Maximum VM sessions user can access.",
                     "type": [
-                        "number",
+                        "integer",
                         "null"
                     ]
                 },
@@ -82,7 +82,7 @@
                     "description": "Web MaxSession.",
                     "longDescription": "The value indicates Maximum Web Sessions user can access.",
                     "type": [
-                        "number",
+                        "integer",
                         "null"
                     ]
                 }
