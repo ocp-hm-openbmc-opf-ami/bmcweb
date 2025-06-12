@@ -2825,9 +2825,9 @@ inline void requestRoutesEventDestination(App& app)
                     }
                     else
                     {
-                        messages::propertyValueIncorrect(
-                            asyncResp->res, "AuthenticationProtocol",
-                            *authenticationProtocol);
+                        messages::propertyValueNotInList(
+                            asyncResp->res, *authenticationProtocol,
+                            "AuthenticationProtocol");
                         return;
                     }
                 }
