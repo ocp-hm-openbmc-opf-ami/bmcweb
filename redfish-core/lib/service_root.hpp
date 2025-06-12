@@ -121,7 +121,7 @@ inline void handleServiceRootGetImpl(
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
 #if BMCWEB_SPDM_URIS_MACRO
     asyncResp->res.jsonValue["ComponentIntegrity"]["@odata.id"] =
-        "/redfish/v1/ComponentIntegrity";
+	    "/redfish/v1/ComponentIntegrity";
 #endif
 
     nlohmann::json& protocolFeatures =

@@ -23,6 +23,14 @@ option(
     description: 'Enable the SBMR extension pack.'
 )
 
+# BMCWEB_DOT_URIS_MACRO
+option(
+    'dot-uris',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable the DOT Uris.'
+)
+
 # BMCWEB_VM_WEBSOCKET
 option(
     'vm-websocket',

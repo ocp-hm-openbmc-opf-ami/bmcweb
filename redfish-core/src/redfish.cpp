@@ -119,6 +119,10 @@
 #include "ext/sbmr/src/sbmr.hpp"
 #endif
 
+#if BMCWEB_DOT_URIS_MACRO
+#include "ext/dot/src/dot.hpp"
+#endif
+
 namespace redfish
 {
 
@@ -439,6 +443,9 @@ RedfishService::RedfishService(App& app)
 #endif
 #if BMCWEB_SPDM_URIS_MACRO
     registerSpdmRoutes(app);
+#endif
+#if BMCWEB_DOT_URIS_MACRO
+    registerDotRoutes(app);
 #endif
     // Note, this must be the last route registered
     requestRoutesRedfish(app);

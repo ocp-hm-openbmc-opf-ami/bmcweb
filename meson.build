@@ -407,6 +407,10 @@ if get_option('gpgpu-uris').enabled()
     srcfiles_bmcweb += 'ext/src/gpgpu.cpp'
 endif
 
+if get_option('dot-uris').enabled()
+    srcfiles_bmcweb += 'ext/dot/src/dot.cpp'
+endif
+
 bmcweblib = static_library(
     'bmcweblib',
     srcfiles_bmcweb,

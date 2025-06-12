@@ -1220,6 +1220,12 @@ inline void requestRoutesSystemLogServiceCollection(App& app)
                 std::format("/redfish/v1/Systems/{}/LogServices/EventLog",
                             BMCWEB_REDFISH_SYSTEM_URI_NAME);
             logServiceArray.emplace_back(std::move(eventLog));
+#if BMCWEB_DOT_URIS_MACRO
+            nlohmann::json::object_t debugToken;
+            debugToken["@odata.id"] =
+            	"/redfish/v1/Systems/system/LogServices/DebugTokenService";
+            logServiceArray.emplace_back(std::move(debugToken));
+#endif
             if constexpr (BMCWEB_REDFISH_DUMP_LOG)
             {
                 nlohmann::json::object_t dumpLog;

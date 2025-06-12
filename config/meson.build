@@ -62,7 +62,8 @@ feature_options = [
     'chalupa-amd',
     'spdm-uris',
     'sbmr-ext',
-    'gpgpu-uris'
+    'gpgpu-uris',
+    'dot-uris'
 ]
 
 string_options = [
@@ -131,6 +132,8 @@ foreach option_key : feature_options + string_options + int_options
              'sbmr-ext',
         ) or option_key.contains(
              'gpgpu-uris',
+        ) or option_key.contains(
+             'dot-uris',
         )
             feature_options_string += '#define ' + option_macro_config + '  ' + opt.allowed().to_string() + '\n'
         endif
