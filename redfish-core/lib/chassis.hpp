@@ -1455,13 +1455,6 @@ inline void handleChassisResetActionInfoPost(
                 auto reqchassisHostTransitionTimeOut =
                     std::get<uint64_t>(timeOut_value);
 
-                if (reqHostState !=
-                    "xyz.openbmc_project.State.Host.HostState.Running")
-                {
-                    NoOperation(asyncResp);
-                    return;
-                }
-
                 if (!json_util::readJsonAction( //
                         req, asyncResp->res, //
                         "ResetType", resetType, //
@@ -1482,6 +1475,13 @@ inline void handleChassisResetActionInfoPost(
                                      resetType);
                     messages::actionParameterNotSupported(
                         asyncResp->res, resetType, "ResetType");
+                    return;
+                }
+
+	       if (reqHostState !=
+                    "xyz.openbmc_project.State.Host.HostState.Running")
+                {
+                    NoOperation(asyncResp);
                     return;
                 }
 

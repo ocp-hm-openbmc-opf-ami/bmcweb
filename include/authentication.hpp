@@ -46,6 +46,13 @@ inline std::shared_ptr<persistent_data::UserSession>
     }
 
     std::string user = authData.substr(0, separator);
+    
+    if(!user.size()) 
+    {
+        BMCWEB_LOG_DEBUG("[AuthMiddleware] Username missing");
+        return nullptr;
+    }
+
     separator += 1;
     if (separator > authData.size())
     {

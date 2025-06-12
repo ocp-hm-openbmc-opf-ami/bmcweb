@@ -2398,8 +2398,9 @@ inline void handleUpdateServicePatch(
                 std::optional<bool> ntp;
                 std::optional<bool> sol;
                 std::optional<bool> syslog;
-		std::optional<bool> boot_override;
+                std::optional<bool> boot_override;
                 std::optional<bool> extlog;
+                std::optional<bool> service_manager;
                 std::size_t preserveconfiguration_size =
                     preserveconfiguration.value().size();
                 if (preserveconfiguration_size == 0)
@@ -2413,7 +2414,7 @@ inline void handleUpdateServicePatch(
                         kvm, "SMTP", smtp, "NETWORK", network, "REDFISH",
                         redfish, "SDR", sdr, "SEL", sel, "SNMP", snmp,
                         "U_BOOT_ENV", uboot, "IPMI", ipmi, "NTP" ,ntp, "SOL",
-                        sol, "SYSLOG" , syslog ,"Boot_Override", boot_override, "EXTLOG", extlog))
+                        sol, "SYSLOG" , syslog ,"Boot_Override", boot_override, "EXTLOG", extlog,"ServiceManager",service_manager))
                 {
                     return;
                 }
@@ -2517,7 +2518,7 @@ inline void handleUpdateServicePatch(
                         network_config+"SYSLOG",
                         *syslog);
                 }
-		if (boot_override)
+                if (boot_override)
                 {
                     setPreserveConfigEnable(
                         asyncResp,
@@ -2530,6 +2531,13 @@ inline void handleUpdateServicePatch(
                         asyncResp,
                         network_config+"EXTLOG",
                         *extlog);
+                }
+                if (service_manager)
+                {
+                    setPreserveConfigEnable(
+                        asyncResp,
+                        preserve_config+"ServiceManager",
+                        *service_manager);
                 }
             }
         }
