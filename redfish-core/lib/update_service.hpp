@@ -2242,12 +2242,8 @@ inline void handleUpdateServicePatch(
         {
             std::optional<nlohmann::json> preserveconfiguration;
             std::size_t ami_size = ami.value().size();
-            if (ami_size == 0)
-            {
-                messages::noOperation(asyncResp->res);
-                return;
-            }
-	    if (!ami.has_value() || !ami->is_object())
+            
+	    if (!ami.has_value() || !ami->is_object()|| ami_size == 0)
             {
                 BMCWEB_LOG_DEBUG("JSON value is not an object or is missing in ami");
                 messages::propertyValueTypeError(asyncResp->res, *ami, "ami");
@@ -2280,12 +2276,9 @@ inline void handleUpdateServicePatch(
                 std::optional<bool> service_manager;
                 std::size_t preserveconfiguration_size =
                     preserveconfiguration.value().size();
-                if (preserveconfiguration_size == 0)
-                {
-                    messages::noOperation(asyncResp->res);
-                    return;
-                }
-		if (!preserveconfiguration.has_value() || !preserveconfiguration->is_object())
+            
+         
+		if (!preserveconfiguration.has_value() || !preserveconfiguration->is_object() || preserveconfiguration_size == 0)
                 {
                         BMCWEB_LOG_DEBUG("JSON value is not an object or is missing in preserveconfiguration");
                         messages::propertyValueTypeError(asyncResp->res, *preserveconfiguration ,"preserveconfiguration");
