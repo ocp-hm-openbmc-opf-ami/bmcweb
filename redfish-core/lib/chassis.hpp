@@ -43,7 +43,7 @@ constexpr const char* dbusPropertyInterface = "org.freedesktop.DBus.Properties";
 
 using PropertyValue = std::variant<uint8_t, uint16_t, uint64_t, std::string,
                                    std::vector<std::string>, bool>;
-bool ishandleChassisGetSubTree = false;
+
 bool checkinvalidURIPatch = true;
 
 inline chassis::ChassisType
