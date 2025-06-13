@@ -23,6 +23,14 @@ option(
     description: 'Enable the SBMR extension pack.'
 )
 
+# BMCWEB_DOT_URIS_MACRO
+option(
+    'dot-uris',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable the DOT Uris.'
+)
+
 # BMCWEB_VM_WEBSOCKET
 option(
     'vm-websocket',
@@ -66,13 +74,20 @@ option(
     description: 'Enable the AMI redfish extension pack.'
 )
 
-
 # BMCWEB_SPDM_URIS_MACRO
 option(
     'spdm-uris',
     type: 'feature',
     value: 'disabled',
     description: 'Enable the SPDM Uris.'
+)
+
+# BMCWEB_CPER_URIS_MACRO
+option(
+    'cper-uris',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable the cper Uris.'
 )
 
 # BMCWEB_AMI_NVME_MACRO

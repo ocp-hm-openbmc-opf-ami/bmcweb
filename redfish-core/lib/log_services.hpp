@@ -152,7 +152,7 @@ uint16_t getrecoverydata(std::string value)
         return 3;
 }
 
-inline std::string getDumpPath(std::string_view dumpType)
+std::string getDumpPath(std::string_view dumpType)
 {
     std::string dbusDumpPath = "/xyz/openbmc_project/dump/";
     std::ranges::transform(dumpType, std::back_inserter(dbusDumpPath),
@@ -225,7 +225,7 @@ inline bool
     return !redfishLogFiles.empty();
 }
 
-inline log_entry::OriginatorTypes
+log_entry::OriginatorTypes
     mapDbusOriginatorTypeToRedfish(const std::string& originatorType)
 {
     if (originatorType ==
@@ -592,7 +592,7 @@ inline void
         });
 }
 
-inline void deleteDumpEntry(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+void deleteDumpEntry(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                             const std::string& entryID,
                             const std::string& dumpType)
 {
@@ -619,7 +619,7 @@ inline void deleteDumpEntry(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         std::format("{}/entry/{}", getDumpPath(dumpType), entryID),
         "xyz.openbmc_project.Object.Delete", "Delete");
 }
-inline bool checkSizeLimit(int fd, crow::Response& res)
+bool checkSizeLimit(int fd, crow::Response& res)
 {
     long long int size = lseek(fd, 0, SEEK_END);
     if (size <= 0)
@@ -1163,7 +1163,7 @@ inline void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         "xyz.openbmc_project.Dump.Create", "CreateDump", createDumpParamVec);
 }
 
-inline void clearDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+void clearDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                       const std::string& dumpType)
 {
     crow::connections::systemBus->async_method_call(
@@ -1270,7 +1270,13 @@ inline void requestRoutesSystemLogServiceCollection(App& app)
             logServiceArray.emplace_back(std::move(raid));
 #endif
 
-	    if constexpr (BMCWEB_REDFISH_DUMP_LOG)
+#if BMCWEB_DOT_URIS_MACRO
+            nlohmann::json::object_t debugToken;
+            debugToken["@odata.id"] =
+            	"/redfish/v1/Systems/system/LogServices/DebugTokenService";
+            logServiceArray.emplace_back(std::move(debugToken));
+#endif
+            if constexpr (BMCWEB_REDFISH_DUMP_LOG)
             {
                 nlohmann::json::object_t dumpLog;
                 dumpLog["@odata.id"] =
