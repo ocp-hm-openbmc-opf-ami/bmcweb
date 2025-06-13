@@ -411,6 +411,10 @@ if get_option('dot-uris').enabled()
     srcfiles_bmcweb += 'ext/dot/src/dot.cpp'
 endif
 
+if get_option('cper-uris').enabled()
+    srcfiles_bmcweb += 'ext/cper/src/cper.cpp'
+endif
+
 bmcweblib = static_library(
     'bmcweblib',
     srcfiles_bmcweb,

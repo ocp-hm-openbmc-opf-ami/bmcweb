@@ -94,6 +94,10 @@
 #include "ext/src/gpgpu.hpp"
 #endif
 
+#if BMCWEB_CPER_URIS_MACRO
+#include "ext/cper/src/cper.hpp"
+#endif
+
 #if (BMCWEB_AMI_RAIDBRCM_MACRO) || (BMCWEB_AMI_RAIDMSCC_MACRO) ||              \
     (BMCWEB_AMI_NVME_MACRO)
 #include "ext/include/storage_ext.hpp"
@@ -446,6 +450,9 @@ RedfishService::RedfishService(App& app)
 #endif
 #if BMCWEB_DOT_URIS_MACRO
     registerDotRoutes(app);
+#endif
+#if BMCWEB_CPER_URIS_MACRO
+    registerCperRoutes(app);
 #endif
     // Note, this must be the last route registered
     requestRoutesRedfish(app);
