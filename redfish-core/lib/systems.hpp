@@ -714,6 +714,10 @@ inline std::string dbusToRfBootMode(const std::string& dbusMode)
     {
         return "BiosSetup";
     }
+    if (dbusMode == "xyz.openbmc_project.Control.Boot.Mode.Modes.Diag")
+    {
+        return "Diags";
+    }
     return "";
 }
 
@@ -842,6 +846,10 @@ inline int assignBootParameters(const std::string& rfSource,
     {
         bootSource =
             "xyz.openbmc_project.Control.Boot.Source.Sources.HTTP";
+    }
+    else if (rfSource == "Diags")
+    {
+        bootMode = "xyz.openbmc_project.Control.Boot.Mode.Modes.Diag";
     }
     else
     {
@@ -1049,6 +1057,7 @@ inline void
             allowed.emplace_back("BiosSetup");
             allowed.emplace_back("Usb");
             allowed.emplace_back("UefiHttp");
+            allowed.emplace_back("Diags");
 
             asyncResp->res
                 .jsonValue["Boot"]
