@@ -361,8 +361,10 @@ RedfishService::RedfishService(App& app)
     requestRoutesTriggerCollection(app);
     requestRoutesTrigger(app);
 
+#if (!BMCWEB_CHALUPA_AMD_MACRO || !BMCWEB_ARBEL_NUVOTON_MACRO)
     // FIPS Enablement
     requestFipsManagerRoutes(app);
+#endif
 
     // License Control
     requestRoutesLicenseControl(app);
