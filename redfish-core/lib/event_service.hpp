@@ -918,6 +918,13 @@ inline void handleauthenticationpatch(
                 });
         });
 }
+bool isValidPort(uint16_t port)
+{
+    // These port's are not allowed to use 0,20,21,22,23,80,161,443,546 this are
+    // reserved port's
+    return (port >= 1 && port != 20 && port != 21 && port != 22 && port != 23 &&
+            port != 80 && port != 161 && port != 443 && port != 546);
+}
 
 inline void requestRoutesEventService(App& app)
 {
@@ -1129,6 +1136,22 @@ inline void requestRoutesEventService(App& app)
                                     ))
                             {
                                 return;
+                            }
+                            if (primary_port.has_value())
+                            {
+                                if (!isValidPort(primary_port.value()))
+                                {
+                                    messages::propertyValueIncorrect(
+                                        asyncResp->res, "Port", *primary_port);
+                                    return;
+                                }
+                                else
+                                {
+                                    setport(
+                                        asyncResp,
+                                        "xyz.openbmc_project.mail.alert.primary",
+                                        *primary_port);
+                                }
                             }
                             if (primary_recipient)
                             {
@@ -1419,13 +1442,6 @@ inline void requestRoutesEventService(App& app)
                                     "xyz.openbmc_project.mail.alert.primary",
                                     *primary_sender);
                             }
-                            if (primary_port)
-                            {
-                                setport(
-                                    asyncResp,
-                                    "xyz.openbmc_project.mail.alert.primary",
-                                    *primary_port);
-                            }
                         }
                         if (SecondaryConfiguration)
                         {
@@ -1453,6 +1469,22 @@ inline void requestRoutesEventService(App& app)
                                     ))
                             {
                                 return;
+                            }
+                            if (port.has_value())
+                            {
+                                if (!isValidPort(port.value()))
+                                {
+                                    messages::propertyValueIncorrect(
+                                        asyncResp->res, "Port", *port);
+                                    return;
+                                }
+                                else
+                                {
+                                    setport(
+                                        asyncResp,
+                                        "xyz.openbmc_project.mail.alert.secondary",
+                                        *port);
+                                }
                             }
                             if (recipient)
                             {
@@ -1731,13 +1763,6 @@ inline void requestRoutesEventService(App& app)
                                     asyncResp,
                                     "xyz.openbmc_project.mail.alert.secondary",
                                     *sender);
-                            }
-                            if (port)
-                            {
-                                setport(
-                                    asyncResp,
-                                    "xyz.openbmc_project.mail.alert.secondary",
-                                    *port);
                             }
                         }
                     }

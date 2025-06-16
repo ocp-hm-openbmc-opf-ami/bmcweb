@@ -644,7 +644,8 @@ inline void requestRoutesPefService(App& app)
                             }
                             else if (response == 65535)
                             {
-                                messages::internalError(aResp->res);
+                                messages::operationFailed(aResp->res);
+                                aResp->res.result(boost::beast::http::status::bad_request);
                                 return;
                             }
                             else if (response == 65534)
