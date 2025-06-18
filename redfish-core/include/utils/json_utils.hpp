@@ -747,7 +747,7 @@ bool readJsonAction(const crow::Request& req, crow::Response& res,
     }
     nlohmann::json::object_t* object =
         jsonRequest.get_ptr<nlohmann::json::object_t*>();
-    if (object == nullptr)
+    if (object->empty())
     {
         BMCWEB_LOG_DEBUG("Json value is empty");
         messages::emptyJSON(res);
