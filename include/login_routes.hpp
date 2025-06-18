@@ -189,9 +189,8 @@ inline void handleLogin(const crow::Request& req,
             // if content type is json, assume json token
             asyncResp->res.jsonValue["token"] = session->sessionToken;
 
-            #if (BMCWEB_AMI_2FA_MACRO)
-            if (std::filesystem::exists("/usr/lib/redfish/core/libami.so.1"))
-            {
+#if (BMCWEB_AMI_2FA_MACRO)
+#if (BMCWEB_AMI_REP_MACRO)
             std::string user(username);
             dbus::utility::getProperty<bool>(
                 "xyz.openbmc_project.User.Manager",
@@ -199,20 +198,19 @@ inline void handleLogin(const crow::Request& req,
                 "xyz.openbmc_project.User.Attributes", "TwoFacEnableStatus",
                 [asyncResp](const boost::system::error_code& ec,
                             bool ServiceEnabled) {
-                if (ec)
-                {
-                  //  asyncResp->res.result(
-                  //      boost::beast::http::status::internal_server_error);
-                    return;
-                }
-                asyncResp->res.jsonValue["TwoFacEnableStatus"] = ServiceEnabled;
-            });
-            }
-            else
-            {
-                asyncResp->res.jsonValue["TwoFacEnableStatus"] = "N/A";
-            }
-            #endif
+                    if (ec)
+                    {
+                        //  asyncResp->res.result(
+                        //      boost::beast::http::status::internal_server_error);
+                        return;
+                    }
+                    asyncResp->res.jsonValue["TwoFacEnableStatus"] =
+                        ServiceEnabled;
+                });
+#else
+            asyncResp->res.jsonValue["TwoFacEnableStatus"] = "N/A";
+#endif
+#endif
         }
     }
     else
@@ -228,8 +226,8 @@ inline void handleLogout(const crow::Request& req,
     const auto& session = req.session;
     if (session != nullptr)
     {
-        asyncResp->res.jsonValue["data"] = "User '" + session->username +
-                                           "' logged out";
+        asyncResp->res.jsonValue["data"] =
+            "User '" + session->username + "' logged out";
         asyncResp->res.jsonValue["message"] = "200 OK";
         asyncResp->res.jsonValue["status"] = "ok";
 

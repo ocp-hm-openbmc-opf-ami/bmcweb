@@ -954,8 +954,7 @@ void resourceAlreadyExists(crow::Response& res, std::string_view arg1,
                            std::string_view arg2, std::string_view arg3)
 {
     res.result(boost::beast::http::status::bad_request);
-    addMessageToJson(res.jsonValue, resourceAlreadyExists(arg1, arg2, arg3),
-                     arg2);
+    addMessageToErrorJson(res.jsonValue, resourceAlreadyExists(arg1, arg2, arg3));
 }
 
 /**
