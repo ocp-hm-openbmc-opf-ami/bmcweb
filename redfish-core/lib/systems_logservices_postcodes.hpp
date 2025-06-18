@@ -650,6 +650,7 @@ inline void requestRoutesSystemsLogServicesPostCode(App& app)
                     messages::resourceNotFound(asyncResp->res, "LogEntry", targetID);
                     return;
                 }
+            asyncResp->res.addHeader("Allow", "GET");
             messages::operationNotAllowed(asyncResp->res);
             return;
         });

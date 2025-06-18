@@ -544,6 +544,7 @@ inline void requestRoutesMessageRegistryFile(App& app)
          "CertificateService"}); 
     for (const char* memberName : registryFiles) {
         if (registry == memberName || registryName == memberName) {
+            asyncResp->res.addHeader("Allow", "GET");
             messages::operationNotAllowed(asyncResp->res);
             return;
         }

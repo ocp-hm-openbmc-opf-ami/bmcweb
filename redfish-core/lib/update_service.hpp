@@ -2890,6 +2890,7 @@ inline void requestRoutesUpdateService(App& app)
                                 *swId);
                         return;
                     }
+                    asyncResp->res.addHeader("Allow", "GET");
                     messages::operationNotAllowed(asyncResp->res);
                     return;
                 });

@@ -560,6 +560,7 @@ inline void requestRoutesNodeManagerDomains([[maybe_unused]] App& app)
                         }
                         else
                         {
+                            asyncResp->res.addHeader("Allow", "GET, PATCH");
                             messages::operationNotAllowed(asyncResp->res);
                             return;
                         }

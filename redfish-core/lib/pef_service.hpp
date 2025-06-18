@@ -705,6 +705,7 @@ inline void requestRoutesPefService(App& app)
                                                        entryId);
                             return;
                         }
+                        asyncResp->res.addHeader("Allow", "GET, PATCH");
                         messages::operationNotAllowed(asyncResp->res);
                         return;
             },

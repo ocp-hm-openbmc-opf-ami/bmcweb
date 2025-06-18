@@ -395,6 +395,7 @@ inline void requestRoutesRedfish(App& app)
                     {
                     continue;  
                     }
+                    asyncResp->res.addHeader("Allow", "GET"); 
                     messages::operationNotAllowed(asyncResp->res);
                     return;
                 }

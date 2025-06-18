@@ -420,6 +420,7 @@ void postFru(
                     }
                     else
                     {
+                        asyncResp->res.addHeader("Allow", "GET");
                         messages::operationNotAllowed(asyncResp->res);
                         return;
                     }

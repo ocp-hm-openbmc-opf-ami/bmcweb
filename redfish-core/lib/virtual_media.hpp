@@ -257,6 +257,7 @@ inline void  findAndParsePostObject(
                 VmMode mode = parseObjectPathAndGetMode(item.first, resName);
                 if (mode != VmMode::Invalid)
                 {
+                    asyncResp->res.addHeader("Allow", "GET, PATCH");
                     messages::operationNotAllowed(asyncResp->res);
                     return;
                 }

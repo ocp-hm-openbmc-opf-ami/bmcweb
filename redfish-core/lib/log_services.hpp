@@ -2285,8 +2285,8 @@ inline void requestRoutesDBusEventLogEntry(App& app)
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& systemName, const std::string& entryId) {
 
-		asyncResp->res.clearHeader(boost::beast::http::field::allow);
-                asyncResp->res.addHeader("Allow", "GET,PATCH,DELETE");
+		        asyncResp->res.clearHeader(boost::beast::http::field::allow);
+                asyncResp->res.addHeader("Allow", "GET, PATCH, DELETE");
 
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
@@ -2317,8 +2317,8 @@ inline void requestRoutesDBusEventLogEntry(App& app)
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& systemName, const std::string& entryId) {
 
-		asyncResp->res.clearHeader(boost::beast::http::field::allow);
-                asyncResp->res.addHeader("Allow", "GET,PATCH,DELETE");
+		        asyncResp->res.clearHeader(boost::beast::http::field::allow);
+                asyncResp->res.addHeader("Allow", "GET, PATCH, DELETE");
 
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
@@ -2363,7 +2363,7 @@ inline void requestRoutesDBusEventLogEntry(App& app)
                    const std::string& systemName, const std::string& param) {
 
 		asyncResp->res.clearHeader(boost::beast::http::field::allow);
-                asyncResp->res.addHeader("Allow", "GET,PATCH,DELETE");
+                asyncResp->res.addHeader("Allow", "GET, PATCH, DELETE");
 
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
@@ -2409,6 +2409,7 @@ inline void requestRoutesDBusEventLogEntry(App& app)
                                                        entryId);
                             return;
                         }
+                        asyncResp->res.addHeader("Allow", "GET, PATCH, DELETE");
                         messages::operationNotAllowed(asyncResp->res);
                         return;
                     });
@@ -2788,7 +2789,7 @@ inline void handleLogServicesDumpEntryGet(
     const std::string& managerId, const std::string& dumpId)
 {
     asyncResp->res.clearHeader(boost::beast::http::field::allow);
-    asyncResp->res.addHeader("Allow", "GET,DELETE");
+    asyncResp->res.addHeader("Allow", "GET, DELETE");
 
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -2825,7 +2826,7 @@ inline void handleLogServicesDumpEntryDelete(
     const std::string& managerId, const std::string& dumpId)
 {
     asyncResp->res.clearHeader(boost::beast::http::field::allow);
-    asyncResp->res.addHeader("Allow", "GET,DELETE");
+    asyncResp->res.addHeader("Allow", "GET, DELETE");
 
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -2899,6 +2900,7 @@ inline void handleLogServicesDumpEntryPost(
             }
             else
             {
+                asyncResp->res.addHeader("Allow", "GET, DELETE");
                 messages::operationNotAllowed(asyncResp->res);
                 return;
             }

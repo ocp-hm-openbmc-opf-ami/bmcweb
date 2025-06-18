@@ -123,6 +123,7 @@ inline void requestRoutesRoles(App& app)
                         messages::resourceNotFound(asyncResp->res, "Role", roleId);
                         return;
                     }
+                    asyncResp->res.addHeader("Allow", "GET");
                     messages::operationNotAllowed(asyncResp->res);
                     return;
                 });

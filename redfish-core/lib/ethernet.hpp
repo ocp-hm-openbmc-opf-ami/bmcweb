@@ -3057,7 +3057,7 @@ inline void handleEthernetInterfaceInstanceGet(
     const std::string& managerId, const std::string& ifaceId)
 {
     asyncResp->res.clearHeader(boost::beast::http::field::allow);
-    asyncResp->res.addHeader("Allow", "GET,PATCH,DELETE");
+    asyncResp->res.addHeader("Allow", "GET, PATCH, DELETE");
 
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -3102,7 +3102,7 @@ inline void handleEthernetInterfaceInstanceDelete(
     const std::string& managerId, const std::string& ifaceId)
 {
     asyncResp->res.clearHeader(boost::beast::http::field::allow);
-    asyncResp->res.addHeader("Allow", "GET,PATCH,DELETE");
+    asyncResp->res.addHeader("Allow", "GET, PATCH, DELETE");
 
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -3331,6 +3331,7 @@ inline void requestEthernetInterfacesRoutes(App& app)
                                 asyncResp->res, "EthernetInterface", ifaceId);
                             return;
                         }
+                        asyncResp->res.addHeader("Allow", "GET, PATCH, DELETE");
                         messages::operationNotAllowed(asyncResp->res);
                         return;
                     });

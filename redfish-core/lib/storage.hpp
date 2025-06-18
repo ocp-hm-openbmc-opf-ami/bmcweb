@@ -202,6 +202,7 @@ inline void afterSystemsStoragePostSubtree(
                                    storageId);
         return;
     }
+    asyncResp->res.addHeader("Allow", "GET");
     messages::operationNotAllowed(asyncResp->res);
     return;
 }

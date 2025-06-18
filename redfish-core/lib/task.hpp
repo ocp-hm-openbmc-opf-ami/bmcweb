@@ -475,7 +475,7 @@ inline void
                      const std::string& strParam)
 {
     asyncResp->res.clearHeader(boost::beast::http::field::allow);
-    asyncResp->res.addHeader("Allow", "GET,DELETE");
+    asyncResp->res.addHeader("Allow", "GET, DELETE");
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;

@@ -90,6 +90,7 @@ static void PostTriggerData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             messages::resourceNotFound(asyncResp->res, "Triggers", "");
             return;
         }
+        asyncResp->res.addHeader("Allow", "GET");
         messages::operationNotAllowed(asyncResp->res);
         return;
         },

@@ -661,6 +661,7 @@ inline void handleChassisPostSubTree(
                 BMCWEB_LOG_ERROR("Got 0 Connection names");
                 continue;
             }
+            asyncResp->res.addHeader("Allow", "GET, PATCH");
             messages::operationNotAllowed(asyncResp->res);
             return;
         }

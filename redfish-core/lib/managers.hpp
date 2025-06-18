@@ -2370,7 +2370,7 @@ inline void handleManagersInstanceGet(
     const std::string& managerId)
 {
     asyncResp->res.clearHeader(boost::beast::http::field::allow);
-    asyncResp->res.addHeader("Allow", "GET,PATCH");
+    asyncResp->res.addHeader("Allow", "GET, PATCH");
 
     std::string uuid = persistent_data::getConfig().systemUuid;
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
@@ -2692,8 +2692,8 @@ inline void requestRoutesManager(App& app)
                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                            const std::string& managerId) {
 	    
-	    asyncResp->res.clearHeader(boost::beast::http::field::allow);
-            asyncResp->res.addHeader("Allow", "GET,PATCH");
+	        asyncResp->res.clearHeader(boost::beast::http::field::allow);
+            asyncResp->res.addHeader("Allow", "GET, PATCH");
 
             if (!redfish::setUpRedfishRoute(app, req, asyncResp))
             {
@@ -2821,6 +2821,7 @@ inline void requestRoutesManager(App& app)
                     messages::resourceNotFound(asyncResp->res, "Manager", managerId);
                     return;
                 }
+                asyncResp->res.addHeader("Allow", "GET, PATCH");
                 messages::operationNotAllowed(asyncResp->res);
                 return;
            });

@@ -518,8 +518,8 @@ inline void requestRoutesNodeManagerPolicies(App& app)
                     return;
                 }
 	
-	asyncResp->res.clearHeader(boost::beast::http::field::allow);
-        asyncResp->res.addHeader("Allow", "GET,PATCH,DELETE");
+	    asyncResp->res.clearHeader(boost::beast::http::field::allow);
+        asyncResp->res.addHeader("Allow", "GET, PATCH, DELETE");
 
         crow::connections::systemBus->async_method_call(
             [asyncResp, policyName](const boost::system::error_code ec,
@@ -575,6 +575,7 @@ inline void requestRoutesNodeManagerPolicies(App& app)
                 {
                     BMCWEB_LOG_ERROR("respHandler DBus error: {}", ec.message());
                     messages::internalError(asyncResp->res);
+                    return;
                 }
 
                 auto policyObjectPath =
@@ -595,6 +596,7 @@ inline void requestRoutesNodeManagerPolicies(App& app)
                                             policyName);
                     return;
                 }
+                asyncResp->res.addHeader("Allow", "GET, PATCH, DELETE");
                 messages::operationNotAllowed(asyncResp->res);
                 return;
             },
