@@ -2403,9 +2403,13 @@ inline void handleManagersInstanceGet(
     asyncResp->res.jsonValue["EthernetInterfaces"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Managers/{}/EthernetInterfaces",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
+    #if (!BMCWEB_CHALUPA_AMD_MACRO && !BMCWEB_ARBEL_NUVOTON_MACRO)
+    {
     asyncResp->res.jsonValue["SecurityPolicy"]["@odata.id"] =
-        boost::urls::format("/redfish/v1/Managers/{}/SecurityPolicy",
-                            BMCWEB_REDFISH_MANAGER_URI_NAME);
+       	boost::urls::format("/redfish/v1/Managers/{}/SecurityPolicy",
+               	            BMCWEB_REDFISH_MANAGER_URI_NAME);
+    }
+    #endif
 
     if constexpr (BMCWEB_VM_NBDPROXY)
     {

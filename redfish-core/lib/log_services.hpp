@@ -2224,7 +2224,9 @@ inline void
     asyncResp->res.jsonValue["DateTimeLocalOffset"] =
         redfishDateTimeOffset.second;
 
+    #if (!BMCWEB_CHALUPA_AMD_MACRO && !BMCWEB_ARBEL_NUVOTON_MACRO)
     asyncResp->res.jsonValue["Entries"]["@odata.id"] = dumpPath + "/Entries";
+    #endif
 
     if (collectDiagnosticDataSupported)
     {
