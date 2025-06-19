@@ -3509,8 +3509,7 @@ inline void
             }
             if (!isValid)
             {
-                messages::resourceNotFound(asyncResp->res, chassisId,
-                                           "chassisId");
+                messages::resourceNotFound(asyncResp->res,"chassisId", chassisId);
                 return;
             }
         },

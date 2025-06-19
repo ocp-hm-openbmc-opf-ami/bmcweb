@@ -536,6 +536,7 @@ inline void requestRoutesNodeManagerDomains([[maybe_unused]] App& app)
                             BMCWEB_LOG_ERROR("respHandler DBus error: {}",
                                              ec.message());
                             messages::internalError(asyncResp->res);
+                            return;
                         }
 
                         auto domainObjectPath = std::find_if(

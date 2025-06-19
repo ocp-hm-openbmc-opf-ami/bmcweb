@@ -164,8 +164,7 @@ inline void requestRoutesSensorPatching(App& app)
 
                     if (!isValid)
                     {
-                        messages::resourceNotFound(asyncResp->res, chassisName,
-                                                   "chassisId");
+                        messages::resourceNotFound(asyncResp->res,"chassisId",chassisName);
                         return;
                     }
                     else

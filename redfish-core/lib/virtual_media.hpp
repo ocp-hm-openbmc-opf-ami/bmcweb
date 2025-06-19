@@ -1781,9 +1781,8 @@ inline void requestNBDVirtualMediaRoutes(App& app)
                 }
                 if (name != "bmc")
                 {
-                    messages::resourceNotFound(asyncResp->res, "VirtualMedia",
-                                               resName);
-
+                    messages::resourceNotFound(asyncResp->res, "Manager",
+                                               name);
                     return;
                 }
                 dbus::utility::getDbusObject(

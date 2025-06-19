@@ -415,7 +415,7 @@ void postFru(
                     {
                         BMCWEB_LOG_ERROR("Could not find object path for fru:{}",
                                          fruName);
-                        messages::resourceNotFound(asyncResp->res, "fru", fruName);
+                        messages::resourceNotFound(asyncResp->res, "FRU", fruName);
                         return;
                     }
                     else

@@ -25,17 +25,18 @@ namespace redfish
 {
 
 static void getTriggerData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                           const std::string& dbusPath)
+                           const std::string& dbusPath,const std::optional<std::string>& triggerName)
 {
     crow::connections::systemBus->async_method_call(
-        [asyncResp](
+        [asyncResp,triggerName](
             const boost::system::error_code ec,
             const boost::container::flat_map<
                 std::string, std::variant<uint16_t, std::string>>& params) {
         if (ec)
         {
             BMCWEB_LOG_ERROR("respHandler DBus error: {}", ec.message());
-            messages::resourceNotFound(asyncResp->res, "Triggers", "");
+            std::string triggerNameVal = triggerName.value_or("");
+            messages::resourceNotFound(asyncResp->res, "Triggers", triggerNameVal);
             return;
         }
 
@@ -77,17 +78,17 @@ static void getTriggerData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 }
 
 static void PostTriggerData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                           const std::string& dbusPath)
+                           const std::string& dbusPath,const std::string& triggerName)
 {
     crow::connections::systemBus->async_method_call(
-        [asyncResp](
+        [asyncResp,triggerName](
             const boost::system::error_code ec,
             [[maybe_unused]]const boost::container::flat_map<
                 std::string, std::variant<uint16_t, std::string>>& params) {
         if (ec)
         {
             BMCWEB_LOG_ERROR("respHandler DBus error: {}", ec.message());
-            messages::resourceNotFound(asyncResp->res, "Triggers", "");
+            messages::resourceNotFound(asyncResp->res, "Triggers", triggerName);
             return;
         }
         asyncResp->res.addHeader("Allow", "GET");
@@ -183,7 +184,7 @@ inline void requestRoutesNodeManagerTriggers(App& app)
         auto triggerDbusPath = "/xyz/openbmc_project/NodeManager/Trigger/" +
                                triggerName;
 
-        getTriggerData(asyncResp, triggerDbusPath);
+        getTriggerData(asyncResp, triggerDbusPath,triggerName);
 
         if (triggerName == "GPIO")
         {
@@ -211,7 +212,7 @@ inline void requestRoutesNodeManagerTriggers(App& app)
                     auto triggerDbusPath = "/xyz/openbmc_project/NodeManager/Trigger/" +
                                    triggerName;
 
-            PostTriggerData(asyncResp, triggerDbusPath);
+            PostTriggerData(asyncResp, triggerDbusPath,triggerName);
 
         });
 

@@ -2846,9 +2846,6 @@ inline void requestRoutesUpdateService(App& app)
             }
             std::shared_ptr<std::string> swId = std::make_shared<std::string>(param);
         
-            asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
-                "/redfish/v1/UpdateService/FirmwareInventory/{}", *swId);
-        
             constexpr std::array<std::string_view, 1> interfaces = {
                 "xyz.openbmc_project.Software.Version"};
             dbus::utility::getSubTree(
