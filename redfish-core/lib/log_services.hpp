@@ -2197,9 +2197,6 @@ inline void
                                BMCWEB_REDFISH_SYSTEM_URI_NAME);
         overWritePolicy = log_service::OverWritePolicy::WrapsWhenFull;
         collectDiagnosticDataSupported = true;
-        #if(!BMCWEB_CHALUPA_AMD_MACRO)
-           asyncResp->res.jsonValue["Entries"]["@odata.id"] = dumpPath + "/Entries";
-        #endif
     }
     else
     {
@@ -2227,10 +2224,7 @@ inline void
     asyncResp->res.jsonValue["DateTimeLocalOffset"] =
         redfishDateTimeOffset.second;
 
-    if(dumpType != "System")
-    {
     asyncResp->res.jsonValue["Entries"]["@odata.id"] = dumpPath + "/Entries";
-    }
 
     if (collectDiagnosticDataSupported)
     {
