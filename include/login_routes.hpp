@@ -175,6 +175,34 @@ inline void handleLogin(const crow::Request& req,
                                          persistent_data::SessionType::Session,
                                          isConfigureSelfOnly, "WebUI");
 
+            if (session && session->userRole.empty())
+            {
+                std::string userPath = "/xyz/openbmc_project/user/" + session->username;
+                try
+                {
+                    auto bus = sdbusplus::bus::new_default_system();
+                    auto method = bus.new_method_call(
+                        "xyz.openbmc_project.User.Manager",
+                        userPath.c_str(),
+                        "org.freedesktop.DBus.Properties",
+                        "Get");
+
+                    method.append("xyz.openbmc_project.User.Attributes", "UserPrivilege");
+
+                    auto reply = bus.call(method);
+
+                    std::variant<std::string> value;
+                    reply.read(value);
+                    session->userRole = std::get<std::string>(value);
+
+                    BMCWEB_LOG_INFO("Fetched userRole from D-Bus: {}", session->userRole);
+                }
+                catch (const sdbusplus::exception::SdBusError& e)
+                {
+                    BMCWEB_LOG_ERROR("Failed to get UserPrivilege from D-Bus: {}", e.what());
+                }
+            }
+
             bool maxSessionReached =
                 persistent_data::SessionStore::getInstance()
                     .getWebSessionReached();
@@ -189,16 +217,14 @@ inline void handleLogin(const crow::Request& req,
             // if content type is json, assume json token
             asyncResp->res.jsonValue["token"] = session->sessionToken;
 
-
             int userId = session->userId;
             bool result;
             uint8_t sessionId = 0;
             uint8_t sessionType = 1;
-            uint8_t priv;
-            std::unordered_map<std::string, uint8_t> roleToPriv = {{"Callback", 1},{"User", 2},{"Operator", 3},{"OEM Proprietary", 5}};
+            
+	    std::unordered_map<std::string, uint8_t> roleToPriv = {{"Callback", 1},{"priv-user", 2},{"priv-operator", 3},{"OEM Proprietary", 5}};
             uint8_t priv = roleToPriv.contains(session->userRole) ? roleToPriv[session->userRole] : 4;
 
-	
             auto b = sdbusplus::bus::new_default_system();
             auto method = b.new_method_call("xyz.openbmc_project.SessionManager", "/xyz/openbmc_project/SessionManager",
                                             "xyz.openbmc_project.SessionManager", "SessionRegister");

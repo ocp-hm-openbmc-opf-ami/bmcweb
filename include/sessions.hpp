@@ -19,6 +19,7 @@
 #include <random>
 #include <string>
 #include <vector>
+#include "dbus_singleton.hpp"
 
 namespace persistent_data
 {
@@ -543,11 +544,62 @@ class SessionStore
             auto authTokensIt = authTokens.begin();
             while (authTokensIt != authTokens.end())
             {
-                if (timeNow - authTokensIt->second->lastUpdated >=
-                    timeoutInSeconds)
+                if (timeNow - authTokensIt->second->lastUpdated >= timeoutInSeconds)
                 {
-                    authTokensIt = authTokens.erase(authTokensIt);
+                    std::shared_ptr<UserSession> session = authTokensIt->second;
+                    std::string uniqueId = session->uniqueId;
+                    uint8_t sessionType = 1;
 
+                    auto mapIt = sessionMap.find(uniqueId);
+                    if (mapIt != sessionMap.end())
+                    {
+                        uint8_t sessionId = mapIt->second;
+
+                        crow::connections::systemBus->async_method_call(
+                            [session, mapIt](const boost::system::error_code ec,
+                                             bool success) {
+                                if (ec)
+                                {
+                                    return;
+                                }
+
+                                if (!success)
+                                {
+                                    return;
+                                }
+				sessionMap.erase(mapIt);
+                                SessionStore::getInstance().removeSession(session);
+                            },
+                            "xyz.openbmc_project.SessionManager",
+                            "/xyz/openbmc_project/SessionManager",
+                            "xyz.openbmc_project.SessionManager",
+                            "SessionUnregister",
+                            sessionId,
+                            sessionType,
+                            1);
+                    }
+                    for (size_t i = 0; i < 2; ++i)
+                    {
+                        if (session->vmNbdActive[i])
+                        {
+                            std::string vmPath =
+                                "/xyz/openbmc_project/VirtualMedia/Proxy/Slot_" + std::to_string(i);
+                            crow::connections::systemBus->async_method_call(
+                                [](const boost::system::error_code ec, bool success) {
+                                    if (ec)
+                                    {
+				    	return;
+                                    }
+                                    if (!success)
+                                    {
+                                        return;
+                                    }
+                                },
+                                "xyz.openbmc_project.VirtualMedia", vmPath,
+                                "xyz.openbmc_project.VirtualMedia.Proxy", "Unmount");
+                        }
+                    }
+                    authTokensIt = authTokens.erase(authTokensIt);
                     needWrite = true;
                 }
                 else

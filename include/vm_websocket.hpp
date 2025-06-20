@@ -248,6 +248,7 @@ struct NbdProxyServer : std::enable_shared_from_this<NbdProxyServer>
             self->connection.close("Failed to mount media");
             return;
         }
+	self->connection.session->vmNbdActive[self->getEndpointIndex()] = true;
     }
 
     static void afterAccept(const std::weak_ptr<NbdProxyServer>& weak,
