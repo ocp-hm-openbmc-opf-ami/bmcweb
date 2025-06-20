@@ -672,66 +672,75 @@ inline void requestRoutesSendTrap(App& app)
             {
                 return;
             }
-            crow::connections::systemBus->async_method_call(
-                [aResp](const boost::system::error_code& ec1) {
-                    if (ec1)
+            sdbusplus::message::object_path path(
+                "/xyz/openbmc_project/network/snmp/manager");
+            dbus::utility::getManagedObjects(
+                "xyz.openbmc_project.Network.SNMP", path,
+                [aResp](const boost::system::error_code& ec,
+                        const dbus::utility::ManagedObjectType& resp) {
+                    if (ec)
                     {
-                        BMCWEB_LOG_ERROR("SendMail: Can't get "
-                                         "alertMailIface ");
+                        BMCWEB_LOG_DEBUG(
+                            "Failed to get SNMP subscription objects: {}",
+                            ec.message());
                         messages::internalError(aResp->res);
+                        return;
+                    }
+                    if (resp.empty())
+                    {
+                        BMCWEB_LOG_DEBUG("No SNMP subscriptions found.");
+                        messages::subscriptionTerminated(aResp->res);
+                        aResp->res.result(
+                            boost::beast::http::status::bad_request);
                         return;
                     }
                     else
                     {
-                        sdbusplus::message::object_path path(
-                            "/xyz/openbmc_project/network/snmp/manager");
-                        dbus::utility::getManagedObjects(
-                            "xyz.openbmc_project.Network.SNMP", path,
-                            [aResp](
-                                const boost::system::error_code& ec2,
-                                const dbus::utility::ManagedObjectType& resp) {
-                                if (ec2)
+                        dbus::utility::getProperty<bool>(
+                            "xyz.openbmc_project.Snmp",
+                            "/xyz/openbmc_project/Snmp",
+                            "xyz.openbmc_project.Snmp.SnmpUtils",
+                            "SnmpTrapStatus",
+                            [aResp, resp](const boost::system::error_code& ec,
+                                          bool protocolEnabled) {
+                                if (ec)
                                 {
-                                    BMCWEB_LOG_WARNING(
-                                        "D-Bus responses error: {}", ec2);
+                                    BMCWEB_LOG_DEBUG(
+                                        "D-BUS response error on SnmpTrapStatus Get{}",
+                                        ec);
+                                    messages::internalError(aResp->res);
                                     return;
                                 }
-                                dbus::utility::getProperty<bool>(
-                                    "xyz.openbmc_project.Snmp",
-                                    "/xyz/openbmc_project/Snmp",
-                                    "xyz.openbmc_project.Snmp.SnmpUtils",
-                                    "SnmpTrapStatus",
-                                    [aResp,
-                                     resp](const boost::system::error_code& ec,
-                                           bool protocolEnabled) {
-                                        if (ec)
-                                        {
-                                            BMCWEB_LOG_ERROR(
-                                                "D-BUS response error on SnmpTrapStatus Get{}",
-                                                ec);
-                                            messages::internalError(aResp->res);
-                                            return;
-                                        }
-                                        else if (!protocolEnabled)
-                                        {
-                                            messages::serviceDisabled(
-                                                aResp->res,
-                                                "SNMP Service Disabled");
-                                            return;
-                                            return;
-                                        }
-                                        else if (resp.size() == 0)
-                                        {
-                                            messages::internalError(aResp->res);
-                                            return;
-                                        }
-                                        messages::success(aResp->res);
-                                    });
+                                else if (!protocolEnabled)
+                                {
+                                    messages::serviceDisabled(
+                                        aResp->res, "SNMP Service Disabled");
+                                    return;
+                                }
+                                else
+                                {
+                                    crow::connections::systemBus->async_method_call(
+                                        [aResp](const boost::system::error_code&
+                                                    ecTrapSend) {
+                                            if (ecTrapSend)
+                                            {
+                                                BMCWEB_LOG_DEBUG(
+                                                    "Failed to send SNMP trap: {}",
+                                                    ecTrapSend.message());
+                                                messages::internalError(
+                                                    aResp->res);
+                                                return;
+                                            }
+                                            messages::success(aResp->res);
+                                        },
+                                        "xyz.openbmc_project.Snmp",
+                                        "/xyz/openbmc_project/Snmp",
+                                        "xyz.openbmc_project.Snmp.SnmpUtils",
+                                        "SendSNMPTrap");
+                                }
                             });
                     }
-                },
-                "xyz.openbmc_project.Snmp", "/xyz/openbmc_project/Snmp",
-                "xyz.openbmc_project.Snmp.SnmpUtils", "SendSNMPTrap");
+                });
         });
 }
 

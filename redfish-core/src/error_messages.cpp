@@ -1585,7 +1585,7 @@ nlohmann::json subscriptionTerminated()
 void subscriptionTerminated(crow::Response& res)
 {
     res.result(boost::beast::http::status::ok);
-    addMessageToJsonRoot(res.jsonValue, subscriptionTerminated());
+    addMessageToErrorJson(res.jsonValue, subscriptionTerminated());
 }
 
 /**
