@@ -31,6 +31,8 @@
 #include <utility>
 #include <vector>
 
+#include <event_service_manager.hpp>
+
 namespace redfish
 {
 
@@ -95,6 +97,11 @@ struct RadiusPatchParams
     std::optional<std::string> privilege2;
     std::optional<std::string> privilege3;
 };
+
+inline size_t accountsCompletedOperations = 0;
+inline size_t accountsTotalOperations = 0;
+inline nlohmann::json::object_t propertyModified;
+inline nlohmann::json::object_t propertyOriginal;
 
 inline std::string getRoleIdFromPrivilege(std::string_view role)
 {
@@ -195,6 +202,63 @@ inline bool translateUserGroup(const std::vector<std::string>& userGroups,
     return true;
 }
 
+/* Creating the same functionality of translateUserGroup with some
+changes for PATCH function of accounts instance URI to avoid problems
+during LF sync */
+
+inline std::tuple<bool, std::vector<std::string>, std::vector<std::string>> translateUserGroupGet(const std::vector<std::string>& userGroups)
+{
+    std::vector<std::string> accountTypes;
+    std::vector<std::string> oemAccountTypes;
+    for (const auto& userGroup : userGroups)
+    {
+        if (userGroup == "redfish")
+        {
+            accountTypes.emplace_back("Redfish");
+            accountTypes.emplace_back("WebUI");
+            accountTypes.emplace_back("VirtualMedia");
+        }
+        else if (userGroup == "ipmi")
+        {
+            accountTypes.emplace_back("IPMI");
+        }
+        else if (userGroup == "ssh")
+        {
+            accountTypes.emplace_back("ManagerConsole");
+        }
+        else if (userGroup == "hostconsole")
+        {
+            // The hostconsole group controls who can access the host console
+            // port via ssh and websocket.
+            accountTypes.emplace_back("HostConsole");
+        }
+        else if (userGroup == "web")
+        {
+            // 'web' is one of the valid groups in the UserGroups property of
+            // the user account in the D-Bus object. This group is currently not
+            // doing anything, and is considered to be equivalent to 'redfish'.
+            // 'redfish' user group is mapped to 'Redfish'and 'WebUI'
+            // AccountTypes, so do nothing here...
+        }
+        else if (userGroup == "media")
+        {
+            accountTypes.emplace_back("OEM");
+            oemAccountTypes.emplace_back(userGroup);
+        }
+        else if (userGroup == "snmp")
+        {
+            accountTypes.emplace_back("SNMP");
+        }
+        else
+        {
+            // Invalid user group name. Caller throws an exception.
+            return std::make_tuple(false, accountTypes, oemAccountTypes);
+        }
+    }
+
+   return std::make_tuple(true, accountTypes, oemAccountTypes);
+}
+
 /**
  * @brief Builds User Groups from the Account Types
  *
@@ -278,9 +342,11 @@ inline bool getUserGroupFromAccountType(
 inline void patchAccountTypes(
     const std::vector<std::string>& accountTypes,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& dbusObjectPath, bool userSelf)
+    const std::string& dbusObjectPath, bool userSelf,
+    std::function<void(bool)> completionHandler)
 {
     // Check if User is disabling own Redfish Account Type
+    accountsTotalOperations++;
     if (userSelf &&
         (accountTypes.cend() ==
          std::find(accountTypes.cbegin(), accountTypes.cend(), "Redfish")))
@@ -288,6 +354,7 @@ inline void patchAccountTypes(
         BMCWEB_LOG_ERROR(
             "User disabling OWN Redfish Account Type is not allowed");
         messages::strictAccountTypes(asyncResp->res, "AccountTypes");
+        completionHandler(false);
         return;
     }
 
@@ -297,12 +364,16 @@ inline void patchAccountTypes(
     {
         // Problem in mapping Account Types to User Groups, Error already
         // logged.
+        completionHandler(false);
         return;
     }
     setDbusProperty(asyncResp, "AccountTypes",
                     "xyz.openbmc_project.User.Manager", dbusObjectPath,
                     "xyz.openbmc_project.User.Attributes", "UserGroups",
                     updatedUserGroups);
+    
+    propertyModified["AccountTypes"] = updatedUserGroups;
+    completionHandler(true);
 }
 
 inline void userErrorMessageHandler(
@@ -1543,44 +1614,54 @@ struct UserUpdateParams
 
 inline void setOEMAccountTypes(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::vector<std::string>& grpList, const std::string& dbusObjectPath)
+    const std::vector<std::string>& grpList, const std::string& dbusObjectPath,
+    std::function<void(bool)> completionHandler)
 {
+    accountsTotalOperations++;
     crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code& ec) {
+        [asyncResp, completionHandler](const boost::system::error_code& ec) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("D-Bus responses error: ", ec);
                 messages::internalError(asyncResp->res);
+                completionHandler(false);
                 return;
             }
             messages::success(asyncResp->res);
+            completionHandler(true);
             return;
         },
         "xyz.openbmc_project.User.Manager", dbusObjectPath,
         "org.freedesktop.DBus.Properties", "Set",
         "xyz.openbmc_project.User.Attributes", "UserGroups",
         dbus::utility::DbusVariantType{grpList});
+    
+    propertyModified["OemAccountTypes"] = grpList;
 }
 
 inline void afterVerifyUserExists(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const UserUpdateParams& params, int rc)
+    const UserUpdateParams& params,
+    std::function<void(bool)> completionHandler, int rc)
 {
     if (rc <= 0)
     {
         messages::resourceNotFound(asyncResp->res, "ManagerAccount",
                                    params.username);
+        completionHandler(false);
         return;
     }
 
     if (params.password)
     {
+        accountsTotalOperations++;
         int pamrc = pamAuthenticateUser(params.username, *params.password,
                                         std::nullopt);
         if ((pamrc == PAM_NEW_AUTHTOK_REQD))
         {
             BMCWEB_LOG_ERROR("Need to provide new Password");
             messages::passwordResetFailed(asyncResp->res);
+            completionHandler(false);
             return;
         }
         int retval = pamUpdatePassword(params.username, *params.password);
@@ -1589,6 +1670,7 @@ inline void afterVerifyUserExists(
         {
             messages::resourceNotFound(asyncResp->res, "ManagerAccount",
                                        params.username);
+            completionHandler(false);
             return;
         }
         else if (retval == PAM_AUTHTOK_ERR)
@@ -1597,21 +1679,30 @@ inline void afterVerifyUserExists(
             messages::propertyValueFormatError(asyncResp->res, nullptr,
                                                "Password");
             BMCWEB_LOG_ERROR("pamUpdatePassword Failed");
+            completionHandler(false);
             return;
         }
         else if (retval != PAM_SUCCESS)
         {
             messages::passwordResetFailed(asyncResp->res);
+            completionHandler(false);
             return;
         }
+        propertyModified["Password"] = "*****";
+        completionHandler(true);
+
     }
 
     if (params.enabled)
     {
+        accountsTotalOperations++;
         setDbusProperty(
             asyncResp, "Enabled", "xyz.openbmc_project.User.Manager",
             params.dbusObjectPath, "xyz.openbmc_project.User.Attributes",
             "UserEnabled", *params.enabled);
+        
+        propertyModified["Enabled"] = *params.enabled;
+        completionHandler(true);
     }
 
     if ((params.username == "root") && params.roleId)
@@ -1620,42 +1711,53 @@ inline void afterVerifyUserExists(
         const std::string& arg =
             "redfish/v1/AccountService/Accounts/" + params.username;
         messages::accessDenied(asyncResp->res, boost::urls::format(arg));
+        completionHandler(false);
         return;
     }
     else if (params.roleId)
     {
+        accountsTotalOperations++;
         std::string priv = getPrivilegeFromRoleId(*params.roleId);
         if (priv.empty())
         {
             messages::propertyValueNotInList(asyncResp->res, true, "Locked");
+            completionHandler(false);
             return;
         }
         setDbusProperty(asyncResp, "RoleId", "xyz.openbmc_project.User.Manager",
                         params.dbusObjectPath,
                         "xyz.openbmc_project.User.Attributes", "UserPrivilege",
                         priv);
+        
+        propertyModified["RoleId"] = priv;
+        completionHandler(true);
     }
 
     if (params.locked)
     {
+        accountsTotalOperations++;
         // admin can unlock the account which is locked by
         // successive authentication failures but admin should
         // not be allowed to lock an account.
         if (*params.locked)
         {
             messages::propertyValueNotInList(asyncResp->res, "true", "Locked");
+            completionHandler(false);
             return;
         }
         setDbusProperty(asyncResp, "Locked", "xyz.openbmc_project.User.Manager",
                         params.dbusObjectPath,
                         "xyz.openbmc_project.User.Attributes",
                         "UserLockedForFailedAttempt", *params.locked);
+
+        propertyModified["Locked"] = *params.locked;
+        completionHandler(true);
     }
 
     if (params.accountTypes)
     {
         patchAccountTypes(*params.accountTypes, asyncResp,
-                          params.dbusObjectPath, params.userSelf);
+                          params.dbusObjectPath, params.userSelf, completionHandler);
     }
     if ((params.username == "root") && params.oemAccountTypes)
     {
@@ -1663,6 +1765,7 @@ inline void afterVerifyUserExists(
         const std::string& arg =
             "redfish/v1/AccountService/Accounts/" + params.username;
         messages::accessDenied(asyncResp->res, boost::urls::format(arg));
+        completionHandler(false);
         return;
     }
     else if (params.oemAccountTypes)
@@ -1674,13 +1777,15 @@ inline void afterVerifyUserExists(
             "xyz.openbmc_project.User.Manager", dbusObjectPath,
             "xyz.openbmc_project.User.Attributes", "UserGroups",
             [asyncResp, oemAccountTypes,
-             dbusObjectPath](const boost::system::error_code& ec,
+             dbusObjectPath, completionHandler](const boost::system::error_code& ec,
                              const std::vector<std::string>& list) {
                 if (ec)
                 {
+                    completionHandler(false);
                     return;
                 }
                 std::vector<std::string> grpList = list;
+                accountsTotalOperations++;
                 if (std::find(oemAccountTypes->begin(), oemAccountTypes->end(),
                               "media") != oemAccountTypes->end()) // media found
                 {
@@ -1689,7 +1794,7 @@ inline void afterVerifyUserExists(
                     {
                         grpList.push_back("media");
                     }
-                    setOEMAccountTypes(asyncResp, grpList, dbusObjectPath);
+                    setOEMAccountTypes(asyncResp, grpList, dbusObjectPath, completionHandler);
                 }
                 else if (oemAccountTypes->empty())
                 {
@@ -1701,14 +1806,16 @@ inline void afterVerifyUserExists(
                         if (itr != grpList.end())
                             grpList.erase(itr);
                     }
-                    setOEMAccountTypes(asyncResp, grpList, dbusObjectPath);
+                    setOEMAccountTypes(asyncResp, grpList, dbusObjectPath, completionHandler);
                 }
                 else
                 {
                     messages::propertyValueNotInList(asyncResp->res, "provided",
                                                      "OEMAccountTypes");
+                    completionHandler(false);
                     return;
                 }
+                completionHandler(true);
             });
     }
     if (params.passwordChangeRequired)
@@ -1717,19 +1824,25 @@ inline void afterVerifyUserExists(
             params.passwordChangeRequired;
         if (params.username != "root")
         {
+            accountsTotalOperations++;
             crow::connections::systemBus->async_method_call(
                 [asyncResp,
-                 passwordChangeRequired](const boost::system::error_code ec) {
+                 passwordChangeRequired, completionHandler](const boost::system::error_code ec) {
                     if (ec)
                     {
+                        completionHandler(false);
                         return;
                     }
                 },
                 "xyz.openbmc_project.User.Manager", "/xyz/openbmc_project/user",
                 "xyz.openbmc_project.User.Manager", "SetPasswordExpired",
                 params.username, *passwordChangeRequired);
+            
+            propertyModified["PasswordChangeRequired"] = *passwordChangeRequired;
+            completionHandler(true);
         }
     }
+
 }
 
 inline void updateUserProperties(
@@ -1740,7 +1853,8 @@ inline void updateUserProperties(
     const std::optional<std::vector<std::string>>& accountTypes, bool userSelf,
     const std::shared_ptr<persistent_data::UserSession>& session,
     const std::optional<bool>& passwordChangeRequired,
-    const std::optional<std::vector<std::string>>& oemAccountTypes)
+    const std::optional<std::vector<std::string>>& oemAccountTypes,
+    std::function<void(bool)> completionHandler)
 {
     sdbusplus::message::object_path tempObjPath(rootUserDbusPath);
     tempObjPath /= username;
@@ -1755,7 +1869,7 @@ inline void updateUserProperties(
 
     dbus::utility::checkDbusPathExists(
         dbusObjectPath,
-        std::bind_front(afterVerifyUserExists, asyncResp, std::move(params)));
+        std::bind_front(afterVerifyUserExists, asyncResp, std::move(params), completionHandler));
 }
 
 inline void handleAccountServiceHead(
@@ -2893,6 +3007,9 @@ inline void processAfterCreateUser(
     messages::created(asyncResp->res);
     asyncResp->res.addHeader("Location",
                              "/redfish/v1/AccountService/Accounts/" + username);
+
+    std::string eventLogMessageId = "ResourceAdded:/redfish/v1/AccountService/Accounts/" + username;
+    EventServiceManager::getInstance().resourceCreationDeletion(eventLogMessageId);
 }
 
 inline void processAfterGetAllGroups(
@@ -3180,6 +3297,7 @@ inline void handleAccountGet(
                     const std::string* userPrivPtr = nullptr;
                     const bool* userPasswordExpired = nullptr;
                     const std::vector<std::string>* userGroups = nullptr;
+
                     const bool success = sdbusplus::unpackPropertiesNoThrow(
                         dbus_utils::UnpackErrorPrinter(), interface.second,
                         "UserEnabled", userEnabled,
@@ -3259,6 +3377,7 @@ inline void handleAccountGet(
                         messages::internalError(asyncResp->res);
                         return;
                     }
+
                 }
             }
 
@@ -3308,6 +3427,9 @@ inline void handleAccountDelete(
             }
 
             messages::accountRemoved(asyncResp->res);
+            std::string eventLogMessageId = "ResourceRemoved:/redfish/v1/AccountService/Accounts/" + username;
+            EventServiceManager::getInstance().resourceCreationDeletion(eventLogMessageId);
+
         },
         "xyz.openbmc_project.User.Manager", userPath,
         "xyz.openbmc_project.Object.Delete", "Delete");
@@ -3318,6 +3440,12 @@ inline void handleAccountPatch(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& username)
 {
+
+    accountsTotalOperations = 0;
+    accountsCompletedOperations = 0;
+    propertyModified.clear();
+    propertyOriginal.clear();
+
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
@@ -3328,14 +3456,6 @@ inline void handleAccountPatch(
         messages::resourceNotFound(asyncResp->res, "ManagerAccount", username);
         return;
     }
-    std::optional<std::string> newUserName;
-    std::optional<std::string> password;
-    std::optional<bool> enabled;
-    std::optional<std::string> roleId;
-    std::optional<bool> locked;
-    std::optional<std::vector<std::string>> accountTypes;
-    std::optional<bool> passwordChangeRequired;
-    std::optional<std::vector<std::string>> oemAccountTypes;
 
     if (req.session == nullptr)
     {
@@ -3346,125 +3466,257 @@ inline void handleAccountPatch(
     sdbusplus::message::object_path path("/xyz/openbmc_project/user");
     dbus::utility::getManagedObjects(
         "xyz.openbmc_project.User.Manager", path,
-        [asyncResp, username](const boost::system::error_code& ec,
+        [asyncResp, username, req](const boost::system::error_code& ec,
                               const dbus::utility::ManagedObjectType& users) {
             if (ec)
             {
                 messages::internalError(asyncResp->res);
                 return;
             }
-            bool userExists;
-            for (const auto& userpath : users)
-            {
-                std::string user = userpath.first.filename();
-                if (user != username)
-                {
-                    userExists = false;
-                }
-                else
-                {
-                    userExists = true;
-                    break;
-                }
-            }
-            if (!userExists)
+
+            const auto userIt = std::ranges::find_if(
+                users,
+                [username](
+                    const std::pair<sdbusplus::message::object_path,
+                                    dbus::utility::DBusInterfacesMap>& user) {
+                    return username == user.first.filename();
+                });
+            if (userIt == users.end())
             {
                 asyncResp->res.clear();
                 messages::resourceNotFound(asyncResp->res, "ManagerAccount",
                                            username);
                 return;
             }
-        });
 
-    bool userSelf = (username == req.session->username);
+            auto hasError = std::make_shared<bool>(false);
 
-    Privileges effectiveUserPrivileges =
-        redfish::getUserPrivileges(*req.session);
-    Privileges configureUsers = {"ConfigureUsers"};
-    bool userHasConfigureUsers =
-        effectiveUserPrivileges.isSupersetOf(configureUsers);
-    if (userHasConfigureUsers)
-    {
-        // Users with ConfigureUsers can modify for all users
-        if (!json_util::readJsonPatch(                            //
-                req, asyncResp->res,                              //
-                "UserName", newUserName,                          //
-                "Password", password,                             //
-                "RoleId", roleId,                                 //
-                "Enabled", enabled,                               //
-                "Locked", locked,                                 //
-                "AccountTypes", accountTypes,                     //
-                "PasswordChangeRequired", passwordChangeRequired, //
-                "OEMAccountTypes", oemAccountTypes                //
-                ))
-        {
-            return;
-        }
-    }
-    else
-    {
-        // ConfigureSelf accounts can only modify their own account
-        if (!userSelf)
-        {
-            messages::insufficientPrivilege(asyncResp->res);
-            return;
-        }
+            nlohmann::json body;
+            body = nlohmann::json::parse(req.body());
 
-        // ConfigureSelf accounts can only modify their password
-        if (!json_util::readJsonPatch( //
-                req, asyncResp->res,   //
-                "Password", password   //
-                ))
-        {
-            return;
-        }
-    }
-
-    // if user name is not provided in the patch method or if it
-    // matches the user name in the URI, then we are treating it as
-    // updating user properties other then username. If username
-    // provided doesn't match the URI, then we are treating this as
-    // user rename request.
-    if (!newUserName || (newUserName.value() == username))
-    {
-        updateUserProperties(asyncResp, username, password, enabled, roleId,
-                             locked, accountTypes, userSelf, req.session,
-                             passwordChangeRequired, oemAccountTypes);
-        messages::success(asyncResp->res);
-        return;
-    }
-
-    if (password)
-    {
-        if (pamUpdatePassword(username, *password) != PAM_SUCCESS)
-        {
-            messages::propertyValueFormatError(asyncResp->res, nullptr,
-                                               "Password");
-            return;
-        }
-    }
-
-    crow::connections::systemBus->async_method_call(
-        [asyncResp, username, password(std::move(password)),
-         roleId(std::move(roleId)), enabled, newUser{std::string(*newUserName)},
-         locked, userSelf, req, accountTypes(std::move(accountTypes)),
-         passwordChangeRequired, oemAccountTypes](
-            const boost::system::error_code& ec, sdbusplus::message_t& m) {
-            if (ec)
+            auto completionHandler = [asyncResp, hasError, username, body](bool success)
             {
-                userErrorMessageHandler(m.get_error(), asyncResp, newUser,
-                                        username);
+                if (!success)
+                {
+                    *hasError = true;
+                }
+                else
+                {
+                    accountsCompletedOperations++;
+                }
+                if (accountsCompletedOperations == accountsTotalOperations && !(*hasError) && accountsTotalOperations == body.size())
+                {
+                    EventServiceManager::getInstance().propertyModifiedEventLog(propertyModified, propertyOriginal, "/redfish/v1/AccountService/Accounts/" + username);
+                }
+            };
+
+            std::optional<std::string> newUserName;
+            std::optional<std::string> password;
+            std::optional<bool> enabled;
+            std::optional<std::string> roleId;
+            std::optional<bool> locked;
+            std::optional<std::vector<std::string>> accountTypes;
+            std::optional<bool> passwordChangeRequired;
+            std::optional<std::vector<std::string>> oemAccountTypes;
+
+            bool userSelf = (username == req.session->username);
+
+            Privileges effectiveUserPrivileges =
+                redfish::getUserPrivileges(*req.session);
+            Privileges configureUsers = {"ConfigureUsers"};
+            bool userHasConfigureUsers =
+                effectiveUserPrivileges.isSupersetOf(configureUsers);
+            if (userHasConfigureUsers)
+            {
+                // Users with ConfigureUsers can modify for all users
+                if (!json_util::readJsonPatch(                            //
+                        req, asyncResp->res,                              //
+                        "UserName", newUserName,                          //
+                        "Password", password,                             //
+                        "RoleId", roleId,                                 //
+                        "Enabled", enabled,                               //
+                        "Locked", locked,                                 //
+                        "AccountTypes", accountTypes,                     //
+                        "PasswordChangeRequired", passwordChangeRequired, //
+                        "OEMAccountTypes", oemAccountTypes                //
+                        ))
+                {
+                    return;
+                }
+            }
+            else
+            {
+                // ConfigureSelf accounts can only modify their own account
+                if (!userSelf)
+                {
+                    messages::insufficientPrivilege(asyncResp->res);
+                    return;
+                }
+
+                // ConfigureSelf accounts can only modify their password
+                if (!json_util::readJsonPatch( //
+                        req, asyncResp->res,   //
+                        "Password", password   //
+                        ))
+                {
+                    return;
+                }
+            }
+
+            for (const auto& interface : userIt->second)
+            {
+                if (interface.first == "xyz.openbmc_project.User.Attributes")
+                {
+                    const bool* userEnabled = nullptr;
+                    const bool* userLocked = nullptr;
+                    const std::string* userPrivPtr = nullptr;
+                    const bool* userPasswordExpired = nullptr;
+                    const std::vector<std::string>* userGroups = nullptr;
+
+                    const bool success = sdbusplus::unpackPropertiesNoThrow(
+                        dbus_utils::UnpackErrorPrinter(), interface.second,
+                        "UserEnabled", userEnabled,
+                        "UserLockedForFailedAttempt", userLocked,
+                        "UserPrivilege", userPrivPtr, "UserPasswordExpired",
+                        userPasswordExpired, "UserGroups", userGroups);
+                    if (!success)
+                    {
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+
+                    if (userEnabled == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("UserEnabled wasn't a bool");
+                        propertyOriginal["Enabled"] = nullptr; 
+                        
+                    }
+                    else
+                    {
+                        propertyOriginal["Enabled"] = *userEnabled;
+                    }
+
+                    if (userLocked == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("UserLockedForF"
+                                         "ailedAttempt "
+                                         "wasn't a bool");
+                        propertyOriginal["Locked"] = nullptr;
+                    }
+                    else
+                    {
+                        propertyOriginal["Locked"] = *userLocked;
+                    }
+
+                    if (userPrivPtr == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("UserPrivilege wasn't a "
+                                         "string");
+                        propertyOriginal["RoleId"] = nullptr;
+                    }
+                    else
+                    {
+                        std::string role = getRoleIdFromPrivilege(*userPrivPtr);
+                        if (role.empty())
+                        {
+                            BMCWEB_LOG_ERROR("Invalid user role");
+                            messages::internalError(asyncResp->res);
+                            return;
+                        }
+                        propertyOriginal["RoleId"] = role;
+                    }
+
+                    if (userPasswordExpired == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("UserPasswordExpired wasn't a bool");
+                        propertyOriginal["PasswordChangeRequired"] = nullptr;
+                    }
+                    else
+                    {
+                        propertyOriginal["PasswordChangeRequired"] =
+                        *userPasswordExpired;
+                    }
+
+                    if (userGroups == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("userGroups wasn't a string vector");
+                        propertyOriginal["AccountTypes"] = nullptr;
+                        propertyOriginal["OEMAccountTypes"] = nullptr;
+                    }
+                    else
+                    {
+                        auto [ret, convertedAccountTypes, convertedOemAccountTypes] = translateUserGroupGet(*userGroups);
+                        if (!ret)
+                        {
+                            BMCWEB_LOG_ERROR("userGroups mapping failed");
+                            messages::internalError(asyncResp->res);
+                            return;
+                        }
+                        else
+                        {
+                            propertyOriginal["AccountTypes"] = std::move(convertedAccountTypes);
+                            propertyOriginal["OEMAccountTypes"] = std::move(convertedOemAccountTypes);
+                        }
+                    }
+                }
+            }
+            propertyOriginal["Username"] = username;
+            propertyOriginal["Password"] = "*****";
+            // if user name is not provided in the patch method or if it
+            // matches the user name in the URI, then we are treating it as
+            // updating user properties other then username. If username
+            // provided doesn't match the URI, then we are treating this as
+            // user rename request.
+            if (!newUserName || (newUserName.value() == username))
+            {
+                updateUserProperties(asyncResp, username, password, enabled, roleId,
+                                    locked, accountTypes, userSelf, req.session,
+                                    passwordChangeRequired, oemAccountTypes, completionHandler);
+                //messages::success(asyncResp->res);
+                /* Changed success message to no content becasue Redfish Protocol validator is throwing error 
+                    for Password patching */
+                asyncResp->res.result(boost::beast::http::status::no_content);
+
                 return;
             }
 
-            updateUserProperties(asyncResp, newUser, password, enabled, roleId,
-                                 locked, accountTypes, userSelf, req.session,
-                                 passwordChangeRequired, oemAccountTypes);
-            // messages::success(asyncResp->res);
-        },
-        "xyz.openbmc_project.User.Manager", "/xyz/openbmc_project/user",
-        "xyz.openbmc_project.User.Manager", "RenameUser", username,
-        *newUserName);
+            if (password)
+            {
+                if (pamUpdatePassword(username, *password) != PAM_SUCCESS)
+                {
+                    messages::propertyValueFormatError(asyncResp->res, nullptr,
+                                                    "Password");
+                    return;
+                }
+            }
+
+            crow::connections::systemBus->async_method_call(
+                [asyncResp, username, password(std::move(password)),
+                roleId(std::move(roleId)), enabled, newUser{std::string(*newUserName)},
+                locked, userSelf, req, accountTypes(std::move(accountTypes)),
+                passwordChangeRequired, oemAccountTypes, completionHandler](
+                    const boost::system::error_code& ec1, sdbusplus::message_t& m) {
+                    if (ec1)
+                    {
+                        userErrorMessageHandler(m.get_error(), asyncResp, newUser,
+                                                username);
+                        return;
+                    }
+                    propertyModified["Username"] = newUser;
+                    updateUserProperties(asyncResp, newUser, password, enabled, roleId,
+                                        locked, accountTypes, userSelf, req.session,
+                                        passwordChangeRequired, oemAccountTypes, completionHandler);
+
+                    // messages::success(asyncResp->res);
+                },
+                "xyz.openbmc_project.User.Manager", "/xyz/openbmc_project/user",
+                "xyz.openbmc_project.User.Manager", "RenameUser", username,
+                *newUserName);
+            /* Changed success message to no content becasue Redfish Protocol validator is throwing error 
+               for Password patching */
+            asyncResp->res.result(boost::beast::http::status::no_content);
+
+        });
 }
 
 inline void requestAccountServiceRoutes(App& app)

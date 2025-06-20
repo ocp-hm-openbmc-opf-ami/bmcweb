@@ -412,7 +412,7 @@ void Subscription::filterAndSendEventLogs(
         if (event_log::formatEventLogEntry(
                 logEntry.id, logEntry.messageId, messageArgsView,
                 logEntry.timestamp, userSub->customText, origin, memberId,
-                bmcLogEntry) != 0)
+                logEntry.registryName, bmcLogEntry) != 0)
         {
             BMCWEB_LOG_DEBUG("Read eventLog entry failed");
             continue;

@@ -1505,7 +1505,20 @@ inline void fillEventLogLogEntryFromPropertyMap(
         BMCWEB_REDFISH_SYSTEM_URI_NAME, std::to_string(entry.Id));
     objectToFillOut["Name"] = "System Event Log Entry";
     objectToFillOut["Id"] = std::to_string(entry.Id);
-    objectToFillOut["Message"] = entry.Message;
+    if(!entry.Message.empty())
+    {        
+        std::size_t pos = entry.Message.find(':');
+        if (pos != std::string::npos)
+        {
+            objectToFillOut["Message"] = "OpenBMC.0.5.0." + entry.Message.substr(0, pos);
+        }
+        else
+        {
+            // Handle case where ':' is missing
+            objectToFillOut["Message"] = "OpenBMC.0.5.0." + entry.Message;
+        }
+    }
+
     objectToFillOut["Resolved"] = entry.Resolved;
     std::optional<bool> notifyAction =
         getProviderNotifyAction(entry.ServiceProviderNotify);

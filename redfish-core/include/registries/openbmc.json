@@ -1670,6 +1670,33 @@
             "ParamTypes": ["string"],
             "Resolution": "None.",
             "Severity": "Critical"
+        },
+        "ResourceAdded": {
+            "Description": "Indicates that a resource was added successfully.",
+            "Message": "The resource at %1 was successfully added.",
+            "MessageSeverity": "OK",
+            "NumberOfArgs": 1,
+            "ParamTypes": ["string"],
+            "Resolution": "None",
+            "Severity": "OK"
+        },
+        "ResourceRemoved": {
+            "Description": "Indicates that a resource was successfully removed.",
+            "Message": "The resource at %1 was successfully removed.",
+            "MessageSeverity": "OK",
+            "NumberOfArgs": 1,
+            "ParamTypes": ["string"],
+            "Resolution": "None",
+            "Severity": "OK"
+        },
+        "ResourceModified": {
+            "Description": "Indicates that the resource at a given URI was successfully modified.",
+            "Message": "The value of attribute %1 at %2 was successfully updated from %3 to %4.",
+            "MessageSeverity": "OK",
+            "NumberOfArgs": 4,
+            "ParamTypes": ["string", "string", "string", "string"],
+            "Resolution": "None",
+            "Severity": "Warning"
         }
     },
     "Name": "OpenBMC Message Registry",

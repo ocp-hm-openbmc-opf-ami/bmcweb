@@ -417,15 +417,26 @@ inline void storeNtpServers(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     for (size_t index = 0; index < NTPServers.size(); index++)
     {
         const IpAddress& ntpServer = NTPServers[index];
-        const std::string* ntpServerStr = std::get_if<std::string>(&ntpServer);
-        if (ntpServerStr == nullptr)
+        if (std::holds_alternative<nlohmann::json::object_t>(ntpServer))
+        {
+            input.push_back(
+                std::get<nlohmann::json::object_t>(ntpServer));
+        }
+        else if (std::holds_alternative<std::nullptr_t>(ntpServer))
+        {
+            // Handle nullptr_t case if necessary
+            input.push_back(
+                std::get<std::nullptr_t>(ntpServer));
+        }
+        else if (std::holds_alternative<std::string>(ntpServer))
+        {
+            input.push_back(std::get<std::string>(ntpServer));
+        }
+        else
         {
             messages::internalError(asyncResp->res);
             return;
         }
-        // If the variant holds a string, store it in the input vector as a JSON
-        // string
-        input.push_back(*ntpServerStr);
     }
 }
 

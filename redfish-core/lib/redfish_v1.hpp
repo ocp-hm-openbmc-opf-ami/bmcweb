@@ -129,19 +129,7 @@ inline void redfish405(App& app, const crow::Request& req,
         accountName = path.substr(lastSlashPos + 1);
         uri = "v1/AccountService/Accounts/" + accountName;
     }
-    if(accountName.empty())
-    {
-        if(req.method() == boost::beast::http::verb::put)
-        {
-            messages::operationNotAllowed(asyncResp->res);
-        }
-        else
-        {
-            messages::resourceNotFound(asyncResp->res, "ManagerAccount", accountName);
-        }
-        return;
-    }
-    if (path == uri)
+    if (path == uri && !accountName.empty())
     {
         sdbusplus::message::object_path objPath("/xyz/openbmc_project/user");
         dbus::utility::getManagedObjects(

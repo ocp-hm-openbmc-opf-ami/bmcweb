@@ -25,7 +25,7 @@ int formatEventLogEntry(
     const std::string& logEntryID, const std::string& messageID,
     std::span<std::string_view> messageArgs, std::string timestamp,
     const std::string& customText, const std::string& origin,
-    const std::string& memberId, nlohmann::json::object_t& logEntryJson);
+    const std::string& memberId, const std::string& registryName, nlohmann::json::object_t& logEntryJson);
 
 } // namespace event_log
 

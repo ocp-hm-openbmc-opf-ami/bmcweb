@@ -1952,7 +1952,7 @@ nlohmann::json headerInvalid(std::string_view arg1)
 
 void headerInvalid(crow::Response& res, std::string_view arg1)
 {
-    res.result(boost::beast::http::status::bad_request);
+    res.result(boost::beast::http::status::precondition_failed);
     addMessageToErrorJson(res.jsonValue, headerInvalid(arg1));
 }
 

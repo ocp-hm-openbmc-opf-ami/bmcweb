@@ -84,7 +84,7 @@ inline void afterGetSnmpTrapClientdata(
             "snmp://" + address + ":" + std::to_string(port);
     }
     asyncResp->res.jsonValue["Protocol"] = "SNMP" + version;
-    asyncResp->res.jsonValue["Context"] = ((subVal != nullptr) && !subVal->userSub->customText.empty()) ? subVal->userSub->customText : "Event_Sub";
+    asyncResp->res.jsonValue["Context"] = ((subVal != nullptr) && !subVal->userSub->customText.empty()) ? subVal->userSub->customText : "Event_Sub_" + id;
 }
 
 inline void

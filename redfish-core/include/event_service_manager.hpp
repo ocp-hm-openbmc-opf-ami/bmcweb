@@ -582,6 +582,10 @@ class EventServiceManager
                     break;
                 }
             }
+            if (subValue->userSub->subscriptionType == subscriptionTypeSSE)
+            {
+                subValue->userSub->customText = "Event_Sub_" + id;
+            }
             auto inserted = subscriptionsMap.insert(std::pair(id, subValue));
             if (inserted.second)
             {
@@ -987,7 +991,7 @@ class EventServiceManager
         {
             std::shared_ptr<Subscription> entry = it.second;
             std::string prot = entry->userSub->protocol;
-            if (entry->userSub->eventFormatType == "Event")
+            if (entry->userSub->eventFormatType == "Event" && messageID != "EventSubscriptionRemoved" && messageID != "EventSubscriptionAdded")
             {
                 if (prot != "SNMPv1" && prot != "SNMPv2c" && prot != "SNMPv3")
                 {
@@ -1094,6 +1098,150 @@ class EventServiceManager
             std::cerr << "bmcweb::error in signal " << e.what() << "\n";
         }
     }
+
+    // Below Function is to log events in dbus for propertychange operations
+    void propertyModifiedEventLog(nlohmann::json::object_t& propertyModified, nlohmann::json::object_t& propertyOriginal, const std::string& URI){ 
+ 
+        std::string arg1;
+        std::string arg2 = URI;
+        std::string arg3;
+        std::string arg4;
+        bool firstModified = true;  // To track if it's the first key
+        bool firstOriginal = true;
+        if (propertyModified.size() > 0)
+        {
+            for (const auto& [key, value] : propertyModified)
+            {
+ 
+                if (!firstModified)
+                {
+                    arg1 += ", ";  // Add a comma before the next key
+                    arg4 += ", ";
+                }
+ 
+                arg1 += key;
+ 
+                // Handle value type (string, boolean, or array of strings)
+                if (value.is_string()) {
+                    arg4 += value.get<std::string>();
+                }
+                else if (value.is_boolean()) {
+                    arg4 += value.get<bool>() ? "true" : "false";
+                }
+                else if (value.is_number_integer()) {
+                    arg4 += std::to_string(value.get<uint64_t>());
+                }
+                else if (value.is_number_float()) {
+                    arg4 += std::to_string(value.get<double>());
+                }
+                else if (value.is_array()) {
+                    std::string arrayStr = "[";
+                    bool firstInArray = true;
+                    for (const auto& item : value) {
+                        if (!firstInArray) {
+                            arrayStr += ", ";
+                        }
+                        if (item.is_string()) {
+                            arrayStr += item.get<std::string>();
+                        }
+                        firstInArray = false;
+                    }
+                    arrayStr += "]";
+                    arg4 += arrayStr;
+                }
+                else if (value.is_null()) {
+                    arg4 += "null";
+                } 
+                else if (value.is_object()) {
+                    arg4 += "{object}"; // Or serialize the object
+                }
+ 
+                firstModified = false;
+ 
+                auto it = propertyOriginal.find(key);
+                if (it != propertyOriginal.end()) {
+                    if (!firstOriginal)
+                    {
+                        arg3 += ", ";  // Add a comma before the next key
+                    }
+                    if (it->second.is_string()) {
+                        arg3 += it->second.get<std::string>();
+                    } else if (it->second.is_boolean()) {
+                        arg3 += it->second.get<bool>() ? "true" : "false";
+                    } else if (it->second.is_number_integer()) {
+                        arg3 += std::to_string(it->second.get<uint64_t>());
+                    } else if (it->second.is_number_float()) {
+                        arg3 += std::to_string(it->second.get<double>());
+                    } else if (it->second.is_array()) {
+                        std::string arrayStr = "[";
+                        bool firstInArray = true;
+                        for (const auto& item : it->second) {
+                            if (!firstInArray) {
+                                arrayStr += ", ";
+                            }
+                            if (item.is_string()) {
+                                arrayStr += item.get<std::string>();
+                            }
+                            firstInArray = false;
+                        }
+                        arrayStr += "]";
+                        arg3 += arrayStr;
+                    } else if (it->second.is_null()) {
+                        arg3 += "null";
+                    } else if (it->second.is_object()) {
+                        arg3 += "{object}"; // Or serialize the object
+                    }
+ 
+                    firstOriginal = false;
+                }
+            }
+        }
+
+        std::string severity =
+            "xyz.openbmc_project.Logging.Entry.Level.Informational";
+        auto bus = sdbusplus::bus::new_default_system();
+        sdbusplus::message::message m = bus.new_method_call(
+            "xyz.openbmc_project.Logging", "/xyz/openbmc_project/logging",
+            "xyz.openbmc_project.Logging.Create", "Create");
+        std::string journalMsg = "ResourceModified:" + arg1 + "," + arg2 + "," + arg3 + "," + arg4;
+ 
+        // Append the arguments to the method call
+        m.append(journalMsg, severity, std::map<std::string, std::string>());
+        try
+        {
+            bus.call(m);
+        }
+        catch (const sdbusplus::exception_t& e)
+        {
+            std::cerr << "Failed to create log entry: " << e.what()
+                        << std::endl;
+        }
+    }
+
+    // Below Function is to log events in dbus for resource creation and deletion
+    void resourceCreationDeletion(const std::string& eventLogMessageId)
+    {
+        std::string severity =
+            "xyz.openbmc_project.Logging.Entry.Level.Informational";
+        auto bus = sdbusplus::bus::new_default_system();
+        sdbusplus::message::message m = bus.new_method_call(
+            "xyz.openbmc_project.Logging", "/xyz/openbmc_project/logging",
+            "xyz.openbmc_project.Logging.Create", "Create");
+        std::string journalMsg = eventLogMessageId;
+
+        // Append the arguments to the method call
+        m.append(journalMsg, severity, std::map<std::string, std::string>());
+        try
+        {
+            bus.call(m);
+        }
+        catch (const sdbusplus::exception_t& e)
+        {
+            std::cerr << "Failed to create log entry: " << e.what()
+                        << std::endl;
+        }
+    }
+ 
 };
 
 } // namespace redfish

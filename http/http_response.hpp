@@ -59,12 +59,26 @@ struct Response
 
     void addHeader(std::string_view key, std::string_view value)
     {
-        fields().insert(key, value);
+        if(key == "OData-Version")
+        {
+            fields().set(key, value);
+        }
+        else
+        {
+            fields().insert(key, value);
+        }
     }
 
     void addHeader(http::field key, std::string_view value)
     {
-        fields().insert(key, value);
+        if(to_string(key) == "OData-Version")
+        {
+            fields().set(key, value);
+        }
+        else
+        {
+            fields().insert(key, value);
+        }
     }
 
     void clearHeader(http::field key)

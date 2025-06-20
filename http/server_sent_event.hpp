@@ -9,6 +9,7 @@
 #include <boost/asio/steady_timer.hpp>
 #include <boost/beast/core/multi_buffer.hpp>
 #include <boost/beast/websocket.hpp>
+#include "utils/time_utils.hpp"
 
 #include <array>
 #include <cstddef>
@@ -101,6 +102,9 @@ class ConnectionImpl : public Connection
     void close(const std::string_view msg) override
     {
         BMCWEB_LOG_DEBUG("Closing SSE connection {} - {}", logPtr(this), msg);
+
+        timer.cancel();
+
         boost::beast::get_lowest_layer(adaptor).close();
 
         // send notification to handler for cleanup
@@ -149,6 +153,8 @@ class ConnectionImpl : public Connection
             boost::asio::buffer(buffer),
             std::bind_front(&ConnectionImpl::afterReadError, this,
                             shared_from_this()));
+
+        startTimeout();
     }
 
     void afterReadError(const std::shared_ptr<Connection>& /*self*/,
@@ -176,6 +182,7 @@ class ConnectionImpl : public Connection
         if (inputBuffer.size() == 0)
         {
             BMCWEB_LOG_DEBUG("inputBuffer is empty... Bailing out");
+            startTimeout();
             return;
         }
         startTimeout();
@@ -261,6 +268,7 @@ class ConnectionImpl : public Connection
 
     void sendSseEvent(std::string_view id, std::string_view msg) override
     {
+        timer.cancel();
         if (msg.empty())
         {
             BMCWEB_LOG_DEBUG("Empty data, bailing out.");
@@ -315,7 +323,7 @@ class ConnectionImpl : public Connection
 
     void onTimeoutCallback(const std::weak_ptr<Connection>& weakSelf,
                            const boost::system::error_code& ec)
-    {
+    {           
         std::shared_ptr<Connection> self = weakSelf.lock();
         if (!self)
         {
@@ -330,15 +338,22 @@ class ConnectionImpl : public Connection
             // Canceled wait means the path succeeded.
             return;
         }
+
         if (ec)
         {
             BMCWEB_LOG_CRITICAL("{} timer failed {}", logPtr(self.get()), ec);
         }
 
-        BMCWEB_LOG_WARNING("{} Connection timed out, closing",
+        if (doingWrite == true)
+        {
+            BMCWEB_LOG_WARNING("{} Connection timed out, closing",
                            logPtr(self.get()));
-
-        self->close("closing connection");
+            self->close("closing connection");
+        }
+        else
+        {
+            sendSseEvent(redfish::time_utils::getDateTimeOffsetNow().first, "\"Dummy string to keep the SSE clients Alive\"");
+        }
     }
 
   private:

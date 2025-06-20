@@ -32,6 +32,8 @@ limitations under the License.
 #include <utility>
 #include <vector>
 
+#include "registries/openbmc_message_registry.hpp"
+
 namespace redfish
 {
 namespace event_log
@@ -78,7 +80,16 @@ int getDbusEventLogParams(const std::string& logEntry, std::string& messageID,
     else
     {
         messageID = logEntry.substr(0, colonPos);
-        messageArgs.push_back(logEntry.substr(colonPos + 1));
+        std::string argsStr = logEntry.substr(colonPos + 1);
+        size_t start = 0;
+        size_t end = argsStr.find(',');
+        while (end != std::string::npos)
+        {
+            messageArgs.push_back(argsStr.substr(start, end - start));
+            start = end + 1;
+            end = argsStr.find(',', start);
+        }
+        messageArgs.push_back(argsStr.substr(start));
     }
     return 0;
 }
@@ -138,8 +149,20 @@ int formatEventLogEntry(
     const std::string& logEntryID, const std::string& messageID,
     const std::span<std::string_view> messageArgs, std::string timestamp,
     const std::string& customText, const std::string& origin,
-    const std::string& memberId, nlohmann::json::object_t& logEntryJson)
+    const std::string& memberId, const std::string& registryName, nlohmann::json::object_t& logEntryJson)
 {
+    // Get the MessageRegistry Version
+    const registries::Header* header = nullptr;
+    std::string registryVersion;
+    if (registryName == "OpenBMC")
+    {
+        header = &registries::openbmc::header;
+        registryVersion =  std::format(
+            "{}.{}.{}.{}", header->registryPrefix, header->versionMajor,
+            header->versionMinor, header->versionPatch);
+    }
+
+    
     // Get the Message from the MessageRegistry
     const registries::Message* message = registries::formatMessage(messageID);
 
@@ -176,7 +199,7 @@ int formatEventLogEntry(
 
     logEntryJson["Severity"] = message->messageSeverity;
     logEntryJson["Message"] = std::move(msg);
-    logEntryJson["MessageId"] = messageID;
+    logEntryJson["MessageId"] = registryVersion + "." + messageID;
     logEntryJson["MessageArgs"] = messageArgs;
     logEntryJson["EventTimestamp"] = std::move(timestamp);
     logEntryJson["Context"] = customText;

@@ -178,6 +178,9 @@ inline void fillSessionObject(crow::Response& res,
     {
         res.jsonValue["Context"] = *session.clientId;
     }
+
+    std::string creationMessageId = "ResourceAdded:/redfish/v1/SessionService/Sessions/" + session.uniqueId;
+    EventServiceManager::getInstance().resourceCreationDeletion(creationMessageId);
 }
 
 inline std::string getSessionType(int sessionType)
@@ -304,6 +307,13 @@ inline void handleSessionGet(
     {
         return;
     }
+
+    if(sessionId == "Members")
+    {
+        messages::operationNotAllowed(asyncResp->res);
+        return;
+    }
+
     asyncResp->res.clearHeader(boost::beast::http::field::allow);
     asyncResp->res.addHeader("Allow", "GET,DELETE,HEAD");
     asyncResp->res.addHeader(
@@ -451,6 +461,9 @@ inline void handleSessionDelete(
     {
         return;
     }
+
+    std::string deletionMessageId = "ResourceRemoved:/redfish/v1/SessionService/Sessions/" + sessionId;
+
     asyncResp->res.clearHeader(boost::beast::http::field::allow);
     asyncResp->res.addHeader("Allow", "GET,DELETE,HEAD");
     if (sessionId.find('_') != std::string::npos)
@@ -512,7 +525,8 @@ inline void handleSessionDelete(
             SessionManagerService, SessionManagerObj,
             "xyz.openbmc_project.SessionManager", "SessionUnregister",
             static_cast<uint8_t>(SessId), static_cast<uint8_t>(sessType), 1);
-
+            
+        EventServiceManager::getInstance().resourceCreationDeletion(deletionMessageId);
         return;
     }
 
@@ -546,6 +560,7 @@ inline void handleSessionDelete(
 
         persistent_data::SessionStore::getInstance().removeSession(session);
         asyncResp->res.result(boost::beast::http::status::no_content);
+        EventServiceManager::getInstance().resourceCreationDeletion(deletionMessageId);
         return;
     }
 
@@ -593,6 +608,8 @@ inline void handleSessionDelete(
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths", "/", 0,
         interfaces);
+    
+    EventServiceManager::getInstance().resourceCreationDeletion(deletionMessageId);
 }
 
 inline nlohmann::json getSessionCollectionMembers()
@@ -754,20 +771,17 @@ inline void processAfterSessionCreation(
         "Location", "/redfish/v1/SessionService/Sessions/" + session->uniqueId);
     if (session->isConfigureSelfOnly)
     {
-        asyncResp->res.result(boost::beast::http::status::forbidden);
         messages::passwordChangeRequired(
             asyncResp->res,
             boost::urls::format("/redfish/v1/AccountService/Accounts/{}",
                                 session->username));
     }
-    else
-    {
-        asyncResp->res.result(boost::beast::http::status::created);
-        session->AMIsessionType = "Redfish";
-        crow::getUserInfo(asyncResp, username, session, [asyncResp, session]() {
-            fillSessionObject(asyncResp->res, *session);
-        });
-    }
+    asyncResp->res.result(boost::beast::http::status::created);
+    session->AMIsessionType = "Redfish";
+    crow::getUserInfo(asyncResp, username, session, [asyncResp, session]() {
+        fillSessionObject(asyncResp->res, *session);
+    });
+    
 }
 
 inline void handleSessionCollectionPost(
@@ -1131,7 +1145,7 @@ inline void requestRoutesSession(App& app)
     BMCWEB_ROUTE(app, "/redfish/v1/SessionService/Sessions/<str>/")
         .methods(boost::beast::http::verb::post,
                  boost::beast::http::verb::patch)(
-            [](const crow::Request&,
+            [&app](const crow::Request& req,
                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                const std::string& sessionId) {
                 asyncResp->res.clearHeader(boost::beast::http::field::allow);
@@ -1169,8 +1183,22 @@ inline void requestRoutesSession(App& app)
                         }
                     }
                 }
-                messages::resourceNotFound(asyncResp->res, "Session",
+                else if(sessionId == "Members" )
+                {
+                    if (req.method() == boost::beast::http::verb::post)
+                    {
+                        handleSessionCollectionPost(app, req, asyncResp);
+                    }
+                    else
+                    {
+                        messages::operationNotAllowed(asyncResp->res);
+                    }
+                }
+                else
+                {
+                    messages::resourceNotFound(asyncResp->res, "Session",
                                            sessionId);
+                }
             });
 
     BMCWEB_ROUTE(app, "/redfish/v1/SessionService/Sessions/")
@@ -1189,11 +1217,6 @@ inline void requestRoutesSession(App& app)
     // this is the endpoint responsible for giving the login privilege, and it
     // is itself its own route, it needs to not require Login
     BMCWEB_ROUTE(app, "/redfish/v1/SessionService/Sessions/")
-        .privileges({})
-        .methods(boost::beast::http::verb::post)(
-            std::bind_front(handleSessionCollectionPost, std::ref(app)));
-
-    BMCWEB_ROUTE(app, "/redfish/v1/SessionService/Sessions/Members/")
         .privileges({})
         .methods(boost::beast::http::verb::post)(
             std::bind_front(handleSessionCollectionPost, std::ref(app)));

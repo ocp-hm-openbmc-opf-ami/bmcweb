@@ -2653,7 +2653,7 @@ inline void requestRoutesEventDestination(App& app)
                 asyncResp->res.jsonValue["Destination"] =
                     subValue->userSub->destinationUrl;
                 asyncResp->res.jsonValue["Context"] =
-                    subValue->userSub->customText;
+                    ((subValue != nullptr) && !subValue->userSub->customText.empty()) ? subValue->userSub->customText : "Event_Sub_" + id;
                 asyncResp->res.jsonValue["SubscriptionType"] =
                     subValue->userSub->subscriptionType;
                 asyncResp->res.jsonValue["HttpHeaders"] =
