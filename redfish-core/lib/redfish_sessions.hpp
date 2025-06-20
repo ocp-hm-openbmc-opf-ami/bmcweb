@@ -1033,10 +1033,12 @@ inline void handleSessionServicePatch(
                 return;
             }
 
-            if (kvmSessionTimeout)
+	     if (kvmSessionTimeout)
             {
+                if (*kvmSessionTimeout <= 86400 && *kvmSessionTimeout >= 30)
+                {
                 crow::connections::systemBus->async_method_call(
-                    [asyncResp](const boost::system::error_code ec) {
+                    [asyncResp, kvmSessionTimeout](const boost::system::error_code ec) {
                         if (ec)
                         {
                             BMCWEB_LOG_ERROR("Error patching {}", ec);
@@ -1051,7 +1053,13 @@ inline void handleSessionServicePatch(
                     "xyz.openbmc_project.Control.Service.Attributes",
                     "SessionTimeOut",
                     std::variant<uint64_t>(*kvmSessionTimeout));
-            }
+               }
+               else
+               {
+                    messages::propertyValueNotInList(asyncResp->res, std::to_string(*kvmSessionTimeout),
+                                             "KVMSessionTimeout");
+               }
+           }
 
             if (bmcwebPort)
             {
