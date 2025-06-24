@@ -593,10 +593,10 @@ inline void handleChassisProperties(
     }
 }
 
-inline void handleChassisPatchSubTree(
+inline void handleChassisSubTree(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& chassisId, const boost::system::error_code& ec,
-    const dbus::utility::MapperGetSubTreeResponse& subtree)
+    const std::string& chassisId, const boost::system::error_code& ec,const std::optional<std::string>& methodName,
+    const dbus::utility::MapperGetSubTreeResponse& subtree )
 {
     if (ec)
     {
@@ -611,6 +611,7 @@ inline void handleChassisPatchSubTree(
         object : subtree)
     {
         const std::string& path = object.first;
+        std::string methodNameVal = methodName.value_or("");
         const std::vector<std::pair<std::string, std::vector<std::string>>>&
         connectionNames = object.second;
 
@@ -624,49 +625,20 @@ inline void handleChassisPatchSubTree(
             BMCWEB_LOG_ERROR("Got 0 Connection names");
             continue;
         }
-        checkinvalidURIPatch = false;
-        return;
+        if(methodNameVal=="patch")
+        {
+            checkinvalidURIPatch = false;
+            return;
         }
-        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
-        return;
-}
-
-inline void handleChassisPostSubTree(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& chassisId, const boost::system::error_code& ec,
-    const dbus::utility::MapperGetSubTreeResponse& subtree)
-{
-    if (ec)
-    {
-        BMCWEB_LOG_ERROR("DBUS response error {}", ec);
-        messages::internalError(asyncResp->res);
-        return;
-    }
-    for (const std::pair<
-        std::string,
-        std::vector<std::pair<std::string, std::vector<std::string>>>>&
-        object : subtree)
-    {
-    const std::string& path = object.first;
-    const std::vector<std::pair<std::string, std::vector<std::string>>>&
-        connectionNames = object.second;
-
-            sdbusplus::message::object_path objPath(path);
-            if (objPath.filename() != chassisId)
-            {
-                    continue;
-            }
-            if (connectionNames.empty())
-            {
-                BMCWEB_LOG_ERROR("Got 0 Connection names");
-                continue;
-            }
+        else
+        {
             asyncResp->res.addHeader("Allow", "GET, PATCH");
             messages::operationNotAllowed(asyncResp->res);
             return;
         }
-        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);  
-    return;
+        }
+        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
+        return;
 }
 
 inline void handleChassisGetSubTree(
@@ -900,7 +872,7 @@ void
             param,req,interfaces](const boost::system::error_code& ecs,
                 const dbus::utility::MapperGetSubTreeResponse& subtrees) 
   {
-    handleChassisPatchSubTree(asyncResp, param, ecs, subtrees);
+    handleChassisSubTree(asyncResp, param, ecs, "patch",subtrees);
        
    if (!checkinvalidURIPatch)
    {
@@ -1066,8 +1038,13 @@ inline void requestRoutesChassis(App& app)
                         "xyz.openbmc_project.Inventory.Item.Board",
                         "xyz.openbmc_project.Inventory.Item.Chassis"};
                     dbus::utility::getSubTree(
-                        "/xyz/openbmc_project/inventory", 0, interfaces,
-                        std::bind_front(handleChassisPostSubTree, asyncResp, chassisId));
+                    "/xyz/openbmc_project/inventory", 0, interfaces,
+                    [asyncResp,
+                        chassisId,req,interfaces](const boost::system::error_code& ecs,
+                            const dbus::utility::MapperGetSubTreeResponse& subtrees) 
+                    {
+                        handleChassisSubTree(asyncResp, chassisId, ecs, "post",subtrees);
+                    });
                 });
 }
 

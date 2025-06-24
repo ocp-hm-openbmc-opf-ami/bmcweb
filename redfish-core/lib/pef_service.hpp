@@ -575,7 +575,6 @@ inline void requestRoutesPefService(App& app)
                           const std::vector<std::string>& storageList) 
                 {
                     std::optional<std::string> eventSeverity;
-                    bool checkinvalidURI = true;
                     if (ec)
                     {
                         BMCWEB_LOG_ERROR(
@@ -605,11 +604,6 @@ inline void requestRoutesPefService(App& app)
                                                    entryId);
                         return;
                     }
-                    checkinvalidURI = false;
-                    if(!checkinvalidURI)
-                    {
-			checkinvalidURI = true;
-                	
                 if (!json_util::readJsonPatch( //
                         req, asyncResp->res, //
                         "EventSeverity", eventSeverity //
@@ -648,7 +642,6 @@ inline void requestRoutesPefService(App& app)
                     }
                 }
                 getPefServiceInfoId(asyncResp,entryId);
-                }
                 },
                 "xyz.openbmc_project.ObjectMapper",
                 "/xyz/openbmc_project/object_mapper",

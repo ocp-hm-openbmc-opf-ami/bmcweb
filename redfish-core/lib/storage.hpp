@@ -185,7 +185,7 @@ inline void afterSystemsStoragePostSubtree(
     if (ec)
     {
         BMCWEB_LOG_DEBUG("requestRoutesStorage DBUS response error");
-        messages::resourceNotFound(asyncResp->res, "#Storage.v1_13_0.Storage",
+        messages::resourceNotFound(asyncResp->res, json_util::odataType("Storage"),
                                    storageId);
         return;
     }
@@ -198,7 +198,7 @@ inline void afterSystemsStoragePostSubtree(
         });
     if (storage == subtree.end())
     {
-        messages::resourceNotFound(asyncResp->res, "#Storage.v1_13_0.Storage",
+        messages::resourceNotFound(asyncResp->res, json_util::odataType("Storage"),
                                    storageId);
         return;
     }
