@@ -28,8 +28,7 @@ inline void
     asyncResp->res.addHeader(
         boost::beast::http::field::link,
         "</redfish/v1/JsonSchemas/ThermalMetrics/ThermalMetrics.json>; rel=describedby");
-    asyncResp->res.jsonValue["@odata.type"] =
-        "#ThermalMetrics.v1_0_1.ThermalMetrics";
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("ThermalMetrics");
     asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
         "/redfish/v1/Chassis/{}/ThermalSubsystem/ThermalMetrics", chassisId);
     asyncResp->res.jsonValue["Id"] = "ThermalMetrics";

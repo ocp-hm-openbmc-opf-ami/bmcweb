@@ -124,8 +124,7 @@ inline void
 
     asyncResp->res.jsonValue["@odata.id"] =
         "/redfish/v1/Oem/Ami/LicenseControl";
-    asyncResp->res.jsonValue["@odata.type"] =
-        "#AmiLicenseControl.v1_0_0.AmiLicenseControl";
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("AmiLicenseControl");
     asyncResp->res.jsonValue["Name"] = "License Control";
     asyncResp->res.jsonValue["Id"] = "License Control";
 

@@ -197,7 +197,7 @@ inline void doPowerHeader(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     asyncResp->res.addHeader(
         boost::beast::http::field::link,
         "</redfish/v1/JsonSchemas/Power/Power.json>; rel=describedby");
-    asyncResp->res.jsonValue["@odata.type"] = "#Power.v1_5_2.Power";
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("Power");
     asyncResp->res.jsonValue["Name"] = "Power";
     asyncResp->res.jsonValue["Id"] = "Power";
     #if (BMCWEB_CHALUPA_AMD_MACRO)
@@ -213,9 +213,13 @@ inline void requestRoutesNodeManagerPower(App& app)
     BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/Power/")
         .privileges(redfish::privileges::privilegeSetLogin)
         .methods(boost::beast::http::verb::get)(
-            [](const crow::Request&,
+            [&app](const crow::Request& req,
                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                const std::string& chassisName) {
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
         redfish::chassis_utils::getValidChassisPath(
             asyncResp, chassisName,
             std::bind_front(doPowerHeader, asyncResp, chassisName));
@@ -247,9 +251,13 @@ inline void requestRoutesNodeManagerPower(App& app)
     BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/Power/PowerControl/<str>")
         .privileges({{"Login"}})
         .methods(boost::beast::http::verb::get)(
-            [](const crow::Request&,
+            [&app](const crow::Request& req,
                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                const std::string& chassisName, const std::string& node) {
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
         auto sensorAsyncResp = std::make_shared<SensorsAsyncResp>(
             asyncResp, chassisName, sensors::dbus::powerPaths,
             sensor_utils::chassisSubNodeToString(

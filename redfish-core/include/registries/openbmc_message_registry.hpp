@@ -2577,6 +2577,16 @@ constexpr std::array registry =
             },
             "None.",
         }},
+    MessageEntry {
+        "RequestBodyNotAllowed",
+        {
+            "Request Body is Not Allowed",
+            "A request body was provided with a GET request, which is not allowed.",            
+            "Warning",
+            0,
+            {},
+            "Remove the request body and retry the GET request.",        
+        }},
     MessageEntry{
         "ResourceAdded",
         {
@@ -2612,7 +2622,7 @@ constexpr std::array registry =
                 "string", "string", "string", "string"
             },
             "None.",
-        }}
+        }},
 };
 
 enum class Index
@@ -2830,9 +2840,9 @@ enum class Index
     triggerDiscreteCritical = 210,
     voltageRegulatorOverheated = 211,
     pmtKafkaStreamingDestinationError = 212,
-    resourceAdded = 213,
-    resourceRemoved = 214,
-    resourceModified = 215
-
+    requestBodyNotAllowed = 213,
+    resourceAdded = 214,
+    resourceRemoved = 215,
+    resourceModified = 216,
 };
 } // namespace redfish::registries::openbmc

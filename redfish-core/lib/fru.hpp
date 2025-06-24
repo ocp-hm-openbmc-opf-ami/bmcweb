@@ -150,8 +150,7 @@ inline void setFru(
     {
         asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
             "/redfish/v1/Chassis/{}/FRU/{}", chassisId, fruName);
-        asyncResp->res.jsonValue["@odata.type"] =
-            "#AMIChassisFRU.v1_0_0.AMIChassisFRU";
+        asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("AMIChassisFRU");
         asyncResp->res.jsonValue["Name"] = fruName;
         asyncResp->res.jsonValue["Id"] = "FRU Value";
     

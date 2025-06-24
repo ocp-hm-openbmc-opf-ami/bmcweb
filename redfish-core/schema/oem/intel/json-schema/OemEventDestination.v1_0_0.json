@@ -206,5 +206,5 @@
             "type": "object"
         }
     },
-    "title": "#OemEventDestination"
+    "title": "#OemEventDestination.v1_0_0"
 }

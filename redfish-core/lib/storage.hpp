@@ -163,7 +163,7 @@ inline void afterSystemsStorageGetSubtree(
         return;
     }
 
-    asyncResp->res.jsonValue["@odata.type"] = "#Storage.v1_13_0.Storage";
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("Storage");
     asyncResp->res.jsonValue["@odata.id"] =
         boost::urls::format("/redfish/v1/Systems/{}/Storage/{}",
                             BMCWEB_REDFISH_SYSTEM_URI_NAME, storageId);
@@ -180,7 +180,7 @@ inline void afterSystemsStorageGetSubtree(
 inline void handleSystemsStorageGetSingleInstance(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    asyncResp->res.jsonValue["@odata.type"] = "#Storage.v1_13_0.Storage";
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("Storage");
     asyncResp->res.jsonValue["@odata.id"] =
         "/redfish/v1/Systems/system/Storage/1";
     asyncResp->res.jsonValue["Name"] = "Storage";
@@ -248,7 +248,7 @@ inline void afterSubtree(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         return;
     }
 
-    asyncResp->res.jsonValue["@odata.type"] = "#Storage.v1_13_0.Storage";
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("Storage");
     asyncResp->res.jsonValue["@odata.id"] =
         boost::urls::format("/redfish/v1/Storage/{}", storageId);
     asyncResp->res.jsonValue["Name"] = "Storage";
@@ -270,7 +270,7 @@ inline void afterSubtree(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 inline void handleStorageGetSingleInstance(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    asyncResp->res.jsonValue["@odata.type"] = "#Storage.v1_13_0.Storage";
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("Storage");
     asyncResp->res.jsonValue["@odata.id"] = "/redfish/v1/Storage/1";
     asyncResp->res.jsonValue["Name"] = "Storage";
     asyncResp->res.jsonValue["Id"] = "1";
@@ -692,7 +692,7 @@ inline void afterGetSubtreeSystemsStorageDrive(
     const std::string& path = drive->first;
     const dbus::utility::MapperServiceMap& connectionNames = drive->second;
 
-    asyncResp->res.jsonValue["@odata.type"] = "#Drive.v1_7_0.Drive";
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("Drive");
     asyncResp->res.jsonValue["@odata.id"] =
         boost::urls::format("/redfish/v1/Systems/{}/Storage/1/Drives/{}",
                             BMCWEB_REDFISH_SYSTEM_URI_NAME, driveId);
@@ -897,7 +897,7 @@ inline void buildDrive(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
             "/redfish/v1/Chassis/{}/Drives/{}", chassisId, driveName);
 
-        asyncResp->res.jsonValue["@odata.type"] = "#Drive.v1_7_0.Drive";
+        asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("Drive");
         asyncResp->res.jsonValue["Name"] = driveName;
         asyncResp->res.jsonValue["Id"] = driveName;
         // default it to Enabled
@@ -1059,8 +1059,7 @@ inline void populateStorageController(
     const std::string& controllerId, const std::string& connectionName,
     const std::string& path)
 {
-    asyncResp->res.jsonValue["@odata.type"] =
-        "#StorageController.v1_6_0.StorageController";
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("StorageController");
     asyncResp->res.jsonValue["@odata.id"] =
         boost::urls::format("/redfish/v1/Systems/{}/Storage/1/Controllers/{}",
                             BMCWEB_REDFISH_SYSTEM_URI_NAME, controllerId);

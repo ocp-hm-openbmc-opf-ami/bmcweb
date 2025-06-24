@@ -344,8 +344,12 @@ inline void requestRoutesCupsService(App& app)
     BMCWEB_ROUTE(app, "/redfish/v1/Oem/Intel/CupsService/")
         .privileges({{"Login"}})
         .methods(boost::beast::http::verb::get)(
-            [](const crow::Request&,
+            [&app](const crow::Request& req,                
                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
                 CupsService::getCupsServiceJson(asyncResp);
             });
 
@@ -565,8 +569,12 @@ inline void requestRoutesCupsSensors(App& app)
     BMCWEB_ROUTE(app, "/redfish/v1/Oem/Intel/CupsService/Sensors")
         .privileges({{"Login"}})
         .methods(boost::beast::http::verb::get)(
-            [](const crow::Request&,
+            [&app](const crow::Request& req,
                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
                 asyncResp->res.jsonValue = {
                     {"@odata.type",
                      "#CupsSensorCollection.CupsSensorCollection"},

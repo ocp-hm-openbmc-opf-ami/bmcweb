@@ -939,7 +939,7 @@ inline bool fillTrigger(
         json["MetricProperties"] = getMetricProperties(*sensors);
     }
 
-    json["@odata.type"] = "#Triggers.v1_2_0.Triggers";
+    json["@odata.type"] = json_util::odataType("Triggers");
     json["@odata.id"] =
         boost::urls::format("/redfish/v1/TelemetryService/Triggers/{}", id);
     json["Id"] = id;

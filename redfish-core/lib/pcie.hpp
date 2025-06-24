@@ -528,7 +528,7 @@ inline void addPCIeDeviceCommonProperties(
     asyncResp->res.addHeader(
         boost::beast::http::field::link,
         "</redfish/v1/JsonSchemas/PCIeDevice/PCIeDevice.json>; rel=describedby");
-    asyncResp->res.jsonValue["@odata.type"] = "#PCIeDevice.v1_9_0.PCIeDevice";
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("PCIeDevice");
     asyncResp->res.jsonValue["@odata.id"] =
         boost::urls::format("/redfish/v1/Systems/{}/PCIeDevices/{}",
                             BMCWEB_REDFISH_SYSTEM_URI_NAME, pcieDeviceId);
@@ -766,7 +766,7 @@ inline void addPCIeFunctionCommonProperties(crow::Response& resp,
     resp.addHeader(
         boost::beast::http::field::link,
         "</redfish/v1/JsonSchemas/PCIeFunction/PCIeFunction.json>; rel=describedby");
-    resp.jsonValue["@odata.type"] = "#PCIeFunction.v1_2_3.PCIeFunction";
+    resp.jsonValue["@odata.type"] = json_util::odataType("PCIeFunction");
     resp.jsonValue["@odata.id"] = boost::urls::format(
         "/redfish/v1/Systems/{}/PCIeDevices/{}/PCIeFunctions/{}",
         BMCWEB_REDFISH_SYSTEM_URI_NAME, pcieDeviceId,

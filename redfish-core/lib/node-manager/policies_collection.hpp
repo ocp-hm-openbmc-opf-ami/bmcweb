@@ -139,7 +139,7 @@ inline void getAttributes(const std::shared_ptr<bmcweb::AsyncResp>& response,
         response->res.jsonValue["@odata.id"] =
             "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Policies/" +
             *policyName;
-        response->res.jsonValue["@odata.type"] = "#NmPolicy.v1_2_0.NmPolicy";
+        response->res.jsonValue["@odata.type"] = json_util::odataType("NmPolicy");
         response->res.jsonValue["Actions"]["#NmPolicy.ResetStatistics"] = {
             {"target",
              "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Policies/" +
@@ -474,8 +474,12 @@ inline void requestRoutesNodeManagerPolicies(App& app)
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Policies/")
         .privileges(redfish::privileges::privilegeSetLogin)
         .methods(boost::beast::http::verb::get)(
-            [](const crow::Request&,
+            [&app](const crow::Request& req,
                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
         asyncResp->res.jsonValue = {
             {"@odata.type", "#NmPolicyCollection.v1_0_0.NmPolicyCollection"},
             {"@odata.id",
@@ -506,9 +510,13 @@ inline void requestRoutesNodeManagerPolicies(App& app)
         app, "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Policies/<str>")
         .privileges(redfish::privileges::privilegeSetLogin)
         .methods(boost::beast::http::verb::get)(
-            [](const crow::Request&,
+            [&app](const crow::Request& req,
                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                const std::string& policyName) {
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
         crow::connections::systemBus->async_method_call(
             [asyncResp, policyName](const boost::system::error_code ec,
                                     const std::vector<std::string>& objects) {

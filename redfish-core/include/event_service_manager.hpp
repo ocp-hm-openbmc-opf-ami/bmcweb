@@ -909,7 +909,7 @@ class EventServiceManager
             nlohmann::json::array_t eventRecord;
             eventRecord.emplace_back(eventMessage);
             nlohmann::json msgJson;
-            msgJson["@odata.type"] = "#Event.v1_4_0.Event";
+            msgJson["@odata.type"] = json_util::odataType("Event");
             msgJson["Name"] = "Event Log";
             msgJson["Id"] = eventId;
             msgJson["Events"] = std::move(eventRecord);

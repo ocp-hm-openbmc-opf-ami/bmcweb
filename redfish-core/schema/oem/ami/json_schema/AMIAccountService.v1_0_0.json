@@ -1,11 +1,31 @@
 {
-    "$id": "http://redfish.dmtf.org/schemas/v1/OemUpdateService.json",
+    "$id": "http://redfish.dmtf.org/schemas/v1/AMIAccountService.json",
     "$schema": "http://redfish.dmtf.org/schemas/v1/redfish-schema-v1.json",
     "copyright": "Copyright 2014-2019 DMTF. For the full DMTF copyright policy, see http://www.dmtf.org/about/policies/copyright",
     "definitions": {
-        "ApplyOptions": {
+        "Ami": {
+            "additionalProperties": true,
+            "description": "Oem properties for Ami.",
+            "patternProperties": {
+                "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
+                    "description": "This property shall specify a valid odata or Redfish property.",
+                    "type": [
+                        "array",
+                        "boolean",
+                        "integer",
+                        "number",
+                        "null",
+                        "object",
+                        "string"
+                    ]
+                }
+            },
+            "properties": {},
+            "type": "object"
+        },
+        "Configuration": {
             "additionalProperties": false,
-            "description": "An indication by boolean value whether to update firmware configuration along with firmware image update.",
+            "description": "Configuration of  pamOrder.",
             "patternProperties": {
                 "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
                     "description": "This property shall specify a valid odata or Redfish property.",
@@ -21,21 +41,20 @@
                 }
             },
             "properties": {
-                "ClearConfig": {
-                    "description": "This indicates whether to update firmware configuration or not.",
-                    "longDescription": "The value of this property is used to indicate the firmware configuration update.",
-                    "readonly": false,
-                    "type": [
-                        "boolean",
-                        "null"
-                    ]
+                "PamOrder": {
+                    "description": "PamOrder reorder the PAM module.",
+                    "items": {
+                        "type": "string"
+                    },
+                    "longDescription": "PamOrder reorder the PAM modules.",
+                    "type": "array"
                 }
             },
             "type": "object"
         },
         "Oem": {
             "additionalProperties": true,
-            "description": "OemUpdateService Oem properties.",
+            "description": "OemAccountService Oem properties.",
             "patternProperties": {
                 "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
                     "description": "This property shall specify a valid odata or Redfish property.",
@@ -51,10 +70,10 @@
                 }
             },
             "properties": {
-                "ApplyOptions": {
+                "Ami": {
                     "anyOf": [
                         {
-                            "$ref": "#/definitions/ApplyOptions"
+                            "$ref": "#/definitions/Ami"
                         },
                         {
                             "type": "null"
@@ -65,5 +84,5 @@
             "type": "object"
         }
     },
-    "title": "#OemUpdateService"
+    "title": "#AMIAccountService.v1_0_0"
 }

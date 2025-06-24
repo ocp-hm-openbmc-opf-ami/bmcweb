@@ -40,8 +40,7 @@ inline void handleServiceRootGetImpl(
         "</redfish/v1/JsonSchemas/ServiceRoot/ServiceRoot.json>; rel=describedby");
 
     std::string uuid = persistent_data::getConfig().systemUuid;
-    asyncResp->res.jsonValue["@odata.type"] =
-        "#ServiceRoot.v1_15_0.ServiceRoot";
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("ServiceRoot");
     asyncResp->res.jsonValue["@odata.id"] = "/redfish/v1";
     asyncResp->res.jsonValue["Id"] = "RootService";
     asyncResp->res.jsonValue["Name"] = "Root Service";
@@ -79,19 +78,16 @@ inline void handleServiceRootGetImpl(
 
     asyncResp->res.jsonValue["Oem"]["OpenBmc"]["Pef"]["@odata.id"] =
         "/redfish/v1/#Oem/OpenBmc";
-    asyncResp->res.jsonValue["Oem"]["OpenBmc"]["Pef"]["@odata.type"] =
-        "#OemPefServiceRoot.v1_0_0.OpenBmc";
+    asyncResp->res.jsonValue["Oem"]["OpenBmc"]["Pef"]["@odata.type"] = json_util::odataType("OemPefServiceRoot", "OpenBmc");
     asyncResp->res.jsonValue["Oem"]["OpenBmc"]["Pef"]["PefService"] = {
         {"@odata.id", "/redfish/v1/PefService"}};
-    asyncResp->res.jsonValue["Oem"]["Intel"]["@odata.type"] =
-        "#OemServiceRoot.v1_0_0.Intel";
+    asyncResp->res.jsonValue["Oem"]["Intel"]["@odata.type"] = json_util::odataType("OemServiceRoot", "Intel");
     asyncResp->res.jsonValue["Oem"]["Intel"]["@odata.id"] =
         "/redfish/v1/#Oem/Intel";
     asyncResp->res.jsonValue["Oem"]["Intel"]["CupsService"] = {
         {"@odata.id", "/redfish/v1/Oem/Intel/CupsService"}};
 
-    asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] =
-        "#OemServiceRoot.v1_0_0.Ami";
+    asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] = json_util::odataType("OemServiceRoot", "Ami");
     asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.id"] =
         "/redfish/v1/#Oem/Ami";
 #if BMCWEB_AST2600_EVB_MACRO

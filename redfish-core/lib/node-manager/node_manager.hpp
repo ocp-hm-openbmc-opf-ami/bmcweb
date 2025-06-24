@@ -30,8 +30,12 @@ inline void requestRoutesNodeManagerService([[maybe_unused]] App& app)
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/")
         .privileges(redfish::privileges::privilegeSetLogin)
         .methods(boost::beast::http::verb::get)(
-            [](const crow::Request&,
+            [&app](const crow::Request& req,
                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
         crow::connections::systemBus->async_method_call(
             [asyncResp](
                 const boost::system::error_code ec,

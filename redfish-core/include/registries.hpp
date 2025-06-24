@@ -16,6 +16,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <utils/json_utils.hpp>
 
 namespace redfish::registries
 {
@@ -111,7 +112,7 @@ inline nlohmann::json::object_t
     }
 
     nlohmann::json::object_t response;
-    response["@odata.type"] = "#Message.v1_3_0.Message";
+    response["@odata.type"] = json_util::odataType("Message");
     response["MessageId"] = std::move(msgId);
     response["Message"] = std::move(msg);
     response["MessageArgs"] = std::move(jArgs);
