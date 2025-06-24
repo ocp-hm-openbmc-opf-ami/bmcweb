@@ -853,7 +853,7 @@ inline void handleReplaceCertificateAction(
 #endif
     else
     {
-        messages::actionParameterNotSupported(asyncResp->res, "CertificateUri",
+        messages::actionParameterValueError(asyncResp->res, "CertificateUri",
                                               "ReplaceCertificate");
         return;
     }
@@ -890,56 +890,67 @@ inline void handleReplaceCertificateAction(
         return;
     }
 
-    /**
-     * Since the backend validates the certificate only after the Replace operation,
-     * this mechanism ensures that when replacing a certificate via Redfish,
-     * the system correctly restores the original CertificateType if the
-     * backend determines that the new certificate is invalid and has changed the CertificateType.
-     *
-     * 1. getCertificateType -> Retrieve the current CertificateType (pre_certificateType).
-     * 2. setCertificateType -> If the certificate is invalid and the CertificateType has changed, restore it to pre_certificateType.
-     */
-    getCertificateType(asyncResp, service, objectPath,
-        [asyncResp, service, objectPath, certificateType, parsedUrl, id, name, certURI, certificate]
-        (std::string pre_certificateType)
-        {
-            setCertificateType(asyncResp, service, objectPath, *certificateType);
-
-            std::shared_ptr<CertificateFile> certFile =
-                std::make_shared<CertificateFile>(certificate);
-            crow::connections::systemBus->async_method_call(
-                [asyncResp, certFile, objectPath, service, url{*parsedUrl}, id, name,
-                    certURI, certificate, certificateType, pre_certificateType](const boost::system::error_code& ec,
-                                        sdbusplus::message_t& m) {
-                    if (ec)
-                    {
-                        BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
-                        const sd_bus_error* dbusError = m.get_error();
-                        if ((dbusError != nullptr) && (dbusError->name != nullptr))
-                        {
-                            handleError(dbusError->name, id, certificate, asyncResp);
-
-                            if (certificateType != pre_certificateType)
+    dbus::utility::getDbusObject(    
+        objectPath, {},    
+        [asyncResp, service, objectPath, certificateType, parsedUrl, id, name, certURI, certificate](  
+            const boost::system::error_code& ec,    
+            const dbus::utility::MapperGetObject&) {    
+            if (ec) {    
+                BMCWEB_LOG_ERROR("invalidCertificateUri");    
+                messages::actionParameterValueError(asyncResp->res, "CertificateUri", "ReplaceCertificate");    
+                return;  
+            }
+            /**
+             * Since the backend validates the certificate only after the Replace operation,
+             * this mechanism ensures that when replacing a certificate via Redfish,
+             * the system correctly restores the original CertificateType if the
+             * backend determines that the new certificate is invalid and has changed the CertificateType.
+             *
+             * 1. getCertificateType -> Retrieve the current CertificateType (pre_certificateType).
+             * 2. setCertificateType -> If the certificate is invalid and the CertificateType has changed, restore it to pre_certificateType.
+             */
+            getCertificateType(asyncResp, service, objectPath,
+                [asyncResp, service, objectPath, certificateType, parsedUrl, id, name, certURI, certificate]
+                (std::string pre_certificateType)
+                {
+                    setCertificateType(asyncResp, service, objectPath, *certificateType);
+                
+                    std::shared_ptr<CertificateFile> certFile =
+                        std::make_shared<CertificateFile>(certificate);
+                    crow::connections::systemBus->async_method_call(
+                        [asyncResp, certFile, objectPath, service, url{*parsedUrl}, id, name,
+                            certURI, certificate, certificateType, pre_certificateType](const boost::system::error_code& ec,
+                                                sdbusplus::message_t& m) {
+                            if (ec)
                             {
-                                setCertificateType(asyncResp, service, objectPath, pre_certificateType);
+                                BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
+                                const sd_bus_error* dbusError = m.get_error();
+                                if ((dbusError != nullptr) && (dbusError->name != nullptr))
+                                {
+                                    handleError(dbusError->name, id, certificate, asyncResp);
+                                
+                                    if (certificateType != pre_certificateType)
+                                    {
+                                        setCertificateType(asyncResp, service, objectPath, pre_certificateType);
+                                    }
+                                
+                                    return;
+                                }
+                                else
+                                {
+                                    messages::internalError(asyncResp->res);
+                                    return;
+                                }
                             }
-
-                            return;
-                        }
-                        else
-                        {
-                            messages::internalError(asyncResp->res);
-                            return;
-                        }
-                    }
-                    BMCWEB_LOG_DEBUG("HTTPS certificate install file={}",
-                                        certFile->getCertFilePath());
-                    asyncResp->res.addHeader(boost::beast::http::field::location,
-                                                certURI);
-                    asyncResp->res.result(boost::beast::http::status::no_content);
-                },
-                service, objectPath, certs::certReplaceIntf, "Replace",
-                certFile->getCertFilePath());
+                            BMCWEB_LOG_DEBUG("HTTPS certificate install file={}",
+                                                certFile->getCertFilePath());
+                            asyncResp->res.addHeader(boost::beast::http::field::location,
+                                                        certURI);
+                            asyncResp->res.result(boost::beast::http::status::no_content);
+                        },
+                        service, objectPath, certs::certReplaceIntf, "Replace",
+                        certFile->getCertFilePath());
+                });
         });
 }
 
