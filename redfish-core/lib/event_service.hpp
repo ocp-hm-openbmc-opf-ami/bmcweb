@@ -201,15 +201,27 @@ inline std::string modifiedDateTime(const std::string& filepath)
 {
     /* Modified date and time */
 
-    std::filesystem::file_time_type ftime =
-        std::filesystem::last_write_time(filepath);
-    std::cout << std::format("File write time is {}\n", ftime);
+    std::filesystem::file_time_type ftime = std::filesystem::last_write_time(filepath);
 
-    std::time_t cftime = std::chrono::system_clock::to_time_t(
-        std::chrono::file_clock::to_sys(ftime));
-    std::string str = std::asctime(std::localtime(&cftime));
-    str.pop_back(); // rm the trailing '\n' put by `asctime`
-    std::cerr << "Checking file modified date " << str << "\n";
+    auto sys_time = std::chrono::file_clock::to_sys(ftime);
+    auto time_t = std::chrono::system_clock::to_time_t(sys_time);
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(sys_time.time_since_epoch()) % 1000;
+
+    std::tm* tm = std::localtime(&time_t);
+    std::ostringstream oss;
+    oss << std::put_time(tm, "%Y-%m-%dT%H:%M:%S");
+    oss << '.' << std::setw(3) << std::setfill('0') << ms.count();
+
+    // Calculate and format timezone offset
+    std::time_t gmt_time = std::mktime(tm);
+    //std::tm* gmt_tm = std::gmtime(&gmt_time);
+    int offset = static_cast<int>(std::difftime(time_t, gmt_time));
+    int hours = offset / 3600;
+    int minutes = (offset % 3600) / 60;
+    oss << (hours >= 0 ? '+' : '-') << std::setw(2) << std::setfill('0') << std::abs(hours)
+        << ':' << std::setw(2) << std::setfill('0') << std::abs(minutes);
+
+    std::string str = oss.str();
     return str;
 }
 inline bool ensureOpensslKeyPresentAndValid(const std::string& filepath)
