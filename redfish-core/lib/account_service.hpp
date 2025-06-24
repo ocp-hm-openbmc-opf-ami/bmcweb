@@ -1919,10 +1919,7 @@ inline void afterVerifyUserExists(
         }
     }
 
-<<<<<<< HEAD
-=======
-
->>>>>>> Feature-Branch
+    
 }
 
 inline void updateUserProperties(
