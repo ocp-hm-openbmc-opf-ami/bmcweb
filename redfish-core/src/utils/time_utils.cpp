@@ -258,6 +258,9 @@ constexpr std::tuple<IntType, unsigned, unsigned>
 template <typename IntType, typename Period>
 std::string toISO8061ExtendedStr(std::chrono::duration<IntType, Period> t)
 {
+    std::string timeZone = crow::utility::getTimeZone(crow::utility::localTimeZone);
+    std::string offSet = crow::utility::getOffset(timeZone);
+
     using seconds = std::chrono::duration<int>;
     using minutes = std::chrono::duration<int, std::ratio<60>>;
     using hours = std::chrono::duration<int, std::ratio<3600>>;
@@ -316,9 +319,9 @@ std::string toISO8061ExtendedStr(std::chrono::duration<IntType, Period> t)
         subseconds = std::format(".{:06}", subsec.count());
     }
 
-    return std::format("{:04}-{:02}-{:02}T{:02}:{:02}:{:02}{}+00:00", year,
+    return std::format("{:04}-{:02}-{:02}T{:02}:{:02}:{:02}{}{}", year,
                        month, day, hr.count(), mt.count(), se.count(),
-                       subseconds);
+                       subseconds, offSet);
 }
 
 #else
@@ -327,6 +330,9 @@ template <typename IntType, typename Period>
 
 std::string toISO8061ExtendedStr(std::chrono::duration<IntType, Period> dur)
 {
+    std::string timeZone = crow::utility::getTimeZone(crow::utility::localTimeZone);
+    std::string offSet = crow::utility::getOffset(timeZone);
+
     using namespace std::literals::chrono_literals;
 
     using SubType = std::chrono::duration<IntType, Period>;
@@ -371,7 +377,7 @@ std::string toISO8061ExtendedStr(std::chrono::duration<IntType, Period> dur)
     }
     std::chrono::hh_mm_ss<SubType> hms(dur);
 
-    return std::format("{}T{}+00:00", ymd, hms);
+    return std::format("{}T{}{}", ymd, hms, offSet);
 }
 
 #endif

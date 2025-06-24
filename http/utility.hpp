@@ -321,6 +321,25 @@ inline bool base64Decode(std::string_view input, std::string& output)
     return true;
 }
 
+inline std::string getOffset(std::string time_Zone)
+{
+
+          const std::chrono::time_zone* tz = std::chrono::locate_zone(time_Zone);
+          auto now = std::chrono::system_clock::now();
+          std::chrono::sys_info tzInfo = tz->get_info(std::chrono::floor<std::chrono::seconds>(now));
+          auto offset = tzInfo.offset;
+
+         auto hours = std::chrono::duration_cast<std::chrono::hours>(offset);
+         auto minutes = std::chrono::duration_cast<std::chrono::minutes>(offset - hours);
+         auto seconds = std::chrono::duration_cast<std::chrono::seconds>(offset - hours - minutes);
+
+         std::ostringstream oss;
+         oss << (offset.count() >= 0 ? "+" : "-") << std::setw(2) << std::setfill('0') << std::abs(hours.count()) << ":" << std::setw(2) << std::setfill('0') << std::abs(minutes.count());
+
+           std::string timezone_offset = oss.str();// "+08:00"
+           return timezone_offset;
+}
+
 inline float tzFormatConvert(std::string timeZone)
 {
     try

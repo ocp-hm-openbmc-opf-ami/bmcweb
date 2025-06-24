@@ -2271,6 +2271,8 @@ inline void setTimeZoneName(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 {
     BMCWEB_LOG_DEBUG("Set Time Zone Name: {}", timeZoneName);
 
+    crow::utility::saveTimeZone(crow::utility::localTimeZone,timeZoneName);
+
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code& ec,
                     const sdbusplus::message_t& msg) {
