@@ -65,5 +65,5 @@
             "type": "object"
         }
     },
-    "title": "#OemSecurityPolicy"
+    "title": "#OemSecurityPolicy.v1_0_0"
 }

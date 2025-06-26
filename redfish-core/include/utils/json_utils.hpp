@@ -911,5 +911,81 @@ inline void sortJsonArrayByOData(nlohmann::json::array_t& array)
 //  5. null: 4 characters (null)
 uint64_t getEstimatedJsonSize(const nlohmann::json& root);
 
+// function to return the given JsonSchema version
+inline std::string getSchemaVersion(const std::string_view& schema)
+{
+    std::error_code ec;
+    //directory where all the JsonSchemas present
+    std::filesystem::directory_iterator dirList(
+        "/usr/share/www/redfish/v1/JsonSchemas", ec);
+    if (ec)
+    {
+        return "";
+    }
+    for(const std::filesystem::path& file : dirList)
+    {
+        std::vector<std::string> split;
+        bmcweb::split(split, file.filename().string(), '.');
+        //check the schema name and verify whether it includes a version
+        if (split[0] == schema)
+        {
+            if (split.size() > 2)
+            {
+                return split[1];
+            }
+            break;
+        }
+    }
+    return "";
+}
+
+//return standard odata type
+inline std::string odataType(const std::string_view& schema)
+{
+    std::string schemaVersion, odataType;
+    schemaVersion = getSchemaVersion(schema);
+    if (!schemaVersion.empty())
+    {
+        odataType = std::format("#{}.{}.{}", schema, schemaVersion, schema);
+    }
+    else
+    {
+        odataType = std::format("#{}.{}", schema, schema);
+    }
+    return odataType;
+}
+
+//return standard odata type for namespace along with the specified entity
+inline std::string odataType(const std::string_view& schema, const std::string_view& entity)
+{
+    std::string schemaVersion, odataType;
+    schemaVersion = getSchemaVersion(schema);
+    if (!schemaVersion.empty())
+    {
+        odataType = std::format("#{}.{}.{}", schema, schemaVersion, entity);
+    }
+    else
+    {
+        odataType = std::format("#{}.{}", schema, entity);
+    }
+    return odataType;
+}
+
+//return standard odata type for namespace along with the specified entities
+inline std::string odataType(const std::string_view& schema, const std::string_view& entity, const std::string_view& entity2)
+{
+    std::string schemaVersion, odataType;
+    schemaVersion = getSchemaVersion(schema);
+    if (!schemaVersion.empty())
+    {
+        odataType = std::format("#{}.{}.{}.{}", schema, schemaVersion, entity, entity2);
+    }
+    else
+    {
+        odataType = std::format("#{}.{}.{}", schema, entity, entity2);
+    }
+    return odataType;
+}
+
 } // namespace json_util
 } // namespace redfish

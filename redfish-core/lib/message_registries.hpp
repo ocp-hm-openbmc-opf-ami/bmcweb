@@ -73,7 +73,9 @@ inline void
                           const registries::Header* header)
 {
     // asyncResp->res.jsonValue["@Redfish.Copyright"] = header->copyright;
-    asyncResp->res.jsonValue["@odata.type"] = header->type;
+    std::vector<std::string> split;
+    bmcweb::split(split, header->type, '.');
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType(split[2]);
     asyncResp->res.jsonValue["Id"] =
         std::format("{}.{}.{}.{}", header->registryPrefix, header->versionMajor,
                     header->versionMinor, header->versionPatch);
@@ -427,8 +429,7 @@ inline void handleMessageRoutesMessageRegistryFileGet(
     {
         asyncResp->res.jsonValue["@odata.id"] =
             boost::urls::format("/redfish/v1/Registries/{}", registry);
-        asyncResp->res.jsonValue["@odata.type"] =
-            "#MessageRegistryFile.v1_1_0.MessageRegistryFile";
+        asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("MessageRegistryFile");
         asyncResp->res.jsonValue["Name"] = registry + " Message Registry File";
         asyncResp->res.jsonValue["Description"] =
             dmtf + registry + " Message Registry File Location";
@@ -461,8 +462,10 @@ inline void handleMessageRoutesMessageRegistryFileGet(
     if (registryVal == 1)
     {
         std::cerr << "Enter in registryVal == 1 " << std::endl;
+        std::vector<std::string> split;
+        bmcweb::split(split, header->type, '.');
         asyncResp->res.jsonValue["@Redfish.Copyright"] = header->copyright;
-        asyncResp->res.jsonValue["@odata.type"] = header->type;
+        asyncResp->res.jsonValue["@odata.type"] = json_util::odataType(split[2]);
         asyncResp->res.jsonValue["Id"] = std::format(
             "{}.{}.{}.{}", header->registryPrefix, header->versionMajor,
             header->versionMinor, header->versionPatch);

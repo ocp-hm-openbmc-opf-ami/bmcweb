@@ -523,8 +523,7 @@ inline void fillReportDefinition(
     asyncResp->res.jsonValue["Name"] = name;
     asyncResp->res.jsonValue["Schedule"]["RecurrenceInterval"] =
         time_utils::toDurationString(std::chrono::milliseconds(interval));
-    asyncResp->res.jsonValue["@odata.type"] =
-        "#MetricReportDefinition.v1_3_0.MetricReportDefinition";
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("MetricReportDefinition");
     asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
         "/redfish/v1/TelemetryService/MetricReportDefinitions/{}", id);
     asyncResp->res.jsonValue["Id"] = id;

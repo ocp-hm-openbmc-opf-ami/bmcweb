@@ -540,8 +540,7 @@ class KafkaManager : public std::enable_shared_from_this<KafkaManager>
         KafkaConfig subData = obj->second;
 
         std::string refLink = "/redfish/v1/EventService/Subscriptions/" + subId;
-        aResp->res.jsonValue["@odata.type"] =
-            "#EventDestination.v1_9_0.EventDestination";
+        aResp->res.jsonValue["@odata.type"] = json_util::odataType("EventDestination");
         aResp->res.jsonValue["@odata.id"] =
             "/redfish/v1/EventService/Subscriptions/" + subId;
         aResp->res.jsonValue["Id"] = subId;

@@ -760,7 +760,7 @@ inline void getDimmData(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
                 return;
             }
             // Set @odata only if object is found
-            asyncResp->res.jsonValue["@odata.type"] = "#Memory.v1_11_0.Memory";
+            asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("Memory");
             asyncResp->res.jsonValue["@odata.id"] =
                 boost::urls::format("/redfish/v1/Systems/{}/Memory/{}",
                                     BMCWEB_REDFISH_SYSTEM_URI_NAME, dimmId);

@@ -45,7 +45,7 @@ inline void handleAggregationServiceGet(
         "</redfish/v1/JsonSchemas/AggregationService/AggregationService.json>; rel=describedby");
     nlohmann::json& json = asyncResp->res.jsonValue;
     json["@odata.id"] = "/redfish/v1/AggregationService";
-    json["@odata.type"] = "#AggregationService.v1_0_1.AggregationService";
+    json["@odata.type"] = json_util::odataType("AggregationService");
     json["Id"] = "AggregationService";
     json["Name"] = "Aggregation Service";
     json["Description"] = "Aggregation Service";
@@ -165,8 +165,7 @@ inline void populateAggregationSource(
     asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
         "/redfish/v1/AggregationService/AggregationSources/{}",
         aggregationSourceId);
-    asyncResp->res.jsonValue["@odata.type"] =
-        "#AggregationSource.v1_3_1.AggregationSource";
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("AggregationSource");
     asyncResp->res.jsonValue["Id"] = aggregationSourceId;
 
     // TODO: We may want to change this whenever we support aggregating multiple

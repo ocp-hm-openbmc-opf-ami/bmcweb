@@ -155,7 +155,7 @@ inline void fillSessionObject(crow::Response& res,
     res.jsonValue["Roles"] = std::move(roles);
     res.jsonValue["@odata.id"] = boost::urls::format(
         "/redfish/v1/SessionService/Sessions/{}", session.uniqueId);
-    res.jsonValue["@odata.type"] = "#Session.v1_7_0.Session";
+    res.jsonValue["@odata.type"] = json_util::odataType("Session");
     res.jsonValue["Name"] = "User Session";
     res.jsonValue["Description"] = "Manager User Session";
     res.jsonValue["ClientOriginIPAddress"] = session.clientIp;
@@ -163,8 +163,7 @@ inline void fillSessionObject(crow::Response& res,
     res.jsonValue["Oem"]["AMI_WebSession"]["@odata.id"] = boost::urls::format(
         "/redfish/v1/SessionService/Sessions/{}#/Oem/AMI_WebSession",
         session.uniqueId);
-    res.jsonValue["Oem"]["AMI_WebSession"]["@odata.type"] =
-        "#AMIWebSession.v1_0_0.WebSession";
+    res.jsonValue["Oem"]["AMI_WebSession"]["@odata.type"] = json_util::odataType("AMIWebSession", "WebSession");
     res.jsonValue["Oem"]["AMI_WebSession"]["KvmActive"] =
         static_cast<bool>(session.kvmConnections);
     res.jsonValue["Oem"]["AMI_WebSession"]["VmActive"] =
@@ -253,8 +252,7 @@ inline void getSessionInfo(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
                     "/redfish/v1/SessionService/"
                     "Sessions/" +
                     sessionId;
-                asyncResp->res.jsonValue["@odata.type"] =
-                    "#Session.v1_3_0.Session";
+                asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("Session");
                 asyncResp->res.jsonValue["Name"] = "User Session";
                 asyncResp->res.jsonValue["Description"] =
                     "Manager User Session";
@@ -423,8 +421,7 @@ inline void handleSessionGet(
                             "/redfish/v1/SessionService/"
                             "Sessions/" +
                             sessionId;
-                        asyncResp->res.jsonValue["@odata.type"] =
-                            "#Session.v1_7_0.Session";
+                        asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("Session");
                         asyncResp->res.jsonValue["Name"] = "User Session";
                         asyncResp->res.jsonValue["Description"] =
                             "Manager User Session";
@@ -824,7 +821,7 @@ inline void handleSessionCollectionPost(
         return;
     }
 
-    int pamrc = pamAuthenticateUser(username, password, token);
+    int pamrc = pamAuthenticateUser(username, password, token,req.ipAddress);
     bool isConfigureSelfOnly = pamrc == PAM_NEW_AUTHTOK_REQD;
     if ((pamrc != PAM_SUCCESS) && !isConfigureSelfOnly)
     {
@@ -879,8 +876,7 @@ inline void handleSessionServiceGet(
         boost::beast::http::field::link,
         "</redfish/v1/JsonSchemas/SessionService/SessionService.json>; rel=describedby");
 
-    asyncResp->res.jsonValue["@odata.type"] =
-        "#SessionService.v1_0_2.SessionService";
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("SessionService");
     asyncResp->res.jsonValue["@odata.id"] = "/redfish/v1/SessionService";
     asyncResp->res.jsonValue["Name"] = "Session Service";
     asyncResp->res.jsonValue["Id"] = "SessionService";
@@ -943,8 +939,7 @@ inline void handleSessionServiceGet(
             const uint64_t* s = std::get_if<uint64_t>(&value);
             asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.id"] =
                 "/redfish/v1/SessionService#/Oem/Ami";
-            asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] =
-                "#AMISessionService.v1_0_0.Ami";
+            asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] = json_util::odataType("AMISessionService", "Ami");
             asyncResp->res.jsonValue["Oem"]["Ami"]["KVMSessionTimeout"] = *s;
         },
         "xyz.openbmc_project.Control.Service.Manager",
@@ -963,8 +958,7 @@ inline void handleSessionServiceGet(
             const uint16_t* s = std::get_if<uint16_t>(&value);
             asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.id"] =
                 "/redfish/v1/SessionService#/Oem/Ami";
-            asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] =
-                "#AMISessionService.v1_0_0.Ami";
+            asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] = json_util::odataType("AMISessionService", "Ami");
             asyncResp->res.jsonValue["Oem"]["Ami"]["KVMPort"] = *s;
         },
         "xyz.openbmc_project.Control.Service.Manager",

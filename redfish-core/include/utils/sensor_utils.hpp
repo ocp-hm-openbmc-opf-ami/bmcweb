@@ -431,7 +431,7 @@ inline void objectPropertiesToJson(
     nlohmann::json::json_pointer unit("/Reading");
     if (chassisSubNode == ChassisSubNode::sensorsNode)
     {
-        sensorJson["@odata.type"] = "#Sensor.v1_2_0.Sensor";
+        sensorJson["@odata.type"] = json_util::odataType("Sensor");
 
         sensor::ReadingType readingType = sensors::toReadingType(sensorType);
         if (readingType == sensor::ReadingType::Invalid)
@@ -477,7 +477,7 @@ inline void objectPropertiesToJson(
     else if (sensorType == "temperature")
     {
         unit = "/ReadingCelsius"_json_pointer;
-        sensorJson["@odata.type"] = "#Thermal.v1_3_0.Temperature";
+        sensorJson["@odata.type"] = json_util::odataType("Thermal", "Temperature");
         // TODO(ed) Documentation says that path should be type fan_tach,
         // implementation seems to implement fan
     }
@@ -485,7 +485,7 @@ inline void objectPropertiesToJson(
     {
         unit = "/Reading"_json_pointer;
         sensorJson["ReadingUnits"] = thermal::ReadingUnits::RPM;
-        sensorJson["@odata.type"] = "#Thermal.v1_3_0.Fan";
+        sensorJson["@odata.type"] = json_util::odataType("Thermal", "Fan");
         setLedState(sensorJson, inventoryItem);
         forceToInt = true;
     }
@@ -493,14 +493,14 @@ inline void objectPropertiesToJson(
     {
         unit = "/Reading"_json_pointer;
         sensorJson["ReadingUnits"] = thermal::ReadingUnits::Percent;
-        sensorJson["@odata.type"] = "#Thermal.v1_3_0.Fan";
+        sensorJson["@odata.type"] = json_util::odataType("Thermal", "Fan");
         setLedState(sensorJson, inventoryItem);
         forceToInt = true;
     }
     else if (sensorType == "voltage")
     {
         unit = "/ReadingVolts"_json_pointer;
-        sensorJson["@odata.type"] = "#Power.v1_0_0.Voltage";
+        sensorJson["@odata.type"] = json_util::odataType("Power", "Voltage");
     }
     else if (sensorType == "power")
     {
@@ -509,7 +509,7 @@ inline void objectPropertiesToJson(
                                bmcweb::asciiToLower);
         if (lower == "total_power")
         {
-            sensorJson["@odata.type"] = "#Power.v1_0_0.PowerControl";
+            sensorJson["@odata.type"] = json_util::odataType("Power", "PowerControl");
             // Put multiple "sensors" into a single PowerControl, so have
             // generic names for MemberId and Name. Follows Redfish mockup.
             sensorJson["MemberId"] = "0";

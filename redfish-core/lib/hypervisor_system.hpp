@@ -685,8 +685,7 @@ inline void handleHypervisorEthernetInterfaceGet(
                                            ifaceId);
                 return;
             }
-            asyncResp->res.jsonValue["@odata.type"] =
-                "#EthernetInterface.v1_9_0.EthernetInterface";
+            asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("EthernetInterface");
             asyncResp->res.jsonValue["Name"] = "Hypervisor Ethernet Interface";
             asyncResp->res.jsonValue["Description"] =
                 "Hypervisor's Virtual Management Ethernet Interface";
@@ -698,8 +697,7 @@ inline void handleHypervisorEthernetInterfaceGet(
 inline void handleHypervisorSystemGet(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    asyncResp->res.jsonValue["@odata.type"] =
-        "#ComputerSystem.v1_6_0.ComputerSystem";
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("ComputerSystem");
     asyncResp->res.jsonValue["@odata.id"] = "/redfish/v1/Systems/hypervisor";
     asyncResp->res.jsonValue["Description"] = "Hypervisor";
     asyncResp->res.jsonValue["Name"] = "Hypervisor";
@@ -863,8 +861,7 @@ inline void handleHypervisorResetActionGet(
             // turn On The system object Action should be utilized
             // for other operations
 
-            asyncResp->res.jsonValue["@odata.type"] =
-                "#ActionInfo.v1_1_2.ActionInfo";
+            asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("ActionInfo");
             asyncResp->res.jsonValue["@odata.id"] =
                 "/redfish/v1/Systems/hypervisor/ResetActionInfo";
             asyncResp->res.jsonValue["Name"] = "Reset Action Info";

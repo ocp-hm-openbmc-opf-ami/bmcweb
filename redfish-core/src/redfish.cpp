@@ -103,6 +103,10 @@
 #include "ext/include/storage_ext.hpp"
 #endif
 
+#if (BMCWEB_AMI_RAIDMSCC_MACRO) || (BMCWEB_AMI_RAIDBRCM_MACRO)
+#include "ext/include/log_services_ext.hpp"
+#endif
+
 #if BMCWEB_AMI_PCIESW_MACRO
 #include "redfish-core/lib/ext/pciesw/oem_pcie_switch.hpp"
 #endif
@@ -219,7 +223,13 @@ RedfishService::RedfishService(App& app)
     requestRoutesSystemLogServiceCollection(app);
     requestRoutesEventLogService(app);
     requestRoutesSystemsLogServicesPostCode(app);
+    // manager SEL for getting IPMI SEL entry
 
+    requestRoutesBMCSELService(app);
+    requestRoutesBMCSELEntryCollection(app);
+    requestRoutesBMCSELClear(app);
+    requestRoutesBMCSELEntry(app);
+    requestRoutesBMCSELEntryDownload(app);
     if constexpr (BMCWEB_REDFISH_DUMP_LOG)
     {
         requestRoutesSystemDumpService(app);
@@ -266,6 +276,7 @@ RedfishService::RedfishService(App& app)
     requestRoutesAcpiEntryCollection(app);
     requestRoutesAcpiEntry(app);
     requestRoutesAcpiFile(app);
+    requestRoutesSystemRsyslog(app);
 
     requestRoutesProcessorCollection(app);
     requestRoutesProcessor(app);
@@ -396,6 +407,17 @@ RedfishService::RedfishService(App& app)
         requestRoutesStorage(app);
     }
 #endif
+
+#if (BMCWEB_AMI_RAIDMSCC_MACRO) || (BMCWEB_AMI_RAIDBRCM_MACRO)
+    {
+	    redfish::ext::core::resource::requestRoutesDBusRaidLogServiceActionsClear(app);
+	    redfish::ext::core::resource::requestRoutesDBusRaidEntryCollection(app);
+	    redfish::ext::core::resource::requestRoutesDBusRaidEntry(app);
+	    redfish::ext::core::resource::requestRoutesDBusRaidEntryDownload(app);
+	    redfish::ext::core::resource::requestRoutesRaidService(app);
+    }
+#endif
+
 #if BMCWEB_AMI_NVME_MACRO
     {
         requestRoutesNvmeControllers(app);
@@ -407,28 +429,7 @@ RedfishService::RedfishService(App& app)
 #endif
 #if BMCWEB_AMI_RAIDMSCC_MACRO
     {
-        requestRoutesRaidLogicalMSCC(app); /*  */
-        requestRoutesRaidLogicalDriveMSCC(app);
-        requestRoutesPhysicalDriveMSCC(app);
-        requestRoutesMSCCCreateLogicalDriveAction(app);
-        requestRoutesMSCCDeleteLogicalDriveAction(app);
-        requestRoutesMSCCCreateLogicalDriveOnArrayDriveAction(app);
-        requestRoutesMSCCCreateLuCacheDriveAction(app);
-        requestRoutesMSCCDeleteArrayDriveAction(app);
-        requestRoutesMSCCSetControllerPropertiesAction(app);
-        requestRoutesMSCCAddPhysicalDriveToArrayDriveAction(app);
-        requestRoutesMSCCRemovePhysicalDriveFromArrayDriveAction(app);
-        requestRoutesMSCCAddSpareDriveToArrayDriveAction(app);
-        requestRoutesMSCCRemoveSpareDriveFromArrayDriveAction(app);
-        requestRoutesMSCCStartLocatePhysicalDriveAction(app);
-        requestRoutesMSCCStartLocateArrayDriveAction(app);
-        requestRoutesMSCCStartLocateLogicalDriveAction(app);
-        requestRoutesMSCCStopLocatePhysicalDriveAction(app);
-        requestRoutesMSCCStopLocateArrayDriveAction(app);
-        requestRoutesMSCCStopLocateLogicalDriveAction(app);
-        requestRoutesArrayDriveInstance(app);
-        requestRoutesMSCCImportConfigFileAction(app);
-        requestRoutesMSCCExportConfigFileAction(app);
+       requestRoutesMSCCStorageDevices(app);
     }
 #endif
 #if BMCWEB_AMI_RAIDBRCM_MACRO

@@ -1193,8 +1193,7 @@ inline void requestRoutesOperatingConfig(App& app)
                         }
 
                         nlohmann::json& json = asyncResp->res.jsonValue;
-                        json["@odata.type"] =
-                            "#OperatingConfig.v1_0_0.OperatingConfig";
+                        json["@odata.type"] = json_util::odataType("OperatingConfig");
                         json["@odata.id"] = boost::urls::format(
                             "/redfish/v1/Systems/{}/Processors/{}/OperatingConfigs/{}",
                             BMCWEB_REDFISH_SYSTEM_URI_NAME, cpuName,
@@ -1313,8 +1312,7 @@ inline void requestRoutesProcessor(App& app)
             asyncResp->res.addHeader(
                 boost::beast::http::field::link,
                 "</redfish/v1/JsonSchemas/Processor/Processor.json>; rel=describedby");
-            asyncResp->res.jsonValue["@odata.type"] =
-                "#Processor.v1_18_0.Processor";
+            asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("Processor");
             asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
                 "/redfish/v1/Systems/{}/Processors/{}",
                 BMCWEB_REDFISH_SYSTEM_URI_NAME, processorId);
