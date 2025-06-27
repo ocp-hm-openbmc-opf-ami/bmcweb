@@ -9,6 +9,7 @@
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utility.hpp"
+#include "utils/json_utils.hpp"
 
 #include <boost/url/format.hpp>
 
