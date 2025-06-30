@@ -83,13 +83,14 @@ using managerPropertyValue = std::variant<uint8_t, uint16_t, std::string,
  * @param[in] payload - Double pointer to get the task Data
  */
 void createTimeOutTask(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                       task::Payload&& payload)
+                       task::Payload&& payload, uint64_t timeDiff)
 {
     BMCWEB_LOG_ERROR("do Task creartion");
     sdbusplus::message::object_path objPath;
+    const std::uint64_t* timeOutValue = nullptr;
 
     std::shared_ptr<task::TaskData> task = task::TaskData::createTask(
-        [](boost::system::error_code ec, sdbusplus::message_t& msg,
+	[&timeOutValue](boost::system::error_code ec, sdbusplus::message_t& msg,
            const std::shared_ptr<task::TaskData>& taskData) {
             if (ec)
             {
@@ -102,6 +103,10 @@ void createTimeOutTask(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             dbus::utility::DBusPropertiesMap values;
 
             std::string index = std::to_string(taskData->index);
+	    int convertedIndex = std::stoi(index);
+	    std::vector<uint16_t> defaultId;
+            defaultId.push_back(static_cast<uint16_t>(convertedIndex));
+
             msg.read(iface, values);
 
             if (iface == "xyz.openbmc_project.State.BMC")
@@ -110,9 +115,7 @@ void createTimeOutTask(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 {
                     if (property.first == "TimeOut")
                     {
-                        const std::string* timeOutValue =
-                            std::get_if<std::string>(&property.second);
-
+			timeOutValue = std::get_if<uint64_t>(&property.second);
                         if (timeOutValue == nullptr)
                         {
                             taskData->messages.emplace_back(
@@ -122,12 +125,20 @@ void createTimeOutTask(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         }
                     }
                 }
+		if (timeOutValue != nullptr && *timeOutValue != 0)
+                {
+                        setTaskId(defaultId);
+                        taskData->state = "Pending";
+                        taskData->messages.emplace_back(messages::taskPaused(index));
+                        return !task::completed;
+                }
             }
             return !task::completed;
         },
         "type='signal',interface='org.freedesktop.DBus.Properties',"
-        "member='PropertiesChanged',path='" +
-            objPath.str + "'");
+        "member='PropertiesChanged', path='/xyz/openbmc_project/state/bmc0'");
+    task->startTimer(std::chrono::minutes(timeDiff));
+            
     task->populateResp(asyncResp->res);
     task->payload.emplace(std::move(payload));
 }
@@ -243,10 +254,10 @@ inline void resetOperation(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
  * @param[in] posixTime_1 - MaintenanceWindowStarTime converted to posixtime
  * @param[in] redfishDateTimeOffset - Current BMC Timezone
  */
-inline uint16_t differenceTime(boost::posix_time::ptime posixTime_1,
+inline uint64_t differenceTime(boost::posix_time::ptime posixTime_1,
                                std::string& redfishDateTimeOffset)
 {
-    uint16_t durSecs;
+    uint64_t durSecs;
 
     std::stringstream stream2(redfishDateTimeOffset);
     boost::posix_time::ptime posixTime_2;
@@ -263,7 +274,7 @@ inline uint16_t differenceTime(boost::posix_time::ptime posixTime_1,
     }
 
     boost::posix_time::time_duration dur = posixTime_1 - posixTime_2;
-    durSecs = static_cast<uint16_t>(dur.total_seconds());
+    durSecs = static_cast<uint64_t>(dur.total_seconds());
     return durSecs;
 }
 
@@ -275,7 +286,7 @@ inline uint16_t differenceTime(boost::posix_time::ptime posixTime_1,
  */
 
 inline void setTimer(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                     const uint16_t timeOut)
+                     const uint64_t timeOut)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code ec) {
@@ -355,18 +366,19 @@ inline void requestRoutesManagerResetAction(App& app)
             auto value =
                 getProperty(servicePath, objectPath, interface, propName);
             auto requestedBMCTransition = std::get<std::string>(value);
-            if (requestedBMCTransition !=
+         /*   if (requestedBMCTransition !=
                 "xyz.openbmc_project.State.BMC.Transition.None")
             {
                 BMCWEB_LOG_ERROR("Already One Reboot Task is running");
                 messages::resourceInUse(asyncResp->res);
                 return;
-            }
+            }*/ //commented to avoid 503 server error
 
             if ((resetType == "GracefulRestart" ||
                  resetType == "ForceRestart") &&
                 !operationApplyTime && !maintenanceWindowStartTime)
             {
+		setTimer(asyncResp, 0);
                 resetOperation(asyncResp, resetType);
                 messages::success(asyncResp->res);
                 return;
@@ -378,7 +390,7 @@ inline void requestRoutesManagerResetAction(App& app)
                 if (!(maintenanceWindowStartTime))
                 {
                     resetOperation(asyncResp, resetType);
-                    createTimeOutTask(asyncResp, std::move(payload));
+                    createTimeOutTask(asyncResp, std::move(payload), 0);
                     return;
                 }
 
@@ -434,12 +446,12 @@ inline void requestRoutesManagerResetAction(App& app)
                     }
 
                     // Difference Time of BMCTime & MaintenanceWindowStartTime
-                    uint16_t timeOut =
+                    uint64_t timeOut =
                         differenceTime(posixTime_1, redfishDateTimeOffset);
 
                     setTimer(asyncResp, timeOut);
-                    resetOperation(asyncResp, resetType);
-                    createTimeOutTask(asyncResp, std::move(payload));
+	            createTimeOutTask(asyncResp, std::move(payload),timeOut);
+		    resetOperation(asyncResp, resetType);
                     return;
                 }
 

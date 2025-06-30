@@ -239,7 +239,7 @@ struct TaskData : std::enable_shared_from_this<TaskData>
                 setStatus(
                     asyncResp,
                     "xyz.openbmc_project.Common.Task.OperationStatus.Cancelled");
-                auto taskToDelete = task::tasks.begin();
+                auto taskToDelete = task::tasks.begin();    //returns first value
                 advance(taskToDelete, pos);
                 if (*taskToDelete != nullptr)
                 {
@@ -443,6 +443,33 @@ inline void stopLogDumpProcess()
 }
 
 inline void
+    Stop_ForceRestart(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    const char* processName = "xyz.openbmc_project.State.BMC";
+    const char* objectPath = "/xyz/openbmc_project/state/bmc0";
+    const char* interfaceName = "xyz.openbmc_project.State.BMC";
+    const std::string& propertyValue =
+        "xyz.openbmc_project.State.BMC.Transition.None";
+    const char* destProperty = "RequestedBMCTransition";
+
+    // Create the D-Bus variant for D-Bus call.
+    dbus::utility::DbusVariantType dbusPropertyValue(propertyValue);
+
+    crow::connections::systemBus->async_method_call(
+        [asyncResp](const boost::system::error_code& ec) {
+            // Use "Set" method to set the property value.
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG("[Set] Bad D-Bus request error: {}", ec);
+                messages::internalError(asyncResp->res);
+                return;
+            }
+        },
+        processName, objectPath, "org.freedesktop.DBus.Properties", "Set",
+        interfaceName, destProperty, dbusPropertyValue);
+}
+
+inline void
     handleTaskDelete(App& app, const crow::Request& req,
                      const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                      const std::string& strParam)
@@ -495,6 +522,10 @@ inline void
     {
     	stopLogDumpProcess();
     }
+    //if the task is deleted than the BMC should not reboot.
+    //to avoid it Stop_ForceRestart function is used.
+
+    Stop_ForceRestart(asyncResp);
 }
 
 inline void
@@ -649,7 +680,7 @@ inline void requestRoutesTask(App& app)
 
                 const std::shared_ptr<task::TaskData>& ptr = *find;
 
-                asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("Task");
+		asyncResp->res.jsonValue["@odata.type"] = "#Task.v1_4_3.Task";
                 asyncResp->res.jsonValue["Id"] = strParam;
                 asyncResp->res.jsonValue["Name"] = "Task " + strParam;
                 asyncResp->res.jsonValue["TaskState"] = ptr->state;
