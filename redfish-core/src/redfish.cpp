@@ -233,12 +233,8 @@ RedfishService::RedfishService(App& app)
     if constexpr (BMCWEB_REDFISH_DUMP_LOG)
     {
         requestRoutesSystemDumpService(app);
-        #if(!BMCWEB_CHALUPA_AMD_MACRO)
-	{
-		requestRoutesSystemDumpEntryCollection(app);
-	        requestRoutesSystemDumpEntry(app);
-	}
-	#endif
+	requestRoutesSystemDumpEntryCollection(app);
+	requestRoutesSystemDumpEntry(app);
         requestRoutesSystemDumpCreate(app);
         requestRoutesSystemDumpClear(app);
 
