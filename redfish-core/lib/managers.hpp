@@ -2087,7 +2087,7 @@ inline void getCurrentDateTimeValue(
             std::time_t time = static_cast<std::time_t>(epochTime);
             std::tm gmTime = *std::gmtime(&time);
             std::ostringstream oss;
-            oss << std::put_time(&gmTime, "%Y-%m-%dT%H:%M:%SZ");
+            oss << std::put_time(&gmTime, "%Y-%m-%dT%H:%M:%S");
             asyncResp->res.jsonValue["DateTime"] = oss.str();
         });
 }
