@@ -222,6 +222,10 @@ inline bool translateUserGroup(const std::vector<std::string>& userGroups,
         {
             accountTypes.emplace_back("SNMP");
         }
+        else if (userGroup == "redfish-hostiface")
+        {
+            accountTypes.emplace_back("HostInterfaces");
+        }
         else
         {
             // Invalid user group name. Caller throws an exception.
@@ -337,6 +341,10 @@ inline bool getUserGroupFromAccountType(
         else if (accountType == "SNMP")
         {
             userGroups.emplace_back("snmp");
+        }
+        else if (accountType == "HostInterfaces")
+        {
+            userGroups.emplace_back("HostInterfaces");
         }
         else
         {
@@ -3138,7 +3146,10 @@ inline void handleAccountCollectionGet(
                         }
                         else
                         {
-                            BMCWEB_LOG_DEBUG("Skip the HostInterface User");
+                            BMCWEB_LOG_DEBUG("Add the HostInterface User in Accounts Collection");
+                            memberArray.push_back(
+                            {{"@odata.id",
+                              "/redfish/v1/AccountService/Accounts/" + user}});
                         }
                         asyncResp->res.jsonValue["Members@odata.count"] =
                             memberArray.size();
@@ -4041,9 +4052,8 @@ inline void
                 messages::internalError(asyncResp->res);
                 return;
             }
-            
-            const auto userIt = std::ranges::find_if(
-                users,
+            const auto userIt = std::find_if(
+                users.begin(), users.end(),
                 [username](
                     const std::pair<sdbusplus::message::object_path,
                                     dbus::utility::DBusInterfacesMap>& user) {
@@ -4056,6 +4066,38 @@ inline void
                                            username);
                 return;
             }
+            for (const auto& interface : userIt->second)
+            {
+                if (interface.first == "xyz.openbmc_project.User.Attributes")
+                {
+                    for (const auto& property : interface.second)
+                    {
+                        if (property.first == "UserGroups")
+                        {
+                            const std::vector<std::string>* userGroups =
+                                std::get_if<std::vector<std::string>>(
+                                    &property.second);
+                            if (userGroups == nullptr)
+                            {
+                                BMCWEB_LOG_ERROR(
+                                    "userGroups wasn't a string vector");
+                                messages::internalError(asyncResp->res);
+                                return;
+                            }
+                            else if(std::find(userGroups->begin(),userGroups->end(),"redfish-hostiface")!=userGroups->end())
+                            {
+                                
+                                asyncResp->res.clearHeader(boost::beast::http::field::allow);
+                                asyncResp->res.addHeader("Allow", "GET, DELETE");
+                                messages::operationNotAllowed(asyncResp->res);
+                                return;
+                            } 
+                        } 
+                    }              
+
+                } 
+                
+            }  
 
             auto hasError = std::make_shared<bool>(false);
 
@@ -4077,7 +4119,15 @@ inline void
                     EventServiceManager::getInstance().propertyModifiedEventLog(propertyModified, propertyOriginal, "/redfish/v1/AccountService/Accounts/" + username);
                 }
             };
+            
+            bool userSelf = (username == req.session->username);
 
+            Privileges effectiveUserPrivileges =
+                redfish::getUserPrivileges(*req.session);
+            Privileges configureUsers = {"ConfigureUsers"};
+            bool userHasConfigureUsers =
+                effectiveUserPrivileges.isSupersetOf(configureUsers);
+            
             std::optional<std::string> newUserName;
             std::optional<std::string> password;
             std::optional<bool> enabled;
@@ -4091,27 +4141,20 @@ inline void
             std::string accessMode;
             std::optional<bool> hasSNMP;
             std::optional<nlohmann::json> oemObj;
-
-            bool userSelf = (username == req.session->username);
-
-            Privileges effectiveUserPrivileges =
-                redfish::getUserPrivileges(*req.session);
-            Privileges configureUsers = {"ConfigureUsers"};
-            bool userHasConfigureUsers =
-                effectiveUserPrivileges.isSupersetOf(configureUsers);
+            
             if (userHasConfigureUsers)
             {
                 // Users with ConfigureUsers can modify for all users
-                if (!json_util::readJsonPatch(                            //
-                        req, asyncResp->res,                              //
-                        "UserName", newUserName,                          //
-                        "Password", password,                             //
-                        "RoleId", roleId,                                 //
-                        "Enabled", enabled,                               //
-                        "Locked", locked,                                 //
-                        "AccountTypes", accountTypes,                     //
+                if (!json_util::readJsonPatch( //
+                        req, asyncResp->res, //
+                        "UserName", newUserName, //
+                        "Password", password, //
+                        "RoleId", roleId, //
+                        "Enabled", enabled, //
+                        "Locked", locked, //
+                        "AccountTypes", accountTypes, //
                         "PasswordChangeRequired", passwordChangeRequired, //
-                        "OEMAccountTypes", oemAccountTypes,
+                        "OEMAccountTypes", oemAccountTypes,//
                         "Oem", oemObj
                         ))
                 {
