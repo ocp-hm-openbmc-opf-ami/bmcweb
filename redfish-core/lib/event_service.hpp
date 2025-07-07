@@ -997,6 +997,75 @@ void getEventServiceInfo(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
                 "/redfish/v1/EventService/Actions/Oem/Ami/SMTP.SecondarySSLCertificateUpload";
 }
 
+inline void getEventServiceSubscriptionIdInfo(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const std::string& param)
+{
+                   if (param.starts_with("snmp"))
+                {
+                    getSnmpTrapClient(asyncResp, param);
+                    return;
+                }
+
+                std::shared_ptr<Subscription> subValue =
+                    EventServiceManager::getInstance().getSubscription(param);
+                if (subValue == nullptr)
+                {
+                    // Lookup in Kafka subscriptions
+                    KafkaManager::getInstance().getSubscription(param,
+                                                                asyncResp);
+                    return;
+                }
+                const std::string& id = param;
+
+                asyncResp->res.jsonValue["@odata.type"] =
+                    "#EventDestination.v1_14_1.EventDestination";
+                asyncResp->res.jsonValue["Protocol"] =
+                    event_destination::EventDestinationProtocol::Redfish;
+                asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
+                    "/redfish/v1/EventService/Subscriptions/{}", id);
+                asyncResp->res.jsonValue["Id"] = id;
+                asyncResp->res.jsonValue["Name"] = "Event Destination " + id;
+                asyncResp->res.jsonValue["Destination"] =
+                    subValue->userSub->destinationUrl;
+                asyncResp->res.jsonValue["Context"] =
+                    ((subValue != nullptr) && !subValue->userSub->customText.empty()) ? subValue->userSub->customText : "Event_Sub_" + id;
+                asyncResp->res.jsonValue["SubscriptionType"] =
+                    subValue->userSub->subscriptionType;
+                asyncResp->res.jsonValue["HttpHeaders"] =
+                    nlohmann::json::array();
+                asyncResp->res.jsonValue["EventFormatType"] =
+                    subValue->userSub->eventFormatType;
+                asyncResp->res.jsonValue["RegistryPrefixes"] =
+                    subValue->userSub->registryPrefixes;
+                asyncResp->res.jsonValue["ResourceTypes"] =
+                    subValue->userSub->resourceTypes;
+
+                asyncResp->res.jsonValue["MessageIds"] =
+                    subValue->userSub->registryMsgIds;
+                asyncResp->res.jsonValue["DeliveryRetryPolicy"] =
+                    subValue->userSub->retryPolicy;
+                asyncResp->res.jsonValue["SendHeartbeat"] =
+                    subValue->userSub->sendHeartbeat;
+                asyncResp->res.jsonValue["HeartbeatIntervalMinutes"] =
+                    subValue->userSub->hbIntervalMinutes;
+                asyncResp->res.jsonValue["VerifyCertificate"] =
+                    subValue->userSub->verifyCertificate;
+                asyncResp->res.jsonValue["Status"]["Health"] = "OK";
+                asyncResp->res.jsonValue["Status"]["State"] =
+                    subValue->userSub->state;
+
+                nlohmann::json::array_t mrdJsonArray;
+                for (const auto& mdrUri :
+                     subValue->userSub->metricReportDefinitions)
+                {
+                    nlohmann::json::object_t mdr;
+                    mdr["@odata.id"] = mdrUri;
+                    mrdJsonArray.emplace_back(std::move(mdr));
+                }
+                asyncResp->res.jsonValue["MetricReportDefinitions"] =
+                    mrdJsonArray;
+}
+
 inline void requestRoutesEventService(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/EventService/")
@@ -2607,7 +2676,8 @@ inline void requestRoutesEventDestinationCollection(App& app)
             EventServiceManager::getInstance().addPushSubscription(
                 subValue, id);
 
-            messages::created(asyncResp->res);
+            getEventServiceSubscriptionIdInfo(asyncResp,id);
+            asyncResp->res.result(boost::beast::http::status::created);
             asyncResp->res.addHeader(
                 "Location", "/redfish/v1/EventService/Subscriptions/" + id);
 
@@ -2678,69 +2748,7 @@ inline void requestRoutesEventDestination(App& app)
                     return;
                 }
 
-                if (param.starts_with("snmp"))
-                {
-                    getSnmpTrapClient(asyncResp, param);
-                    return;
-                }
-
-                std::shared_ptr<Subscription> subValue =
-                    EventServiceManager::getInstance().getSubscription(param);
-                if (subValue == nullptr)
-                {
-                    // Lookup in Kafka subscriptions
-                    KafkaManager::getInstance().getSubscription(param,
-                                                                asyncResp);
-                    return;
-                }
-                const std::string& id = param;
-
-                asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("EventDestination");
-                asyncResp->res.jsonValue["Protocol"] =
-                    event_destination::EventDestinationProtocol::Redfish;
-                asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
-                    "/redfish/v1/EventService/Subscriptions/{}", id);
-                asyncResp->res.jsonValue["Id"] = id;
-                asyncResp->res.jsonValue["Name"] = "Event Destination " + id;
-                asyncResp->res.jsonValue["Destination"] =
-                    subValue->userSub->destinationUrl;
-                asyncResp->res.jsonValue["Context"] =
-                    ((subValue != nullptr) && !subValue->userSub->customText.empty()) ? subValue->userSub->customText : "Event_Sub_" + id;
-                asyncResp->res.jsonValue["SubscriptionType"] =
-                    subValue->userSub->subscriptionType;
-                asyncResp->res.jsonValue["HttpHeaders"] =
-                    nlohmann::json::array();
-                asyncResp->res.jsonValue["EventFormatType"] =
-                    subValue->userSub->eventFormatType;
-                asyncResp->res.jsonValue["RegistryPrefixes"] =
-                    subValue->userSub->registryPrefixes;
-                asyncResp->res.jsonValue["ResourceTypes"] =
-                    subValue->userSub->resourceTypes;
-
-                asyncResp->res.jsonValue["MessageIds"] =
-                    subValue->userSub->registryMsgIds;
-                asyncResp->res.jsonValue["DeliveryRetryPolicy"] =
-                    subValue->userSub->retryPolicy;
-                asyncResp->res.jsonValue["SendHeartbeat"] =
-                    subValue->userSub->sendHeartbeat;
-                asyncResp->res.jsonValue["HeartbeatIntervalMinutes"] =
-                    subValue->userSub->hbIntervalMinutes;
-                asyncResp->res.jsonValue["VerifyCertificate"] =
-                    subValue->userSub->verifyCertificate;
-                asyncResp->res.jsonValue["Status"]["Health"] = "OK";
-                asyncResp->res.jsonValue["Status"]["State"] =
-                    subValue->userSub->state;
-
-                nlohmann::json::array_t mrdJsonArray;
-                for (const auto& mdrUri :
-                     subValue->userSub->metricReportDefinitions)
-                {
-                    nlohmann::json::object_t mdr;
-                    mdr["@odata.id"] = mdrUri;
-                    mrdJsonArray.emplace_back(std::move(mdr));
-                }
-                asyncResp->res.jsonValue["MetricReportDefinitions"] =
-                    mrdJsonArray;
+                getEventServiceSubscriptionIdInfo(asyncResp,param);
             });
     BMCWEB_ROUTE(app, "/redfish/v1/EventService/Subscriptions/<str>/")
         .privileges(redfish::privileges::patchEventDestination)
@@ -2864,7 +2872,8 @@ inline void requestRoutesEventDestination(App& app)
                 }
 
                 EventServiceManager::getInstance().updateSubscription(param);
-                asyncResp->res.result(boost::beast::http::status::no_content);
+                getEventServiceSubscriptionIdInfo(asyncResp,param);
+                asyncResp->res.result(boost::beast::http::status::ok);
             });
     BMCWEB_ROUTE(app, "/redfish/v1/EventService/Subscriptions/<str>/")
         .privileges(redfish::privileges::deleteEventDestination)
