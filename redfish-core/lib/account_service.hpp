@@ -3167,8 +3167,15 @@ inline void handleAccountCollectionGet(
 inline void processAfterCreateUser(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& username, const std::string& password,
+    const boost::system::error_code& ec, sdbusplus::message_t& m,
     std::optional<bool> passwordChangeRequired)
 {    
+    if (ec)
+    {
+        userErrorMessageHandler(m.get_error(), asyncResp, username, "");
+        return;
+    }
+
     // Ensure password update is successful
     if (pamUpdatePassword(username, password) != PAM_SUCCESS)
     {
@@ -3330,7 +3337,7 @@ inline void processAfterGetAllGroups(
 
         crow::connections::systemBus->async_method_call(
             [asyncResp, username, password, passwordChangeRequired, hasSNMP, algorithm, encryption, accessMode, roleId](
-                const boost::system::error_code& ec2) {
+                const boost::system::error_code& ec2, sdbusplus::message_t& m) {
                 if (ec2)
                 {
                     BMCWEB_LOG_ERROR("Error creating user {}: {}", username, ec2.message());
@@ -3339,7 +3346,7 @@ inline void processAfterGetAllGroups(
                 }
 
                 // Process after user creation
-                processAfterCreateUser(asyncResp, username, password, passwordChangeRequired);
+                processAfterCreateUser(asyncResp, username, password, ec2, m, passwordChangeRequired);
 
                 // Set SNMPAccessEnableStatus after user creation
                 std::string userPath = "/xyz/openbmc_project/user/" + username;
@@ -3435,19 +3442,12 @@ inline void processAfterGetAllGroups(
         }
         crow::connections::systemBus->async_method_call(
             [asyncResp, username, password, passwordChangeRequired]
-            (const boost::system::error_code& ec) {
-                if (ec) {
-                    BMCWEB_LOG_ERROR("Error in creating user {}: {}", username, ec.message());
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                processAfterCreateUser(asyncResp, username, password, passwordChangeRequired);
+            (const boost::system::error_code& ec1, sdbusplus::message_t& m1) {                
+                processAfterCreateUser(asyncResp, username, password, ec1, m1, passwordChangeRequired);
             },
             "xyz.openbmc_project.User.Manager", "/xyz/openbmc_project/user",
             "xyz.openbmc_project.User.Manager", "CreateUser", username, userGroups,
-            roleId, enabled);
-        
-
+            roleId, enabled);    
     }
 }
 
@@ -3535,6 +3535,12 @@ inline void handleAccountCollectionPost(
                                          "Access", accessMode,
                                         "SNMPAccessEnableStatus", hasSNMP))
                 {
+                    return;
+                }
+
+                if (!hasSNMP.has_value())
+                {
+                    messages::propertyMissing(asyncResp->res, "SNMPAccessEnableStatus");
                     return;
                 }
 
