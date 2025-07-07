@@ -415,18 +415,10 @@ RedfishService::RedfishService(App& app)
 #endif
 
 #if BMCWEB_AMI_NVME_MACRO
-    {
-        requestRoutesNvmeControllers(app);
-        requestRoutesNvmeControllersInstance(app);
-        requestRoutesNvmePorts(app);
-        requestRoutesNvmePortsInstance(app);
-        requestRoutesNvmeDrive(app);
-    }
+    requestRoutesNvme(app);
 #endif
 #if BMCWEB_AMI_RAIDMSCC_MACRO
-    {
-       requestRoutesMSCCStorageDevices(app);
-    }
+    requestRoutesMSCCStorageDevices(app);
 #endif
 #if BMCWEB_AMI_RAIDBRCM_MACRO
     requestRoutesBRCMStorageDevices(app);
