@@ -377,10 +377,11 @@ inline void getCertificateProperties(
 {
     BMCWEB_LOG_DEBUG("getCertificateProperties Path={} certId={} certURl={}",
                      objectPath, certId, certURL);
-    dbus::utility::getAllProperties(
-        service, objectPath, certs::certPropIntf,
-        [asyncResp, certURL, certId, service,
-         name](const boost::system::error_code& ec,
+                     
+    sdbusplus::asio::getAllProperties(
+        *crow::connections::systemBus, service, objectPath, certs::certPropIntf,
+        [asyncResp, service, certURL, certId,
+         name](const boost::system::error_code ec,
                const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
             {
@@ -398,20 +399,27 @@ inline void getCertificateProperties(
             const std::string* subject = nullptr;
             const uint64_t* validNotAfter = nullptr;
             const uint64_t* validNotBefore = nullptr;
+            const std::string* uefiSignatureOwner = nullptr;
+            const std::string* certificateVersion = nullptr;
+            const std::string* serialNumber = nullptr;
+            const std::string* signatureAlgorithm = nullptr;
+            const uint16_t* publicKey = nullptr;
 
             const bool success = sdbusplus::unpackPropertiesNoThrow(
                 dbus_utils::UnpackErrorPrinter(), properties,
                 "CertificateString", certificateString, "CertificateType",
                 certificateType, "ChainCertString", chainCertString, "KeyUsage",
                 keyUsage, "Issuer", issuer, "Subject", subject, "ValidNotAfter",
-                validNotAfter, "ValidNotBefore", validNotBefore);
+                validNotAfter, "ValidNotBefore", validNotBefore,
+                "UefiSignatureOwner", uefiSignatureOwner, "CertificateVersion", certificateVersion, "SerialNumber", serialNumber,
+                "SignatureAlgorithm", signatureAlgorithm, "PublicKey", publicKey);
 
             if (!success)
             {
                 messages::internalError(asyncResp->res);
                 return;
             }
-
+        
             asyncResp->res.jsonValue["@odata.id"] = certURL;
             asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("Certificate");
             asyncResp->res.jsonValue["Id"] = certId;
@@ -419,31 +427,7 @@ inline void getCertificateProperties(
             asyncResp->res.jsonValue["Description"] = name;
             asyncResp->res.jsonValue["CertificateString"] = "";
             asyncResp->res.jsonValue["CertificateType"] = "";
-            asyncResp->res.jsonValue["KeyUsage"] = nlohmann::json::array();
-
-            #if BMCWEB_AMI_REP_MACRO
-                constexpr const char* securebootServiceName =
-                    "xyz.openbmc_project.OOBInventoryConfig";
-                constexpr const char* asdServiceName =
-                    "xyz.openbmc_project.Certs.Manager.Server.Asd";
-                // ASD certificate not support rekey/renew action
-                if (service != securebootServiceName &&
-                        service != asdServiceName)
-                {
-                    BMCWEB_LOG_DEBUG("Certificate Actions URI, service {}",
-                                     service);
-                    std::string url(certURL.data(), certURL.size());
-                    nlohmann::json& actions = asyncResp->res.jsonValue["Actions"];
-                    actions["#Certificate.Renew"]["target"] =
-                        url + "/Actions/Certificate.Renew";
-                    actions["#Certificate.Renew"]["@Redfish.ActionInfo"] =
-                        url + "/Certificate.RenewActionInfo";
-                    actions["#Certificate.Rekey"]["target"] =
-                        url + "/Actions/Certificate.Rekey";
-                    actions["#Certificate.Rekey"]["@Redfish.ActionInfo"] =
-                        url + "/Certificate.RekeyActionInfo";
-                }
-            #endif
+            asyncResp->res.jsonValue["KeyUsage"] = nlohmann::json::array();            
 
             if (certificateString != nullptr)
             {
@@ -502,6 +486,35 @@ inline void getCertificateProperties(
                 asyncResp->res.jsonValue["ValidNotBefore"] =
                     redfish::time_utils::getDateTimeUint(*validNotBefore);
             }
+
+            if (uefiSignatureOwner != nullptr && !uefiSignatureOwner->empty())
+            {
+                asyncResp->res.jsonValue["UefiSignatureOwner"] =
+                    *uefiSignatureOwner;
+            }
+
+            if (certificateVersion != nullptr)
+            {
+                asyncResp->res.jsonValue["Oem"]["Ami"]["CertificateVersion"] = *certificateVersion;
+            }
+
+            if (serialNumber != nullptr)
+            {
+                asyncResp->res.jsonValue["SerialNumber"] = *serialNumber;
+            }
+
+            if (signatureAlgorithm != nullptr)
+            {
+                asyncResp->res.jsonValue["SignatureAlgorithm"] = *signatureAlgorithm;
+            }
+
+            if (publicKey != nullptr)
+            {
+                asyncResp->res.jsonValue["Oem"]["Ami"]["PublicKey"] = *publicKey;
+            }
+            asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.id"] =
+                certURL;
+            asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] = json_util::odataType("AMICertificate", "Ami");
 
             asyncResp->res.addHeader(
                 boost::beast::http::field::location,
