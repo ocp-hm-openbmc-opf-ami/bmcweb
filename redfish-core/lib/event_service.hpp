@@ -85,6 +85,13 @@ constexpr const char* snmpProtocolInterface =
     "xyz.openbmc_project.Snmp.SnmpUtils";
 constexpr const char* snmpProtocolProp = "SnmpTrapStatus";
 
+/* Flag for successfully setting SNMP property */
+bool anySuccess = false;
+bool anyFailure = false;
+
+/*smtp interface*/
+std::string interfacePrimary = "xyz.openbmc_project.mail.alert.primary";
+std::string interfaceSecondary = "xyz.openbmc_project.mail.alert.secondary";
 
 using PropertyValue = std::variant<uint8_t, uint16_t, uint64_t, std::string,
                                    std::vector<std::string>, bool>;
@@ -661,159 +668,6 @@ inline void handleSSLCertificateSecondaryUploadAction(
     }
 }
 
-inline void setAuthentication(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-                              std::string interfaces, bool& property_value)
-{
-    sdbusplus::asio::setProperty(
-        *crow::connections::systemBus, "xyz.openbmc_project.mail",
-        "/xyz/openbmc_project/mail/alert", interfaces, "Authentication",
-        property_value, [aResp](const boost::system::error_code& ec) {
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
-                messages::internalError(aResp->res);
-                return;
-            }
-            BMCWEB_LOG_DEBUG("Patch Authentication Success");
-        });
-}
-
-inline void setServiceEnable(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-                             std::string interfaces, bool& property_value)
-{
-    sdbusplus::asio::setProperty(
-        *crow::connections::systemBus, "xyz.openbmc_project.mail",
-        "/xyz/openbmc_project/mail/alert", interfaces, "Enable", property_value,
-        [aResp](const boost::system::error_code& ec) {
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
-                messages::internalError(aResp->res);
-                return;
-            }
-            BMCWEB_LOG_DEBUG("Patch ServiceEnable Success");
-        });
-}
-
-inline void setTlsEnable(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-                         std::string interfaces, bool& property_value)
-{
-    sdbusplus::asio::setProperty(
-        *crow::connections::systemBus, "xyz.openbmc_project.mail",
-        "/xyz/openbmc_project/mail/alert", interfaces, "TLSEnable",
-        property_value, [aResp](const boost::system::error_code& ec) {
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
-                messages::internalError(aResp->res);
-                return;
-            }
-            BMCWEB_LOG_DEBUG("Patch TLSEnable Success");
-        });
-}
-
-inline void setUsername(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-                        std::string interfaces, std::string Property_value)
-{
-    sdbusplus::asio::setProperty(
-        *crow::connections::systemBus, "xyz.openbmc_project.mail",
-        "/xyz/openbmc_project/mail/alert", interfaces, "UserName",
-        Property_value, [aResp](const boost::system::error_code& ec) {
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
-                messages::internalError(aResp->res);
-                return;
-            }
-            BMCWEB_LOG_DEBUG("Patch UserName Success");
-        });
-}
-
-inline void setPassword(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-                        std::string interfaces, std::string Property_value)
-{
-    sdbusplus::asio::setProperty(
-        *crow::connections::systemBus, "xyz.openbmc_project.mail",
-        "/xyz/openbmc_project/mail/alert", interfaces, "Password",
-        Property_value, [aResp](const boost::system::error_code& ec) {
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
-                messages::internalError(aResp->res);
-                return;
-            }
-            BMCWEB_LOG_DEBUG("Patch Password Success");
-        });
-}
-
-inline void setSender(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-                      std::string interfaces, std::string Property_value)
-{
-    sdbusplus::asio::setProperty(
-        *crow::connections::systemBus, "xyz.openbmc_project.mail",
-        "/xyz/openbmc_project/mail/alert", interfaces, "Sender", Property_value,
-        [aResp](const boost::system::error_code& ec) {
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
-                messages::internalError(aResp->res);
-                return;
-            }
-            BMCWEB_LOG_DEBUG("Patch Sender Success");
-        });
-}
-
-inline void setHost(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-                    std::string interfaces, std::string Property_value)
-{
-    sdbusplus::asio::setProperty(
-        *crow::connections::systemBus, "xyz.openbmc_project.mail",
-        "/xyz/openbmc_project/mail/alert", interfaces, "Host", Property_value,
-        [aResp](const boost::system::error_code& ec) {
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
-                messages::internalError(aResp->res);
-                return;
-            }
-            BMCWEB_LOG_DEBUG("Patch Host Success");
-        });
-}
-
-inline void setport(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-                    std::string interfaces, std::uint16_t& Property_value)
-{
-    sdbusplus::asio::setProperty(
-        *crow::connections::systemBus, "xyz.openbmc_project.mail",
-        "/xyz/openbmc_project/mail/alert", interfaces, "Port", Property_value,
-        [aResp](const boost::system::error_code& ec) {
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
-                messages::internalError(aResp->res);
-                return;
-            }
-            BMCWEB_LOG_DEBUG("Patch port Success");
-        });
-}
-
-inline void setRecipient(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-                         std::string interfaces,
-                         const std::vector<std::string>& recipient)
-{
-    sdbusplus::asio::setProperty(
-        *crow::connections::systemBus, "xyz.openbmc_project.mail",
-        "/xyz/openbmc_project/mail/alert", interfaces, "Recipient", recipient,
-        [aResp, recipient](const boost::system::error_code& ec) {
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
-                messages::internalError(aResp->res);
-                return;
-            }
-            BMCWEB_LOG_DEBUG("Patch Recipient Success");
-        });
-}
 bool validateMsgId(std::string messageId)
 {
     std::string msgPrefix;
@@ -923,6 +777,32 @@ bool isValidPort(uint16_t port)
     // reserved port's
     return (port >= 1 && port != 20 && port != 21 && port != 22 && port != 23 &&
             port != 80 && port != 161 && port != 443 && port != 546);
+}
+
+template <typename T>
+inline void setSMTPProperty(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+                            const std::string& interface,
+                            const std::string& propertyName,
+                            const T& propertyValue)
+{
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus,
+        "xyz.openbmc_project.mail",
+        "/xyz/openbmc_project/mail/alert",
+        interface,
+        propertyName,
+        propertyValue,
+        [aResp, propertyName](const boost::system::error_code& ec) {
+            if (ec)
+            {
+                anyFailure = true;
+                BMCWEB_LOG_ERROR("D-Bus response error setting {}: {}", propertyName, ec);
+                messages::internalError(aResp->res);
+                return;
+            }
+            anySuccess = true;
+            BMCWEB_LOG_DEBUG("Patch {} Success", propertyName);
+        });
 }
 
 void getEventServiceInfo(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
@@ -1068,7 +948,7 @@ inline void getEventServiceSubscriptionIdInfo(const std::shared_ptr<bmcweb::Asyn
 
 inline void requestRoutesEventService(App& app)
 {
-    BMCWEB_ROUTE(app, "/redfish/v1/EventService/")
+BMCWEB_ROUTE(app, "/redfish/v1/EventService/")
         .privileges(redfish::privileges::getEventService)
         .methods(
             boost::beast::http::verb::
@@ -1122,6 +1002,7 @@ inline void requestRoutesEventService(App& app)
                 // Supported range [1-3]
                 if ((*retryAttemps < 1) || (*retryAttemps > 3))
                 {
+                    anyFailure = true;
                     messages::queryParameterOutOfRange(
                         asyncResp->res, std::to_string(*retryAttemps),
                         "DeliveryRetryAttempts", "[1-3]");
@@ -1137,6 +1018,7 @@ inline void requestRoutesEventService(App& app)
                 // Supported range [5 - 180]
                 if ((*retryInterval < 5) || (*retryInterval > 180))
                 {
+                    anyFailure = true;
                     messages::queryParameterOutOfRange(
                         asyncResp->res, std::to_string(*retryInterval),
                         "DeliveryRetryIntervalSeconds", "[5-180]");
@@ -1218,10 +1100,8 @@ inline void requestRoutesEventService(App& app)
                                 }
                                 else
                                 {
-                                    setport(
-                                        asyncResp,
-                                        "xyz.openbmc_project.mail.alert.primary",
-                                        *primary_port);
+                                    setSMTPProperty(asyncResp, interfacePrimary,
+                                                    "Port", *primary_port);
                                 }
                             }
                             if (primary_recipient)
@@ -1233,14 +1113,13 @@ inline void requestRoutesEventService(App& app)
                                 {
                                     messages::arraySizeTooLong(asyncResp->res,
                                                                "Recipient", 4);
+                                    anyFailure = true;
                                     return;
                                 }
                                 else
                                 {
-                                    setRecipient(
-                                        asyncResp,
-                                        "xyz.openbmc_project.mail.alert.primary",
-                                        *primary_recipient);
+                                    setSMTPProperty(asyncResp, interfacePrimary,
+                                        "Recipient", *primary_recipient);
                                 }
                             }
                             if (primary_authentication)
@@ -1256,6 +1135,7 @@ inline void requestRoutesEventService(App& app)
                                                 asyncResp->res,
                                                 *primary_username,
                                                 "UserName and Password");
+                                            anyFailure = true;    
                                             return;
                                         }
                                         else if (primary_username == "")
@@ -1263,6 +1143,7 @@ inline void requestRoutesEventService(App& app)
                                             messages::propertyValueEmpty(
                                                 asyncResp->res,
                                                 *primary_username, "UserName");
+                                            anyFailure = true;
                                             return;
                                         }
                                         else if (primary_password == "")
@@ -1270,14 +1151,13 @@ inline void requestRoutesEventService(App& app)
                                             messages::propertyValueEmpty(
                                                 asyncResp->res,
                                                 *primary_password, "password");
+                                            anyFailure = true;
                                             return;
                                         }
                                         else
                                         {
-                                            setAuthentication(
-                                                asyncResp,
-                                                "xyz.openbmc_project.mail.alert.primary",
-                                                *primary_authentication);
+                                            setSMTPProperty(asyncResp, interfacePrimary, 
+                                                "Authentication", *primary_authentication);
                                         }
                                     }
                                     else
@@ -1291,10 +1171,8 @@ inline void requestRoutesEventService(App& app)
                                 }
                                 else
                                 {
-                                    setAuthentication(
-                                        asyncResp,
-                                        "xyz.openbmc_project.mail.alert.primary",
-                                        *primary_authentication);
+                                    setSMTPProperty(asyncResp, interfacePrimary,
+                                        "Authentication", *primary_authentication);
                                 }
                             }
 
@@ -1317,6 +1195,7 @@ inline void requestRoutesEventService(App& app)
                                                     ec);
                                                 messages::internalError(
                                                     asyncResp->res);
+                                                anyFailure = true;
                                                 return;
                                             }
                                             if (ServiceEnabled)
@@ -1325,23 +1204,20 @@ inline void requestRoutesEventService(App& app)
                                                     asyncResp->res,
                                                     *primary_username,
                                                     "UserName");
+                                                anyFailure = true;
                                                 return;
                                             }
                                             else
                                             {
-                                                setUsername(
-                                                    asyncResp,
-                                                    "xyz.openbmc_project.mail.alert.primary",
-                                                    *primary_username);
+                                                setSMTPProperty(asyncResp, interfacePrimary,
+                                                    "UserName", *primary_username);
                                             }
                                         });
                                 }
                                 else
                                 {
-                                    setUsername(
-                                        asyncResp,
-                                        "xyz.openbmc_project.mail.alert.primary",
-                                        *primary_username);
+                                    setSMTPProperty(asyncResp, interfacePrimary,
+                                        "UserName", *primary_username);
                                 }
                             }
                             if (primary_password)
@@ -1363,6 +1239,7 @@ inline void requestRoutesEventService(App& app)
                                                     ec);
                                                 messages::internalError(
                                                     asyncResp->res);
+                                                anyFailure = true;
                                                 return;
                                             }
                                             if (ServiceEnabled)
@@ -1371,23 +1248,20 @@ inline void requestRoutesEventService(App& app)
                                                     asyncResp->res,
                                                     *primary_password,
                                                     "Password");
+                                                anyFailure = true;
                                                 return;
                                             }
                                             else
                                             {
-                                                setPassword(
-                                                    asyncResp,
-                                                    "xyz.openbmc_project.mail.alert.primary",
-                                                    *primary_password);
+                                               setSMTPProperty(asyncResp, interfacePrimary,
+                                                "Password", *primary_password);
                                             }
                                         });
                                 }
                                 else
                                 {
-                                    setPassword(
-                                        asyncResp,
-                                        "xyz.openbmc_project.mail.alert.primary",
-                                        *primary_password);
+                                    setSMTPProperty(asyncResp, interfacePrimary,
+                                        "Password", *primary_password);
                                 }
                             }
 
@@ -1432,16 +1306,12 @@ inline void requestRoutesEventService(App& app)
                                         std::cerr
                                             << "Checking certs in inside checkfile exits "
                                             << isPrimaryCACERT << "\n";
-                                        asyncResp->res
-                                            .jsonValue["Actions"]
-                                                      ["#SMTP.certificate"]
-                                                      ["target"] =
-                                            "/redfish/v1/EventService/Actions/Oem/Ami/SMTP.PrimarySSLCertificateUpload";
                                         messages::propertyValueEmpty(
                                             asyncResp->res,
                                             primaryCacertFileName +
                                                 "Certificate is missing",
                                             sslPrimaryCACERTFile);
+                                        anyFailure = true;
                                         return;
                                     }
                                     else if (!isPrimaryServerKey)
@@ -1449,69 +1319,56 @@ inline void requestRoutesEventService(App& app)
                                         std::cerr
                                             << "Checking certs in inside checkfile exits "
                                             << isPrimaryServerKey << "\n";
-                                        asyncResp->res
-                                            .jsonValue["Actions"]
-                                                      ["#SMTP.certificate"]
-                                                      ["target"] =
-                                            "/redfish/v1/EventService/Actions/Oem/Ami/SMTP.PrimarySSLCertificateUpload";
                                         messages::propertyValueEmpty(
                                             asyncResp->res,
                                             primaryServerKeyFileName +
                                                 "Certificate is missing",
                                             sslPrimaryServerKeyFile);
+                                        anyFailure = true;
                                     }
                                     else if (!isPrimaryServerCRT)
                                     {
                                         std::cerr
                                             << "Checking certs in inside checkfile exits "
                                             << isPrimaryServerCRT << "\n";
-                                        asyncResp->res
-                                            .jsonValue["Actions"]
-                                                      ["#SMTP.certificate"]
-                                                      ["target"] =
-                                            "/redfish/v1/EventService/Actions/Oem/Ami/SMTP.PrimarySSLCertificateUpload";
                                         messages::propertyValueEmpty(
                                             asyncResp->res,
                                             primaryServerCRTFileName +
                                                 "Certificate is missing",
                                             sslPrimaryServerCRTFile);
+                                        anyFailure = true;
                                     }
                                     else
                                     {
-                                        setTlsEnable(
-                                            asyncResp,
-                                            "xyz.openbmc_project.mail.alert.primary",
-                                            *primary_tlsenable);
+                                        setSMTPProperty(asyncResp, interfacePrimary,
+                                            "TLSEnable", *primary_tlsenable);
                                     }
                                 }
                                 else
                                 {
-                                    setTlsEnable(
-                                        asyncResp,
-                                        "xyz.openbmc_project.mail.alert.primary",
-                                        *primary_tlsenable);
+                                    setSMTPProperty(asyncResp, interfacePrimary,
+                                        "TLSEnable", *primary_tlsenable);
                                 }
                             }
                             if (primary_enable)
                             {
-                                setServiceEnable(
-                                    asyncResp,
-                                    "xyz.openbmc_project.mail.alert.primary",
-                                    *primary_enable);
+                                setSMTPProperty(asyncResp, interfacePrimary,
+                                    "Enable", *primary_tlsenable);
                             }
                             if (primary_host)
                             {
-                                setHost(
-                                    asyncResp,
-                                    "xyz.openbmc_project.mail.alert.primary",
-                                    *primary_host);
+                                setSMTPProperty(asyncResp, interfacePrimary,
+                                    "Host", *primary_host);
                             }
                             if (primary_sender)
                             {
-                                setSender(
-                                    asyncResp,
-                                    "xyz.openbmc_project.mail.alert.primary",
-                                    *primary_sender);
+                                setSMTPProperty(asyncResp, interfacePrimary,
+                                    "Sender", *primary_sender);
+                            }
+                            if (primary_port)
+                            {
+                                setSMTPProperty(asyncResp, interfacePrimary,
+                                    "Port", *primary_port);
                             }
                         }
                         if (SecondaryConfiguration)
@@ -1551,10 +1408,8 @@ inline void requestRoutesEventService(App& app)
                                 }
                                 else
                                 {
-                                    setport(
-                                        asyncResp,
-                                        "xyz.openbmc_project.mail.alert.secondary",
-                                        *port);
+                                    setSMTPProperty(asyncResp, interfaceSecondary,
+                                                    "Port", *port);
                                 }
                             }
                             if (recipient)
@@ -1565,14 +1420,13 @@ inline void requestRoutesEventService(App& app)
                                 {
                                     messages::arraySizeTooLong(asyncResp->res,
                                                                "Recipient", 4);
+                                    anyFailure = true;
                                     return;
                                 }
                                 else
                                 {
-                                    setRecipient(
-                                        asyncResp,
-                                        "xyz.openbmc_project.mail.alert.secondary",
-                                        *recipient);
+                                    setSMTPProperty(asyncResp, interfaceSecondary,
+                                        "Recipient", *recipient);
                                 }
                             }
                             if (authentication)
@@ -1586,6 +1440,7 @@ inline void requestRoutesEventService(App& app)
                                             messages::propertyValueEmpty(
                                                 asyncResp->res, *username,
                                                 "UserName and Password");
+                                            anyFailure = true;
                                             return;
                                         }
                                         else if (username == "")
@@ -1593,6 +1448,7 @@ inline void requestRoutesEventService(App& app)
                                             messages::propertyValueEmpty(
                                                 asyncResp->res, *username,
                                                 "UserName");
+                                            anyFailure = true;
                                             return;
                                         }
                                         else if (password == "")
@@ -1600,14 +1456,13 @@ inline void requestRoutesEventService(App& app)
                                             messages::propertyValueEmpty(
                                                 asyncResp->res, *password,
                                                 "password");
+                                            anyFailure = true;
                                             return;
                                         }
                                         else
                                         {
-                                            setAuthentication(
-                                                asyncResp,
-                                                "xyz.openbmc_project.mail.alert.secondary",
-                                                *authentication);
+                                            setSMTPProperty(asyncResp, interfaceSecondary,
+                                                "Authentication", *authentication);
                                         }
                                     }
                                     else
@@ -1620,10 +1475,8 @@ inline void requestRoutesEventService(App& app)
                                 }
                                 else
                                 {
-                                    setAuthentication(
-                                        asyncResp,
-                                        "xyz.openbmc_project.mail.alert.secondary",
-                                        *authentication);
+                                    setSMTPProperty(asyncResp, interfaceSecondary,
+                                        "Authentication", *authentication);
                                 }
                             }
                             if (username)
@@ -1645,6 +1498,7 @@ inline void requestRoutesEventService(App& app)
                                                     ec);
                                                 messages::internalError(
                                                     asyncResp->res);
+                                                anyFailure = true;
                                                 return;
                                             }
                                             if (ServiceEnabled)
@@ -1652,23 +1506,20 @@ inline void requestRoutesEventService(App& app)
                                                 messages::propertyValueEmpty(
                                                     asyncResp->res, *username,
                                                     "UserName");
+                                                anyFailure = true;
                                                 return;
                                             }
                                             else
                                             {
-                                                setUsername(
-                                                    asyncResp,
-                                                    "xyz.openbmc_project.mail.alert.secondary",
-                                                    *username);
+                                                setSMTPProperty(asyncResp, interfaceSecondary,
+                                                    "UserName", *username);
                                             }
                                         });
                                 }
                                 else
                                 {
-                                    setUsername(
-                                        asyncResp,
-                                        "xyz.openbmc_project.mail.alert.secondary",
-                                        *username);
+                                    setSMTPProperty(asyncResp, interfaceSecondary,
+                                        "UserName", *username);
                                 }
                             }
                             if (password)
@@ -1690,6 +1541,7 @@ inline void requestRoutesEventService(App& app)
                                                     ec);
                                                 messages::internalError(
                                                     asyncResp->res);
+                                                anyFailure = true;
                                                 return;
                                             }
                                             if (ServiceEnabled)
@@ -1697,23 +1549,20 @@ inline void requestRoutesEventService(App& app)
                                                 messages::propertyValueEmpty(
                                                     asyncResp->res, *password,
                                                     "Password");
+                                                anyFailure = true;
                                                 return;
                                             }
                                             else
                                             {
-                                                setPassword(
-                                                    asyncResp,
-                                                    "xyz.openbmc_project.mail.alert.secondary",
-                                                    *password);
+                                                setSMTPProperty(asyncResp, interfaceSecondary,
+                                                    "Password", *password);
                                             }
                                         });
                                 }
                                 else
                                 {
-                                    setPassword(
-                                        asyncResp,
-                                        "xyz.openbmc_project.mail.alert.secondary",
-                                        *password);
+                                    setSMTPProperty(asyncResp, interfaceSecondary,
+                                        "Password", *password);
                                 }
                             }
                             if (tlsenable)
@@ -1757,15 +1606,11 @@ inline void requestRoutesEventService(App& app)
                                         std::cerr
                                             << "Checking certs in inside checkfile exits "
                                             << isSecondrayCACERT << "\n";
-                                        asyncResp->res
-                                            .jsonValue["Actions"]
-                                                      ["#SMTP.certificate"]
-                                                      ["target"] =
-                                            "/redfish/v1/EventService/Actions/Oem/Ami/SMTP.SecondarySSLCertificateUpload";
                                         messages::propertyValueEmpty(
                                             asyncResp->res,
                                             "SSL cacert.pem Certificate is not exits",
                                             sslSecondaryCACERTFile);
+                                        anyFailure = true;
                                         return;
                                     }
                                     else if (!isSecondrayServerKey)
@@ -1773,76 +1618,70 @@ inline void requestRoutesEventService(App& app)
                                         std::cerr
                                             << "Checking certs in inside checkfile exits "
                                             << isSecondrayServerKey << "\n";
-                                        asyncResp->res
-                                            .jsonValue["Actions"]
-                                                      ["#SMTP.certificate"]
-                                                      ["target"] =
-                                            "/redfish/v1/EventService/Actions/Oem/Ami/SMTP.SecondarySSLCertificateUpload";
                                         messages::propertyValueEmpty(
                                             asyncResp->res,
                                             "SSL Server.crt Certificate is not exits",
                                             sslSecondaryServerKeyFile);
+                                        anyFailure = true;
                                     }
                                     else if (!isSecondrayServerCRT)
                                     {
                                         std::cerr
                                             << "Checking certs in inside checkfile exits "
                                             << isSecondrayServerCRT << "\n";
-                                        asyncResp->res
-                                            .jsonValue["Actions"]
-                                                      ["#SMTP.certificate"]
-                                                      ["target"] =
-                                            "/redfish/v1/EventService/Actions/Oem/Ami/SMTP.SecondarySSLCertificateUpload";
                                         messages::propertyValueEmpty(
                                             asyncResp->res,
                                             "SSL Server.Key Certificate is not exits",
                                             sslSecondaryServerCRTFile);
+                                        anyFailure = true;
                                     }
                                     else
                                     {
-                                        setTlsEnable(
-                                            asyncResp,
-                                            "xyz.openbmc_project.mail.alert.secondary",
-                                            *tlsenable);
+                                        setSMTPProperty(asyncResp, interfaceSecondary,
+                                            "TLSEnable", *tlsenable);
                                     }
                                 }
                                 else
                                 {
-                                    setTlsEnable(
-                                        asyncResp,
-                                        "xyz.openbmc_project.mail.alert.secondary",
-                                        *tlsenable);
+                                    setSMTPProperty(asyncResp, interfaceSecondary,
+                                        "TLSEnable", *tlsenable);
                                 }
                             }
                             if (enable)
                             {
-                                setServiceEnable(
-                                    asyncResp,
-                                    "xyz.openbmc_project.mail.alert.secondary",
-                                    *enable);
+                                setSMTPProperty(asyncResp, interfaceSecondary,
+                                    "Enable", *enable);
                             }
                             if (host)
                             {
-                                setHost(
-                                    asyncResp,
-                                    "xyz.openbmc_project.mail.alert.secondary",
-                                    *host);
+                                setSMTPProperty(asyncResp, interfaceSecondary,
+                                    "Host", *host);
                             }
                             if (sender)
                             {
-                                setSender(
-                                    asyncResp,
-                                    "xyz.openbmc_project.mail.alert.secondary",
-                                    *sender);
+                                setSMTPProperty(asyncResp, interfaceSecondary,
+                                    "Sender", *sender);
+                            }
+                            if (port)
+                            {
+                                setSMTPProperty(asyncResp, interfaceSecondary,
+                                    "Port", *port);
                             }
                         }
                     }
                 }
             }
-
-            EventServiceManager::getInstance().setEventServiceConfig(
-                eventServiceConfig);
-            getEventServiceInfo(asyncResp);
+            if (anyFailure && !anySuccess)
+            {
+                asyncResp->res.result(boost::beast::http::status::bad_request);
+                return;
+            }
+            else
+            {
+                EventServiceManager::getInstance().setEventServiceConfig(
+                    eventServiceConfig);
+                getEventServiceInfo(asyncResp);
+            }
         });
 }
 
