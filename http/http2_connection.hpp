@@ -269,7 +269,7 @@ class HTTP2Connection :
         if constexpr (!BMCWEB_INSECURE_DISABLE_AUTH)
         {
             thisReq.session = crow::authentication::authenticate(
-                {}, asyncResp->res, thisReq.method(), thisReq.req, nullptr);
+                {}, asyncResp->res, thisReq.method(), thisReq.target(), thisReq.req, nullptr);
             if (!crow::authentication::isOnAllowlist(thisReq.url().path(),
                                                      thisReq.method()) &&
                 thisReq.session == nullptr)

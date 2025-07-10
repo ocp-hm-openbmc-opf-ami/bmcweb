@@ -576,7 +576,7 @@ class Connection :
         {
             boost::beast::http::verb method = parser->get().method();
             userSession = crow::authentication::authenticate(
-                ip, res, method, parser->get().base(), mtlsSession);
+                ip, res, method, parser->get().target(), parser->get().base(), mtlsSession);
         }
 
         std::string_view expect =
