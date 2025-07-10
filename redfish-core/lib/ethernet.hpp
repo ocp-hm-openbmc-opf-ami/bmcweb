@@ -1858,16 +1858,17 @@ inline void handleSLAACAutoConfigPatch(
 inline void handleDHCPv4v6Patch(
     const std::string& ifaceId,
     const DHCPParameters& v4dhcpParms, const DHCPParameters& v6dhcpParms,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const bool flag)
 {
     bool nextv4DHCPState = *v4dhcpParms.dhcpv4Enabled;
     bool nextv6DHCPState = (*v6dhcpParms.dhcpv6OperatingMode == "Enabled");
 
-    if (v4dhcpParms.dhcpv4Enabled)
+    if (v4dhcpParms.dhcpv4Enabled && !flag)
     {
         setDHCP(ifaceId, "DHCP4", nextv4DHCPState, asyncResp);
     }
-    if(v6dhcpParms.dhcpv6OperatingMode)
+    if(v6dhcpParms.dhcpv6OperatingMode && flag)
     {
         setDHCP(ifaceId, "DHCP6", nextv6DHCPState, asyncResp);
     }
@@ -3507,13 +3508,13 @@ inline void requestEthernetInterfacesRoutes(App& app)
                         if (ipv6AddressValid && dhcpPropCheckFlag) 
                         {
                             handleDHCPv4v6Patch(ifaceId, v4dhcpParms, v6dhcpParms,
-                                            asyncResp);
+                                            asyncResp, true);
                         }
 
                         if (ipv4AddressValid && dhcpPropCheckFlag)
                         {   
                             handleDHCPv4v6Patch(ifaceId, v4dhcpParms, v6dhcpParms,
-                                            asyncResp);
+                                            asyncResp, false);
                         }
                     }
 
