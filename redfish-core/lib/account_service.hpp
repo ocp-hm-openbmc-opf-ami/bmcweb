@@ -3260,6 +3260,36 @@ inline void processAfterGetAllGroups(
         }
         roleId = priv;
     }
+
+    if (oemAccountTypes)
+    {
+        if (oemAccountTypes->empty()) // Media is Disable Case
+        {
+            media = false;
+        }
+        else // Media is Enabled Case
+        {
+            if (std::find(oemAccountTypes->begin(), oemAccountTypes->end(),
+                        "media") != oemAccountTypes->end())
+            {
+                media = true;
+            }
+            else
+            {
+                messages::propertyValueNotInList(asyncResp->res, "provided",
+                                                "OEMAccountTypes");
+                return;
+            }
+        }
+    }
+    else if ((!oemAccountTypes) && (roleId == "priv-admin"))
+    {
+        media = true; // Default value for Admin
+    }
+    else
+    {
+        media = false; // Default value for Readonly, Operator.
+    }
            
     if (roleId != "" && !encryption.empty() && !algorithm.empty() && !accessMode.empty() && hasSNMP.value_or(false))  // User will create along with SNMP Access
     {
@@ -3303,36 +3333,6 @@ inline void processAfterGetAllGroups(
         {
             messages::internalError(asyncResp->res);
             return;
-        }        
-
-        if (oemAccountTypes)
-        {
-            if (oemAccountTypes->empty()) // Media is Disable Case
-            {
-                media = false;
-            }
-            else // Media is Enabled Case
-            {
-                if (std::find(oemAccountTypes->begin(), oemAccountTypes->end(),
-                            "media") != oemAccountTypes->end())
-                {
-                    media = true;
-                }
-                else
-                {
-                    messages::propertyValueNotInList(asyncResp->res, "provided",
-                                                    "OEMAccountTypes");
-                    return;
-                }
-            }
-        }
-        else if ((!oemAccountTypes) && (roleId == "priv-admin"))
-        {
-            media = true; // Default value for Admin
-        }
-        else
-        {
-            media = false; // Default value for Readonly, Operator.
         }
 
         crow::connections::systemBus->async_method_call(
