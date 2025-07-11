@@ -2735,9 +2735,6 @@ inline void handleUpdateServiceFirmwareInventoryGet(
     }
     std::shared_ptr<std::string> swId = std::make_shared<std::string>(param);
 
-    asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
-        "/redfish/v1/UpdateService/FirmwareInventory/{}", *swId);
-
     constexpr std::array<std::string_view, 1> interfaces = {
         "xyz.openbmc_project.Software.Version"};
     dbus::utility::getSubTree(
@@ -2784,6 +2781,8 @@ inline void handleUpdateServiceFirmwareInventoryGet(
                         *swId));
                 return;
             }
+	    asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
+        "/redfish/v1/UpdateService/FirmwareInventory/{}", *swId);
             asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("SoftwareInventory");
             asyncResp->res.jsonValue["Name"] = "Software Inventory";
             asyncResp->res.jsonValue["Status"]["HealthRollup"] =
