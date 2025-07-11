@@ -1556,7 +1556,8 @@ inline void handleLDAPPatch(LdapPatchParams&& input,
              input.serviceAddressList.has_value()) &&
             (!input.userName || !input.password))
         {
-            messages::propertyMissing(asyncResp->res, "Username and Password");
+            messages::propertyMissing(asyncResp->res, "Username");
+	    messages::propertyMissing(asyncResp->res, "Password");
             return;
         }
     }
