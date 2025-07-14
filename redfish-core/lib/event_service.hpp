@@ -93,6 +93,29 @@ bool anyFailure = false;
 std::string interfacePrimary = "xyz.openbmc_project.mail.alert.primary";
 std::string interfaceSecondary = "xyz.openbmc_project.mail.alert.secondary";
 
+/* Holds SMTP configuration parameters for patching.*/ 
+struct SmtpPatchParams
+{
+    std::optional<bool> authentication;
+    std::optional<bool> enable;
+    std::optional<std::string> host;
+    std::optional<std::string> password;
+    std::optional<uint16_t> port;
+    std::optional<std::vector<std::string>> recipient;
+    std::optional<std::string> sender;
+    std::optional<bool> tlsenable;
+    std::optional<std::string> username;
+    
+    bool hasValue() const
+    {
+        return authentication.has_value() || enable.has_value() ||
+               host.has_value() || password.has_value() ||
+               port.has_value() || recipient.has_value() ||
+               sender.has_value() || tlsenable.has_value() ||
+               username.has_value();
+    }
+};
+
 using PropertyValue = std::variant<uint8_t, uint16_t, uint64_t, std::string,
                                    std::vector<std::string>, bool>;
 
@@ -733,18 +756,21 @@ inline void handleauthenticationpatch(
                     }
                     if (username.empty() && password.empty())
                     {
+                        anyFailure = true;
                         messages::propertyValueEmpty(aResp->res, username,
                                                      "UserName and Password");
                         return;
                     }
                     else if (username.empty())
                     {
+                        anyFailure = true;
                         messages::propertyValueEmpty(aResp->res, username,
                                                      "UserName");
                         return;
                     }
                     else if (password.empty())
                     {
+                        anyFailure = true;
                         messages::propertyValueEmpty(aResp->res, password,
                                                      "Password");
                         return;
@@ -764,6 +790,7 @@ inline void handleauthenticationpatch(
                                     messages::internalError(aResp->res);
                                     return;
                                 }
+                                anySuccess = true;
                                 BMCWEB_LOG_DEBUG(
                                     "Patch Authentication2 SUCESS");
                             });
@@ -771,6 +798,7 @@ inline void handleauthenticationpatch(
                 });
         });
 }
+
 bool isValidPort(uint16_t port)
 {
     // These port's are not allowed to use 0,20,21,22,23,80,161,443,546 this are
@@ -779,30 +807,245 @@ bool isValidPort(uint16_t port)
             port != 80 && port != 161 && port != 443 && port != 546);
 }
 
+/* Retrieves a D-Bus property value from the SMTP interface. */
+const PropertyValue getSMTPProperty(const std::string& interface,
+                                    const std::string& propertyName)
+{
+    PropertyValue value;
+    auto b = sdbusplus::bus::new_default_system();
+    auto method = b.new_method_call("xyz.openbmc_project.mail", 
+                                    "/xyz/openbmc_project/mail/alert",
+                                    "org.freedesktop.DBus.Properties", "Get");
+    method.append(interface, propertyName);
+    
+    auto reply = b.call(method);
+    reply.read(value);
+    return value;
+}
+
+/* Sets a D-Bus property on the SMTP interface asynchronously */
 template <typename T>
 inline void setSMTPProperty(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                             const std::string& interface,
                             const std::string& propertyName,
                             const T& propertyValue)
 {
-    sdbusplus::asio::setProperty(
-        *crow::connections::systemBus,
-        "xyz.openbmc_project.mail",
-        "/xyz/openbmc_project/mail/alert",
-        interface,
-        propertyName,
-        propertyValue,
-        [aResp, propertyName](const boost::system::error_code& ec) {
-            if (ec)
+    try
+    {
+        auto bus = sdbusplus::bus::new_default();
+        auto method = bus.new_method_call(
+            "xyz.openbmc_project.mail",
+            "/xyz/openbmc_project/mail/alert",
+            "org.freedesktop.DBus.Properties",
+            "Set");
+
+        method.append(interface, propertyName, std::variant<T>(propertyValue));
+
+        auto reply = bus.call(method);
+        anySuccess = true;
+        BMCWEB_LOG_DEBUG("SetSMTPProperty: Successfully set {}", propertyName);
+    }
+    catch (const sdbusplus::exception::exception& e)
+    {
+        BMCWEB_LOG_ERROR("SetSMTPProperty: Failed to set {}: {}", propertyName, e.what());
+        messages::internalError(aResp->res);
+    }
+}
+
+/* Applies SMTP patch parameters to the specified configuration (Primary/Secondary). */
+inline void handleSmtpPatch(SmtpPatchParams&& input,
+                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                            const std::string& configType)
+{
+    const std::string& interface = (configType == "Primary") ? 
+                                    interfacePrimary : interfaceSecondary;
+
+    if (input.port)
+    {
+        if (!isValidPort(*input.port))
+        {
+            anyFailure = true;
+            messages::propertyValueIncorrect(asyncResp->res,
+                        "Port", *input.port);
+        }
+        else
+        {
+            setSMTPProperty(asyncResp, interface,
+                    "Port", *input.port);
+        }
+    }
+
+    if (input.recipient)
+    {
+        if (input.recipient->size() > 4)
+        {
+            anyFailure = true;
+            messages::arraySizeTooLong(asyncResp->res,
+                        "Recipient", 4);
+        }
+        else
+        {
+            setSMTPProperty(asyncResp, interface,
+                    "Recipient", *input.recipient);
+        }
+    }
+
+    if (input.authentication)
+    {
+        if (*input.authentication)
+        {
+            if (input.username && input.password)
+            {
+                if (input.username->empty() && input.password->empty())
+                {
+                    anyFailure = true;
+                    messages::propertyValueEmpty(asyncResp->res, 
+                                *input.username, "UserName and Password");
+                }
+                else if (input.username->empty())
+                {
+                    anyFailure = true;
+                    messages::propertyValueEmpty(asyncResp->res, 
+                                *input.username, "UserName");
+                }
+                else if (input.password->empty())
+                {
+                    anyFailure = true;
+                    messages::propertyValueEmpty(asyncResp->res, 
+                                *input.password, "Password");
+                }
+                else
+                {
+                    setSMTPProperty(asyncResp, interface,
+                            "Authentication", *input.authentication);
+                }
+            }
+            else
+            {
+                handleauthenticationpatch(asyncResp, interface,
+                        "Authentication", *input.authentication);
+            }
+        }
+        else
+        {
+            setSMTPProperty(asyncResp, interface,
+                    "Authentication", *input.authentication);
+        }
+    }
+
+    if (input.username)
+    {
+        if (input.username->empty())
+        {
+            auto value = getSMTPProperty(interface, "Authentication");
+            bool serviceEnabled = std::get<bool>(value);
+            if (serviceEnabled)
             {
                 anyFailure = true;
-                BMCWEB_LOG_ERROR("D-Bus response error setting {}: {}", propertyName, ec);
-                messages::internalError(aResp->res);
-                return;
+                messages::propertyValueEmpty(asyncResp->res,
+                            *input.username,"UserName");
             }
-            anySuccess = true;
-            BMCWEB_LOG_DEBUG("Patch {} Success", propertyName);
-        });
+            else
+            {
+                setSMTPProperty(asyncResp, interface,
+                        "UserName", *input.username);
+            }
+        }
+        else
+        {
+            setSMTPProperty(asyncResp, interface,
+                    "UserName", *input.username);
+        }
+    }
+
+    if (input.password)
+    {
+        if (input.password->empty())
+        {
+            auto value = getSMTPProperty(interface, "Authentication");
+            bool serviceEnabled = std::get<bool>(value);
+            if (serviceEnabled)
+            {
+                anyFailure = true;
+                messages::propertyValueEmpty(asyncResp->res,
+                            *input.password, "Password");
+            }
+            else
+            {
+                setSMTPProperty(asyncResp, interface,
+                        "Password", *input.password);
+            }
+        }
+        else
+        {
+            setSMTPProperty(asyncResp, interface,
+                    "Password", *input.password);
+        }
+    }
+
+    if (input.tlsenable)
+    {
+        const std::string& cacertFile = (configType == "Primary") ? 
+                                        sslPrimaryCACERTFile : sslSecondaryCACERTFile;
+        const std::string& serverKeyFile = (configType == "Primary") ? 
+                                            sslPrimaryServerKeyFile : sslSecondaryServerKeyFile;
+        const std::string& serverCrtFile = (configType == "Primary") ? 
+                                            sslPrimaryServerCRTFile : sslSecondaryServerCRTFile;
+
+        if (*input.tlsenable)
+        {
+            bool isCACERT = ensureOpensslKeyPresentAndValid(cacertFile);
+            bool isServerKey = ensureOpensslKeyPresentAndValid(serverKeyFile);
+            bool isServerCRT = ensureOpensslKeyPresentAndValid(serverCrtFile);
+
+            if (!isCACERT)
+            {
+                anyFailure = true;
+                messages::propertyValueEmpty(asyncResp->res,
+                            configType + " CACERT is missing", cacertFile);
+            }
+            else if (!isServerKey)
+            {
+                anyFailure = true;
+                messages::propertyValueEmpty(asyncResp->res,
+                            configType + " Server Key is missing", serverKeyFile);
+            }
+            else if (!isServerCRT)
+            {
+                anyFailure = true;
+                messages::propertyValueEmpty(asyncResp->res,
+                            configType + " Server CRT is missing", serverCrtFile);
+            }
+            else
+            {
+                setSMTPProperty(asyncResp, interface,
+                        "TLSEnable", *input.tlsenable);
+            }
+        }
+        else
+        {
+            setSMTPProperty(asyncResp, interface,
+                    "TLSEnable", *input.tlsenable);
+        }
+    }
+
+    if (input.enable)
+    {
+        setSMTPProperty(asyncResp, interface,
+                "Enable", *input.enable);
+    }
+
+    if (input.host)
+    {
+        setSMTPProperty(asyncResp, interface,
+                "Host", *input.host);
+    }
+
+    if (input.sender)
+    {
+        setSMTPProperty(asyncResp, interface,
+                "Sender", *input.sender);
+    }
 }
 
 void getEventServiceInfo(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
@@ -972,17 +1215,38 @@ BMCWEB_ROUTE(app, "/redfish/v1/EventService/")
             {
                 return;
             }
+            
+            anySuccess = false;
+            anyFailure = false;
             std::optional<bool> serviceEnabled;
             std::optional<uint32_t> retryAttemps;
             std::optional<uint32_t> retryInterval;
-            std::optional<nlohmann::json> oem;
+            SmtpPatchParams primarySmtpConfig;
+            SmtpPatchParams secondarySmtpConfig;
 
             if (!json_util::readJsonPatch( //
                     req, asyncResp->res, //
                     "ServiceEnabled", serviceEnabled, //
                     "DeliveryRetryAttempts", retryAttemps, //
                     "DeliveryRetryIntervalSeconds", retryInterval, //
-                    "Oem", oem //
+                    "Oem/OpenBmc/SMTP/PrimaryConfiguration/Authentication", primarySmtpConfig.authentication, //
+                    "Oem/OpenBmc/SMTP/PrimaryConfiguration/Enable", primarySmtpConfig.enable,
+                    "Oem/OpenBmc/SMTP/PrimaryConfiguration/Host", primarySmtpConfig.host,
+                    "Oem/OpenBmc/SMTP/PrimaryConfiguration/Password", primarySmtpConfig.password,
+                    "Oem/OpenBmc/SMTP/PrimaryConfiguration/Port", primarySmtpConfig.port,
+                    "Oem/OpenBmc/SMTP/PrimaryConfiguration/Recipient", primarySmtpConfig.recipient,
+                    "Oem/OpenBmc/SMTP/PrimaryConfiguration/Sender", primarySmtpConfig.sender,
+                    "Oem/OpenBmc/SMTP/PrimaryConfiguration/TLSEnable", primarySmtpConfig.tlsenable,
+                    "Oem/OpenBmc/SMTP/PrimaryConfiguration/UserName", primarySmtpConfig.username,
+                    "Oem/OpenBmc/SMTP/SecondaryConfiguration/Authentication", secondarySmtpConfig.authentication,
+                    "Oem/OpenBmc/SMTP/SecondaryConfiguration/Enable", secondarySmtpConfig.enable,
+                    "Oem/OpenBmc/SMTP/SecondaryConfiguration/Host", secondarySmtpConfig.host,
+                    "Oem/OpenBmc/SMTP/SecondaryConfiguration/Password", secondarySmtpConfig.password,
+                    "Oem/OpenBmc/SMTP/SecondaryConfiguration/Port", secondarySmtpConfig.port,
+                    "Oem/OpenBmc/SMTP/SecondaryConfiguration/Recipient", secondarySmtpConfig.recipient,
+                    "Oem/OpenBmc/SMTP/SecondaryConfiguration/Sender", secondarySmtpConfig.sender,
+                    "Oem/OpenBmc/SMTP/SecondaryConfiguration/TLSEnable", secondarySmtpConfig.tlsenable,
+                    "Oem/OpenBmc/SMTP/SecondaryConfiguration/UserName", secondarySmtpConfig.username
                     ))
             {
                 return;
@@ -1028,649 +1292,17 @@ BMCWEB_ROUTE(app, "/redfish/v1/EventService/")
                     eventServiceConfig.retryTimeoutInterval = *retryInterval;
                 }
             }
-            if (oem)
+
+            /* handle primary and secondary SMPT configuration */
+            if(primarySmtpConfig.hasValue())
             {
-                std::optional<nlohmann::json> openbmc;
-                if (!json_util::readJson( //
-                        *oem, asyncResp->res, //
-                        "OpenBmc", openbmc //
-                        ))
-                {
-                    return;
-                }
-                if (openbmc)
-                {
-                    std::optional<nlohmann::json> smtp;
-                    if (!json_util::readJson( //
-                            *openbmc, asyncResp->res, //
-                            "SMTP", smtp //
-                            ))
-                    {
-                        return;
-                    }
-                    if (smtp)
-                    {
-                        std::optional<nlohmann::json> PrimaryConfiguration;
-                        std::optional<nlohmann::json> SecondaryConfiguration;
-                        if (!json_util::readJson( //
-                                *smtp, asyncResp->res, //
-                                "PrimaryConfiguration", PrimaryConfiguration, //
-                                "SecondaryConfiguration",
-                                SecondaryConfiguration //
-                                ))
-                        {
-                            return;
-                        }
-
-                        if (PrimaryConfiguration)
-                        {
-                            std::optional<bool> primary_authentication;
-                            std::optional<bool> primary_enable;
-                            std::optional<std::string> primary_host;
-                            std::optional<std::string> primary_password;
-                            std::optional<uint16_t> primary_port;
-                            std::optional<std::vector<std::string>>
-                                primary_recipient;
-                            std::optional<std::string> primary_sender;
-                            std::optional<bool> primary_tlsenable;
-                            std::optional<std::string> primary_username;
-
-                            if (!json_util::readJson( //
-                                    *PrimaryConfiguration, asyncResp->res, //
-                                    "Authentication", primary_authentication, //
-                                    "Enable", primary_enable, //
-                                    "Host", primary_host, //
-                                    "Password", primary_password, //
-                                    "Port", primary_port, //
-                                    "Recipient", primary_recipient, //
-                                    "Sender", primary_sender, //
-                                    "TLSEnable", primary_tlsenable, //
-                                    "UserName", primary_username //
-                                    ))
-                            {
-                                return;
-                            }
-                            if (primary_port.has_value())
-                            {
-                                if (!isValidPort(primary_port.value()))
-                                {
-                                    messages::propertyValueIncorrect(
-                                        asyncResp->res, "Port", *primary_port);
-                                    return;
-                                }
-                                else
-                                {
-                                    setSMTPProperty(asyncResp, interfacePrimary,
-                                                    "Port", *primary_port);
-                                }
-                            }
-                            if (primary_recipient)
-                            {
-                                std::size_t size =
-                                    primary_recipient.value().size();
-
-                                if (size > 4)
-                                {
-                                    messages::arraySizeTooLong(asyncResp->res,
-                                                               "Recipient", 4);
-                                    anyFailure = true;
-                                    return;
-                                }
-                                else
-                                {
-                                    setSMTPProperty(asyncResp, interfacePrimary,
-                                        "Recipient", *primary_recipient);
-                                }
-                            }
-                            if (primary_authentication)
-                            {
-                                if (*primary_authentication)
-                                {
-                                    if (primary_username && primary_password)
-                                    {
-                                        if (primary_username == "" &&
-                                            primary_password == "")
-                                        {
-                                            messages::propertyValueEmpty(
-                                                asyncResp->res,
-                                                *primary_username,
-                                                "UserName and Password");
-                                            anyFailure = true;    
-                                            return;
-                                        }
-                                        else if (primary_username == "")
-                                        {
-                                            messages::propertyValueEmpty(
-                                                asyncResp->res,
-                                                *primary_username, "UserName");
-                                            anyFailure = true;
-                                            return;
-                                        }
-                                        else if (primary_password == "")
-                                        {
-                                            messages::propertyValueEmpty(
-                                                asyncResp->res,
-                                                *primary_password, "password");
-                                            anyFailure = true;
-                                            return;
-                                        }
-                                        else
-                                        {
-                                            setSMTPProperty(asyncResp, interfacePrimary, 
-                                                "Authentication", *primary_authentication);
-                                        }
-                                    }
-                                    else
-                                    {
-                                        handleauthenticationpatch(
-                                            asyncResp,
-                                            "xyz.openbmc_project.mail.alert.primary",
-                                            "Authentication",
-                                            *primary_authentication);
-                                    }
-                                }
-                                else
-                                {
-                                    setSMTPProperty(asyncResp, interfacePrimary,
-                                        "Authentication", *primary_authentication);
-                                }
-                            }
-
-                            if (primary_username)
-                            {
-                                if (primary_username == "")
-                                {
-                                    dbus::utility::getProperty<bool>(
-                                        "xyz.openbmc_project.mail",
-                                        "/xyz/openbmc_project/mail/alert",
-                                        "xyz.openbmc_project.mail.alert.primary",
-                                        "Authentication",
-                                        [asyncResp, primary_username](
-                                            const boost::system::error_code& ec,
-                                            bool ServiceEnabled) {
-                                            if (ec)
-                                            {
-                                                BMCWEB_LOG_ERROR(
-                                                    "D-BUS response error on PrimarySmtp enable Status Get{}",
-                                                    ec);
-                                                messages::internalError(
-                                                    asyncResp->res);
-                                                anyFailure = true;
-                                                return;
-                                            }
-                                            if (ServiceEnabled)
-                                            {
-                                                messages::propertyValueEmpty(
-                                                    asyncResp->res,
-                                                    *primary_username,
-                                                    "UserName");
-                                                anyFailure = true;
-                                                return;
-                                            }
-                                            else
-                                            {
-                                                setSMTPProperty(asyncResp, interfacePrimary,
-                                                    "UserName", *primary_username);
-                                            }
-                                        });
-                                }
-                                else
-                                {
-                                    setSMTPProperty(asyncResp, interfacePrimary,
-                                        "UserName", *primary_username);
-                                }
-                            }
-                            if (primary_password)
-                            {
-                                if (primary_password == "")
-                                {
-                                    dbus::utility::getProperty<bool>(
-                                        "xyz.openbmc_project.mail",
-                                        "/xyz/openbmc_project/mail/alert",
-                                        "xyz.openbmc_project.mail.alert.primary",
-                                        "Authentication",
-                                        [asyncResp, primary_password](
-                                            const boost::system::error_code& ec,
-                                            bool ServiceEnabled) {
-                                            if (ec)
-                                            {
-                                                BMCWEB_LOG_ERROR(
-                                                    "D-BUS response error on PrimarySmtp enable Status Get{}",
-                                                    ec);
-                                                messages::internalError(
-                                                    asyncResp->res);
-                                                anyFailure = true;
-                                                return;
-                                            }
-                                            if (ServiceEnabled)
-                                            {
-                                                messages::propertyValueEmpty(
-                                                    asyncResp->res,
-                                                    *primary_password,
-                                                    "Password");
-                                                anyFailure = true;
-                                                return;
-                                            }
-                                            else
-                                            {
-                                               setSMTPProperty(asyncResp, interfacePrimary,
-                                                "Password", *primary_password);
-                                            }
-                                        });
-                                }
-                                else
-                                {
-                                    setSMTPProperty(asyncResp, interfacePrimary,
-                                        "Password", *primary_password);
-                                }
-                            }
-
-                            if (primary_tlsenable)
-                            {
-                                std::cerr << "Checking tlsenable value ==>  "
-                                          << *primary_tlsenable << "\n";
-                                if (*primary_tlsenable)
-                                {
-                                    bool isPrimaryCACERT = true;
-                                    bool isPrimaryServerKey = true;
-                                    bool isPrimaryServerCRT = true;
-
-                                    /* Primary SSL */
-
-                                    std::cerr
-                                        << "SSL Primary CACERT Context file= "
-                                        << sslPrimaryCACERTFile.c_str() << "\n";
-                                    std::cerr
-                                        << "SSL Primary CRT Context file= "
-                                        << sslPrimaryServerCRTFile.c_str()
-                                        << "\n";
-                                    std::cerr
-                                        << "SSL Primary Key Context file= "
-                                        << sslPrimaryServerKeyFile.c_str()
-                                        << "\n";
-
-                                    isPrimaryCACERT =
-                                        ensureOpensslKeyPresentAndValid(
-                                            sslPrimaryCACERTFile);
-
-                                    isPrimaryServerKey =
-                                        ensureOpensslKeyPresentAndValid(
-                                            sslPrimaryServerKeyFile);
-
-                                    isPrimaryServerCRT =
-                                        ensureOpensslKeyPresentAndValid(
-                                            sslPrimaryServerCRTFile);
-
-                                    if (!isPrimaryCACERT)
-                                    {
-                                        std::cerr
-                                            << "Checking certs in inside checkfile exits "
-                                            << isPrimaryCACERT << "\n";
-                                        messages::propertyValueEmpty(
-                                            asyncResp->res,
-                                            primaryCacertFileName +
-                                                "Certificate is missing",
-                                            sslPrimaryCACERTFile);
-                                        anyFailure = true;
-                                        return;
-                                    }
-                                    else if (!isPrimaryServerKey)
-                                    {
-                                        std::cerr
-                                            << "Checking certs in inside checkfile exits "
-                                            << isPrimaryServerKey << "\n";
-                                        messages::propertyValueEmpty(
-                                            asyncResp->res,
-                                            primaryServerKeyFileName +
-                                                "Certificate is missing",
-                                            sslPrimaryServerKeyFile);
-                                        anyFailure = true;
-                                    }
-                                    else if (!isPrimaryServerCRT)
-                                    {
-                                        std::cerr
-                                            << "Checking certs in inside checkfile exits "
-                                            << isPrimaryServerCRT << "\n";
-                                        messages::propertyValueEmpty(
-                                            asyncResp->res,
-                                            primaryServerCRTFileName +
-                                                "Certificate is missing",
-                                            sslPrimaryServerCRTFile);
-                                        anyFailure = true;
-                                    }
-                                    else
-                                    {
-                                        setSMTPProperty(asyncResp, interfacePrimary,
-                                            "TLSEnable", *primary_tlsenable);
-                                    }
-                                }
-                                else
-                                {
-                                    setSMTPProperty(asyncResp, interfacePrimary,
-                                        "TLSEnable", *primary_tlsenable);
-                                }
-                            }
-                            if (primary_enable)
-                            {
-                                setSMTPProperty(asyncResp, interfacePrimary,
-                                    "Enable", *primary_tlsenable);
-                            }
-                            if (primary_host)
-                            {
-                                setSMTPProperty(asyncResp, interfacePrimary,
-                                    "Host", *primary_host);
-                            }
-                            if (primary_sender)
-                            {
-                                setSMTPProperty(asyncResp, interfacePrimary,
-                                    "Sender", *primary_sender);
-                            }
-                            if (primary_port)
-                            {
-                                setSMTPProperty(asyncResp, interfacePrimary,
-                                    "Port", *primary_port);
-                            }
-                        }
-                        if (SecondaryConfiguration)
-                        {
-                            std::optional<bool> authentication;
-                            std::optional<bool> enable;
-                            std::optional<std::string> host;
-                            std::optional<std::string> password;
-                            std::optional<uint16_t> port;
-                            std::optional<std::vector<std::string>> recipient;
-                            std::optional<std::string> sender;
-                            std::optional<bool> tlsenable;
-                            std::optional<std::string> username;
-
-                            if (!json_util::readJson( //
-                                    *SecondaryConfiguration, asyncResp->res, //
-                                    "Authentication", authentication, //
-                                    "Enable", enable, //
-                                    "Host", host, //
-                                    "Password", password, //
-                                    "Port", port, //
-                                    "Recipient", recipient, //
-                                    "Sender", sender, //
-                                    "TLSEnable", tlsenable, //
-                                    "UserName", username //
-                                    ))
-                            {
-                                return;
-                            }
-                            if (port.has_value())
-                            {
-                                if (!isValidPort(port.value()))
-                                {
-                                    messages::propertyValueIncorrect(
-                                        asyncResp->res, "Port", *port);
-                                    return;
-                                }
-                                else
-                                {
-                                    setSMTPProperty(asyncResp, interfaceSecondary,
-                                                    "Port", *port);
-                                }
-                            }
-                            if (recipient)
-                            {
-                                std::size_t size = recipient.value().size();
-
-                                if (size > 4)
-                                {
-                                    messages::arraySizeTooLong(asyncResp->res,
-                                                               "Recipient", 4);
-                                    anyFailure = true;
-                                    return;
-                                }
-                                else
-                                {
-                                    setSMTPProperty(asyncResp, interfaceSecondary,
-                                        "Recipient", *recipient);
-                                }
-                            }
-                            if (authentication)
-                            {
-                                if (*authentication)
-                                {
-                                    if (username && password)
-                                    {
-                                        if (username == "" && password == "")
-                                        {
-                                            messages::propertyValueEmpty(
-                                                asyncResp->res, *username,
-                                                "UserName and Password");
-                                            anyFailure = true;
-                                            return;
-                                        }
-                                        else if (username == "")
-                                        {
-                                            messages::propertyValueEmpty(
-                                                asyncResp->res, *username,
-                                                "UserName");
-                                            anyFailure = true;
-                                            return;
-                                        }
-                                        else if (password == "")
-                                        {
-                                            messages::propertyValueEmpty(
-                                                asyncResp->res, *password,
-                                                "password");
-                                            anyFailure = true;
-                                            return;
-                                        }
-                                        else
-                                        {
-                                            setSMTPProperty(asyncResp, interfaceSecondary,
-                                                "Authentication", *authentication);
-                                        }
-                                    }
-                                    else
-                                    {
-                                        handleauthenticationpatch(
-                                            asyncResp,
-                                            "xyz.openbmc_project.mail.alert.secondary",
-                                            "Authentication", *authentication);
-                                    }
-                                }
-                                else
-                                {
-                                    setSMTPProperty(asyncResp, interfaceSecondary,
-                                        "Authentication", *authentication);
-                                }
-                            }
-                            if (username)
-                            {
-                                if (username == "")
-                                {
-                                    dbus::utility::getProperty<bool>(
-                                        "xyz.openbmc_project.mail",
-                                        "/xyz/openbmc_project/mail/alert",
-                                        "xyz.openbmc_project.mail.alert.secondary",
-                                        "Authentication",
-                                        [asyncResp, username](
-                                            const boost::system::error_code& ec,
-                                            bool ServiceEnabled) {
-                                            if (ec)
-                                            {
-                                                BMCWEB_LOG_ERROR(
-                                                    "D-BUS response error on PrimarySmtp enable Status Get{}",
-                                                    ec);
-                                                messages::internalError(
-                                                    asyncResp->res);
-                                                anyFailure = true;
-                                                return;
-                                            }
-                                            if (ServiceEnabled)
-                                            {
-                                                messages::propertyValueEmpty(
-                                                    asyncResp->res, *username,
-                                                    "UserName");
-                                                anyFailure = true;
-                                                return;
-                                            }
-                                            else
-                                            {
-                                                setSMTPProperty(asyncResp, interfaceSecondary,
-                                                    "UserName", *username);
-                                            }
-                                        });
-                                }
-                                else
-                                {
-                                    setSMTPProperty(asyncResp, interfaceSecondary,
-                                        "UserName", *username);
-                                }
-                            }
-                            if (password)
-                            {
-                                if (password == "")
-                                {
-                                    dbus::utility::getProperty<bool>(
-                                        "xyz.openbmc_project.mail",
-                                        "/xyz/openbmc_project/mail/alert",
-                                        "xyz.openbmc_project.mail.alert.secondary",
-                                        "Authentication",
-                                        [asyncResp, password](
-                                            const boost::system::error_code& ec,
-                                            bool ServiceEnabled) {
-                                            if (ec)
-                                            {
-                                                BMCWEB_LOG_ERROR(
-                                                    "D-BUS response error on secondarySmtp enable Status Get{}",
-                                                    ec);
-                                                messages::internalError(
-                                                    asyncResp->res);
-                                                anyFailure = true;
-                                                return;
-                                            }
-                                            if (ServiceEnabled)
-                                            {
-                                                messages::propertyValueEmpty(
-                                                    asyncResp->res, *password,
-                                                    "Password");
-                                                anyFailure = true;
-                                                return;
-                                            }
-                                            else
-                                            {
-                                                setSMTPProperty(asyncResp, interfaceSecondary,
-                                                    "Password", *password);
-                                            }
-                                        });
-                                }
-                                else
-                                {
-                                    setSMTPProperty(asyncResp, interfaceSecondary,
-                                        "Password", *password);
-                                }
-                            }
-                            if (tlsenable)
-                            {
-                                std::cerr << "Checking tlsenable value ==>  "
-                                          << *tlsenable << "\n";
-                                if (*tlsenable)
-                                {
-                                    bool isSecondrayCACERT = true;
-                                    bool isSecondrayServerKey = true;
-                                    bool isSecondrayServerCRT = true;
-
-                                    /* Secondary SSL */
-
-                                    std::cerr
-                                        << "SSL Secondary CACERT Context file= "
-                                        << sslSecondaryCACERTFile.c_str()
-                                        << "\n";
-                                    std::cerr
-                                        << "SSL Secondary CRT Context file= "
-                                        << sslSecondaryServerCRTFile.c_str()
-                                        << "\n";
-                                    std::cerr
-                                        << "SSL Secondary Key Context file= "
-                                        << sslSecondaryServerKeyFile.c_str()
-                                        << "\n";
-
-                                    isSecondrayCACERT =
-                                        ensureOpensslKeyPresentAndValid(
-                                            sslSecondaryCACERTFile);
-                                    isSecondrayServerKey =
-                                        ensureOpensslKeyPresentAndValid(
-                                            sslSecondaryServerKeyFile);
-
-                                    isSecondrayServerCRT =
-                                        ensureOpensslKeyPresentAndValid(
-                                            sslSecondaryServerCRTFile);
-
-                                    if (!isSecondrayCACERT)
-                                    {
-                                        std::cerr
-                                            << "Checking certs in inside checkfile exits "
-                                            << isSecondrayCACERT << "\n";
-                                        messages::propertyValueEmpty(
-                                            asyncResp->res,
-                                            "SSL cacert.pem Certificate is not exits",
-                                            sslSecondaryCACERTFile);
-                                        anyFailure = true;
-                                        return;
-                                    }
-                                    else if (!isSecondrayServerKey)
-                                    {
-                                        std::cerr
-                                            << "Checking certs in inside checkfile exits "
-                                            << isSecondrayServerKey << "\n";
-                                        messages::propertyValueEmpty(
-                                            asyncResp->res,
-                                            "SSL Server.crt Certificate is not exits",
-                                            sslSecondaryServerKeyFile);
-                                        anyFailure = true;
-                                    }
-                                    else if (!isSecondrayServerCRT)
-                                    {
-                                        std::cerr
-                                            << "Checking certs in inside checkfile exits "
-                                            << isSecondrayServerCRT << "\n";
-                                        messages::propertyValueEmpty(
-                                            asyncResp->res,
-                                            "SSL Server.Key Certificate is not exits",
-                                            sslSecondaryServerCRTFile);
-                                        anyFailure = true;
-                                    }
-                                    else
-                                    {
-                                        setSMTPProperty(asyncResp, interfaceSecondary,
-                                            "TLSEnable", *tlsenable);
-                                    }
-                                }
-                                else
-                                {
-                                    setSMTPProperty(asyncResp, interfaceSecondary,
-                                        "TLSEnable", *tlsenable);
-                                }
-                            }
-                            if (enable)
-                            {
-                                setSMTPProperty(asyncResp, interfaceSecondary,
-                                    "Enable", *enable);
-                            }
-                            if (host)
-                            {
-                                setSMTPProperty(asyncResp, interfaceSecondary,
-                                    "Host", *host);
-                            }
-                            if (sender)
-                            {
-                                setSMTPProperty(asyncResp, interfaceSecondary,
-                                    "Sender", *sender);
-                            }
-                            if (port)
-                            {
-                                setSMTPProperty(asyncResp, interfaceSecondary,
-                                    "Port", *port);
-                            }
-                        }
-                    }
-                }
+                handleSmtpPatch(std::move(primarySmtpConfig),asyncResp,"Primary");
             }
+            if(secondarySmtpConfig.hasValue())
+            {
+                handleSmtpPatch(std::move(secondarySmtpConfig),asyncResp,"Secondary");
+            }
+            
             if (anyFailure && !anySuccess)
             {
                 asyncResp->res.result(boost::beast::http::status::bad_request);
@@ -1681,6 +1313,8 @@ BMCWEB_ROUTE(app, "/redfish/v1/EventService/")
                 EventServiceManager::getInstance().setEventServiceConfig(
                     eventServiceConfig);
                 getEventServiceInfo(asyncResp);
+                asyncResp->res.result(boost::beast::http::status::ok);
+                return;
             }
         });
 }
