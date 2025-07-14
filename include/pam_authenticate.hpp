@@ -190,6 +190,22 @@ inline int pamAuthenticateUser(std::string_view username,
                               PAM_SILENT | PAM_DISALLOW_NULL_AUTHTOK);
     if (retval != PAM_SUCCESS)
     {
+        std::string severity = "xyz.openbmc_project.Logging.Entry.Level.Warning";
+        auto bus = sdbusplus::bus::new_default_system();
+        sdbusplus::message::message m = bus.new_method_call("xyz.openbmc_project.Logging", "/xyz/openbmc_project/logging",
+                  "xyz.openbmc_project.Logging.Create", "Create" );
+        std::string journalMsg = "InvalidLoginAttempted:HTTPS";
+ 
+        m.append(journalMsg, severity, std::map<std::string, std::string>());
+        try
+        {
+            bus.call(m);                
+        }
+        catch (const sdbusplus::exception_t& e)
+        {
+            std::cerr << "Failed to create log entry: " << e.what() << std::endl;
+        }
+
         sd_journal_send("MESSAGE= %s", "Invalid login attempted on HTTPS",
                         "PRIORITY=%i", LOG_WARNING, "REDFISH_MESSAGE_ID=%s",
                         "OpenBMC.0.1.InvalidLoginAttempted",
