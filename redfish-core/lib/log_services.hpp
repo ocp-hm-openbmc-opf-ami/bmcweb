@@ -792,6 +792,12 @@ inline void downloadEventLogEntry(
         [asyncResp, dumpType,
          entryID](const boost::system::error_code& ec,
                   const std::vector<std::string>& additionalData) {
+            if (ec.value() == EBADR)
+            {
+                messages::resourceNotFound(asyncResp->res, "LogEntry",
+                                           entryID);
+                return;
+            }
             if (ec)
             {
                 BMCWEB_LOG_DEBUG(
