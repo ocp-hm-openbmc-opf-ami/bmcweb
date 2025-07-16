@@ -867,48 +867,6 @@ inline void
         });
 }
 
-inline void
-    downloadSELEntry(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                     const std::string& managerId, const std::string& entryID,
-                     const std::string& dumpType)
-{
-    std::string entryPath =
-        sdbusplus::message::object_path("/xyz/openbmc_project/logging/ipmi") /
-        entryID;
-    BMCWEB_LOG_DEBUG("Manager ID = {}", managerId);
-    dbus::utility::getProperty<std::vector<std::string>>(
-        "xyz.openbmc_project.Logging", entryPath,
-        "xyz.openbmc_project.Logging.Entry", "AdditionalData",
-        [asyncResp, dumpType,
-         entryID](const boost::system::error_code& ec,
-                  const std::vector<std::string>& additionalData) {
-            if (ec)
-            {
-                BMCWEB_LOG_DEBUG(
-                    "Got DBUS response error while getting AdditionalData in {}",
-                    dumpType);
-                return;
-            }
-            nlohmann::json jsonData = nlohmann::json::object();
-            for (const auto& data : additionalData)
-            {
-                BMCWEB_LOG_DEBUG("AdditionalData: {}", data);
-                auto pos = data.find('=');
-                if (pos != std::string::npos)
-                {
-                    std::string key = data.substr(0, pos);
-                    std::string value = data.substr(pos + 1);
-                    jsonData[key] = value;
-                }
-            }
-            asyncResp->res.addHeader(boost::beast::http::field::content_type,
-                                     "application/octet-stream");
-            asyncResp->res.addHeader(
-                boost::beast::http::field::content_disposition, "attachment");
-            asyncResp->res.jsonValue = jsonData;
-        });
-}
-
 inline DumpCreationProgress
     mapDbusStatusToDumpProgress(const std::string& status)
 {
