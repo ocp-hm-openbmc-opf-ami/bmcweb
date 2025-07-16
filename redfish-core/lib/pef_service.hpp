@@ -200,11 +200,22 @@ inline void getDestinationType (const std::shared_ptr<bmcweb::AsyncResp>& aResp)
             {
                 destinationTypeString = "SMTP";
             }
-            else
+            else if (destinationType == 0)
             {
                 destinationTypeString = "SnmpTrap";
             }
+	    else if (destinationType == 2)
+            {
+                destinationTypeString = "Both";
+            }
             aResp->res.jsonValue["DestinationType"] = destinationTypeString;
+	    nlohmann::json::array_t allowed;
+            allowed.emplace_back("SnmpTrap");
+            allowed.emplace_back("SMTP");
+            allowed.emplace_back("Both");
+            aResp->res
+                .jsonValue["DestinationType@Redfish.AllowableValues"] =
+                std::move(allowed);
     });
 }
 
@@ -265,6 +276,10 @@ void setDestinationType (const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     else if (destinationType == "SMTP")
     {
         desType = 1;
+    }
+    else if (destinationType == "Both")
+    {
+	desType = 2;
     }
     else {
         messages::propertyValueIncorrect(aResp->res, "DestinationType", *destinationType);
@@ -704,8 +719,8 @@ inline void requestRoutesSendTrap(App& app)
                     else
                     {
                         dbus::utility::getProperty<bool>(
-                            "xyz.openbmc_project.Snmp",
-                            "/xyz/openbmc_project/Snmp",
+                            "xyz.openbmc_project.Snmp.Conf",
+                            "/xyz/openbmc_project/snmp/SnmpUtils",
                             "xyz.openbmc_project.Snmp.SnmpUtils",
                             "SnmpTrapStatus",
                             [aResp, resp](const boost::system::error_code& ec,
@@ -740,8 +755,8 @@ inline void requestRoutesSendTrap(App& app)
                                             }
                                             messages::success(aResp->res);
                                         },
-                                        "xyz.openbmc_project.Snmp",
-                                        "/xyz/openbmc_project/Snmp",
+                                        "xyz.openbmc_project.Snmp.Conf",
+                                        "/xyz/openbmc_project/snmp/SnmpUtils",
                                         "xyz.openbmc_project.Snmp.SnmpUtils",
                                         "SendSNMPTrap");
                                 }
