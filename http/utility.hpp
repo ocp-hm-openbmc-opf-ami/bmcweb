@@ -689,7 +689,7 @@ inline void setPortDefaults(boost::urls::url& url)
     }
     if (url.scheme() == "snmp")
     {
-        url.set_port_number(162);
+        url.set_port_number(161);
     }
 }
 

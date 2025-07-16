@@ -3827,8 +3827,24 @@ inline void handleComputerSystemResetActionPost(
 
     if ((resetType == "On") || (resetType == "ForceOn"))
     {
-        if (reqHostState == "xyz.openbmc_project.State.Host.HostState.Running")
+        // Log DCPowerOn when the host is powered ON
+        std::string severity = "xyz.openbmc_project.Logging.Entry.Level.Warning";
+        auto bus = sdbusplus::bus::new_default_system();
+        sdbusplus::message::message m = bus.new_method_call("xyz.openbmc_project.Logging", "/xyz/openbmc_project/logging",
+                "xyz.openbmc_project.Logging.Create", "Create");
+        std::string journalMsg = "DCPowerOn"; // Logging power ON
+        m.append(journalMsg, severity, std::map<std::string, std::string>());
+        try
         {
+            bus.call(m);                
+        }
+        catch (const sdbusplus::exception_t& e)
+        {
+            std::cerr << "Failed to create log entry: " << e.what() << std::endl;
+        }
+        
+        if (reqHostState == "xyz.openbmc_project.State.Host.HostState.Running")
+        {        
             BMCWEB_LOG_ERROR(" Host is in Standby state");
             messages::noOperation(asyncResp->res);
             return;
@@ -3841,6 +3857,22 @@ inline void handleComputerSystemResetActionPost(
     {
         if (reqHostState != "xyz.openbmc_project.State.Host.HostState.Running")
         {
+             // Log DCPowerOff when the host is powered OFF
+             std::string severity = "xyz.openbmc_project.Logging.Entry.Level.Warning";
+             auto bus = sdbusplus::bus::new_default_system();
+             sdbusplus::message::message m = bus.new_method_call("xyz.openbmc_project.Logging", "/xyz/openbmc_project/logging",
+                       "xyz.openbmc_project.Logging.Create", "Create");
+             std::string journalMsg = "DCPowerOff"; // Logging power OFF
+             m.append(journalMsg, severity, std::map<std::string, std::string>());
+             try
+             {
+                 bus.call(m);                
+             }
+             catch (const sdbusplus::exception_t& e)
+             {
+                 std::cerr << "Failed to create log entry: " << e.what() << std::endl;
+             }
+
             messages::noOperation(asyncResp->res);
             return;
         }

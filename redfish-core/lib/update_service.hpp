@@ -68,7 +68,8 @@ static constexpr const char* reqActivationsStandBySpare =
 static constexpr const char* activationsStandBySpare =
     "xyz.openbmc_project.Software.Activation.Activations.StandbySpare";
 
-
+bool isPldmService = false;
+bool isIntelservice = false;
 
 // PFR image types (pcType)
 enum pfrImgPCType
@@ -692,27 +693,30 @@ inline void createTask(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     task->startTimer(std::chrono::minutes(5));
     task->populateResp(asyncResp->res);
     task->payload.emplace(std::move(payload));
-
-    #if (BMCWEB_AMI_EGS_MACRO || BMCWEB_AMI_BHS_MACRO || BMCWEB_AST2700_EVB_MACRO || BMCWEB_AST2600_EVB_MACRO)
-
-    std::vector<uint16_t> vectorTaskId = {static_cast<uint16_t>(task->index)};
-
-    // Set the requested image apply time
-    sdbusplus::asio::setProperty(
-        *crow::connections::systemBus,
-        "xyz.openbmc_project.Software.BMC.Updater", objPath.str,
-        "xyz.openbmc_project.Common.Task", "TaskId", vectorTaskId,
-        [asyncResp](const boost::system::error_code& _ec) {
-            if (_ec)
-            {
-                BMCWEB_LOG_ERROR("D-Bus responses error: {}", _ec);
-                // messages::internalError(asyncResp->res);
-                return;
-            }
-            // messages::success(asyncResp->res);
-        });
     
-    #endif
+    if(isIntelservice)
+    {
+        #if (BMCWEB_AMI_EGS_MACRO || BMCWEB_AMI_BHS_MACRO || BMCWEB_AST2700_EVB_MACRO || BMCWEB_AST2600_EVB_MACRO)
+
+        std::vector<uint16_t> vectorTaskId = {static_cast<uint16_t>(task->index)};
+
+        // Set the requested image apply time
+        sdbusplus::asio::setProperty(
+            *crow::connections::systemBus,
+            "xyz.openbmc_project.Software.BMC.Updater", objPath.str,
+            "xyz.openbmc_project.Common.Task", "TaskId", vectorTaskId,
+            [asyncResp](const boost::system::error_code& _ec) {
+                if (_ec)
+                {
+                    BMCWEB_LOG_ERROR("D-Bus responses error: {}", _ec);
+                    // messages::internalError(asyncResp->res);
+                    return;
+                }
+                // messages::success(asyncResp->res);
+            });
+        
+        #endif
+    }
 }
 
 // Note that asyncResp can be either a valid pointer or nullptr. If nullptr
@@ -728,42 +732,79 @@ inline void
 
     m.read(objPath, interfacesProperties);
     BMCWEB_LOG_DEBUG("Software Interface Added. obj path = {}", objPath.str);
-   
 
-
-    #if (BMCWEB_AMI_EGS_MACRO || BMCWEB_AMI_BHS_MACRO || BMCWEB_AST2700_EVB_MACRO || BMCWEB_AST2600_EVB_MACRO)
-   
-    std::array<std::string, 1> inface = {
-        "xyz.openbmc_project.Software.Version"};
-   
-
-    std::string fwPath = objPath.str;
-    if (!fwPath.empty())
+    std::string fwObjPath = objPath.str;
+    if (!fwObjPath.empty())
     {
-        sdbusplus::asio::getProperty<std::string>(
-            *crow::connections::systemBus,
-            "xyz.openbmc_project.Software.Version", fwPath,
-            "xyz.openbmc_project.Software.Version", "Purpose",
-            [asyncResp](const boost::system::error_code& ec2,
-                        const std::string& imageName) {
-                if (ec2)
-                {
-                    BMCWEB_LOG_ERROR("DBUS response error {}", ec2);
-                    // messages::internalError(asyncResp->res);
-                }
-                std::vector<std::string> purposeString;
-                std::stringstream ss(imageName);
-                std::string purpose;
-                while (std::getline(ss, purpose, '.'))
-                {
-                    purposeString.push_back(purpose);
-                }
-                std::string updatingImage = purposeString.back();
-                asyncResp->res.jsonValue["Oem"]["ImageName"] = updatingImage;
-            });
-    }
-    #endif
+        auto bus = sdbusplus::bus::new_default();
+        try
+        {
+            auto method = bus.new_method_call(
+            "xyz.openbmc_project.ObjectMapper",
+            "/xyz/openbmc_project/object_mapper",
+            "xyz.openbmc_project.ObjectMapper",
+            "GetObject");
 
+            method.append(fwObjPath);
+            method.append(std::vector<std::string>{"xyz.openbmc_project.Software.Activation"});
+            auto reply = bus.call(method);
+            std::map<std::string, std::vector<std::string>> objectResponse;
+            reply.read(objectResponse);
+            
+             for (const auto& [service, ifaces] : objectResponse)
+            {
+                if (service == "xyz.openbmc_project.pldm")
+                {
+                    isPldmService = true;
+                    break;
+                }
+                else if(service == "xyz.openbmc_project.Software.BMC.Updater")
+                {
+                    isIntelservice = true;
+                    break;
+                }
+            }
+        }
+        catch (const sdbusplus::exception::SdBusError& e)
+        {
+            std::cerr << "D-Bus error: " << e.what() << std::endl;
+            return;
+        }
+    }   
+   
+    if (isIntelservice)
+    {
+       #if (BMCWEB_AMI_EGS_MACRO || BMCWEB_AMI_BHS_MACRO || BMCWEB_AST2700_EVB_MACRO || BMCWEB_AST2600_EVB_MACRO)
+        std::array<std::string, 1> inface = {
+            "xyz.openbmc_project.Software.Version"};
+
+        std::string fwPath = objPath.str;
+        if (!fwPath.empty())
+        {
+            sdbusplus::asio::getProperty<std::string>(
+                *crow::connections::systemBus,
+                "xyz.openbmc_project.Software.Version", fwPath,
+                "xyz.openbmc_project.Software.Version", "Purpose",
+                [asyncResp](const boost::system::error_code& ec2,
+                            const std::string& imageName) {
+                    if (ec2)
+                    {
+                        BMCWEB_LOG_ERROR("DBUS response error {}", ec2);
+                        // messages::internalError(asyncResp->res);
+                    }
+                    std::vector<std::string> purposeString;
+                    std::stringstream ss(imageName);
+                    std::string purpose;
+                    while (std::getline(ss, purpose, '.'))
+                    {
+                        purposeString.push_back(purpose);
+                    }
+                    std::string updatingImage = purposeString.back();
+                    asyncResp->res.jsonValue["Oem"]["ImageName"] = updatingImage;
+                });
+        }
+        #endif
+    }
     for (const auto& interface : interfacesProperties)
     {
         BMCWEB_LOG_DEBUG("interface = {}", interface.first);

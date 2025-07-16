@@ -165,6 +165,7 @@ inline void getPersistentMemoryProperties(
     const uint64_t* pmRegionSizeLimitInKiB = nullptr;
     const uint64_t* volatileSizeInKiB = nullptr;
     const uint64_t* pmSizeInKiB = nullptr;
+    const uint64_t* logicalSizeInKiB = nullptr;
     const uint64_t* cacheSizeInKB = nullptr;
     const uint64_t* voltaileRegionMaxSizeInKib = nullptr;
     const uint64_t* pmRegionMaxSizeInKiB = nullptr;
@@ -192,9 +193,9 @@ inline void getPersistentMemoryProperties(
         subsystemDeviceID, "VolatileRegionSizeLimitInKiB",
         volatileRegionSizeLimitInKiB, "PmRegionSizeLimitInKiB",
         pmRegionSizeLimitInKiB, "VolatileSizeInKiB", volatileSizeInKiB,
-        "PmSizeInKiB", pmSizeInKiB, "CacheSizeInKiB", cacheSizeInKB,
-        "VolatileRegionMaxSizeInKiB", voltaileRegionMaxSizeInKib,
-        "PmRegionMaxSizeInKiB", pmRegionMaxSizeInKiB,
+        "PmSizeInKiB", pmSizeInKiB, "LogicalSizeInKiB", logicalSizeInKiB,
+        "CacheSizeInKiB", cacheSizeInKB, "VolatileRegionMaxSizeInKiB",
+        voltaileRegionMaxSizeInKib, "PmRegionMaxSizeInKiB", pmRegionMaxSizeInKiB,
         "AllocationIncrementInKiB", allocationIncrementInKiB,
         "AllocationAlignmentInKiB", allocationAlignmentInKiB,
         "VolatileRegionNumberLimit", volatileRegionNumberLimit,
@@ -244,6 +245,12 @@ inline void getPersistentMemoryProperties(
     {
         asyncResp->res.jsonValue[jsonPtr]["NonVolatileSizeMiB"] =
             (*pmSizeInKiB) >> 10;
+    }
+
+    if (logicalSizeInKiB != nullptr)
+    {
+        asyncResp->res.jsonValue[jsonPtr]["LogicalSizeMiB"] =
+            (*logicalSizeInKiB) >> 10;
     }
 
     if (cacheSizeInKB != nullptr)
@@ -395,7 +402,7 @@ inline void assembleDimmProperties(
     const nlohmann::json::json_pointer& jsonPtr)
 {
     asyncResp->res.jsonValue[jsonPtr]["Id"] = dimmId;
-    asyncResp->res.jsonValue[jsonPtr]["Name"] = "DIMM Slot";
+    asyncResp->res.jsonValue[jsonPtr]["Name"] = dimmId;
     asyncResp->res.jsonValue[jsonPtr]["Status"]["State"] =
         resource::State::Enabled;
     asyncResp->res.jsonValue[jsonPtr]["Status"]["Health"] =
@@ -406,7 +413,7 @@ inline void assembleDimmProperties(
     const std::string* partNumber = nullptr;
     const std::string* serialNumber = nullptr;
     const std::string* manufacturer = nullptr;
-    const uint16_t* revisionCode = nullptr;
+    const std::string* revisionCode = nullptr;
     const bool* present = nullptr;
     const uint16_t* memoryTotalWidth = nullptr;
     const std::string* ecc = nullptr;
@@ -470,8 +477,7 @@ inline void assembleDimmProperties(
 
     if (revisionCode != nullptr)
     {
-        asyncResp->res.jsonValue[jsonPtr]["FirmwareRevision"] =
-            std::to_string(*revisionCode);
+        asyncResp->res.jsonValue[jsonPtr]["FirmwareRevision"] = *revisionCode;
     }
 
     if (present != nullptr && !*present)

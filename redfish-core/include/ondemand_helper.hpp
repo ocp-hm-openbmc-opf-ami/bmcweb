@@ -21,6 +21,8 @@
 
 #pragma once
 
+#include <utils/json_utils.hpp>
+
 namespace redfish
 {
 

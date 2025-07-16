@@ -222,6 +222,10 @@ inline bool translateUserGroup(const std::vector<std::string>& userGroups,
         {
             accountTypes.emplace_back("SNMP");
         }
+        else if (userGroup == "redfish-hostiface")
+        {
+            accountTypes.emplace_back("HostInterfaces");
+        }
         else
         {
             // Invalid user group name. Caller throws an exception.
@@ -337,6 +341,10 @@ inline bool getUserGroupFromAccountType(
         else if (accountType == "SNMP")
         {
             userGroups.emplace_back("snmp");
+        }
+        else if (accountType == "HostInterfaces")
+        {
+            userGroups.emplace_back("HostInterfaces");
         }
         else
         {
@@ -1606,6 +1614,34 @@ inline void handleLDAPPatch(LdapPatchParams&& input,
             messages::internalError(asyncResp->res);
             return;
         }
+	if (dbusObjectPath == ldapConfigObjectName)
+        {
+            if (input.userName && input.password)
+            {
+                handleUserNamePatch(*input.userName, asyncResp, serverT,
+                                    dbusObjectPath);
+                handlePasswordPatch(*input.password, asyncResp, serverT,
+                                    dbusObjectPath);
+            }
+            else
+            {
+            	messages::propertyMissing(asyncResp->res, "Username and Password");
+        	return;
+            }
+        }
+        else
+        {
+            if (input.userName)
+            {
+                handleUserNamePatch(*input.userName, asyncResp, serverT,
+                                    dbusObjectPath);
+            }
+            if (input.password)
+            {
+                handlePasswordPatch(*input.password, asyncResp, serverT,
+                                    dbusObjectPath);
+            }
+        }
         parseLDAPConfigData(asyncResp->res.jsonValue, confData, serverT);
         if (confData.serviceEnabled)
         {
@@ -1618,16 +1654,6 @@ inline void handleLDAPPatch(LdapPatchParams&& input,
         {
             handleServiceAddressPatch(*input.serviceAddressList, asyncResp,
                                       serverT, dbusObjectPath);
-        }
-        if (input.userName)
-        {
-            handleUserNamePatch(*input.userName, asyncResp, serverT,
-                                dbusObjectPath);
-        }
-        if (input.password)
-        {
-            handlePasswordPatch(*input.password, asyncResp, serverT,
-                                dbusObjectPath);
         }
 
         if (input.baseDNList)
@@ -3138,7 +3164,10 @@ inline void handleAccountCollectionGet(
                         }
                         else
                         {
-                            BMCWEB_LOG_DEBUG("Skip the HostInterface User");
+                            BMCWEB_LOG_DEBUG("Add the HostInterface User in Accounts Collection");
+                            memberArray.push_back(
+                            {{"@odata.id",
+                              "/redfish/v1/AccountService/Accounts/" + user}});
                         }
                         asyncResp->res.jsonValue["Members@odata.count"] =
                             memberArray.size();
@@ -3156,8 +3185,15 @@ inline void handleAccountCollectionGet(
 inline void processAfterCreateUser(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& username, const std::string& password,
+    const boost::system::error_code& ec, sdbusplus::message_t& m,
     std::optional<bool> passwordChangeRequired)
 {    
+    if (ec)
+    {
+        userErrorMessageHandler(m.get_error(), asyncResp, username, "");
+        return;
+    }
+
     // Ensure password update is successful
     if (pamUpdatePassword(username, password) != PAM_SUCCESS)
     {
@@ -3242,6 +3278,36 @@ inline void processAfterGetAllGroups(
         }
         roleId = priv;
     }
+
+    if (oemAccountTypes)
+    {
+        if (oemAccountTypes->empty()) // Media is Disable Case
+        {
+            media = false;
+        }
+        else // Media is Enabled Case
+        {
+            if (std::find(oemAccountTypes->begin(), oemAccountTypes->end(),
+                        "media") != oemAccountTypes->end())
+            {
+                media = true;
+            }
+            else
+            {
+                messages::propertyValueNotInList(asyncResp->res, "provided",
+                                                "OEMAccountTypes");
+                return;
+            }
+        }
+    }
+    else if ((!oemAccountTypes) && (roleId == "priv-admin"))
+    {
+        media = true; // Default value for Admin
+    }
+    else
+    {
+        media = false; // Default value for Readonly, Operator.
+    }
            
     if (roleId != "" && !encryption.empty() && !algorithm.empty() && !accessMode.empty() && hasSNMP.value_or(false))  // User will create along with SNMP Access
     {
@@ -3285,41 +3351,11 @@ inline void processAfterGetAllGroups(
         {
             messages::internalError(asyncResp->res);
             return;
-        }        
-
-        if (oemAccountTypes)
-        {
-            if (oemAccountTypes->empty()) // Media is Disable Case
-            {
-                media = false;
-            }
-            else // Media is Enabled Case
-            {
-                if (std::find(oemAccountTypes->begin(), oemAccountTypes->end(),
-                            "media") != oemAccountTypes->end())
-                {
-                    media = true;
-                }
-                else
-                {
-                    messages::propertyValueNotInList(asyncResp->res, "provided",
-                                                    "OEMAccountTypes");
-                    return;
-                }
-            }
-        }
-        else if ((!oemAccountTypes) && (roleId == "priv-admin"))
-        {
-            media = true; // Default value for Admin
-        }
-        else
-        {
-            media = false; // Default value for Readonly, Operator.
         }
 
         crow::connections::systemBus->async_method_call(
             [asyncResp, username, password, passwordChangeRequired, hasSNMP, algorithm, encryption, accessMode, roleId](
-                const boost::system::error_code& ec2) {
+                const boost::system::error_code& ec2, sdbusplus::message_t& m) {
                 if (ec2)
                 {
                     BMCWEB_LOG_ERROR("Error creating user {}: {}", username, ec2.message());
@@ -3328,7 +3364,7 @@ inline void processAfterGetAllGroups(
                 }
 
                 // Process after user creation
-                processAfterCreateUser(asyncResp, username, password, passwordChangeRequired);
+                processAfterCreateUser(asyncResp, username, password, ec2, m, passwordChangeRequired);
 
                 // Set SNMPAccessEnableStatus after user creation
                 std::string userPath = "/xyz/openbmc_project/user/" + username;
@@ -3424,19 +3460,12 @@ inline void processAfterGetAllGroups(
         }
         crow::connections::systemBus->async_method_call(
             [asyncResp, username, password, passwordChangeRequired]
-            (const boost::system::error_code& ec) {
-                if (ec) {
-                    BMCWEB_LOG_ERROR("Error in creating user {}: {}", username, ec.message());
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                processAfterCreateUser(asyncResp, username, password, passwordChangeRequired);
+            (const boost::system::error_code& ec1, sdbusplus::message_t& m1) {                
+                processAfterCreateUser(asyncResp, username, password, ec1, m1, passwordChangeRequired);
             },
             "xyz.openbmc_project.User.Manager", "/xyz/openbmc_project/user",
             "xyz.openbmc_project.User.Manager", "CreateUser", username, userGroups,
-            roleId, enabled);
-        
-
+            roleId, enabled);    
     }
 }
 
@@ -3524,6 +3553,12 @@ inline void handleAccountCollectionPost(
                                          "Access", accessMode,
                                         "SNMPAccessEnableStatus", hasSNMP))
                 {
+                    return;
+                }
+
+                if (!hasSNMP.has_value())
+                {
+                    messages::propertyMissing(asyncResp->res, "SNMPAccessEnableStatus");
                     return;
                 }
 
@@ -4041,9 +4076,8 @@ inline void
                 messages::internalError(asyncResp->res);
                 return;
             }
-            
-            const auto userIt = std::ranges::find_if(
-                users,
+            const auto userIt = std::find_if(
+                users.begin(), users.end(),
                 [username](
                     const std::pair<sdbusplus::message::object_path,
                                     dbus::utility::DBusInterfacesMap>& user) {
@@ -4056,6 +4090,38 @@ inline void
                                            username);
                 return;
             }
+            for (const auto& interface : userIt->second)
+            {
+                if (interface.first == "xyz.openbmc_project.User.Attributes")
+                {
+                    for (const auto& property : interface.second)
+                    {
+                        if (property.first == "UserGroups")
+                        {
+                            const std::vector<std::string>* userGroups =
+                                std::get_if<std::vector<std::string>>(
+                                    &property.second);
+                            if (userGroups == nullptr)
+                            {
+                                BMCWEB_LOG_ERROR(
+                                    "userGroups wasn't a string vector");
+                                messages::internalError(asyncResp->res);
+                                return;
+                            }
+                            else if(std::find(userGroups->begin(),userGroups->end(),"redfish-hostiface")!=userGroups->end())
+                            {
+                                
+                                asyncResp->res.clearHeader(boost::beast::http::field::allow);
+                                asyncResp->res.addHeader("Allow", "GET, DELETE");
+                                messages::operationNotAllowed(asyncResp->res);
+                                return;
+                            } 
+                        } 
+                    }              
+
+                } 
+                
+            }  
 
             auto hasError = std::make_shared<bool>(false);
 
@@ -4077,7 +4143,15 @@ inline void
                     EventServiceManager::getInstance().propertyModifiedEventLog(propertyModified, propertyOriginal, "/redfish/v1/AccountService/Accounts/" + username);
                 }
             };
+            
+            bool userSelf = (username == req.session->username);
 
+            Privileges effectiveUserPrivileges =
+                redfish::getUserPrivileges(*req.session);
+            Privileges configureUsers = {"ConfigureUsers"};
+            bool userHasConfigureUsers =
+                effectiveUserPrivileges.isSupersetOf(configureUsers);
+            
             std::optional<std::string> newUserName;
             std::optional<std::string> password;
             std::optional<bool> enabled;
@@ -4091,27 +4165,20 @@ inline void
             std::string accessMode;
             std::optional<bool> hasSNMP;
             std::optional<nlohmann::json> oemObj;
-
-            bool userSelf = (username == req.session->username);
-
-            Privileges effectiveUserPrivileges =
-                redfish::getUserPrivileges(*req.session);
-            Privileges configureUsers = {"ConfigureUsers"};
-            bool userHasConfigureUsers =
-                effectiveUserPrivileges.isSupersetOf(configureUsers);
+            
             if (userHasConfigureUsers)
             {
                 // Users with ConfigureUsers can modify for all users
-                if (!json_util::readJsonPatch(                            //
-                        req, asyncResp->res,                              //
-                        "UserName", newUserName,                          //
-                        "Password", password,                             //
-                        "RoleId", roleId,                                 //
-                        "Enabled", enabled,                               //
-                        "Locked", locked,                                 //
-                        "AccountTypes", accountTypes,                     //
+                if (!json_util::readJsonPatch( //
+                        req, asyncResp->res, //
+                        "UserName", newUserName, //
+                        "Password", password, //
+                        "RoleId", roleId, //
+                        "Enabled", enabled, //
+                        "Locked", locked, //
+                        "AccountTypes", accountTypes, //
                         "PasswordChangeRequired", passwordChangeRequired, //
-                        "OEMAccountTypes", oemAccountTypes,
+                        "OEMAccountTypes", oemAccountTypes,//
                         "Oem", oemObj
                         ))
                 {
@@ -4405,3 +4472,4 @@ inline void requestAccountServiceRoutes(App& app)
 }
 
 } // namespace redfish
+
