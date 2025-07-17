@@ -375,9 +375,6 @@ inline void getNetworkData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         }
         else
         {
-            asyncResp->res
-                .jsonValue["Oem"]["OpenBmc"][nwkProtocol.first]["Port"] =
-                nullptr;
             asyncResp->res.jsonValue["Oem"]["OpenBmc"][nwkProtocol.first]
                                     ["ProtocolEnabled"] = false;
         }
@@ -453,10 +450,6 @@ inline void getNetworkData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 asyncResp, serviceName,
                 nlohmann::json::json_pointer(
                     "/Oem/OpenBmc/" + protocolName + "/ProtocolEnabled"));
-            service_util::getPortNumber(
-                asyncResp, serviceName,
-                nlohmann::json::json_pointer(
-                    "/Oem/OpenBmc/" + protocolName + "/Port"));
         }
         else
         {

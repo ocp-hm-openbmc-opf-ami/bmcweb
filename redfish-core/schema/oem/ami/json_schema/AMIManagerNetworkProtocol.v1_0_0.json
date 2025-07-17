@@ -30,16 +30,6 @@
                         "null"
                     ]
                 },
-                "Port": {
-                    "description": "The protocol port.",
-                    "longDescription": "This property shall contain the port assigned to the protocol.",
-                    "minimum": 0,
-                    "readonly": false,
-                    "type": [
-                        "integer",
-                        "null"
-                    ]
-                },
                 "ProtocolEnabled": {
                     "description": "An indication of whether the protocol is enabled.",
                     "longDescription": "This property shall indicate whether the protocol is enabled.",
@@ -89,7 +79,7 @@
                 "IPMB": {
                     "$ref": "#/definitions/AMIIPMB",
                     "description": "The settings for this manager's IPMB protocol support.",
-                    "longDescription": "This object shall contain the IPMB protocol settings for this manager.  The default Port property value should be `443` for compatibility with established client implementations.",
+                    "longDescription": "This object shall contain the IPMB protocol settings for this manager.",
                     "readonly": true
                 },
                 "IPMI": {
