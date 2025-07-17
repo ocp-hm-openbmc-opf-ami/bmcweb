@@ -808,6 +808,24 @@ inline void extractIPData(const std::string& ethifaceId,
     }
 }
 
+inline std::vector<IPv4AddressData>::const_iterator getNextStaticIpEntry(
+    const std::vector<IPv4AddressData>::const_iterator& head,
+    const std::vector<IPv4AddressData>::const_iterator& end)
+{
+    return std::find_if(head, end, [](const IPv4AddressData& value) {
+        return value.origin == "Static";
+    });
+}
+
+inline std::vector<IPv6AddressData>::const_iterator getNextStaticIpEntry(
+    const std::vector<IPv6AddressData>::const_iterator& head,
+    const std::vector<IPv6AddressData>::const_iterator& end)
+{
+    return std::find_if(head, end, [](const IPv6AddressData& value) {
+        return value.origin == "Static";
+    });
+}
+
 /**
  * @brief Modifies the default gateway assigned to the NIC
  *
@@ -925,12 +943,14 @@ inline void createIPv4(const std::string& ifaceId, uint8_t prefixLength,
 inline void deleteAndCreateIPAddress(
     IpVersion version, const std::string& ifaceId, const std::string& id,
     uint8_t prefixLength, const std::string& address,
-    const std::string& gateway,
+    const std::string& gateway,const std::vector<IPv4AddressData>& ipv4Data,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
+    std::vector<IPv4AddressData>::const_iterator nicIpEntry =
+        getNextStaticIpEntry(ipv4Data.cbegin(), ipv4Data.cend());
     crow::connections::systemBus->async_method_call(
         [asyncResp, version, ifaceId, address, prefixLength,
-         gateway](const boost::system::error_code& ec) {
+         gateway, nicIpEntry, ipv4Data](const boost::system::error_code& ec) {
             if (ec)
             {
                 messages::internalError(asyncResp->res);
@@ -939,10 +959,15 @@ inline void deleteAndCreateIPAddress(
             protocol += version == IpVersion::IpV4 ? "IPv4" : "IPv6";
             crow::connections::systemBus->async_method_call(
                 [asyncResp, address,
-                 ifaceId](const boost::system::error_code& ec2) {
+                 ifaceId, nicIpEntry, ipv4Data](const boost::system::error_code& ec2) {
                     if (ec2)
                     {
-                        enableDHCP4(ifaceId, asyncResp);
+                        // If IPv4 is in DHCP mode and invalid IPv4 static addresses are attempted to patch,
+                        // re-enable DHCP to prevent IP loss, ensuring connectivity
+                        if(nicIpEntry == ipv4Data.cend())
+                        {   
+                            enableDHCP4(ifaceId, asyncResp);
+                        }
                         messages::invalidip(asyncResp->res, "Address", address);
                         return;
                     }
@@ -1932,24 +1957,6 @@ inline void handleDHCPPatch(
                   NetworkType::dhcp6);
 }
 
-inline std::vector<IPv4AddressData>::const_iterator getNextStaticIpEntry(
-    const std::vector<IPv4AddressData>::const_iterator& head,
-    const std::vector<IPv4AddressData>::const_iterator& end)
-{
-    return std::find_if(head, end, [](const IPv4AddressData& value) {
-        return value.origin == "Static";
-    });
-}
-
-inline std::vector<IPv6AddressData>::const_iterator getNextStaticIpEntry(
-    const std::vector<IPv6AddressData>::const_iterator& head,
-    const std::vector<IPv6AddressData>::const_iterator& end)
-{
-    return std::find_if(head, end, [](const IPv6AddressData& value) {
-        return value.origin == "Static";
-    });
-}
-
 inline bool isSameSeries(std::string ipStr, std::string gwStr,
                          uint8_t prefixLength)
 {
@@ -2155,7 +2162,12 @@ inline void handleIPv4StaticPatch(
                     "Gateway", gateway //
                     ))
             {
-                enableDHCP4(ifaceId, asyncResp);
+                // If IPv4 is in DHCP mode and invalid IPv4 static addresses are attempted to patch,
+                // re-enable DHCP to prevent IP loss, ensuring connectivity
+                if(nicIpEntry == ipv4Data.cend())
+                {
+                    enableDHCP4(ifaceId, asyncResp);
+                }
                 messages::propertyValueFormatError(asyncResp->res, *obj,
                                                    pathString);
                 return;
@@ -2169,7 +2181,12 @@ inline void handleIPv4StaticPatch(
             {
                 if (*address == *defaultGatewayValue)
                 {
-                    enableDHCP4(ifaceId, asyncResp);
+                    // If IPv4 is in DHCP mode and invalid IPv4 static addresses are attempted to patch,
+                    // re-enable DHCP to prevent IP loss, ensuring connectivity
+                    if(nicIpEntry == ipv4Data.cend())
+                    {
+                        enableDHCP4(ifaceId, asyncResp);
+                    }
                     messages::propertyValueConflict(asyncResp->res, "Address",
                                                     "DefaultGateway");
                     return;
@@ -2177,7 +2194,12 @@ inline void handleIPv4StaticPatch(
 
                 if (!ip_util::ipv4VerifyIpAndGetBitcount(*address))
                 {
-                    enableDHCP4(ifaceId, asyncResp);
+                    // If IPv4 is in DHCP mode and invalid IPv4 static addresses are attempted to patch,
+                    // re-enable DHCP to prevent IP loss, ensuring connectivity
+                    if(nicIpEntry == ipv4Data.cend())
+                    {
+                        enableDHCP4(ifaceId, asyncResp);
+                    }
                     messages::propertyValueFormatError(asyncResp->res, *address,
                                                        pathString + "/Address");
                     return;
@@ -2189,7 +2211,12 @@ inline void handleIPv4StaticPatch(
             }
             else
             {
-                enableDHCP4(ifaceId, asyncResp);
+                // If IPv4 is in DHCP mode and invalid IPv4 static addresses are attempted to patch,
+                // re-enable DHCP to prevent IP loss, ensuring connectivity
+                if(nicIpEntry == ipv4Data.cend())
+                {
+                    enableDHCP4(ifaceId, asyncResp);
+                }
                 messages::propertyMissing(asyncResp->res,
                                           pathString + "/Address");
                 return;
@@ -2201,7 +2228,12 @@ inline void handleIPv4StaticPatch(
                 if (!ip_util::ipv4VerifyIpAndGetBitcount(*subnetMask,
                                                          &prefixLength))
                 {
-                    enableDHCP4(ifaceId, asyncResp);
+                    // If IPv4 is in DHCP mode and invalid IPv4 static addresses are attempted to patch,
+                    // re-enable DHCP to prevent IP loss, ensuring connectivity
+                    if(nicIpEntry == ipv4Data.cend())
+                    {
+                        enableDHCP4(ifaceId, asyncResp);
+                    }
                     messages::propertyValueFormatError(
                         asyncResp->res, *subnetMask,
                         pathString + "/SubnetMask");
@@ -2213,7 +2245,12 @@ inline void handleIPv4StaticPatch(
                 if (!ip_util::ipv4VerifyIpAndGetBitcount(nicIpEntry->netmask,
                                                          &prefixLength))
                 {
-                    enableDHCP4(ifaceId, asyncResp);
+                    // If IPv4 is in DHCP mode and invalid IPv4 static addresses are attempted to patch,
+                    // re-enable DHCP to prevent IP loss, ensuring connectivity
+                    if(nicIpEntry == ipv4Data.cend())
+                    {
+                        enableDHCP4(ifaceId, asyncResp);
+                    }
                     messages::propertyValueFormatError(
                         asyncResp->res, nicIpEntry->netmask,
                         pathString + "/SubnetMask");
@@ -2222,7 +2259,12 @@ inline void handleIPv4StaticPatch(
             }
             else
             {
-                enableDHCP4(ifaceId, asyncResp);
+                // If IPv4 is in DHCP mode and invalid IPv4 static addresses are attempted to patch,
+                // re-enable DHCP to prevent IP loss, ensuring connectivity
+                if(nicIpEntry == ipv4Data.cend())
+                {
+                    enableDHCP4(ifaceId, asyncResp);
+                }
                 messages::propertyMissing(asyncResp->res,
                                           pathString + "/SubnetMask");
                 return;
@@ -2232,14 +2274,24 @@ inline void handleIPv4StaticPatch(
             {
                 if (!ip_util::ipv4VerifyIpAndGetBitcount(*gateway))
                 {
-                    enableDHCP4(ifaceId, asyncResp);
+                    // If IPv4 is in DHCP mode and invalid IPv4 static addresses are attempted to patch,
+                    // re-enable DHCP to prevent IP loss, ensuring connectivity
+                    if(nicIpEntry == ipv4Data.cend())
+                    {
+                        enableDHCP4(ifaceId, asyncResp);
+                    }
                     messages::propertyValueFormatError(asyncResp->res, *gateway,
                                                        pathString + "/Gateway");
                     return;
                 }
                 if (*address == *gateway)
                 {
-                    enableDHCP4(ifaceId, asyncResp);
+                    // If IPv4 is in DHCP mode and invalid IPv4 static addresses are attempted to patch,
+                    // re-enable DHCP to prevent IP loss, ensuring connectivity
+                    if(nicIpEntry == ipv4Data.cend())
+                    {
+                        enableDHCP4(ifaceId, asyncResp);
+                    }
                     messages::propertyValueConflict(asyncResp->res, "Gateway",
                                                     "Address");
                     return;
@@ -2252,7 +2304,12 @@ inline void handleIPv4StaticPatch(
             }
             else
             {
-                enableDHCP4(ifaceId, asyncResp);
+                // If IPv4 is in DHCP mode and invalid IPv4 static addresses are attempted to patch,
+                // re-enable DHCP to prevent IP loss, ensuring connectivity
+                if(nicIpEntry == ipv4Data.cend())
+                {
+                    enableDHCP4(ifaceId, asyncResp);
+                }
                 messages::propertyMissing(asyncResp->res,
                                           pathString + "/Gateway");
                 return;
@@ -2286,7 +2343,7 @@ inline void handleIPv4StaticPatch(
             {
                 deleteAndCreateIPAddress(IpVersion::IpV4, ifaceId,
                                          nicIpEntry->id, prefixLength, *address,
-                                         *gateway, asyncResp);
+                                         *gateway, ipv4Data, asyncResp);
                 nicIpEntry =
                     getNextStaticIpEntry(++nicIpEntry, ipv4Data.cend());
                 preserveGateway = true;
