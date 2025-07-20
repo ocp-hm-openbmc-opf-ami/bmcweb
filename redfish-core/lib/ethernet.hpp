@@ -2531,10 +2531,6 @@ inline void parseInterfaceData(
             ethData.linkUp ? ethernet_interface::LinkStatus::LinkUp
                            : ethernet_interface::LinkStatus::LinkDown;
         jsonResponse["Status"]["State"] = resource::State::Enabled;
-    
-        jsonResponse["LinkStatus"] = ethernet_interface::LinkStatus::NoLink;
-        jsonResponse["Status"]["State"] = resource::State::Disabled;
-
         jsonResponse["SpeedMbps"] = ethData.speed;
         jsonResponse["MTUSize"] = ethData.mtuSize;
         if (ethData.macAddress)
