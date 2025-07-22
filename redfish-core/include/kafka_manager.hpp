@@ -514,6 +514,23 @@ class KafkaManager : public std::enable_shared_from_this<KafkaManager>
         {
             idList.emplace_back(it.first);
         }
+         // Add file-based subscriptions from /var/pmt/streamingdestinations
+         const std::string kafkaStore = "/var/pmt/streamingdestinations";
+         if (std::filesystem::exists(kafkaStore))
+         {
+             for (const auto& entry : std::filesystem::directory_iterator(kafkaStore))
+             {
+                 if (entry.is_regular_file())
+                 {
+                     std::string id = entry.path().filename().string();
+                     // Avoid duplicates (already in subscriptionsMap)
+                     if (std::find(idList.begin(), idList.end(), id) == idList.end())
+                     {
+                         idList.push_back(id);
+                     }
+                 }
+             }
+         }
         return idList;
     }
 
@@ -528,16 +545,56 @@ class KafkaManager : public std::enable_shared_from_this<KafkaManager>
     inline void getSubscription(const std::string& subId,
                                 std::shared_ptr<bmcweb::AsyncResp> aResp)
     {
-        BMCWEB_LOG_DEBUG("Kafka subscription GET request.");
-
+	BMCWEB_LOG_DEBUG("Kafka subscription GET request.");
         auto obj = subscriptionsMap.find(subId);
-        if (obj == subscriptionsMap.end())
-        {
-            aResp->res.result(boost::beast::http::status::not_found);
-            return;
-        }
+        KafkaConfig subData;
 
-        KafkaConfig subData = obj->second;
+        if (obj != subscriptionsMap.end())
+        {
+            subData = obj->second;
+        }
+        else
+        {
+            // Look for file-based entry
+            std::string kafkaPath = "/var/pmt/streamingdestinations/" + subId;
+            if (!std::filesystem::exists(kafkaPath))
+            {
+                BMCWEB_LOG_WARNING("Kafka subscription not found: {}", subId);
+                aResp->res.result(boost::beast::http::status::not_found);
+                return;
+            }
+
+            try
+            {
+                std::ifstream file(kafkaPath);
+                if (!file)
+                {
+                    BMCWEB_LOG_ERROR("Failed to open file for Kafka subscription: {}", subId);
+                    messages::internalError(aResp->res);
+                    return;
+                }
+
+                nlohmann::json kafkaJson;
+                file >> kafkaJson;
+
+                subData.context = "Kafka_Subscription_" + subId;
+                subData.topic = kafkaJson["kafkaTopic"];
+                subData.schemaId = kafkaJson["schemaId"];
+                subData.sInterval = kafkaJson["streamingInterval"];
+                subData.certUri = kafkaJson.value("certificate", "");
+                subData.mainBroker = kafkaJson["kafkaBrokers"].at(0);
+                for (size_t i = 1; i < kafkaJson["kafkaBrokers"].size(); ++i)
+                {
+                    subData.additionalBrokers.push_back(kafkaJson["kafkaBrokers"][i]);
+                }
+            }
+            catch (const std::exception& e)
+            {
+                BMCWEB_LOG_ERROR("Failed to parse Kafka subscription {}: {}", subId, e.what());
+                messages::internalError(aResp->res);
+                return;
+            }
+        }
 
         std::string refLink = "/redfish/v1/EventService/Subscriptions/" + subId;
         aResp->res.jsonValue["@odata.type"] = json_util::odataType("EventDestination");
@@ -604,19 +661,14 @@ class KafkaManager : public std::enable_shared_from_this<KafkaManager>
         {
             return;
         }
-
-        if (!json_util::readJson(intelObj, aResp->res, "Kafka", kafkaObj))
-        {
-            return;
-        }
-
+	kafkaObj = intelObj;
         KafkaConfig subData;
         std::optional<std::vector<std::string>> addDest;
         if (!json_util::readJson(kafkaObj, aResp->res, "AdditionalDestinations",
                                  addDest, "KafkaTopic", subData.topic,
                                  "AvroSchemaId", subData.schemaId,
                                  "StreamingRateMs", subData.sInterval,
-                                 "CertificateUri", subData.certUri))
+				 "CertificateUri", subData.certUri))
         {
             return;
         }
