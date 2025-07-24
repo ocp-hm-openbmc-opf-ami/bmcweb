@@ -680,7 +680,7 @@ inline void requestRoutesTask(App& app)
 
                 const std::shared_ptr<task::TaskData>& ptr = *find;
 
-		asyncResp->res.jsonValue["@odata.type"] = "#Task.v1_4_3.Task";
+		asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("Task");
                 asyncResp->res.jsonValue["Id"] = strParam;
                 asyncResp->res.jsonValue["Name"] = "Task " + strParam;
                 asyncResp->res.jsonValue["TaskState"] = ptr->state;
