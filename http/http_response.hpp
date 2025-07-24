@@ -4,6 +4,7 @@
 #include "http_body.hpp"
 #include "logging.hpp"
 #include "utils/hex_utils.hpp"
+#include "str_utility.hpp"
 
 #include <fcntl.h>
 
@@ -261,8 +262,60 @@ struct Response
         response.body().str() = std::move(bodyPart);
     }
 
+    void addRequiredResponseHeaders()
+    {
+        //include Link from odata-type
+        if (jsonValue.contains("@odata.type"))
+        {
+            std::string odataType = jsonValue["@odata.type"];
+
+            // Remove '#' prefix
+            if (odataType[0] == '#')
+            {
+                odataType.erase(0,1);
+            }
+
+            std::vector<std::string> split;
+            bmcweb::split(split, odataType, '.');
+
+            std::string link = "</redfish/v1/JsonSchemas/" + split[0] + "/" + split[0];
+            
+            //append the schema version if available
+            if(split.size() > 2)
+            {
+                link += "." + split[1];
+            }
+            
+            link += ".json>; rel=describedby";
+            
+            //Update the 'Link' header if it exists; otherwise, add a new 'Link' header
+            if (fields().find(boost::beast::http::field::link) != fields().end())
+            {
+                fields().set(boost::beast::http::field::link, link);
+            }
+            else
+            {
+                addHeader(boost::beast::http::field::link, link);
+            }
+        }
+
+        //include Access-Control-Allow-Origin
+        if (fields().find(boost::beast::http::field::access_control_allow_origin) == fields().end())
+        {
+            addHeader(boost::beast::http::field::access_control_allow_origin, "*");
+        }
+
+        //include OData-Version
+        if (fields().find("OData-Version") == fields().end())
+        {
+            addHeader("OData-Version", "4.0");
+        }
+    }
+
     void end()
     {
+        //adding required response headers
+        addRequiredResponseHeaders();
         if (completed)
         {
             BMCWEB_LOG_ERROR("{} Response was ended twice", logPtr(this));
