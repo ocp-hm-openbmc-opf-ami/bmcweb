@@ -55,6 +55,7 @@ constexpr auto getSensorPaths(){
         "/xyz/openbmc_project/sensors/power",
         "/xyz/openbmc_project/sensors/current",
         "/xyz/openbmc_project/sensors/airflow",
+	"/xyz/openbmc_project/sensors/count",
         "/xyz/openbmc_project/sensors/humidity",
         "/xyz/openbmc_project/sensors/voltage",
         "/xyz/openbmc_project/sensors/fan_tach",
