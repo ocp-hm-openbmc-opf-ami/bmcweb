@@ -210,7 +210,8 @@ inline void afterSnmpClientCreate(
     boost::urls::url uri = boost::urls::format(
         "/redfish/v1/EventService/Subscriptions/{}", subscriptionId);
     asyncResp->res.addHeader("Location", uri.buffer());
-    messages::created(asyncResp->res);
+    getSnmpTrapClient(asyncResp,subscriptionId);
+    asyncResp->res.result(boost::beast::http::status::created);
 }
 
 inline void

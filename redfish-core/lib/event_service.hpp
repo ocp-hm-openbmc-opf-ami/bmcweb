@@ -1618,6 +1618,13 @@ inline void requestRoutesEventDestinationCollection(App& app)
             {
                 return;
             }
+
+            if(protocol.empty())
+            {
+                messages::propertyValueEmpty(asyncResp->res, protocol, "Protocol");
+                return;
+            }
+
             if (vId)
             {
                 messages::propertyNotWritable(asyncResp->res, "Id");
@@ -1856,6 +1863,7 @@ inline void requestRoutesEventDestinationCollection(App& app)
                 return;
             }
             subValue->userSub->protocol = protocol;
+
 
             if (verifyCertificate)
             {
@@ -2127,6 +2135,12 @@ inline void requestRoutesEventDestinationCollection(App& app)
                                     subValue, *oemsnmpcommunitystring);
                             }
                         });
+                    }
+                    else
+                    {
+                        messages::propertyMissing(asyncResp->res, 
+                                            "Oem/OpenBmc/CommunityString");
+                        return;
                     }
                 }
                 else
