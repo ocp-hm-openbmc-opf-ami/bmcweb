@@ -2623,6 +2623,106 @@ constexpr std::array registry =
             },
             "None.",
         }},
+    MessageEntry{
+        "KVMConnected",
+        {
+            "Indicates that KVM redirection has started.",
+            "KVM connection established successfully.",
+            "OK",
+            0,
+            {},
+            "None.",
+        }},
+    MessageEntry{
+        "KVMDisconnected",
+        {
+            "Indicates that KVM redirection has stopped.",
+            "KVM connection disconnected.",
+            "OK",
+            0,
+            {},
+            "None.",
+        }},
+    MessageEntry{
+        "KVMSessionTimeout",
+        {
+            "Indicates that KVM redirection has stopped due to session timeout.",
+            "KVM disconnected due to Session timeout.",
+            "OK",
+            0,
+            {},
+            "None.",
+        }},
+    MessageEntry{
+        "KVMSessionTerminated",
+        {
+            "Indicates that KVM redirection has stopped due to the session being terminated by the user.",
+            "KVM disconnected due to session termination by the user.",
+            "OK",
+            0,
+            {},
+            "None.",
+        }},
+    MessageEntry{
+        "KVMRedirectionDisabled",
+        {
+            "Indicates that KVM redirection has stopped due to the service stopping.",
+            "KVM redirection is disabled.",
+            "OK",
+            0,
+            {},
+            "None.",
+        }},
+    MessageEntry{
+        "KVMAVRStart",
+        {
+            "Indicates that KVM auto video recording has started.",
+            "KVM Auto video recording has started.",
+            "OK",
+            0,
+            {},
+            "None.",
+        }},
+    MessageEntry{
+        "KVMAVRStop",
+        {
+            "Indicates that KVM auto video recording has stopped.",
+            "KVM Auto video recording has stopped.",
+            "OK",
+            0,
+            {},
+            "None.",
+        }},
+    MessageEntry{
+        "MediaMount",
+        {
+            "Indicates that media redirection has started.",
+            "Media redirection has started.",
+            "OK",
+            0,
+            {},
+            "None.",
+        }},
+    MessageEntry{
+        "MediaUnmount",
+        {
+            "Indicates that media redirection has stopped.",
+            "Media redirection has stopped.",
+            "OK",
+            0,
+            {},
+            "None.",
+        }},
+    MessageEntry{
+        "MediaRedirectionDisabled",
+        {
+            "Indicates that media redirection has stopped due to the service stopping.",
+            "Media redirection is disabled.",
+            "OK",
+            0,
+            {},
+            "None.",
+        }},
 };
 
 enum class Index
@@ -2844,5 +2944,15 @@ enum class Index
     resourceAdded = 214,
     resourceRemoved = 215,
     resourceModified = 216,
+    KVMConnected = 217,
+    KVMDisconnected = 218,
+    KVMSessionTimeout = 219,
+    KVMSessionTerminated = 220,
+    KVMRedirectionDisabled = 221,
+    KVMAVRstart = 222,
+    KVMAVRstop = 223,
+    MediaMount = 224,
+    MediaUnmount = 225,
+    MediaRedirectionDisabled = 226,
 };
 } // namespace redfish::registries::openbmc

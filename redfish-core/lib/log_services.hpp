@@ -435,8 +435,7 @@ inline void
                 odataIdStr.pop_back();
             }
 
-            asyncResp->res.jsonValue["@odata.type"] =
-                "#LogEntryCollection.LogEntryCollection";
+            asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("LogEntryCollection");
             asyncResp->res.jsonValue["@odata.id"] = std::move(odataIdStr);
             asyncResp->res.jsonValue["Name"] = dumpType + " Dump Entries";
             asyncResp->res.jsonValue["Description"] =
@@ -840,6 +839,11 @@ inline void
         [asyncResp, dumpType,
          entryID](const boost::system::error_code& ec,
                   const std::vector<std::string>& additionalData) {
+            if (ec.value() == EBADR)
+            {
+                messages::resourceNotFound(asyncResp->res, "LogEntry", entryID);
+                return;
+            }
             if (ec)
             {
                 BMCWEB_LOG_DEBUG(
@@ -1277,8 +1281,7 @@ inline void requestRoutesSystemLogServiceCollection(App& app)
 
             // Collections don't include the static data added by SubRoute
             // because it has a duplicate entry for members
-            asyncResp->res.jsonValue["@odata.type"] =
-                "#LogServiceCollection.LogServiceCollection";
+            asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("LogServiceCollection");
             asyncResp->res.jsonValue["@odata.id"] =
                 std::format("/redfish/v1/Systems/{}/LogServices",
                             BMCWEB_REDFISH_SYSTEM_URI_NAME);
@@ -1493,6 +1496,107 @@ enum class LogParseError
     messageIdNotInRegistry,
 };
 
+std::string timeFormat(std::string timestamp)
+{
+    std::size_t dot = timestamp.find_first_of('.');
+    std::size_t plus = timestamp.find_first_of('+');
+    if (dot != std::string::npos && plus != std::string::npos)
+    {
+        timestamp.erase(dot, plus - dot);
+    }
+    return timestamp;
+}
+
+
+static LogParseError
+    fillMessageEntry(const std::string& logEntry, std::string& messageID, std::string& msg)
+{
+    // The redfish log format is "<MessageId>,<MessageArgs>"
+    size_t pos = logEntry.find_first_of(",:");
+    // Checking the MessageID without Arguments.
+    if (pos == std::string::npos)
+    {
+        //Initially considering whole logEntry as MessageID.
+        messageID = logEntry;
+        // Get the Message from the MessageRegistry
+        const registries::Message* message = registries::getMessage(messageID);
+        if (message == nullptr)
+        {
+           return LogParseError::messageIdNotInRegistry;
+        }
+        msg = redfish::registries::fillMessageArgs(std::span<const std::string_view>{}, message->message);
+        if (msg.empty())
+        {
+            return LogParseError::parseFailed;
+        }
+
+    }
+    // Checking the MessageID with Arguments.
+    char foundChar = logEntry[pos];
+    std::string_view entry(logEntry);
+    // Use split to separate the entry into its fields
+    std::vector<std::string> logEntryFields;
+    // Checking MessageID seperated by Comma(,), usually from dbus.
+    if (foundChar == ',')
+    {
+       bmcweb::split(logEntryFields, entry, ',');
+       auto logEntryIter = logEntryFields.begin();
+       if (logEntryIter == logEntryFields.end())
+       {
+            return LogParseError::parseFailed;
+       }
+       messageID = *logEntryIter;
+       // Get the Message from the MessageRegistry
+       const registries::Message* message = registries::getMessage(messageID);
+       logEntryIter++;
+       if (message == nullptr)
+       {
+            return LogParseError::messageIdNotInRegistry;
+       }
+       std::vector<std::string_view> messageArgs(logEntryIter, logEntryFields.end());
+       messageArgs.resize(message->numberOfArgs);
+       msg = redfish::registries::fillMessageArgs(messageArgs, message->message);
+       if (msg.empty())
+       {
+            return LogParseError::parseFailed;
+       }
+    }
+    // Checking MessageID with Colon(:), usually when entries are created from session create method.
+    else if (foundChar == ':')
+    {
+        bmcweb::split(logEntryFields, entry, ':');
+	    // We need at least a MessageId to be valid
+        auto logEntryIter = logEntryFields.begin();
+        if (logEntryIter == logEntryFields.end())
+        {
+            return LogParseError::parseFailed;
+        }
+	    std::string& messageKey = *logEntryIter;
+        // MessageID to be formated with Major & Minor Version.
+	// TODO This RegistryName should be fetched dynamically instead of hardcoded.
+	    const std::string& registryName = "OpenBMC";
+	    const registries::Header* header = nullptr;
+	    header = &registries::openbmc::header;
+        messageID =  std::format("{}.{}.{}.{}", header->registryPrefix, header->versionMajor,
+			header->versionMinor, messageKey);
+	    const registries::Message* message = registries::getMessageFromRegistry(messageKey,
+			redfish::registries::getRegistryFromPrefix(registryName));
+        logEntryIter++;
+	    if (message == nullptr)
+        {
+            return LogParseError::messageIdNotInRegistry;
+        }
+        std::vector<std::string_view> messageArgs(logEntryIter, logEntryFields.end());
+        messageArgs.resize(message->numberOfArgs);
+        msg = redfish::registries::fillMessageArgs(messageArgs, message->message);
+        if (msg.empty())
+        {
+            return LogParseError::parseFailed;
+        }
+    }
+    return LogParseError::success;
+}
+
 static LogParseError fillEventLogEntryJson(
     const std::string& logEntryID, const std::string& logEntry,
     nlohmann::json::object_t& logEntryJson)
@@ -1591,20 +1695,17 @@ inline void fillEventLogLogEntryFromPropertyMap(
         BMCWEB_REDFISH_SYSTEM_URI_NAME, std::to_string(entry.Id));
     objectToFillOut["Name"] = "System Event Log Entry";
     objectToFillOut["Id"] = std::to_string(entry.Id);
-    if(!entry.Message.empty())
-    {        
-        std::size_t pos = entry.Message.find(':');
-        if (pos != std::string::npos)
-        {
-            objectToFillOut["Message"] = "OpenBMC.0.5.0." + entry.Message.substr(0, pos);
-        }
-        else
-        {
-            // Handle case where ':' is missing
-            objectToFillOut["Message"] = "OpenBMC.0.5.0." + entry.Message;
-        }
+    std::string msgID, msgForm;
+    LogParseError status = fillMessageEntry(entry.Message, msgID, msgForm);
+    if (status != LogParseError::success)
+    {
+        objectToFillOut["Message"] = entry.Message;
     }
-
+    else
+    {
+        objectToFillOut["MessageID"] = std::move(msgID);
+        objectToFillOut["Message"] = std::move(msgForm);
+    }
     objectToFillOut["Resolved"] = entry.Resolved;
     std::optional<bool> notifyAction =
         getProviderNotifyAction(entry.ServiceProviderNotify);
@@ -1620,9 +1721,9 @@ inline void fillEventLogLogEntryFromPropertyMap(
     objectToFillOut["Severity"] =
         translateSeverityDbusToRedfish(entry.Severity);
     objectToFillOut["Created"] =
-        redfish::time_utils::getDateTimeUintMs(entry.Timestamp);
+        std::move(timeFormat(redfish::time_utils::getDateTimeUintMs(entry.Timestamp)));
     objectToFillOut["Modified"] =
-        redfish::time_utils::getDateTimeUintMs(entry.UpdateTimestamp);
+        std::move(timeFormat(redfish::time_utils::getDateTimeUintMs(entry.UpdateTimestamp)));
     if (entry.Path != nullptr)
     {
         objectToFillOut["AdditionalDataURI"] = boost::urls::format(
@@ -1692,13 +1793,23 @@ inline void fillSELEntryFromPropertyMap(
     }
     DbusEventLogEntry entry = optEntry.value();
 
-    objectToFillOut["@odata.type"] = "#LogEntry.v1_9_0.LogEntry";
+    objectToFillOut["@odata.type"] = json_util::odataType("LogEntry");
     objectToFillOut["@odata.id"] = boost::urls::format(
         "/redfish/v1/Managers/{}/LogServices/SEL/Entries/{}",
         BMCWEB_REDFISH_MANAGER_URI_NAME, std::to_string(entry.Id));
     objectToFillOut["Name"] = "Managers SEL Log Entry";
     objectToFillOut["Id"] = std::to_string(entry.Id);
-    objectToFillOut["Message"] = entry.Message;
+    std::string msgID, msgForm;
+    LogParseError status = fillMessageEntry(entry.Message, msgID, msgForm);
+    if (status != LogParseError::success)
+    {
+        objectToFillOut["Message"] = entry.Message;
+    }
+    else
+    {
+        objectToFillOut["MessageID"] = std::move(msgID);
+        objectToFillOut["Message"] = std::move(msgForm);
+    }
     objectToFillOut["Resolved"] = entry.Resolved;
     std::optional<bool> notifyAction =
         getProviderNotifyAction(entry.ServiceProviderNotify);
@@ -1714,9 +1825,9 @@ inline void fillSELEntryFromPropertyMap(
     objectToFillOut["Severity"] =
         translateSeverityDbusToRedfish(entry.Severity);
     objectToFillOut["Created"] =
-        redfish::time_utils::getDateTimeUintMs(entry.Timestamp);
+        std::move(timeFormat(redfish::time_utils::getDateTimeUintMs(entry.Timestamp)));
     objectToFillOut["Modified"] =
-        redfish::time_utils::getDateTimeUintMs(entry.UpdateTimestamp);
+        std::move(timeFormat(redfish::time_utils::getDateTimeUintMs(entry.UpdateTimestamp)));
     if (entry.Path != nullptr)
     {
         objectToFillOut["AdditionalDataURI"] = boost::urls::format(
@@ -1776,8 +1887,7 @@ inline void
 {
     // Collections don't include the static data added by SubRoute
     // because it has a duplicate entry for members
-    asyncResp->res.jsonValue["@odata.type"] =
-        "#LogEntryCollection.LogEntryCollection";
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("LogEntryCollection");
     asyncResp->res.jsonValue["@odata.id"] =
         std::format("/redfish/v1/Managers/{}/LogServices/SEL/Entries",
                     BMCWEB_REDFISH_MANAGER_URI_NAME);
@@ -1835,8 +1945,7 @@ inline void handleSystemsLogServiceEventLogLogEntryCollection(
 
     // Collections don't include the static data added by SubRoute
     // because it has a duplicate entry for members
-    asyncResp->res.jsonValue["@odata.type"] =
-        "#LogEntryCollection.LogEntryCollection";
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("LogEntryCollection");
     asyncResp->res.jsonValue["@odata.id"] =
         std::format("/redfish/v1/Systems/{}/LogServices/EventLog/Entries",
                     BMCWEB_REDFISH_SYSTEM_URI_NAME);
@@ -2000,8 +2109,7 @@ inline void dBusEventLogEntryCollection(
 {
     // Collections don't include the static data added by SubRoute
     // because it has a duplicate entry for members
-    asyncResp->res.jsonValue["@odata.type"] =
-        "#LogEntryCollection.LogEntryCollection";
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("LogEntryCollection");
     asyncResp->res.jsonValue["@odata.id"] =
         std::format("/redfish/v1/Systems/{}/LogServices/EventLog/Entries",
                     BMCWEB_REDFISH_SYSTEM_URI_NAME);
@@ -2438,8 +2546,7 @@ inline void handleBMCLogServicesCollectionGet(
 
     // Collections don't include the static data added by SubRoute
     // because it has a duplicate entry for members
-    asyncResp->res.jsonValue["@odata.type"] =
-        "#LogServiceCollection.LogServiceCollection";
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("LogServiceCollection");
     asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
         "/redfish/v1/Managers/{}/LogServices", BMCWEB_REDFISH_MANAGER_URI_NAME);
     asyncResp->res.jsonValue["Name"] = "Open BMC Log Services Collection";
@@ -3742,8 +3849,7 @@ inline void requestRoutesCrashdumpEntryCollection(App& app)
                             return;
                         }
                     }
-                    asyncResp->res.jsonValue["@odata.type"] =
-                        "#LogEntryCollection.LogEntryCollection";
+                    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("LogEntryCollection");
                     asyncResp->res.jsonValue["@odata.id"] = std::format(
                         "/redfish/v1/Systems/{}/LogServices/Crashdump/Entries",
                         BMCWEB_REDFISH_SYSTEM_URI_NAME);
@@ -4431,7 +4537,7 @@ void handleSyslogCertificateGet(
             asyncResp->res.jsonValue["@odata.id"] =
             std::format("/redfish/v1/Systems/{}/LogServices/Syslog",
                         BMCWEB_REDFISH_SYSTEM_URI_NAME);
-            asyncResp->res.jsonValue["@odata.type"] = "#LogService.v1_2_0.LogService";
+            asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("LogService");
             asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] =
             "#AMISyslog.v1_0_0.AMISyslog";
             asyncResp->res.jsonValue["Actions"]["Oem"]["Ami"]
@@ -4744,8 +4850,7 @@ inline void requestRoutesAcpiEntryCollection(App& app)
                     return;
                 }
 
-                asyncResp->res.jsonValue["@odata.type"] =
-                    "#LogEntryCollection.LogEntryCollection";
+                asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("LogEntryCollection");
                 asyncResp->res.jsonValue["@odata.id"] =
                     "/redfish/v1/Systems/system/LogServices/acpi/Entries";
                 asyncResp->res.jsonValue["Name"] = "Open BMC Acpi Log Entries";

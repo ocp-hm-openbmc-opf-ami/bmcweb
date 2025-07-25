@@ -13,7 +13,8 @@ namespace redfish
 		   const std::string& dumpType);
    log_entry::OriginatorTypes mapDbusOriginatorTypeToRedfish(const std::string& originatorType);
    bool checkSizeLimit(int fd, crow::Response& res);
-
+   std::string timeFormat(std::string timestamp);
+   static LogParseError fillMessageEntry(const std::string& logEntry, std::string& msgID, std::string& msg);
 
 // A generic template type compatible with std::less that can be used on generic
 // containers (set, map, etc)

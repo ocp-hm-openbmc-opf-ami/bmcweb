@@ -1705,6 +1705,86 @@
             "ParamTypes": ["string", "string", "string", "string"],
             "Resolution": "None",
             "Severity": "Warning"
+        },
+	"KVMConnected": {
+            "Description": "Indicates that KVM redirection has started.",
+            "Message": "KVM connection established successfully.",
+            "MessageSeverity": "OK",
+            "NumberOfArgs": 0,
+            "Resolution": "None.",
+            "Severity": "OK"
+        },
+        "KVMDisconnected": {
+            "Description": "Indicates that KVM redirection has stopped.",
+            "Message": "KVM connection disconnected.",
+            "MessageSeverity": "OK",
+            "NumberOfArgs": 0,
+            "Resolution": "None.",
+            "Severity": "OK"
+        },
+        "KVMSessionTimeout": {
+            "Description": "Indicates that KVM redirection has stopped due to session timeout.",
+            "Message": "KVM disconnected due to Session timeout.",
+            "MessageSeverity": "OK",
+            "NumberOfArgs": 0,
+            "Resolution": "None.",
+            "Severity": "OK"
+        },
+        "KVMSessionTerminated": {
+            "Description": "Indicates that KVM redirection has stopped due to the session being terminated by the user.",
+            "Message": "KVM disconnected due to session termination by the user.",
+            "MessageSeverity": "OK",
+            "NumberOfArgs": 0,
+            "Resolution": "None.",
+            "Severity": "OK"
+        },
+        "KVMRedirectionDisabled": {
+            "Description": "Indicates that KVM redirection has stopped due to the service stopping.",
+            "Message": "KVM redirection is disabled.",
+            "MessageSeverity": "OK",
+            "NumberOfArgs": 0,
+            "Resolution": "None.",
+            "Severity": "OK"
+        },
+        "KVMAVRStart": {
+            "Description": "Indicates that KVM auto video recording has started.",
+            "Message": "KVM Auto video recording has started.",
+            "MessageSeverity": "OK",
+            "NumberOfArgs": 0,
+            "Resolution": "None.",
+            "Severity": "OK"
+        },
+        "KVMAVRStop": {
+            "Description": "Indicates that KVM auto video recording has stopped.",
+            "Message": "KVM Auto video recording has stopped.",
+            "MessageSeverity": "OK",
+            "NumberOfArgs": 0,
+            "Resolution": "None.",
+            "Severity": "OK"
+        },
+	"MediaMount": {
+            "Description": "Indicates that media redirection has started.",
+            "Message": "Media redirection has started.",
+            "MessageSeverity": "OK",
+            "NumberOfArgs": 0,
+            "Resolution": "None.",
+            "Severity": "OK"
+        },
+        "MediaUnmount": {
+            "Description": "Indicates that media redirection has stopped.",
+            "Message": "Media redirection has stopped.",
+            "MessageSeverity": "OK",
+            "NumberOfArgs": 0,
+            "Resolution": "None.",
+            "Severity": "OK"
+        },
+        "MediaRedirectionDisabled": {
+            "Description": "Indicates that media redirection has stopped due to the service stopping.",
+            "Message": "Media redirection is disabled.",
+            "MessageSeverity": "OK",
+            "NumberOfArgs": 0,
+            "Resolution": "None.",
+            "Severity": "OK"
         }
     },
     "Name": "OpenBMC Message Registry",

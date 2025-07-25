@@ -405,13 +405,7 @@ RedfishService::RedfishService(App& app)
 #endif
 
 #if (BMCWEB_AMI_RAIDMSCC_MACRO) || (BMCWEB_AMI_RAIDBRCM_MACRO)
-    {
-	    redfish::ext::core::resource::requestRoutesDBusRaidLogServiceActionsClear(app);
-	    redfish::ext::core::resource::requestRoutesDBusRaidEntryCollection(app);
-	    redfish::ext::core::resource::requestRoutesDBusRaidEntry(app);
-	    redfish::ext::core::resource::requestRoutesDBusRaidEntryDownload(app);
-	    redfish::ext::core::resource::requestRoutesRaidService(app);
-    }
+    requestRoutesRaidLog(app);
 #endif
 
 #if BMCWEB_AMI_NVME_MACRO
