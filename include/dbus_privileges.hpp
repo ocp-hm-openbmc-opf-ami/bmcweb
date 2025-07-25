@@ -119,7 +119,7 @@ inline bool afterGetUserInfoValidate(
     {
         // User is not privileged
         BMCWEB_LOG_ERROR("Insufficient Privilege");
-        asyncResp->res.result(boost::beast::http::status::forbidden);
+        redfish::messages::insufficientPrivilege(asyncResp->res);
         return false;
     }
 
