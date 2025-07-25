@@ -3279,7 +3279,7 @@ inline void filterThresholdSensors(
 
 inline bool valideSensorWithConfFile(const std::string& sensorId)
 {
-    std::ifstream inputFile("/etc/sensor-reader/configuredsensors");
+    std::ifstream inputFile("/etc/sensor-reader-conf/configuredsensors");
     if (inputFile.is_open())
     {
         std::string sensorNameSearch, fileLine;
