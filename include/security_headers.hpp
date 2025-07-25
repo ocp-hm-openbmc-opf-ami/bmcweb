@@ -67,7 +67,7 @@ inline void addSecurityHeaders(crow::Response& res)
                                                  "font-src 'self'; "
                                                  "style-src 'self'; "
                                                  "script-src 'self'; "
-                                                 "connect-src 'self' wss:; "
+                                                 "connect-src 'self'; "
                                                  "form-action 'none'; "
                                                  "frame-ancestors 'none'; "
                                                  "object-src 'none'; "
@@ -76,5 +76,6 @@ inline void addSecurityHeaders(crow::Response& res)
         // strings. img-src 'self' data: is used to allow that.
         // https://stackoverflow.com/questions/18447970/content-security-polic
         // y-data-not-working-for-base64-images-in-chrome-28
+        //fixed CSP: Wildcard Directive - Medium for connect-src
     }
 }
