@@ -2991,9 +2991,8 @@ void getKvmConfig(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
     service_util::getEnabled(
         asyncResp, kvmServiceName,
         nlohmann::json::json_pointer("/GraphicalConsole/ServiceEnabled"));
-    asyncResp->res.jsonValue["GraphicalConsole"] = {
-        {"ConnectTypesSupported", {"KVMIP"}},
-    };
+    asyncResp->res.jsonValue["GraphicalConsole"]["ConnectTypesSupported"] = {
+        "KVMIP"};
     service_util::getMasked(asyncResp, kvmServiceName, "GraphicalConsole",
                             "Masked");
 }
