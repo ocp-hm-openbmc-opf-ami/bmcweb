@@ -3591,9 +3591,10 @@ inline void requestEthernetInterfacesRoutes(App& app)
                             }
                             else if ((*v6dhcpParms.dhcpv6OperatingMode != "Enabled") && (*v6dhcpParms.dhcpv6OperatingMode != "Disabled"))
                             {
-                                messages::propertyValueFormatError(asyncResp->res,
-                                                    *v6dhcpParms.dhcpv6OperatingMode,
-                                                    "OperatingMode");
+                                messages::propertyValueNotInList(
+                                asyncResp->res,
+                                *v6dhcpParms.dhcpv6OperatingMode,
+                                "OperatingMode");
                                 dhcpPropCheckFlag = false;
                             }
                         }
