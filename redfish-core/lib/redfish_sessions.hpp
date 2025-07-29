@@ -768,10 +768,13 @@ inline void processAfterSessionCreation(
         "Location", "/redfish/v1/SessionService/Sessions/" + session->uniqueId);
     if (session->isConfigureSelfOnly)
     {
+	asyncResp->res.result(
+                            boost::beast::http::status::forbidden);
         messages::passwordChangeRequired(
             asyncResp->res,
             boost::urls::format("/redfish/v1/AccountService/Accounts/{}",
                                 session->username));
+	return;
     }
     asyncResp->res.result(boost::beast::http::status::created);
     session->AMIsessionType = "Redfish";
