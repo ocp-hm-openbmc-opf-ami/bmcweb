@@ -602,7 +602,7 @@ inline bool handleCreateTask(const boost::system::error_code& ec2,
 
         // if we're getting status updates it's
         // still alive, update timer
-        taskData->extendTimer(std::chrono::minutes(10));
+        taskData->extendTimer(std::chrono::minutes(BMCWEB_UPDATE_TIMEOUT));
     }
     #if (BMCWEB_AMI_EGS_MACRO || BMCWEB_AMI_BHS_MACRO || BMCWEB_AST2700_EVB_MACRO || BMCWEB_AST2600_EVB_MACRO)
 

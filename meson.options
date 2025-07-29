@@ -485,6 +485,14 @@ option(
     description: 'Specifies the maximum image size limit in MB',
 )
 
+# BMCWEB_UPDATE_TIMEOUT
+option(
+    'update_timeout',
+    type: 'integer',
+    value: 20,
+    description: 'Specifies the maximum time for firmware update',
+)
+
 # BMCWEB_IMAGE_UPLOAD_DIR
 option(
     'image-upload-dir',
