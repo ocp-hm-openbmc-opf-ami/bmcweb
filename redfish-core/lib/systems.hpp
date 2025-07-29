@@ -1498,6 +1498,11 @@ void getTrustedModuleRequiredToBoot(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     BMCWEB_LOG_DEBUG("Get TPM required to boot.");
+    nlohmann::json::array_t tpmList;
+    tpmList.emplace_back("Required");
+    tpmList.emplace_back("Disabled");
+    asyncResp->res.jsonValue["Boot"]["TrustedModuleRequiredToBoot@Redfish.AllowableValues"] = tpmList; 
+
     constexpr std::array<std::string_view, 1> interfaces = {
         "xyz.openbmc_project.Control.TPM.Policy"};
     dbus::utility::getSubTree(
@@ -2610,6 +2615,14 @@ void getHostWatchdogTimer(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
             if (expireAction != nullptr)
             {
                 std::string action = dbusToRfWatchdogAction(*expireAction);
+                nlohmann::json::array_t timeoutList;
+		        timeoutList.emplace_back("None");
+                timeoutList.emplace_back("ResetSystem");
+                timeoutList.emplace_back("PowerCycle");
+                timeoutList.emplace_back("PowerDown");
+                timeoutList.emplace_back("OEM");
+                hostWatchdogTimer["TimeoutAction@Redfish.AllowableValues"] = timeoutList; 
+
                 if (action.empty())
                 {
                     messages::internalError(asyncResp->res);
