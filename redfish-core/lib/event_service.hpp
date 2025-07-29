@@ -93,6 +93,8 @@ bool anyFailure = false;
 std::string interfacePrimary = "xyz.openbmc_project.mail.alert.primary";
 std::string interfaceSecondary = "xyz.openbmc_project.mail.alert.secondary";
 
+inline size_t snmpCompletedOperations = 0;
+
 /* Holds SMTP configuration parameters for patching.*/ 
 struct SmtpPatchParams
 {
@@ -1123,70 +1125,73 @@ void getEventServiceInfo(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 inline void getEventServiceSubscriptionIdInfo(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& param)
 {
-                   if (param.starts_with("snmp"))
-                {
-                    getSnmpTrapClient(asyncResp, param);
-                    return;
-                }
+    std::shared_ptr<Subscription> subValue =
+        EventServiceManager::getInstance().getSubscription(param);
+    const std::string& id = param;
 
-                std::shared_ptr<Subscription> subValue =
-                    EventServiceManager::getInstance().getSubscription(param);
-                if (subValue == nullptr)
-                {
-                    // Lookup in Kafka subscriptions
-                    KafkaManager::getInstance().getSubscription(param,
-                                                                asyncResp);
-                    return;
-                }
-                const std::string& id = param;
+    if (param.starts_with("snmp"))
+    {
+        getSnmpTrapClient(asyncResp, param);
+        //return;
+    }
+    else
+    {
+         if (subValue == nullptr)
+        {
+            // Lookup in Kafka subscriptions
+            KafkaManager::getInstance().getSubscription(param,
+                                                        asyncResp);
+            return;
+        }
+        asyncResp->res.jsonValue["@odata.type"] =
+        "#EventDestination.v1_14_1.EventDestination";
+        asyncResp->res.jsonValue["Protocol"] =
+            event_destination::EventDestinationProtocol::Redfish;
+        asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
+            "/redfish/v1/EventService/Subscriptions/{}", id);
+        asyncResp->res.jsonValue["Id"] = id;
+        asyncResp->res.jsonValue["Name"] = "Event Destination " + id;
+        asyncResp->res.jsonValue["Destination"] =
+            subValue->userSub->destinationUrl;
+        asyncResp->res.jsonValue["SubscriptionType"] =
+            subValue->userSub->subscriptionType;
+        asyncResp->res.jsonValue["EventFormatType"] =
+            subValue->userSub->eventFormatType;
+    }
 
-                asyncResp->res.jsonValue["@odata.type"] =
-                    "#EventDestination.v1_14_1.EventDestination";
-                asyncResp->res.jsonValue["Protocol"] =
-                    event_destination::EventDestinationProtocol::Redfish;
-                asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
-                    "/redfish/v1/EventService/Subscriptions/{}", id);
-                asyncResp->res.jsonValue["Id"] = id;
-                asyncResp->res.jsonValue["Name"] = "Event Destination " + id;
-                asyncResp->res.jsonValue["Destination"] =
-                    subValue->userSub->destinationUrl;
-                asyncResp->res.jsonValue["Context"] =
-                    ((subValue != nullptr) && !subValue->userSub->customText.empty()) ? subValue->userSub->customText : "Event_Sub_" + id;
-                asyncResp->res.jsonValue["SubscriptionType"] =
-                    subValue->userSub->subscriptionType;
-                asyncResp->res.jsonValue["HttpHeaders"] =
-                    nlohmann::json::array();
-                asyncResp->res.jsonValue["EventFormatType"] =
-                    subValue->userSub->eventFormatType;
-                asyncResp->res.jsonValue["RegistryPrefixes"] =
-                    subValue->userSub->registryPrefixes;
-                asyncResp->res.jsonValue["ResourceTypes"] =
-                    subValue->userSub->resourceTypes;
+    asyncResp->res.jsonValue["Context"] =
+        ((subValue != nullptr) && !subValue->userSub->customText.empty()) ? subValue->userSub->customText : "Event_Sub_" + id;
+    asyncResp->res.jsonValue["HttpHeaders"] =
+        nlohmann::json::array();
+    asyncResp->res.jsonValue["RegistryPrefixes"] =
+        subValue->userSub->registryPrefixes;
+    asyncResp->res.jsonValue["ResourceTypes"] =
+        subValue->userSub->resourceTypes;
+    asyncResp->res.jsonValue["MessageIds"] =
+        subValue->userSub->registryMsgIds;
+    asyncResp->res.jsonValue["DeliveryRetryPolicy"] =
+        subValue->userSub->retryPolicy;
+    asyncResp->res.jsonValue["SendHeartbeat"] =
+        subValue->userSub->sendHeartbeat;
+    asyncResp->res.jsonValue["HeartbeatIntervalMinutes"] =
+        subValue->userSub->hbIntervalMinutes;
+    asyncResp->res.jsonValue["VerifyCertificate"] =
+        subValue->userSub->verifyCertificate;
+    asyncResp->res.jsonValue["Status"]["Health"] = "OK";
+    asyncResp->res.jsonValue["Status"]["State"] =
+        subValue->userSub->state;
 
-                asyncResp->res.jsonValue["MessageIds"] =
-                    subValue->userSub->registryMsgIds;
-                asyncResp->res.jsonValue["DeliveryRetryPolicy"] =
-                    subValue->userSub->retryPolicy;
-                asyncResp->res.jsonValue["SendHeartbeat"] =
-                    subValue->userSub->sendHeartbeat;
-                asyncResp->res.jsonValue["HeartbeatIntervalMinutes"] =
-                    subValue->userSub->hbIntervalMinutes;
-                asyncResp->res.jsonValue["VerifyCertificate"] =
-                    subValue->userSub->verifyCertificate;
-                asyncResp->res.jsonValue["Status"]["Health"] = "OK";
-                asyncResp->res.jsonValue["Status"]["State"] =
-                    subValue->userSub->state;
+    nlohmann::json::array_t mrdJsonArray;
+    for (const auto& mdrUri :
+            subValue->userSub->metricReportDefinitions)
+    {
+        nlohmann::json::object_t mdr;
+        mdr["@odata.id"] = mdrUri;
+        mrdJsonArray.emplace_back(std::move(mdr));
+    }
+    asyncResp->res.jsonValue["MetricReportDefinitions"] =
+        mrdJsonArray;
 
-                nlohmann::json::array_t mrdJsonArray;
-                for (const auto& mdrUri :
-                     subValue->userSub->metricReportDefinitions)
-                {
-                    nlohmann::json::object_t mdr;
-                    mdr["@odata.id"] = mdrUri;
-                    mrdJsonArray.emplace_back(std::move(mdr));
-                }
-                asyncResp->res.jsonValue["MetricReportDefinitions"] =
-                    mrdJsonArray;
 }
 
 inline void requestRoutesEventService(App& app)
@@ -1593,7 +1598,6 @@ inline void requestRoutesEventDestinationCollection(App& app)
             std::optional<std::vector<nlohmann::json::object_t>> mrdJsonArray;
             std::optional<nlohmann::json> oemObj;
             std::optional<std::string> oemsnmpcommunitystring;
-
             if (!json_util::readJsonPatch( //
                     req, asyncResp->res, //
                     "Destination", destUrl, //
@@ -2096,6 +2100,21 @@ inline void requestRoutesEventDestinationCollection(App& app)
             if (protocol == "SNMPv2c" || protocol == "SNMPv3" ||
                 protocol == "SNMPv1")
             {
+                auto subId = std::make_shared<std::string>();
+                snmpCompletedOperations = 0;
+                auto snmpCompletionHandler = [asyncResp, subId, oemsnmpcommunitystring, protocol](bool success)
+                {
+                    if (success)
+                    {
+                        snmpCompletedOperations++;
+                    }
+                    // As of now two snmpcompletedoperations for SNMPV1 and SNMPV2 and one snmpcompletedoperations for SNMPv3. In Future if new dbus call are added for these protocols please increment the values of snmpcompletedoperations.
+                    if ((oemsnmpcommunitystring && (snmpCompletedOperations == 2)) || (protocol == "SNMPv3" && (snmpCompletedOperations == 1)))
+                    {
+                        getEventServiceSubscriptionIdInfo(asyncResp,*subId);
+                        asyncResp->res.result(boost::beast::http::status::created);
+                    }
+                };
                 auto value = getSnmpProtocol();
                 auto protocolStatus = std::get<bool>(value);
                 if (!protocolStatus)
@@ -2115,7 +2134,7 @@ inline void requestRoutesEventDestinationCollection(App& app)
                         dbus::utility::getProperty<std::string>(
                             "xyz.openbmc_project.Snmp.Conf", path,
                             "xyz.openbmc_project.Snmp.CommunityStrManager", "CommunityString",
-                            [asyncResp, oemsnmpcommunitystring, hostaddress, portnumber, protocol, user_name, subValue](const boost::system::error_code& ec, std::string communitystring) {
+                            [asyncResp, oemsnmpcommunitystring, hostaddress, portnumber, protocol, user_name, subValue, subId, snmpCompletionHandler](const boost::system::error_code& ec, std::string communitystring) {
                             if (ec)
                             {
                                 BMCWEB_LOG_ERROR("no communitystring object path avaliable");
@@ -2130,9 +2149,10 @@ inline void requestRoutesEventDestinationCollection(App& app)
                             }
                             else
                             {
+                                snmpCompletionHandler(true);
                                 addSnmpTrapClient(asyncResp, hostaddress,
                                     portnumber, protocol, user_name,
-                                    subValue, *oemsnmpcommunitystring);
+                                    subValue, *oemsnmpcommunitystring, subId, snmpCompletionHandler);
                             }
                         });
                     }
@@ -2154,7 +2174,7 @@ inline void requestRoutesEventDestinationCollection(App& app)
                     }
                     addSnmpTrapClient(asyncResp, url->host_address(),
                                     url->port_number(), protocol, url->user(),
-                                    subValue, *oemsnmpcommunitystring);                    
+                                    subValue, *oemsnmpcommunitystring, subId, snmpCompletionHandler);                    
                 }
                 return;
             }
