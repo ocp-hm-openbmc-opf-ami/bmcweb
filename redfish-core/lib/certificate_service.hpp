@@ -523,8 +523,21 @@ inline void getCertificateProperties(
             }
 
             if (serialNumber != nullptr)
-            {
-                asyncResp->res.jsonValue["SerialNumber"] = *serialNumber;
+	    {
+		std::string rawHex = *serialNumber;
+                if (!rawHex.empty())
+                {
+                        std::string formatted;
+                        for (size_t i = 0; i < rawHex.size(); i += 2)
+                        {
+                                formatted += rawHex.substr(i, 2);
+                                if(i + 2 < rawHex.size())
+                                {
+                                        formatted += ":";
+                                }
+                        }
+                        asyncResp->res.jsonValue["SerialNumber"] = formatted;
+                }
             }
 
             if (signatureAlgorithm != nullptr)

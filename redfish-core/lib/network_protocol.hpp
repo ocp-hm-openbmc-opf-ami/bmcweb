@@ -261,6 +261,7 @@ inline void
         {
             asyncResp->res.jsonValue["SNMP"]["CommunityStrings"] = {nullptr};
             asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SNMP"]["CommunityStrings"] = {nullptr};
+            asyncResp->res.jsonValue["Oem"]["OpenBmc"]["@odata.type"] = json_util::odataType("AMIManagerNetworkProtocol");
         }
         else
         {

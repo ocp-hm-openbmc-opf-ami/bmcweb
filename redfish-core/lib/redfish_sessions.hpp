@@ -185,13 +185,13 @@ inline void fillSessionObject(crow::Response& res,
 inline std::string getSessionType(int sessionType)
 {
     if (sessionType == 0)
-        return "KVM";
+        return "KVMIP";
     else if (sessionType == 1)
-        return "WEB";
+        return "WEBUI";
     else if (sessionType == 2)
-        return "VMEDIA";
+        return "VirtualMedia";
     else if (sessionType == 3)
-        return "SSH";
+        return "ManagerConsole";
     else
         return "";
 }
@@ -275,6 +275,7 @@ inline void getSessionInfo(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
                 asyncResp->res.jsonValue["Roles"] = std::move(roles);
                 asyncResp->res.jsonValue["Oem"]["AMI_WebSession"]["UserId"] =
                     UserId;
+                asyncResp->res.jsonValue["Oem"]["AMI_WebSession"]["@odata.type"] = json_util::odataType("AMIWebSession", "WebSession");
             }
         }
     }

@@ -221,16 +221,11 @@ inline void
                     handler(service, resName, asyncResp, item);
                     return;
                 }
-                else
-                {
-                    messages::resourceNotFound(asyncResp->res, "VirtualMedia",
-                                               resName);
-                    return;
-                }
             }
 
             BMCWEB_LOG_DEBUG("Parent item not found");
-            asyncResp->res.result(boost::beast::http::status::not_found);
+	    messages::resourceNotFound(asyncResp->res, "VirtualMedia",
+                                               resName);
         });
 }
 

@@ -224,7 +224,7 @@ inline bool translateUserGroup(const std::vector<std::string>& userGroups,
         }
         else if (userGroup == "redfish-hostiface")
         {
-            accountTypes.emplace_back("HostInterfaces");
+            accountTypes.emplace_back("Redfish");
         }
         else
         {

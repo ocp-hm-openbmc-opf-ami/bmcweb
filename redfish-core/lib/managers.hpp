@@ -2100,7 +2100,7 @@ inline void getCurrentDateTimeValue(
             std::time_t time = static_cast<std::time_t>(epochTime);
             std::tm gmTime = *std::gmtime(&time);
             std::ostringstream oss;
-            oss << std::put_time(&gmTime, "%Y-%m-%dT%H:%M:%S");
+            oss << std::put_time(&gmTime, "%Y-%m-%dT%H:%M:%SZ");
             asyncResp->res.jsonValue["DateTime"] = oss.str();
         });
 }
@@ -2410,7 +2410,7 @@ inline void handleManagersInstanceGet(
     asyncResp->res.jsonValue["EthernetInterfaces"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Managers/{}/EthernetInterfaces",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
-    #if (!BMCWEB_CHALUPA_AMD_MACRO && !BMCWEB_ARBEL_NUVOTON_MACRO)
+    #if (!BMCWEB_CHALUPA_AMD_MACRO && !BMCWEB_ARBEL_NUVOTON_MACRO && !BMCWEB_AST2700_EVB_MACRO)
     {
     asyncResp->res.jsonValue["SecurityPolicy"]["@odata.id"] =
        	boost::urls::format("/redfish/v1/Managers/{}/SecurityPolicy",
