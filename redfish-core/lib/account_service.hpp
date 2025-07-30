@@ -123,9 +123,9 @@ inline std::string getRoleIdFromPrivilege(std::string_view role)
 }
 inline std::string getPrivilegeFromRoleId(std::string_view role)
 {
-    if (role.empty()) 
+    if (role.empty())
     {
-        return ""; 
+        return "";
     }
     if (role == "Administrator")
     {
@@ -151,7 +151,7 @@ inline std::string getModeFromAccessMode(std::string mode)
     if (mode == "ReadWrite")
     {
         return "rw";
-    }    
+    }
     return "";
 }
 
@@ -164,7 +164,7 @@ inline std::string getAccessModeFromMode(std::string mode)
     if (mode == "rw")
     {
         return "ReadWrite";
-    }    
+    }
     return "";
 }
 
@@ -411,7 +411,7 @@ inline void patchAccountTypes(
                     "xyz.openbmc_project.User.Manager", dbusObjectPath,
                     "xyz.openbmc_project.User.Attributes", "UserGroups",
                     updatedUserGroups);
-    
+
     propertyModified["AccountTypes"] = updatedUserGroups;
     completionHandler(true);
 }
@@ -436,7 +436,7 @@ inline void userErrorMessageHandler(
     else if (strcmp(errorMessage, "xyz.openbmc_project.User.Common.Error."
                                   "UserNameDoesNotExist") == 0)
     {
-        messages::resourceNotFound(asyncResp->res, "ManagerAccount", username);        
+        messages::resourceNotFound(asyncResp->res, "ManagerAccount", username);
     }
     else if ((strcmp(errorMessage,
                      "xyz.openbmc_project.Common.Error.InvalidArgument") ==
@@ -522,7 +522,9 @@ inline void handleRoleMapPatch(
         {
             if (input[i].index() == 0 && input[j].index() == 0)
             {
-                if (std::get<nlohmann::json::object_t>(input[i]) ==
+                // !obj.empty() --> skip comparison between empty objects
+                if (!std::get<nlohmann::json::object_t>(input[i]).empty() &&
+                    std::get<nlohmann::json::object_t>(input[i]) ==
                     std::get<nlohmann::json::object_t>(input[j]))
                 {
                     messages::propertyValueConflict(asyncResp->res,
@@ -1059,7 +1061,7 @@ inline void getRADIUSRoleMap(
 
 inline void setSNMPEnableDisable(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     bool& propertyValue, const std::string& userName)
-{   
+{
     sdbusplus::message::object_path tempObjPath(rootUserDbusPath);
     tempObjPath /= userName;
     const std::string userPath(tempObjPath);
@@ -1719,7 +1721,7 @@ inline void setOEMAccountTypes(
         "org.freedesktop.DBus.Properties", "Set",
         "xyz.openbmc_project.User.Attributes", "UserGroups",
         dbus::utility::DbusVariantType{grpList});
-    
+
     propertyModified["OemAccountTypes"] = grpList;
 }
 
@@ -1782,7 +1784,7 @@ inline void afterVerifyUserExists(
             asyncResp, "Enabled", "xyz.openbmc_project.User.Manager",
             params.dbusObjectPath, "xyz.openbmc_project.User.Attributes",
             "UserEnabled", *params.enabled);
-        
+
         propertyModified["Enabled"] = *params.enabled;
         completionHandler(true);
     }
@@ -1810,7 +1812,7 @@ inline void afterVerifyUserExists(
                         params.dbusObjectPath,
                         "xyz.openbmc_project.User.Attributes", "UserPrivilege",
                         priv);
-        
+
         propertyModified["RoleId"] = priv;
         completionHandler(true);
     }
@@ -1919,13 +1921,13 @@ inline void afterVerifyUserExists(
                 "xyz.openbmc_project.User.Manager", "/xyz/openbmc_project/user",
                 "xyz.openbmc_project.User.Manager", "SetPasswordExpired",
                 params.username, *passwordChangeRequired);
-            
+
             propertyModified["PasswordChangeRequired"] = *passwordChangeRequired;
             completionHandler(true);
         }
     }
 
-    
+
 }
 
 inline void updateUserProperties(
@@ -2393,7 +2395,7 @@ inline void handleAccountRadiusPatch(
         BMCWEB_LOG_DEBUG("Radius Service doPatch: Invalid request body");
         return;
     }
-    
+
     if (oem)
     {
         std::optional<nlohmann::json> ami;
@@ -2418,7 +2420,7 @@ inline void handleAccountRadiusPatch(
                 messages::propertyNotWritable(asyncResp->res, "Ami");
                 return;
             }
-    
+
             if (!json_util::readJson(*ami, asyncResp->res, "RADIUS", radius))
             {
                 return;
@@ -2434,7 +2436,7 @@ inline void handleAccountRadiusPatch(
                 }
 
                 if (!json_util::readJson(
-                *radius, asyncResp->res,                            
+                *radius, asyncResp->res,
                 "ServiceAddress", radiusObject.host,
                 "Secret", radiusObject.password,
                 "ServicePort", radiusObject.port,
@@ -2651,17 +2653,17 @@ inline void handleAccountRadiusPatch(
 }
 
 inline void handleAccountSnmpPatch(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& username, 
-    std::optional<bool> hasSNMP, 
-    const std::string& algorithm, 
+    const std::string& username,
+    std::optional<bool> hasSNMP,
+    const std::string& algorithm,
     const std::string& encryption,
     const std::string& accessMode,
     const std::string& password)
 {
     sdbusplus::message::object_path tempObjPath(snmpUserDbusPath);
     tempObjPath /= username;
-    const std::string objPath(tempObjPath);    
-                            
+    const std::string objPath(tempObjPath);
+
     sdbusplus::message::object_path tempUserObjPath(rootUserDbusPath);
     tempUserObjPath /= username;
     const std::string userPath(tempUserObjPath);
@@ -2677,7 +2679,7 @@ inline void handleAccountSnmpPatch(const std::shared_ptr<bmcweb::AsyncResp>& asy
         "xyz.openbmc_project.Snmp.Conf", path,
         [asyncResp, username, &hasSNMPuserPath](const boost::system::error_code& ec,
                     const dbus::utility::ManagedObjectType& resp)
-        {            
+        {
             if (ec)
             {
                 return;
@@ -2692,17 +2694,17 @@ inline void handleAccountSnmpPatch(const std::shared_ptr<bmcweb::AsyncResp>& asy
                     break;
                 }
             }
-            
+
         });
 
     if (!hasSNMPuserPath && *hasSNMP)
     {
-        if (!password.empty()) 
+        if (!password.empty())
         {
             std::string mode = "";
             if (!accessMode.empty())
-            {    
-                mode = getModeFromAccessMode(accessMode);        
+            {
+                mode = getModeFromAccessMode(accessMode);
             }
 
             sdbusplus::asio::setProperty(
@@ -2710,13 +2712,13 @@ inline void handleAccountSnmpPatch(const std::shared_ptr<bmcweb::AsyncResp>& asy
             objUserPath.data(), "xyz.openbmc_project.User.Attributes", "SNMPAccessEnableStatus",
             hasSNMP.value(),
             [asyncResp, username, password, hasSNMP, mode, algorithm, encryption](const boost::system::error_code& ec1) {
-            if (ec1) 
+            if (ec1)
             {
                 BMCWEB_LOG_ERROR("Failed to set SNMPAccessEnableStatus for {}: {}", username, ec1.message());
                 messages::internalError(asyncResp->res);
                 return;
             }
-                if (hasSNMP) 
+                if (hasSNMP)
                 {
                     crow::connections::systemBus->async_method_call(
                         [asyncResp](const boost::system::error_code& ec) {
@@ -2735,8 +2737,8 @@ inline void handleAccountSnmpPatch(const std::shared_ptr<bmcweb::AsyncResp>& asy
                         username, password, encryption, algorithm, mode );
                 }
             });
-        
-        }        
+
+        }
         else
         {
 
@@ -2758,25 +2760,25 @@ inline void handleAccountSnmpPatch(const std::shared_ptr<bmcweb::AsyncResp>& asy
     {
         if (!algorithm.empty())
         {
-            handleSNMPUserPatch(asyncResp, objPath, "Algorithm", algorithm);           
+            handleSNMPUserPatch(asyncResp, objPath, "Algorithm", algorithm);
         }
 
         if (!encryption.empty())
-        {    
-            handleSNMPUserPatch(asyncResp, objPath, "Encryption", encryption);           
+        {
+            handleSNMPUserPatch(asyncResp, objPath, "Encryption", encryption);
         }
 
         if (!accessMode.empty())
-        {    
-            std::string mode = getModeFromAccessMode(accessMode);        
-            handleSNMPUserPatch(asyncResp, objPath, "ReadWritePermission", mode);            
+        {
+            std::string mode = getModeFromAccessMode(accessMode);
+            handleSNMPUserPatch(asyncResp, objPath, "ReadWritePermission", mode);
         }
 
         if (hasSNMP)
         {
             setSNMPEnableDisable(asyncResp, *hasSNMP, username);
         }
-    }    
+    }
 }
 
 inline void handleAccountServicePatch(
@@ -3167,7 +3169,7 @@ inline void processAfterCreateUser(
     const std::string& username, const std::string& password,
     const boost::system::error_code& ec, sdbusplus::message_t& m,
     std::optional<bool> passwordChangeRequired)
-{    
+{
     if (ec)
     {
         userErrorMessageHandler(m.get_error(), asyncResp, username, "");
@@ -3246,12 +3248,12 @@ inline void processAfterGetAllGroups(
             return;
         }
     }
-    
+
     std::string roleId = roleIdJson.value_or("");
-    if (!roleId.empty()) 
+    if (!roleId.empty())
     {
         std::string priv = getPrivilegeFromRoleId(roleId);
-        if (priv.empty()) 
+        if (priv.empty())
         {
             messages::propertyValueNotInList(asyncResp->res, roleId, "RoleId");
             return;
@@ -3288,7 +3290,7 @@ inline void processAfterGetAllGroups(
     {
         media = false; // Default value for Readonly, Operator.
     }
-           
+
     if (roleId != "" && !encryption.empty() && !algorithm.empty() && !accessMode.empty() && hasSNMP.value_or(false))  // User will create along with SNMP Access
     {
         for (const auto& grp : allGroupsList)
@@ -3440,12 +3442,12 @@ inline void processAfterGetAllGroups(
         }
         crow::connections::systemBus->async_method_call(
             [asyncResp, username, password, passwordChangeRequired]
-            (const boost::system::error_code& ec1, sdbusplus::message_t& m1) {                
+            (const boost::system::error_code& ec1, sdbusplus::message_t& m1) {
                 processAfterCreateUser(asyncResp, username, password, ec1, m1, passwordChangeRequired);
             },
             "xyz.openbmc_project.User.Manager", "/xyz/openbmc_project/user",
             "xyz.openbmc_project.User.Manager", "CreateUser", username, userGroups,
-            roleId, enabled);    
+            roleId, enabled);
     }
 }
 
@@ -3480,7 +3482,7 @@ inline void handleAccountCollectionPost(
             "Enabled", enabledJson,
             "AccountTypes", accountTypes,
             "PasswordChangeRequired", passwordChangeRequired,
-            "OEMAccountTypes", oemAccountTypes,        
+            "OEMAccountTypes", oemAccountTypes,
             "Oem", oemObj))
     {
         return;
@@ -3526,7 +3528,7 @@ inline void handleAccountCollectionPost(
                     messages::propertyNotWritable(asyncResp->res, "SNMP");
                     return;
                 }
-                
+
                 if (!json_util::readJson(*snmp, asyncResp->res,
                                          "Algorithm", algorithm,
                                          "Encryption", encryption,
@@ -3570,7 +3572,7 @@ inline void handleAccountCollectionPost(
                         messages::propertyValueNotInList(asyncResp->res, algorithm, "Algorithm");
                         return;
                     }
-                }                      
+                }
             }
         }
     }
@@ -3602,8 +3604,8 @@ inline void handleAccountCollectionPost(
 }
 
 inline void fetchSnmpUserData(const std::string& accountName, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
-    
-    
+
+
     sdbusplus::message::object_path tempObjPath(snmpUserDbusPath);
     tempObjPath /= accountName;
     const std::string objPath(tempObjPath);
@@ -3616,7 +3618,7 @@ inline void fetchSnmpUserData(const std::string& accountName, const std::shared_
             const dbus::utility::DBusPropertiesMap& propertiesList) {
             if (ec)
             {
-                BMCWEB_LOG_ERROR("Error fetching DBus properties: {}", ec.message());                
+                BMCWEB_LOG_ERROR("Error fetching DBus properties: {}", ec.message());
                 return;
             }
 
@@ -3635,13 +3637,13 @@ inline void fetchSnmpUserData(const std::string& accountName, const std::shared_
                 BMCWEB_LOG_ERROR("Failed to unpack properties for SNMP user data.");
                 messages::internalError(asyncResp->res);
                 return;
-            } 
+            }
 
             if (algorithm != nullptr)
             {
                 asyncResp->res.jsonValue["Oem"]["Ami"]["SNMP"]["Algorithm"] = *algorithm;
             }
-            
+
             if (encryption != nullptr)
             {
                 asyncResp->res.jsonValue["Oem"]["Ami"]["SNMP"]["Encryption"] = *encryption;
@@ -3742,7 +3744,7 @@ inline void handleAccountGet(
             if (userIt == users.end())
             {
                 messages::resourceNotFound(asyncResp->res, "ManagerAccount",
-                                           accountName);                
+                                           accountName);
                 return;
             }
 
@@ -3750,7 +3752,7 @@ inline void handleAccountGet(
             asyncResp->res.jsonValue["Name"] = "User Account";
             asyncResp->res.jsonValue["Description"] = "User Account";
             asyncResp->res.jsonValue["Password"] = nullptr;
-            asyncResp->res.jsonValue["StrictAccountTypes"] = true;            
+            asyncResp->res.jsonValue["StrictAccountTypes"] = true;
 
             for (const auto& interface : userIt->second)
             {
@@ -3767,7 +3769,7 @@ inline void handleAccountGet(
                         "UserEnabled", userEnabled,
                         "UserLockedForFailedAttempt", userLocked,
                         "UserPrivilege", userPrivPtr, "UserPasswordExpired",
-                        userPasswordExpired, "UserGroups", userGroups, 
+                        userPasswordExpired, "UserGroups", userGroups,
                         "SNMPAccessEnableStatus", snmpAccessEnableStatus);
                     if (!success)
                     {
@@ -3850,12 +3852,12 @@ inline void handleAccountGet(
                         BMCWEB_LOG_ERROR("SNMPAccessEnableStatus wasn't a bool");
                         messages::internalError(asyncResp->res);
                         return;
-                    }    
+                    }
                     asyncResp->res.jsonValue["Oem"]["Ami"]["SNMP"]["SNMPAccessEnableStatus"] = *snmpAccessEnableStatus;
 
                     if (*snmpAccessEnableStatus) {
                         fetchSnmpUserData(accountName, asyncResp);
-                    }                   
+                    }
                 }
             }
 
@@ -3937,12 +3939,12 @@ handleAccountDelete(App& app, const crow::Request& req,
 inline void validateSNMPValues(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& algorithm,
     const std::string& encryption,
-    const std::string& accessMode) 
+    const std::string& accessMode)
 {
-    if (!accessMode.empty()) 
+    if (!accessMode.empty())
     {
         std::string mode = getModeFromAccessMode(accessMode);
-        if (mode.empty()) 
+        if (mode.empty())
         {
             messages::propertyValueNotInList(asyncResp->res, accessMode, "AccessMode");
             return;
@@ -3955,7 +3957,7 @@ inline void validateSNMPValues(const std::shared_ptr<bmcweb::AsyncResp>& asyncRe
     }
 
     if (!algorithm.empty() && algorithm != "SHA" && algorithm != "SHA-256" &&
-        algorithm != "SHA-512" && algorithm != "SHA-384") 
+        algorithm != "SHA-512" && algorithm != "SHA-384")
     {
         messages::propertyValueNotInList(asyncResp->res, algorithm, "Algorithm");
     }
@@ -3965,7 +3967,7 @@ inline void handleSNMPOEMProperties(const std::shared_ptr<bmcweb::AsyncResp>& as
     std::optional<nlohmann::json> oemObj,
     std::string& algorithm, std::string& encryption,
     std::string& accessMode, std::optional<bool>& hasSNMP, const std::string& username,
-    const std::string& password) 
+    const std::string& password)
 {
     std::optional<nlohmann::json> ami;
     std::size_t oemObj_size = oemObj.value().size();
@@ -4003,14 +4005,14 @@ inline void handleSNMPOEMProperties(const std::shared_ptr<bmcweb::AsyncResp>& as
                 messages::propertyNotWritable(asyncResp->res, "SNMP");
                 return;
             }
-            if (!json_util::readJson(*snmp, asyncResp->res, 
-                "Algorithm", algorithm, 
+            if (!json_util::readJson(*snmp, asyncResp->res,
+                "Algorithm", algorithm,
                 "Encryption", encryption,
-                "Access", accessMode, 
+                "Access", accessMode,
                 "SNMPAccessEnableStatus", hasSNMP))
                 {
                     return;
-                } 
+                }
 
             validateSNMPValues(asyncResp, algorithm, encryption, accessMode);
             handleAccountSnmpPatch(asyncResp, username, hasSNMP, algorithm, encryption, accessMode, password);
@@ -4090,18 +4092,18 @@ inline void
                             }
                             else if(std::find(userGroups->begin(),userGroups->end(),"redfish-hostiface")!=userGroups->end())
                             {
-                                
+
                                 asyncResp->res.clearHeader(boost::beast::http::field::allow);
                                 asyncResp->res.addHeader("Allow", "GET, DELETE");
                                 messages::operationNotAllowed(asyncResp->res);
                                 return;
-                            } 
-                        } 
-                    }              
+                            }
+                        }
+                    }
 
-                } 
-                
-            }  
+                }
+
+            }
 
             auto hasError = std::make_shared<bool>(false);
 
@@ -4123,7 +4125,7 @@ inline void
                     EventServiceManager::getInstance().propertyModifiedEventLog(propertyModified, propertyOriginal, "/redfish/v1/AccountService/Accounts/" + username);
                 }
             };
-            
+
             bool userSelf = (username == req.session->username);
 
             Privileges effectiveUserPrivileges =
@@ -4131,7 +4133,7 @@ inline void
             Privileges configureUsers = {"ConfigureUsers"};
             bool userHasConfigureUsers =
                 effectiveUserPrivileges.isSupersetOf(configureUsers);
-            
+
             std::optional<std::string> newUserName;
             std::optional<std::string> password;
             std::optional<bool> enabled;
@@ -4145,7 +4147,7 @@ inline void
             std::string accessMode;
             std::optional<bool> hasSNMP;
             std::optional<nlohmann::json> oemObj;
-            
+
             if (userHasConfigureUsers)
             {
                 // Users with ConfigureUsers can modify for all users
@@ -4211,8 +4213,8 @@ inline void
                     if (userEnabled == nullptr)
                     {
                         BMCWEB_LOG_ERROR("UserEnabled wasn't a bool");
-                        propertyOriginal["Enabled"] = nullptr; 
-                        
+                        propertyOriginal["Enabled"] = nullptr;
+
                     }
                     else
                     {
@@ -4296,12 +4298,12 @@ inline void
                 updateUserProperties(asyncResp, username, password, enabled, roleId,
                                     locked, accountTypes, userSelf, req.session,
                                     passwordChangeRequired, oemAccountTypes, completionHandler);
-                if (oemObj) 
-                {            
+                if (oemObj)
+                {
                     handleSNMPOEMProperties(asyncResp, oemObj, algorithm, encryption, accessMode, hasSNMP, username, password_ref);
                 }
                 //messages::success(asyncResp->res);
-                /* Changed success message to no content becasue Redfish Protocol validator is throwing error 
+                /* Changed success message to no content becasue Redfish Protocol validator is throwing error
                     for Password patching */
                 asyncResp->res.result(boost::beast::http::status::no_content);
                 return;
@@ -4317,7 +4319,7 @@ inline void
                 }
             }
 
-            if (oemObj) 
+            if (oemObj)
             {
                 handleSNMPOEMProperties(asyncResp, oemObj, algorithm, encryption, accessMode, hasSNMP, username, password_ref);
             }
@@ -4343,7 +4345,7 @@ inline void
                 "xyz.openbmc_project.User.Manager", "/xyz/openbmc_project/user",
                 "xyz.openbmc_project.User.Manager", "RenameUser", username,
                 *newUserName);
-            /* Changed success message to no content becasue Redfish Protocol validator is throwing error 
+            /* Changed success message to no content becasue Redfish Protocol validator is throwing error
                for Password patching */
             asyncResp->res.result(boost::beast::http::status::no_content);
 
