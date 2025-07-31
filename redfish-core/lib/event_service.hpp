@@ -14,6 +14,7 @@
 #include "registries_selector.hpp"
 #include "snmp_trap_event_clients.hpp"
 #include "utils/json_utils.hpp"
+#include "account_service.hpp"
 
 #include <stdlib.h>
 
@@ -92,6 +93,8 @@ bool anyFailure = false;
 /*smtp interface*/
 std::string interfacePrimary = "xyz.openbmc_project.mail.alert.primary";
 std::string interfaceSecondary = "xyz.openbmc_project.mail.alert.secondary";
+
+inline size_t snmpCompletedOperations = 0;
 
 /* Holds SMTP configuration parameters for patching.*/ 
 struct SmtpPatchParams
@@ -227,49 +230,6 @@ inline void getSmtpConfig(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         });
 }
 
-inline std::string modifiedDateTime(const std::string& filepath)
-{
-    /* Modified date and time */
-
-    std::filesystem::file_time_type ftime = std::filesystem::last_write_time(filepath);
-
-    auto sys_time = std::chrono::file_clock::to_sys(ftime);
-    auto time_t = std::chrono::system_clock::to_time_t(sys_time);
-    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(sys_time.time_since_epoch()) % 1000;
-
-    std::tm* tm = std::localtime(&time_t);
-    std::ostringstream oss;
-    oss << std::put_time(tm, "%Y-%m-%dT%H:%M:%S");
-    oss << '.' << std::setw(3) << std::setfill('0') << ms.count();
-
-    // Calculate and format timezone offset
-    std::time_t gmt_time = std::mktime(tm);
-    //std::tm* gmt_tm = std::gmtime(&gmt_time);
-    int offset = static_cast<int>(std::difftime(time_t, gmt_time));
-    int hours = offset / 3600;
-    int minutes = (offset % 3600) / 60;
-    oss << (hours >= 0 ? '+' : '-') << std::setw(2) << std::setfill('0') << std::abs(hours)
-        << ':' << std::setw(2) << std::setfill('0') << std::abs(minutes);
-
-    std::string str = oss.str();
-    return str;
-}
-inline bool ensureOpensslKeyPresentAndValid(const std::string& filepath)
-{
-    bool certValid = false;
-
-    std::cerr << "Checking certs in file path " << filepath.c_str() << "\n";
-
-    FILE* file = fopen(filepath.c_str(), "r");
-    std::cerr << "Checking error logic" << "\n";
-    if (file != nullptr)
-    {
-        certValid = true;
-    }
-    std::cerr << "Checking exits logic" << certValid << "\n";
-    return certValid;
-}
-
 inline void
     getSmtpSSLCertificates(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
@@ -289,16 +249,16 @@ inline void
     std::cerr << "SSL Primary Key Context file= "
               << sslPrimaryServerKeyFile.c_str() << "\n";
 
-    isPrimaryCACERT = ensureOpensslKeyPresentAndValid(sslPrimaryCACERTFile);
+    isPrimaryCACERT = redfish::ensureOpensslKeyPresentAndValid(sslPrimaryCACERTFile);
     asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]["PrimaryConfiguration"]
                             ["isCACERTExist"] = isPrimaryCACERT;
     isPrimaryServerCRT =
-        ensureOpensslKeyPresentAndValid(sslPrimaryServerCRTFile);
+        redfish::ensureOpensslKeyPresentAndValid(sslPrimaryServerCRTFile);
 
     asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]["PrimaryConfiguration"]
                             ["isServerCRTExist"] = isPrimaryServerCRT;
     isPrimaryServerKey =
-        ensureOpensslKeyPresentAndValid(sslPrimaryServerKeyFile);
+        redfish::ensureOpensslKeyPresentAndValid(sslPrimaryServerKeyFile);
 
     asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]["PrimaryConfiguration"]
                             ["isServerKeyExist"] = isPrimaryServerKey;
@@ -306,7 +266,7 @@ inline void
     if (isPrimaryCACERT)
     {
         std::string primaryCACERTModifiedDate =
-            modifiedDateTime(sslPrimaryCACERTFile);
+            redfish::modifiedDateTime(sslPrimaryCACERTFile);
 
         std::cerr << "Modified date and time for Primary CACERT "
                   << primaryCACERTModifiedDate << "\n";
@@ -318,7 +278,7 @@ inline void
     if (isPrimaryServerCRT)
     {
         std::string primaryCACERTModifiedDate =
-            modifiedDateTime(sslPrimaryServerCRTFile);
+            redfish::modifiedDateTime(sslPrimaryServerCRTFile);
 
         std::cerr << "Modified date and time for Primary CACERT "
                   << primaryCACERTModifiedDate << "\n";
@@ -331,7 +291,7 @@ inline void
     if (isPrimaryServerKey)
     {
         std::string primaryCACERTModifiedDate =
-            modifiedDateTime(sslPrimaryServerKeyFile);
+            redfish::modifiedDateTime(sslPrimaryServerKeyFile);
 
         std::cerr << "Modified date and time for Primary CACERT "
                   << primaryCACERTModifiedDate << "\n";
@@ -351,23 +311,23 @@ inline void
     std::cerr << "SSL Secondary Key Context file= "
               << sslSecondaryServerKeyFile.c_str() << "\n";
 
-    isSecondrayCACERT = ensureOpensslKeyPresentAndValid(sslSecondaryCACERTFile);
+    isSecondrayCACERT = redfish::ensureOpensslKeyPresentAndValid(sslSecondaryCACERTFile);
     asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]["SecondaryConfiguration"]
                             ["isCACERTExist"] = isSecondrayCACERT;
     isSecondrayServerKey =
-        ensureOpensslKeyPresentAndValid(sslSecondaryServerKeyFile);
+        redfish::ensureOpensslKeyPresentAndValid(sslSecondaryServerKeyFile);
 
     asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]["SecondaryConfiguration"]
                             ["isServerKeyExist"] = isSecondrayServerKey;
     isSecondrayServerCRT =
-        ensureOpensslKeyPresentAndValid(sslSecondaryServerCRTFile);
+        redfish::ensureOpensslKeyPresentAndValid(sslSecondaryServerCRTFile);
 
     asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]["SecondaryConfiguration"]
                             ["isServerCRTExist"] = isSecondrayServerCRT;
 
     if (isSecondrayCACERT)
     {
-        std::string modifiedDate = modifiedDateTime(sslSecondaryCACERTFile);
+        std::string modifiedDate = redfish::modifiedDateTime(sslSecondaryCACERTFile);
 
         std::cerr << "Modified date and time for Primary CACERT "
                   << modifiedDate << "\n";
@@ -378,7 +338,7 @@ inline void
     }
     if (isSecondrayServerCRT)
     {
-        std::string modifiedDate = modifiedDateTime(sslSecondaryServerCRTFile);
+        std::string modifiedDate = redfish::modifiedDateTime(sslSecondaryServerCRTFile);
 
         std::cerr << "Modified date and time for Primary CACERT "
                   << modifiedDate << "\n";
@@ -389,7 +349,7 @@ inline void
     }
     if (isSecondrayServerKey)
     {
-        std::string modifiedDate = modifiedDateTime(sslSecondaryServerKeyFile);
+        std::string modifiedDate = redfish::modifiedDateTime(sslSecondaryServerKeyFile);
 
         std::cerr << "Modified date and time for Primary CACERT "
                   << modifiedDate << "\n";
@@ -1123,70 +1083,73 @@ void getEventServiceInfo(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 inline void getEventServiceSubscriptionIdInfo(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& param)
 {
-                   if (param.starts_with("snmp"))
-                {
-                    getSnmpTrapClient(asyncResp, param);
-                    return;
-                }
+    std::shared_ptr<Subscription> subValue =
+        EventServiceManager::getInstance().getSubscription(param);
+    const std::string& id = param;
 
-                std::shared_ptr<Subscription> subValue =
-                    EventServiceManager::getInstance().getSubscription(param);
-                if (subValue == nullptr)
-                {
-                    // Lookup in Kafka subscriptions
-                    KafkaManager::getInstance().getSubscription(param,
-                                                                asyncResp);
-                    return;
-                }
-                const std::string& id = param;
+    if (param.starts_with("snmp"))
+    {
+        getSnmpTrapClient(asyncResp, param);
+        //return;
+    }
+    else
+    {
+         if (subValue == nullptr)
+        {
+            // Lookup in Kafka subscriptions
+            KafkaManager::getInstance().getSubscription(param,
+                                                        asyncResp);
+            return;
+        }
+        asyncResp->res.jsonValue["@odata.type"] =
+        "#EventDestination.v1_14_1.EventDestination";
+        asyncResp->res.jsonValue["Protocol"] =
+            event_destination::EventDestinationProtocol::Redfish;
+        asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
+            "/redfish/v1/EventService/Subscriptions/{}", id);
+        asyncResp->res.jsonValue["Id"] = id;
+        asyncResp->res.jsonValue["Name"] = "Event Destination " + id;
+        asyncResp->res.jsonValue["Destination"] =
+            subValue->userSub->destinationUrl;
+        asyncResp->res.jsonValue["SubscriptionType"] =
+            subValue->userSub->subscriptionType;
+        asyncResp->res.jsonValue["EventFormatType"] =
+            subValue->userSub->eventFormatType;
+    }
 
-                asyncResp->res.jsonValue["@odata.type"] =
-                    "#EventDestination.v1_14_1.EventDestination";
-                asyncResp->res.jsonValue["Protocol"] =
-                    event_destination::EventDestinationProtocol::Redfish;
-                asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
-                    "/redfish/v1/EventService/Subscriptions/{}", id);
-                asyncResp->res.jsonValue["Id"] = id;
-                asyncResp->res.jsonValue["Name"] = "Event Destination " + id;
-                asyncResp->res.jsonValue["Destination"] =
-                    subValue->userSub->destinationUrl;
-                asyncResp->res.jsonValue["Context"] =
-                    ((subValue != nullptr) && !subValue->userSub->customText.empty()) ? subValue->userSub->customText : "Event_Sub_" + id;
-                asyncResp->res.jsonValue["SubscriptionType"] =
-                    subValue->userSub->subscriptionType;
-                asyncResp->res.jsonValue["HttpHeaders"] =
-                    nlohmann::json::array();
-                asyncResp->res.jsonValue["EventFormatType"] =
-                    subValue->userSub->eventFormatType;
-                asyncResp->res.jsonValue["RegistryPrefixes"] =
-                    subValue->userSub->registryPrefixes;
-                asyncResp->res.jsonValue["ResourceTypes"] =
-                    subValue->userSub->resourceTypes;
+    asyncResp->res.jsonValue["Context"] =
+        ((subValue != nullptr) && !subValue->userSub->customText.empty()) ? subValue->userSub->customText : "Event_Sub_" + id;
+    asyncResp->res.jsonValue["HttpHeaders"] =
+        nlohmann::json::array();
+    asyncResp->res.jsonValue["RegistryPrefixes"] =
+        subValue->userSub->registryPrefixes;
+    asyncResp->res.jsonValue["ResourceTypes"] =
+        subValue->userSub->resourceTypes;
+    asyncResp->res.jsonValue["MessageIds"] =
+        subValue->userSub->registryMsgIds;
+    asyncResp->res.jsonValue["DeliveryRetryPolicy"] =
+        subValue->userSub->retryPolicy;
+    asyncResp->res.jsonValue["SendHeartbeat"] =
+        subValue->userSub->sendHeartbeat;
+    asyncResp->res.jsonValue["HeartbeatIntervalMinutes"] =
+        subValue->userSub->hbIntervalMinutes;
+    asyncResp->res.jsonValue["VerifyCertificate"] =
+        subValue->userSub->verifyCertificate;
+    asyncResp->res.jsonValue["Status"]["Health"] = "OK";
+    asyncResp->res.jsonValue["Status"]["State"] =
+        subValue->userSub->state;
 
-                asyncResp->res.jsonValue["MessageIds"] =
-                    subValue->userSub->registryMsgIds;
-                asyncResp->res.jsonValue["DeliveryRetryPolicy"] =
-                    subValue->userSub->retryPolicy;
-                asyncResp->res.jsonValue["SendHeartbeat"] =
-                    subValue->userSub->sendHeartbeat;
-                asyncResp->res.jsonValue["HeartbeatIntervalMinutes"] =
-                    subValue->userSub->hbIntervalMinutes;
-                asyncResp->res.jsonValue["VerifyCertificate"] =
-                    subValue->userSub->verifyCertificate;
-                asyncResp->res.jsonValue["Status"]["Health"] = "OK";
-                asyncResp->res.jsonValue["Status"]["State"] =
-                    subValue->userSub->state;
+    nlohmann::json::array_t mrdJsonArray;
+    for (const auto& mdrUri :
+            subValue->userSub->metricReportDefinitions)
+    {
+        nlohmann::json::object_t mdr;
+        mdr["@odata.id"] = mdrUri;
+        mrdJsonArray.emplace_back(std::move(mdr));
+    }
+    asyncResp->res.jsonValue["MetricReportDefinitions"] =
+        mrdJsonArray;
 
-                nlohmann::json::array_t mrdJsonArray;
-                for (const auto& mdrUri :
-                     subValue->userSub->metricReportDefinitions)
-                {
-                    nlohmann::json::object_t mdr;
-                    mdr["@odata.id"] = mdrUri;
-                    mrdJsonArray.emplace_back(std::move(mdr));
-                }
-                asyncResp->res.jsonValue["MetricReportDefinitions"] =
-                    mrdJsonArray;
 }
 
 inline void requestRoutesEventService(App& app)
@@ -1593,7 +1556,6 @@ inline void requestRoutesEventDestinationCollection(App& app)
             std::optional<std::vector<nlohmann::json::object_t>> mrdJsonArray;
             std::optional<nlohmann::json> oemObj;
             std::optional<std::string> oemsnmpcommunitystring;
-
             if (!json_util::readJsonPatch( //
                     req, asyncResp->res, //
                     "Destination", destUrl, //
@@ -1618,6 +1580,13 @@ inline void requestRoutesEventDestinationCollection(App& app)
             {
                 return;
             }
+
+            if(protocol.empty())
+            {
+                messages::propertyValueEmpty(asyncResp->res, protocol, "Protocol");
+                return;
+            }
+
             if (vId)
             {
                 messages::propertyNotWritable(asyncResp->res, "Id");
@@ -1857,6 +1826,7 @@ inline void requestRoutesEventDestinationCollection(App& app)
             }
             subValue->userSub->protocol = protocol;
 
+
             if (verifyCertificate)
             {
                 subValue->userSub->verifyCertificate = *verifyCertificate;
@@ -2088,6 +2058,21 @@ inline void requestRoutesEventDestinationCollection(App& app)
             if (protocol == "SNMPv2c" || protocol == "SNMPv3" ||
                 protocol == "SNMPv1")
             {
+                auto subId = std::make_shared<std::string>();
+                snmpCompletedOperations = 0;
+                auto snmpCompletionHandler = [asyncResp, subId, oemsnmpcommunitystring, protocol](bool success)
+                {
+                    if (success)
+                    {
+                        snmpCompletedOperations++;
+                    }
+                    // As of now two snmpcompletedoperations for SNMPV1 and SNMPV2 and one snmpcompletedoperations for SNMPv3. In Future if new dbus call are added for these protocols please increment the values of snmpcompletedoperations.
+                    if ((oemsnmpcommunitystring && (snmpCompletedOperations == 2)) || (protocol == "SNMPv3" && (snmpCompletedOperations == 1)))
+                    {
+                        getEventServiceSubscriptionIdInfo(asyncResp,*subId);
+                        asyncResp->res.result(boost::beast::http::status::created);
+                    }
+                };
                 auto value = getSnmpProtocol();
                 auto protocolStatus = std::get<bool>(value);
                 if (!protocolStatus)
@@ -2107,7 +2092,7 @@ inline void requestRoutesEventDestinationCollection(App& app)
                         dbus::utility::getProperty<std::string>(
                             "xyz.openbmc_project.Snmp.Conf", path,
                             "xyz.openbmc_project.Snmp.CommunityStrManager", "CommunityString",
-                            [asyncResp, oemsnmpcommunitystring, hostaddress, portnumber, protocol, user_name, subValue](const boost::system::error_code& ec, std::string communitystring) {
+                            [asyncResp, oemsnmpcommunitystring, hostaddress, portnumber, protocol, user_name, subValue, subId, snmpCompletionHandler](const boost::system::error_code& ec, std::string communitystring) {
                             if (ec)
                             {
                                 BMCWEB_LOG_ERROR("no communitystring object path avaliable");
@@ -2122,11 +2107,18 @@ inline void requestRoutesEventDestinationCollection(App& app)
                             }
                             else
                             {
+                                snmpCompletionHandler(true);
                                 addSnmpTrapClient(asyncResp, hostaddress,
                                     portnumber, protocol, user_name,
-                                    subValue, *oemsnmpcommunitystring);
+                                    subValue, *oemsnmpcommunitystring, subId, snmpCompletionHandler);
                             }
                         });
+                    }
+                    else
+                    {
+                        messages::propertyMissing(asyncResp->res, 
+                                            "Oem/OpenBmc/CommunityString");
+                        return;
                     }
                 }
                 else
@@ -2140,7 +2132,7 @@ inline void requestRoutesEventDestinationCollection(App& app)
                     }
                     addSnmpTrapClient(asyncResp, url->host_address(),
                                     url->port_number(), protocol, url->user(),
-                                    subValue, *oemsnmpcommunitystring);                    
+                                    subValue, *oemsnmpcommunitystring, subId, snmpCompletionHandler);                    
                 }
                 return;
             }

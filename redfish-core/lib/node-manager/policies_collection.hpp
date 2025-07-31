@@ -517,6 +517,10 @@ inline void requestRoutesNodeManagerPolicies(App& app)
                 {
                     return;
                 }
+	
+	    asyncResp->res.clearHeader(boost::beast::http::field::allow);
+        asyncResp->res.addHeader("Allow", "GET, PATCH, DELETE");
+
         crow::connections::systemBus->async_method_call(
             [asyncResp, policyName](const boost::system::error_code ec,
                                     const std::vector<std::string>& objects) {
@@ -547,6 +551,54 @@ inline void requestRoutesNodeManagerPolicies(App& app)
 
             getAttributes(asyncResp, *policyObjectPath);
             getStatistics(asyncResp, *policyObjectPath);
+            },
+            kObjectMapperService, kObjectMapperObjectPath, kObjectMapperService,
+            "GetSubTreePaths", kNodeManagerObjectPath, 0,
+            std::vector<const char*>{kPolicyAttributesInterface});
+        });
+
+    BMCWEB_ROUTE(
+        app, "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Policies/<str>")
+        .privileges(redfish::privileges::privilegeSetLogin)
+        .methods(boost::beast::http::verb::post)(
+            [](const crow::Request&,
+               const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+               const std::string& policyName)
+        {
+                asyncResp->res.clearHeader(boost::beast::http::field::allow);
+
+            crow::connections::systemBus->async_method_call(
+                [asyncResp, policyName](const boost::system::error_code ec,
+                                        const std::vector<std::string>& objects)
+            {
+                if (ec)
+                {
+                    BMCWEB_LOG_ERROR("respHandler DBus error: {}", ec.message());
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+
+                auto policyObjectPath =
+                    std::find_if(objects.begin(), objects.end(),
+                                [&policyName](const std::string& objectPath) {
+                    std::smatch match;
+                    std::regex search("Policy/" + policyName + "$");
+                    if (std::regex_search(objectPath, match, search))
+                    {
+                        return true;
+                    }
+                    return false;
+                    });
+
+                if (objects.end() == policyObjectPath)
+                {
+                    messages::resourceNotFound(asyncResp->res, "Policies",
+                                            policyName);
+                    return;
+                }
+                asyncResp->res.addHeader("Allow", "GET, PATCH, DELETE");
+                messages::operationNotAllowed(asyncResp->res);
+                return;
             },
             kObjectMapperService, kObjectMapperObjectPath, kObjectMapperService,
             "GetSubTreePaths", kNodeManagerObjectPath, 0,

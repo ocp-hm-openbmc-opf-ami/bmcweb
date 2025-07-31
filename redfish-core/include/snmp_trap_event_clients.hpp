@@ -40,8 +40,7 @@ inline std::string getProtocol(const std::string& snmpProtol)
 inline void afterGetSnmpTrapClientdata(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const boost::system::error_code& ec,
-    const dbus::utility::DBusPropertiesMap& propertiesList,
-    const std::string& id)
+    const dbus::utility::DBusPropertiesMap& propertiesList)
 {
     if (ec)
     {
@@ -54,7 +53,6 @@ inline void afterGetSnmpTrapClientdata(
     std::string version;
     uint16_t port = 0;
     std::string user;
-
     bool success = sdbusplus::unpackPropertiesNoThrow(
         dbus_utils::UnpackErrorPrinter(), propertiesList, "Address", address,
         "Port", port, "Version", version, "User", user);
@@ -64,8 +62,6 @@ inline void afterGetSnmpTrapClientdata(
         messages::internalError(asyncResp->res);
         return;
     }
-    std::shared_ptr<Subscription> subVal =
-                    EventServiceManager::getInstance().getSubscription(id);
     if (version == "v3")
     {
         asyncResp->res.jsonValue["Destination"] =
@@ -79,7 +75,6 @@ inline void afterGetSnmpTrapClientdata(
         asyncResp->res.jsonValue["Oem"]["OpenBmc"]["CommunityString"] = user;
     }
     asyncResp->res.jsonValue["Protocol"] = "SNMP" + version;
-    asyncResp->res.jsonValue["Context"] = ((subVal != nullptr) && !subVal->userSub->customText.empty()) ? subVal->userSub->customText : "Event_Sub_" + id;
 }
 
 inline void
@@ -101,7 +96,7 @@ inline void
         "xyz.openbmc_project.Network.Client",
         [asyncResp, id](const boost::system::error_code& ec,
                     const dbus::utility::DBusPropertiesMap& properties) {
-            afterGetSnmpTrapClientdata(asyncResp, ec, properties, id);
+            afterGetSnmpTrapClientdata(asyncResp, ec, properties);
         });
 }
 
@@ -119,7 +114,6 @@ inline void
             messages::internalError(asyncResp->res);
             return;
         }
-
         for (const auto& objpath : resp)
         {
             sdbusplus::message::object_path path(objpath.first);
@@ -168,7 +162,7 @@ inline void afterSnmpClientCreate(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const boost::system::error_code& ec, const sdbusplus::message_t& msg,
     const std::string& host, const std::string& dbusSNMPid,
-    const std::shared_ptr<Subscription>& subValue)
+    const std::shared_ptr<Subscription>& subValue, const std::shared_ptr<std::string>& subId)
 
 {
     if (ec)
@@ -202,31 +196,29 @@ inline void afterSnmpClientCreate(
         messages::internalError(asyncResp->res);
         return;
     }
-
-    std::string subscriptionId = "snmp" + snmpId;
-
+    *subId = "snmp" + snmpId;
     EventServiceManager::getInstance().addPushSubscription(subValue,
-                                                       subscriptionId);
+                                                       *subId);
     boost::urls::url uri = boost::urls::format(
-        "/redfish/v1/EventService/Subscriptions/{}", subscriptionId);
+        "/redfish/v1/EventService/Subscriptions/{}", *subId);
     asyncResp->res.addHeader("Location", uri.buffer());
-    messages::created(asyncResp->res);
 }
 
 inline void
     addSnmpTrapClient(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                       const std::string& host, uint16_t snmpTrapPort,
                       const std::string& protocol, const std::string& username,
-                      const std::shared_ptr<Subscription>& subValue, const std::string& oemsnmpcommunitystring)
+                      const std::shared_ptr<Subscription>& subValue, const std::string& oemsnmpcommunitystring, const std::shared_ptr<std::string>& subId, std::function<void(bool)> snmpCompletionHandler)
 
 {
     if (protocol == "SNMPv3")
     {
         crow::connections::systemBus->async_method_call(
-            [asyncResp, host, subValue](const boost::system::error_code& ec,
+            [asyncResp, host, subValue, subId, snmpCompletionHandler](const boost::system::error_code& ec,
                                         const sdbusplus::message_t& msg,
                                         const std::string& dbusSNMPid) {
-            afterSnmpClientCreate(asyncResp, ec, msg, host, dbusSNMPid, subValue);
+            afterSnmpClientCreate(asyncResp, ec, msg, host, dbusSNMPid, subValue, subId);
+            snmpCompletionHandler(true);
             },
             "xyz.openbmc_project.Network.SNMP",
             "/xyz/openbmc_project/network/snmp/manager",
@@ -236,10 +228,11 @@ inline void
     else
     {
         crow::connections::systemBus->async_method_call(
-            [asyncResp, host, subValue](const boost::system::error_code& ec,
+            [asyncResp, host, subValue, subId, snmpCompletionHandler](const boost::system::error_code& ec,
                                         const sdbusplus::message_t& msg,
                                         const std::string& dbusSNMPid) {
-            afterSnmpClientCreate(asyncResp, ec, msg, host, dbusSNMPid, subValue);
+            afterSnmpClientCreate(asyncResp, ec, msg, host, dbusSNMPid, subValue, subId);
+            snmpCompletionHandler(true);
             },
             "xyz.openbmc_project.Network.SNMP",
             "/xyz/openbmc_project/network/snmp/manager",
@@ -293,7 +286,7 @@ inline void
             messages::internalError(asyncResp->res);
             return;
         }
-        messages::success(asyncResp->res);
+        asyncResp->res.result(boost::beast::http::status::no_content);
     },
         "xyz.openbmc_project.Network.SNMP", static_cast<std::string>(snmpPath),
         "xyz.openbmc_project.Object.Delete", "Delete");

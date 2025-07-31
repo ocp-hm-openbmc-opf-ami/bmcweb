@@ -549,6 +549,9 @@ inline void requestRoutesPefService(App& app)
                 get)([&app](const crow::Request& req,
                             const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                             const std::string& entryId) {
+            asyncResp->res.clearHeader(boost::beast::http::field::allow);
+            asyncResp->res.addHeader("Allow", "GET, PATCH");
+
             if (!redfish::setUpRedfishRoute(app, req, asyncResp))
             {
                 return;
@@ -562,7 +565,45 @@ inline void requestRoutesPefService(App& app)
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& entryId) {
-                std::optional<std::string> eventSeverity;
+
+		asyncResp->res.clearHeader(boost::beast::http::field::allow);
+                asyncResp->res.addHeader("Allow", "GET, PATCH");
+		
+		 crow::connections::systemBus->async_method_call(
+                [asyncResp,
+                 entryId,req](const boost::system::error_code ec,
+                          const std::vector<std::string>& storageList) 
+                {
+                    std::optional<std::string> eventSeverity;
+                    if (ec)
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "D-Bus call error while validating event entry");
+                        asyncResp->res.result(
+                            boost::beast::http::status::internal_server_error);
+                        return;
+                    }
+
+                    // Loop through the event entries and check if the requested
+                    // entryId is valid
+                    bool isValid = false;
+                    for (const std::string& objpath : storageList)
+                    {
+                        std::size_t lastPos = objpath.rfind('/');
+                        if (lastPos != std::string::npos &&
+                            objpath.substr(lastPos + 1) == entryId)
+                        {
+                            isValid = true;
+                            break;
+                        }
+                    }
+
+                    if (!isValid)
+                    {
+                        messages::resourceNotFound(asyncResp->res, "PefService",
+                                                   entryId);
+                        return;
+                    }
                 if (!json_util::readJsonPatch( //
                         req, asyncResp->res, //
                         "EventSeverity", eventSeverity //
@@ -601,7 +642,74 @@ inline void requestRoutesPefService(App& app)
                     }
                 }
                 getPefServiceInfoId(asyncResp,entryId);
+                },
+                "xyz.openbmc_project.ObjectMapper",
+                "/xyz/openbmc_project/object_mapper",
+                "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
+                "/xyz/openbmc_project/PefAlertManager/EventFilterTable/", 0,
+                std::array<const char*, 1>{
+                    "xyz.openbmc_project.pef.EventFilterTable"});
             });
+
+	
+	 BMCWEB_ROUTE(app, "/redfish/v1/PefService/<str>")
+            .privileges({{"Login"}, {"ConfigureComponents"}})
+            .methods(
+                boost::beast::http::verb::
+                    post,boost::beast::http::verb::delete_)([&app](const crow::Request& req,
+                                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                                const std::string& entryId)
+            {
+                asyncResp->res.clearHeader(boost::beast::http::field::allow);
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
+                crow::connections::systemBus->async_method_call(
+                    [asyncResp,
+                     entryId](const boost::system::error_code ec,
+                              const std::vector<std::string>& storageList) {
+                        if (ec)
+                        {
+                            BMCWEB_LOG_ERROR(
+                                "D-Bus call error while validating event entry");
+                            asyncResp->res.result(
+                                boost::beast::http::status::internal_server_error);
+                            return;
+                        }
+    
+                        // Loop through the event entries and check if the requested
+                        // entryId is valid
+                        bool isValid = false;
+                        for (const std::string& objpath : storageList)
+                        {
+                            std::size_t lastPos = objpath.rfind('/');
+                            if (lastPos != std::string::npos &&
+                                objpath.substr(lastPos + 1) == entryId)
+                            {
+                                isValid = true;
+                                break;
+                            }
+                        }
+    
+                        if (!isValid)
+                        {
+                            messages::resourceNotFound(asyncResp->res, "PefService",
+                                                       entryId);
+                            return;
+                        }
+                        asyncResp->res.addHeader("Allow", "GET, PATCH");
+                        messages::operationNotAllowed(asyncResp->res);
+                        return;
+            },
+            "xyz.openbmc_project.ObjectMapper",
+            "/xyz/openbmc_project/object_mapper",
+            "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
+            "/xyz/openbmc_project/PefAlertManager/EventFilterTable/", 0,
+            std::array<const char*, 1>{
+                "xyz.openbmc_project.pef.EventFilterTable"});
+        });
+
 
     BMCWEB_ROUTE(app,
                  "/redfish/v1/PefService/Actions/PefService.SendAlertMail/")

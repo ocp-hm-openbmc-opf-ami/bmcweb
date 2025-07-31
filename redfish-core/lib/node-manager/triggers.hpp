@@ -25,17 +25,18 @@ namespace redfish
 {
 
 static void getTriggerData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                           const std::string& dbusPath)
+                           const std::string& dbusPath,const std::optional<std::string>& triggerName)
 {
     crow::connections::systemBus->async_method_call(
-        [asyncResp](
+        [asyncResp,triggerName](
             const boost::system::error_code ec,
             const boost::container::flat_map<
                 std::string, std::variant<uint16_t, std::string>>& params) {
         if (ec)
         {
             BMCWEB_LOG_ERROR("respHandler DBus error: {}", ec.message());
-            messages::internalError(asyncResp->res);
+            std::string triggerNameVal = triggerName.value_or("");
+            messages::resourceNotFound(asyncResp->res, "Triggers", triggerNameVal);
             return;
         }
 
@@ -75,6 +76,29 @@ static void getTriggerData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         kNodeManagerService, dbusPath, "org.freedesktop.DBus.Properties",
         "GetAll", "xyz.openbmc_project.NodeManager.Trigger");
 }
+
+static void PostTriggerData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                           const std::string& dbusPath,const std::string& triggerName)
+{
+    crow::connections::systemBus->async_method_call(
+        [asyncResp,triggerName](
+            const boost::system::error_code ec,
+            [[maybe_unused]]const boost::container::flat_map<
+                std::string, std::variant<uint16_t, std::string>>& params) {
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR("respHandler DBus error: {}", ec.message());
+            messages::resourceNotFound(asyncResp->res, "Triggers", triggerName);
+            return;
+        }
+        asyncResp->res.addHeader("Allow", "GET");
+        messages::operationNotAllowed(asyncResp->res);
+        return;
+        },
+        kNodeManagerService, dbusPath, "org.freedesktop.DBus.Properties",
+        "GetAll", "xyz.openbmc_project.NodeManager.Trigger");
+}
+
 
 static void getGpioLines(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
                          const std::string& dbusPath)
@@ -154,10 +178,13 @@ inline void requestRoutesNodeManagerTriggers(App& app)
                 {
                     return;
                 }
+        asyncResp->res.clearHeader(boost::beast::http::field::allow);
+        asyncResp->res.addHeader("Allow", "GET");
+
         auto triggerDbusPath = "/xyz/openbmc_project/NodeManager/Trigger/" +
                                triggerName;
 
-        getTriggerData(asyncResp, triggerDbusPath);
+        getTriggerData(asyncResp, triggerDbusPath,triggerName);
 
         if (triggerName == "GPIO")
         {
@@ -173,5 +200,21 @@ inline void requestRoutesNodeManagerTriggers(App& app)
             {"Name", triggerName},
         };
         });
+
+        BMCWEB_ROUTE(
+            app, "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Triggers/<str>/")
+            .privileges(redfish::privileges::privilegeSetLogin)
+            .methods(boost::beast::http::verb::post,boost::beast::http::verb::patch,boost::beast::http::verb::delete_)(
+                [](const crow::Request&,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const std::string& triggerName) {
+                    asyncResp->res.clearHeader(boost::beast::http::field::allow);
+                    auto triggerDbusPath = "/xyz/openbmc_project/NodeManager/Trigger/" +
+                                   triggerName;
+
+            PostTriggerData(asyncResp, triggerDbusPath,triggerName);
+
+        });
+
 }
 } // namespace redfish

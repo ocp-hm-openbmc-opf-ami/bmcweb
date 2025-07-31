@@ -2822,5 +2822,26 @@ void requestBodyNotAllowed(crow::Response& res)
     addMessageToErrorJson(res.jsonValue, requestBodyNotAllowed());
 }
 
+/**
+ * @internal
+ * @brief Formats ConfigurationConflict message into JSON
+ *
+ * See header file for more information
+ * @endinternal
+ */
+nlohmann::json configurationConflict(const std::string& arg1, const std::string& arg2)
+{
+    return getLog(
+    redfish::registries::openbmc::Index::configurationConflict,
+    std::to_array<std::string_view>({arg1, arg2}));
+
+}
+
+void configurationConflict(crow::Response& res, const std::string& arg1, const std::string& arg2)
+{
+    res.result(boost::beast::http::status::bad_request);
+    addMessageToErrorJson(res.jsonValue, configurationConflict(arg1, arg2));
+}
+
 } // namespace messages
 } // namespace redfish

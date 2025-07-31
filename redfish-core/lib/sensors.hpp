@@ -55,6 +55,7 @@ constexpr auto getSensorPaths(){
         "/xyz/openbmc_project/sensors/power",
         "/xyz/openbmc_project/sensors/current",
         "/xyz/openbmc_project/sensors/airflow",
+	"/xyz/openbmc_project/sensors/count",
         "/xyz/openbmc_project/sensors/humidity",
         "/xyz/openbmc_project/sensors/voltage",
         "/xyz/openbmc_project/sensors/fan_tach",
@@ -3278,7 +3279,7 @@ inline void filterThresholdSensors(
 
 inline bool valideSensorWithConfFile(const std::string& sensorId)
 {
-    std::ifstream inputFile("/etc/sensor-reader/configuredsensors");
+    std::ifstream inputFile("/etc/sensor-reader-conf/configuredsensors");
     if (inputFile.is_open())
     {
         std::string sensorNameSearch, fileLine;
@@ -3340,6 +3341,9 @@ inline void handleSensorGet(App& app, const crow::Request& req,
                             const std::string& chassisId,
                             const std::string& sensorId)
 {
+    asyncResp->res.clearHeader(boost::beast::http::field::allow);
+    asyncResp->res.addHeader("Allow", "GET, PATCH");
+
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
@@ -3458,6 +3462,67 @@ inline void handleSensorGet(App& app, const crow::Request& req,
             "xyz.openbmc_project.Inventory.Item.Board",
             "xyz.openbmc_project.Inventory.Item.Chassis"});
 }
+
+inline void
+    handleSensorPost(App& app, const crow::Request& req,
+                     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                     const std::string& chassisId, const std::string& sensorId)
+{
+    asyncResp->res.clearHeader(boost::beast::http::field::allow);
+
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    crow::connections::systemBus->async_method_call(
+        [asyncResp, chassisId,
+         sensorId](const boost::system::error_code ec_,
+                   const std::vector<std::string>& chassisPaths) {
+            if (ec_)
+
+            {
+                BMCWEB_LOG_ERROR(
+                    "D-Bus call error while validating chassis ID");
+                asyncResp->res.result(
+                    boost::beast::http::status::internal_server_error);
+                return;
+            }
+
+            // Extract valid chassis IDs from the D-Bus paths
+            bool isValid = false;
+            for (const std::string& objpath : chassisPaths)
+            {
+                std::size_t lastPos = objpath.rfind('/');
+                if (lastPos != std::string::npos)
+                {
+                    std::string extractedChassisId =
+                        objpath.substr(lastPos + 1);
+                    std::cerr
+                        << "extractedChassisId: " << extractedChassisId << "\n";
+                    std::cerr << "chassisId: " << chassisId << "\n";
+
+                    if (extractedChassisId == chassisId)
+                    {
+                        isValid = true;
+                        break;
+                    }
+                }
+            }
+            if (!isValid)
+            {
+                messages::resourceNotFound(asyncResp->res,"chassisId", chassisId);
+                return;
+            }
+        },
+        "xyz.openbmc_project.ObjectMapper",
+        "/xyz/openbmc_project/object_mapper",
+        "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
+        "/xyz/openbmc_project/inventory", 0,
+        std::array<const char*, 2>{
+            "xyz.openbmc_project.Inventory.Item.Board",
+            "xyz.openbmc_project.Inventory.Item.Chassis"});
+}
+
 
 inline void handleSensorHistoryGet(
     App& app, const crow::Request& req,
@@ -3674,6 +3739,12 @@ inline void requestRoutesSensorCollection(App& app)
         .privileges(redfish::privileges::getSensorCollection)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(sensors::handleSensorCollectionGet, std::ref(app)));
+            
+    BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/Sensors/<str>/")
+        .privileges(redfish::privileges::getSensor)
+        .methods(boost::beast::http::verb::post,
+                 boost::beast::http::verb::delete_)(
+            std::bind_front(sensors::handleSensorPost, std::ref(app)));
 }
 
 inline void requestRoutesSensorThreshCollection(App& app)

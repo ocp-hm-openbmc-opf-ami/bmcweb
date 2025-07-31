@@ -170,6 +170,10 @@ inline void handleMessageRoutesMessageRegistryFileGet(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& registry)
 {
+	
+    asyncResp->res.clearHeader(boost::beast::http::field::allow);
+    asyncResp->res.addHeader("Allow", "GET");
+
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
@@ -513,6 +517,41 @@ inline void requestRoutesMessageRegistryFile(App& app)
         .privileges(redfish::privileges::getMessageRegistryFile)
         .methods(boost::beast::http::verb::get)(std::bind_front(
             handleMessageRoutesMessageRegistryFileGet, std::ref(app)));
+
+   BMCWEB_ROUTE(app, "/redfish/v1/Registries/<str>/")
+        .privileges(redfish::privileges::getMessageRegistryFile)
+        .methods(boost::beast::http::verb::post,boost::beast::http::verb::patch,boost::beast::http::verb::delete_)(
+            [&app](const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& registry)
+  {
+    asyncResp->res.clearHeader(boost::beast::http::field::allow);
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    size_t pos = registry.find('.');
+    std::string registryName;
+    if (pos != std::string::npos)
+    {
+        // Retrieve the substring before the first full stop
+        registryName = registry.substr(0, pos);
+    }
+    std::string Val;
+    static constexpr const auto registryFiles = std::to_array(
+        {"Base", "TaskEvent", "NodeManager", "ResourceEvent", "OpenBMC",
+         "Telemetry", "PrivilegeRegistry", "HeartbeatEvent",
+         "CertificateService"}); 
+    for (const char* memberName : registryFiles) {
+        if (registry == memberName || registryName == memberName) {
+            asyncResp->res.addHeader("Allow", "GET");
+            messages::operationNotAllowed(asyncResp->res);
+            return;
+        }
+    }
+    messages::resourceNotFound(asyncResp->res, "MessageRegistryFile", registry);
+    return;
+  });
 }
 
 } // namespace redfish

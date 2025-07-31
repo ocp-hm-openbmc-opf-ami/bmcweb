@@ -348,6 +348,96 @@ inline void setFru(
     }
 }
 
+void postFru(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& fruName, const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreeResponse& subtree)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("DBUS response error {}", ec);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    // Iterate over all retrieved ObjectPaths.
+    for (const std::pair<
+             std::string,
+             std::vector<std::pair<std::string, std::vector<std::string>>>>&
+             object : subtree)
+    {
+        const std::string& path = object.first;
+        sdbusplus::message::object_path objPath(path);
+        if (objPath.filename() == chassisId)
+        {
+            ischeckChassisInstance = true;
+            break;
+        }
+        else
+        {
+            ischeckChassisInstance = false;
+        }
+    }
+    /* if it is present set response */
+    if(ischeckChassisInstance)
+    {
+
+        crow::connections::systemBus->async_method_call(
+            [asyncResp, fruName](const boost::system::error_code errCode,
+                                 const GetSubTreeType& fruDeviceSubtree) {
+                if (errCode)
+                {
+                    messages::internalError(asyncResp->res);
+                    BMCWEB_LOG_ERROR("FRU getfruPaths resp_handler: Dbus error {}",
+                                     errCode);
+                    return;
+                }
+
+                GetSubTreeType::const_iterator it = std::find_if(
+                    fruDeviceSubtree.begin(), fruDeviceSubtree.end(),
+                    [fruName](
+                        const std::pair<
+                            std::string,
+                            std::vector<std::pair<
+                                std::string, std::vector<std::string>>>>& object) {
+                        std::string_view fru = object.first;
+                        std::size_t lastPos = fru.rfind("/");
+                        if (lastPos == std::string::npos ||
+                            lastPos + 1 >= fru.size())
+                        {
+                            BMCWEB_LOG_ERROR("Invalid fru path:{}", fru);
+                            return false;
+                        }
+                        std::string_view name = fru.substr(lastPos + 1);
+
+                        return name == fruName;
+                    });
+                    if (it == fruDeviceSubtree.end())
+                    {
+                        BMCWEB_LOG_ERROR("Could not find object path for fru:{}",
+                                         fruName);
+                        messages::resourceNotFound(asyncResp->res, "FRU", fruName);
+                        return;
+                    }
+                    else
+                    {
+                        asyncResp->res.addHeader("Allow", "GET");
+                        messages::operationNotAllowed(asyncResp->res);
+                        return;
+                    }
+                },
+                "xyz.openbmc_project.ObjectMapper",
+                "/xyz/openbmc_project/object_mapper",
+                "xyz.openbmc_project.ObjectMapper", "GetSubTree",
+                "/xyz/openbmc_project/FruDevice", 2,
+                std::array<const char*, 1>{"xyz.openbmc_project.FruDevice"});
+        }
+        else
+        {
+            messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
+        }
+}
+    
+
 
 inline void
     handleFruCollectionGet(App& app, const crow::Request& req,
@@ -374,6 +464,9 @@ inline void handleFruGet(App& app, const crow::Request& req,
                          const std::string& chassisId,
                          const std::string& fruName)
 {
+    asyncResp->res.clearHeader(boost::beast::http::field::allow);
+    asyncResp->res.addHeader("Allow", "GET");
+
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
@@ -395,6 +488,29 @@ inline void requestRoutesFru(App& app)
         .privileges(redfish::privileges::getFru)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleFruGet, std::ref(app)));
+
+    BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/FRU/<str>")
+        .privileges(redfish::privileges::getFru)
+        .methods(boost::beast::http::verb::post,boost::beast::http::verb::patch,boost::beast::http::verb::delete_)([&app]
+            (const crow::Request& req,
+                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                    const std::string& chassisId,
+                    const std::string& fruName)
+                    {
+                        asyncResp->res.clearHeader(boost::beast::http::field::allow);
+                        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                        {
+                        return;
+                        }
+                        constexpr std::array<std::string_view, 2> interfaces = {
+                            "xyz.openbmc_project.Inventory.Item.Board",
+                            "xyz.openbmc_project.Inventory.Item.Chassis"};
+                        dbus::utility::getSubTree(
+                            "/xyz/openbmc_project/inventory", 0, interfaces,
+                            std::bind_front(postFru, asyncResp, chassisId, fruName));
+    
+                        return;
+                });
 }
 
 inline void requestRoutesFruCollection(App& app)

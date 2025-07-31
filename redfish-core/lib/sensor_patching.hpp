@@ -122,31 +122,89 @@ inline void requestRoutesSensorPatching(App& app)
             [](const crow::Request& req,
                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                const std::string& chassisName, const std::string&) {
-                std::unordered_map<std::string, std::pair<double, std::string>>
-                    overrideMap;
-                std::string memberId;
-                double value = 0;
 
-                auto sensorsAsyncResp = std::make_shared<SensorsAsyncResp>(
-                    asyncResp, chassisName, sensors::dbus::sensorPaths,
-                    sensors::sensorsNodeStr);
+                asyncResp->res.clearHeader(boost::beast::http::field::allow);
+                asyncResp->res.addHeader("Allow", "GET, PATCH");
 
-                if (!json_util::readJsonPatch( //
-                        req, sensorsAsyncResp->asyncResp->res, //
-                        "Id", memberId, //
-                        "Reading", value //
-                        ))
-                {
-                    return;
-                }
+                crow::connections::systemBus->async_method_call(
+                [asyncResp, chassisName,
+                 req](const boost::system::error_code ec_,
+                      const std::vector<std::string>& chassisPaths) {
+                    if (ec_)
 
-                std::pair<std::string, std::string> nameType =
-                    redfish::sensor_utils::splitSensorNameAndType(memberId);
-                overrideMap.emplace(nameType.second,
-                                    std::make_pair(value, "Reading"));
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "D-Bus call error while validating chassis ID");
+                        asyncResp->res.result(
+                            boost::beast::http::status::internal_server_error);
+                        return;
+                    }
 
-                setSensor(sensorsAsyncResp, overrideMap);
+                    // Extract valid chassis IDs from the D-Bus paths
+                    bool isValid = false;
+                    for (const std::string& objpath : chassisPaths)
+                    {
+                        std::size_t lastPos = objpath.rfind('/');
+                        if (lastPos != std::string::npos)
+                        {
+                            std::string extractedChassisId =
+                                objpath.substr(lastPos + 1);
+                            std::cerr
+                                << "extractedChassisId: " << extractedChassisId
+                                << "\n";
+                            std::cerr << "chassisId: " << chassisName << "\n";
+
+                            if (extractedChassisId == chassisName)
+                            {
+                                isValid = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (!isValid)
+                    {
+                        messages::resourceNotFound(asyncResp->res,"chassisId",chassisName);
+                        return;
+                    }
+                    else
+                    {
+                        std::unordered_map<std::string,
+                                           std::pair<double, std::string>>
+                            overrideMap;
+                        std::string memberId;
+                        double value = 0;
+
+                        auto sensorsAsyncResp =
+                            std::make_shared<SensorsAsyncResp>(
+                                asyncResp, chassisName,
+                                sensors::dbus::sensorPaths,
+                                sensors::sensorsNodeStr);
+
+                        if (!json_util::readJsonPatch( //
+                                req, sensorsAsyncResp->asyncResp->res, //
+                                "Id", memberId, //
+                                "Reading", value //
+                                ))
+                        {
+                            return;
+                        }
+
+                        std::pair<std::string, std::string> nameType =
+                            redfish::sensor_utils::splitSensorNameAndType(
+                                memberId);
+                        overrideMap.emplace(nameType.second,
+                                            std::make_pair(value, "Reading"));
+                        setSensor(sensorsAsyncResp, overrideMap);
+                    }
+                },
+                "xyz.openbmc_project.ObjectMapper",
+                "/xyz/openbmc_project/object_mapper",
+                "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
+                "/xyz/openbmc_project/inventory", 0,
+                std::array<const char*, 2>{
+                    "xyz.openbmc_project.Inventory.Item.Board",
+                    "xyz.openbmc_project.Inventory.Item.Chassis"});
             });
 }
-
 } // namespace redfish

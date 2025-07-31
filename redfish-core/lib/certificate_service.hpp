@@ -427,7 +427,31 @@ inline void getCertificateProperties(
             asyncResp->res.jsonValue["Description"] = name;
             asyncResp->res.jsonValue["CertificateString"] = "";
             asyncResp->res.jsonValue["CertificateType"] = "";
-            asyncResp->res.jsonValue["KeyUsage"] = nlohmann::json::array();            
+            asyncResp->res.jsonValue["KeyUsage"] = nlohmann::json::array();   
+            
+            #if BMCWEB_AMI_REP_MACRO
+                constexpr const char* securebootServiceName =
+                    "xyz.openbmc_project.OOBInventoryConfig";
+                constexpr const char* asdServiceName =
+                    "xyz.openbmc_project.Certs.Manager.Server.Asd";
+                // ASD certificate not support rekey/renew action
+                if (service != securebootServiceName &&
+                        service != asdServiceName)
+                {
+                    BMCWEB_LOG_DEBUG("Certificate Actions URI, service {}",
+                                     service);
+                    std::string url(certURL.data(), certURL.size());
+                    nlohmann::json& actions = asyncResp->res.jsonValue["Actions"];
+                    actions["#Certificate.Renew"]["target"] =
+                        url + "/Actions/Certificate.Renew";
+                    actions["#Certificate.Renew"]["@Redfish.ActionInfo"] =
+                        url + "/Certificate.RenewActionInfo";
+                    actions["#Certificate.Rekey"]["target"] =
+                        url + "/Actions/Certificate.Rekey";
+                    actions["#Certificate.Rekey"]["@Redfish.ActionInfo"] =
+                        url + "/Certificate.RekeyActionInfo";
+                }
+            #endif         
 
             if (certificateString != nullptr)
             {
@@ -499,8 +523,21 @@ inline void getCertificateProperties(
             }
 
             if (serialNumber != nullptr)
-            {
-                asyncResp->res.jsonValue["SerialNumber"] = *serialNumber;
+	    {
+		std::string rawHex = *serialNumber;
+                if (!rawHex.empty())
+                {
+                        std::string formatted;
+                        for (size_t i = 0; i < rawHex.size(); i += 2)
+                        {
+                                formatted += rawHex.substr(i, 2);
+                                if(i + 2 < rawHex.size())
+                                {
+                                        formatted += ":";
+                                }
+                        }
+                        asyncResp->res.jsonValue["SerialNumber"] = formatted;
+                }
             }
 
             if (signatureAlgorithm != nullptr)

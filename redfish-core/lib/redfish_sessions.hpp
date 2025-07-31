@@ -185,13 +185,13 @@ inline void fillSessionObject(crow::Response& res,
 inline std::string getSessionType(int sessionType)
 {
     if (sessionType == 0)
-        return "KVM";
+        return "KVMIP";
     else if (sessionType == 1)
-        return "WEB";
+        return "WEBUI";
     else if (sessionType == 2)
-        return "VMEDIA";
+        return "VirtualMedia";
     else if (sessionType == 3)
-        return "SSH";
+        return "ManagerConsole";
     else
         return "";
 }
@@ -275,6 +275,7 @@ inline void getSessionInfo(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
                 asyncResp->res.jsonValue["Roles"] = std::move(roles);
                 asyncResp->res.jsonValue["Oem"]["AMI_WebSession"]["UserId"] =
                     UserId;
+                asyncResp->res.jsonValue["Oem"]["AMI_WebSession"]["@odata.type"] = json_util::odataType("AMIWebSession", "WebSession");
             }
         }
     }
@@ -815,10 +816,13 @@ inline void processAfterSessionCreation(
         "Location", "/redfish/v1/SessionService/Sessions/" + session->uniqueId);
     if (session->isConfigureSelfOnly)
     {
+	asyncResp->res.result(
+                            boost::beast::http::status::forbidden);
         messages::passwordChangeRequired(
             asyncResp->res,
             boost::urls::format("/redfish/v1/AccountService/Accounts/{}",
                                 session->username));
+	return;
     }
     asyncResp->res.result(boost::beast::http::status::created);
     session->AMIsessionType = "Redfish";
@@ -910,15 +914,9 @@ inline void handleSessionServiceHead(
         boost::beast::http::field::link,
         "</redfish/v1/JsonSchemas/SessionService/SessionService.json>; rel=describedby");
 }
-inline void handleSessionServiceGet(
-    crow::App& app, const crow::Request& req,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 
+inline void getSessionServiceInfo(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-    {
-        return;
-    }
     asyncResp->res.addHeader(
         boost::beast::http::field::link,
         "</redfish/v1/JsonSchemas/SessionService/SessionService.json>; rel=describedby");
@@ -1014,6 +1012,18 @@ inline void handleSessionServiceGet(
         "xyz.openbmc_project.Control.Service.SocketAttributes", "Port");
 }
 
+inline void
+    handleSessionServiceGet(crow::App& app, const crow::Request& req,
+                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    getSessionServiceInfo(asyncResp);
+}
+
 inline void handleSessionServicePatch(
     crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
@@ -1050,7 +1060,7 @@ inline void handleSessionServicePatch(
                         messages::internalError(asyncResp->res);
                         return;
                     }
-                    messages::success(asyncResp->res);
+                    getSessionServiceInfo(asyncResp);
                 },
                 "xyz.openbmc_project.Control.Service.Manager",
                 "/xyz/openbmc_project/control/service/bmcweb",

@@ -475,7 +475,7 @@ inline void
                      const std::string& strParam)
 {
     asyncResp->res.clearHeader(boost::beast::http::field::allow);
-    asyncResp->res.addHeader("Allow", "GET,DELETE");
+    asyncResp->res.addHeader("Allow", "GET, DELETE");
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
@@ -722,26 +722,45 @@ inline void requestRoutesTask(App& app)
         {
             if (uri == "/redfish/v1/UpdateService/update")
             {
-                    sdbusplus::asio::getProperty<uint64_t>(
-                        *crow::connections::systemBus,
-                        "xyz.openbmc_project.Settings",
-                        "/xyz/openbmc_project/software/apply_time",
-                        "xyz.openbmc_project.Software.ApplyTime",
-                        "MaintenanceWindowStartTime",
-                        [asyncResp](const boost::system::error_code& ec, const uint64_t& maintenanceWindowStartTime) {
-                            if (ec)
-                            {
-                                BMCWEB_LOG_ERROR("D-Bus responses error: {}",
-                                                 ec);
-                                messages::internalError(asyncResp->res);
-                                return;                                                                                                                          }
-                            const auto current_time = std::chrono::system_clock::to_time_t(
-                                std::chrono::system_clock::now());
-                            if (static_cast<uint64_t>(current_time) > maintenanceWindowStartTime)
-                            {
-                                  asyncResp->res.jsonValue["TaskState"] = "Stopping";
-                            }
-                        });
+                sdbusplus::asio::getProperty<std::string>(
+                    *crow::connections::systemBus,
+                    "xyz.openbmc_project.Settings",
+                    "/xyz/openbmc_project/software/apply_time",
+                    "xyz.openbmc_project.Software.ApplyTime",
+                    "RequestedApplyTime",
+                    [asyncResp](const boost::system::error_code& ec, const std::string& requestedApplyTime) {
+                        if (ec)
+                        {
+                            BMCWEB_LOG_ERROR("D-Bus responses error: {}",
+                                                ec);
+                            messages::internalError(asyncResp->res);
+                            return; 
+                        }
+                        if(requestedApplyTime != "xyz.openbmc_project.Software.ApplyTime.RequestedApplyTimes.OnReset" && requestedApplyTime != "xyz.openbmc_project.Software.ApplyTime.RequestedApplyTimes.Immediate")
+                        {
+                            sdbusplus::asio::getProperty<uint64_t>(
+                            *crow::connections::systemBus,
+                            "xyz.openbmc_project.Settings",
+                            "/xyz/openbmc_project/software/apply_time",
+                            "xyz.openbmc_project.Software.ApplyTime",
+                            "MaintenanceWindowStartTime",
+                            [asyncResp](const boost::system::error_code& ec, const uint64_t& maintenanceWindowStartTime) {
+                                if (ec)
+                                {
+                                    BMCWEB_LOG_ERROR("D-Bus responses error: {}",
+                                                    ec);
+                                    messages::internalError(asyncResp->res);
+                                    return; 
+                                }
+                                const auto current_time = std::chrono::system_clock::to_time_t(
+                                    std::chrono::system_clock::now());
+                                if (static_cast<uint64_t>(current_time) > maintenanceWindowStartTime)
+                                {
+                                    asyncResp->res.jsonValue["TaskState"] = "Stopping";
+                                }
+                            });
+                        }
+                    });
             }
         }
 	else if(ptr->state == "Completed")

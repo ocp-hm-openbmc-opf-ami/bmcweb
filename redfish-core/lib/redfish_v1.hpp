@@ -227,6 +227,9 @@ inline void jsonSchemaGet(App& app, const crow::Request& req,
                           const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                           const std::string& schema)
 {
+    asyncResp->res.clearHeader(boost::beast::http::field::allow);
+    asyncResp->res.addHeader("Allow", "GET"); 
+
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
@@ -357,6 +360,48 @@ inline void requestRoutesRedfish(App& app)
         .privileges(redfish::privileges::getJsonSchemaFileCollection)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(jsonSchemaGet, std::ref(app)));
+
+    BMCWEB_ROUTE(app, "/redfish/v1/JsonSchemas/<str>/")
+        .privileges(redfish::privileges::getJsonSchemaFileCollection)
+        .methods(boost::beast::http::verb::post,boost::beast::http::verb::patch,boost::beast::http::verb::delete_)(
+            [&app](const crow::Request& req,
+                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                const std::string& schema)
+        {
+			asyncResp->res.clearHeader(boost::beast::http::field::allow);
+            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+            {
+                return;
+            }
+            std::error_code ec;
+            std::filesystem::directory_iterator dirList(
+                "/usr/share/www/redfish/v1/JsonSchemas", ec);
+            if (ec)
+            {
+                messages::resourceNotFound(asyncResp->res, "JsonSchemaFile", schema);
+                return;
+            }
+                for (const std::filesystem::path& file : dirList)
+                {
+                    std::string filename = file.filename();
+                    std::vector<std::string> split;
+                    bmcweb::split(split, filename, '.');
+                    if (split.empty())
+                    {
+                        continue;
+                    }
+                    BMCWEB_LOG_DEBUG("Checking {}", split[0]);
+                    if (split[0] != schema)
+                    {
+                    continue;  
+                    }
+                    asyncResp->res.addHeader("Allow", "GET"); 
+                    messages::operationNotAllowed(asyncResp->res);
+                    return;
+                }
+                messages::resourceNotFound(asyncResp->res, "JsonSchemaFile", schema);
+                return;            
+	});
 
     BMCWEB_ROUTE(app, "/redfish/v1/JsonSchemas/")
         .privileges(redfish::privileges::getJsonSchemaFile)

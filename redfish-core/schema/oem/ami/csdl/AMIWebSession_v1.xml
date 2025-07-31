@@ -10,6 +10,10 @@
   <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
     <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
   </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/OutboundConnection_v1.xml">
+  <edmx:Include Namespace="OutboundConnection"/>
+  <edmx:Include Namespace="OutboundConnection.v1_0_0"/>
+  </edmx:Reference>
   <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
     <edmx:Include Namespace="Resource"/>
     <edmx:Include Namespace="Resource.v1_0_0"/>
@@ -24,7 +28,13 @@
       <Annotation Term="Redfish.OwningEntity" String="AMI_WebSession"/>
       <Annotation Term="Redfish.Release" String="1.0"/>
 
-      <EntityType Name="WebSession" BaseType="Resource.OemObject" Abstract="true">
+      <ComplexType Name="Oem" BaseType="Resource.OemObject">
+                <Annotation Term="OData.AdditionalProperties" Bool="true" />
+                <Annotation Term="OData.Description" String="OemAccountService Oem properties." />
+                <Annotation Term="OData.AutoExpand"/>
+                <Property Name="WebSession" Type="AMIWebSession.v1_0_0.WebSession"/>
+      </ComplexType>
+      <ComplexType Name="WebSession" BaseType="Resource.OemObject" Abstract="true">
           <Annotation Term="OData.Description" String="AMI OEM Extension for Web Session"/>
           <Annotation Term="OData.LongDescription" String="AMI OEM Extension for Web Session"/>
 
@@ -46,7 +56,7 @@
               <Annotation Term="OData.Description" String="The UserId of the WebUI/Redfish session."/>
               <Annotation Term="OData.LongDescription" String="The UserId of the  Generated WebUI/Redfish Session."/>
             </Property>
-      </EntityType>
+      </ComplexType>
     </Schema>
   </edmx:DataServices>
 </edmx:Edmx>
