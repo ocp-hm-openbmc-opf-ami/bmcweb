@@ -296,9 +296,17 @@ static bool fillPostCodeEntry(
         }
 
 #if BMCWEB_SBMR_EXT_MACRO
+        while (asyncResp->res.jsonValue["Members"].size() >= 150)
+	    {
+	  	    asyncResp->res.jsonValue["Members"].erase(asyncResp->res.jsonValue["Members"].begin());
+	    }
         asyncResp->res.jsonValue["Members"].emplace_back(std::move(bmcLogEntry));
         asyncResp->res.jsonValue["Members@odata.count"] = asyncResp->res.jsonValue["Members"].size();
 #else
+        while (asyncResp->res.jsonValue["Members"].size() >= 150)
+	    {
+	  	    asyncResp->res.jsonValue["Members"].erase(asyncResp->res.jsonValue["Members"].begin());
+	    }
         nlohmann::json& logEntryArray = asyncResp->res.jsonValue["Members"];
         logEntryArray.emplace_back(std::move(bmcLogEntry));
 #endif
@@ -393,7 +401,7 @@ inline void
                     fillPostCodeEntry(asyncResp, postcode, bootIndex, 0,
                                       thisBootSkip, thisBootTop);
                 }
-                asyncResp->res.jsonValue["Members@odata.count"] = endCount;
+                asyncResp->res.jsonValue["Members@odata.count"] = asyncResp->res.jsonValue["Members"].size();
             }
 
             // continue to previous bootIndex
