@@ -76,6 +76,9 @@ const static auto& putAccountService = privilegeSetConfigureUsers;
 const static auto& deleteAccountService = privilegeSetConfigureUsers;
 const static auto& postAccountService = privilegeSetConfigureUsers;
 
+// RADIUS
+const static auto& postRadiusService = privilegeSetConfigureUsers;
+
 // ActionInfo
 const static auto& getActionInfo = privilegeSetLogin;
 const static auto& headActionInfo = privilegeSetLogin;

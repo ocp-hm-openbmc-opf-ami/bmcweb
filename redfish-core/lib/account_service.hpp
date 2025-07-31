@@ -16,6 +16,7 @@
 #include "utils/collection.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/json_utils.hpp"
+#include "multipart_parser.hpp"
 
 #include <boost/url/format.hpp>
 #include <boost/url/url.hpp>
@@ -67,6 +68,12 @@ const std::string radiusConfigInterface =
 const std::string radiusRoleMapInterface =
     "xyz.openbmc_project.User.Radius.role_map";
 
+namespace fs = std::filesystem;
+
+inline std::string caCertFile = (fs::path("/etc/ssl/certs/") / "radius_ca.pem").string();
+inline std::string clientCertFile = (fs::path("/etc/ssl/certs/") / "radius_client.pem").string();
+inline std::string privateKeyFile = (fs::path("/etc/ssl/certs/") / "radius_key.pem").string();
+
 struct LDAPRoleMapData
 {
     std::string groupName;
@@ -89,6 +96,7 @@ struct LDAPConfigData
 struct RadiusPatchParams
 {
     std::optional<bool> enabled;
+    std::optional<bool> enabledEapTLS;
     std::optional<std::string> password;
     std::optional<std::string> host;
     std::optional<int32_t> port;
@@ -934,56 +942,159 @@ inline void getLDAPConfigData(const std::string& ldapType,
         });
 }
 
+inline std::string modifiedDateTime(const std::string& filepath)
+{
+    // Check if the file exists before accessing its timestamp
+    if (!std::filesystem::exists(filepath))
+    {
+        std::cerr << "Error: File does not exist: " << filepath << std::endl;
+        return "FileNotFound";
+    }
+
+    try
+    {
+        std::filesystem::file_time_type ftime = std::filesystem::last_write_time(filepath);
+        auto sys_time = std::chrono::file_clock::to_sys(ftime);
+        auto time_t = std::chrono::system_clock::to_time_t(sys_time);
+        auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(sys_time.time_since_epoch()) % 1000;
+
+        std::tm* tm = std::localtime(&time_t);
+        std::ostringstream oss;
+        oss << std::put_time(tm, "%Y-%m-%dT%H:%M:%S");
+        oss << '.' << std::setw(3) << std::setfill('0') << ms.count();
+
+        // Calculate and format timezone offset
+        std::time_t gmt_time = std::mktime(tm);
+        int offset = static_cast<int>(std::difftime(time_t, gmt_time));
+        int hours = offset / 3600;
+        int minutes = (offset % 3600) / 60;
+        oss << (hours >= 0 ? '+' : '-') << std::setw(2) << std::setfill('0') << std::abs(hours)
+            << ':' << std::setw(2) << std::setfill('0') << std::abs(minutes);
+
+        std::string str = oss.str();
+        return str;
+    }
+    catch (const std::filesystem::filesystem_error& e)
+    {
+        return "Error";
+    }
+}
+
+
+inline bool ensureOpensslKeyPresentAndValid(const std::string& filepath)
+{
+
+    bool certValid = false;
+
+    // Check if the file exists
+    if (!std::filesystem::exists(filepath))
+    {
+        std::cerr << "Error: File does not exist: " << filepath << std::endl;
+        return false;
+    }
+
+    FILE* file = fopen(filepath.c_str(), "r");
+    if (file != nullptr)
+    {
+        certValid = true;
+        std::cerr << "File is accessible and valid." << std::endl;
+        fclose(file);  // Don't forget to close the file after checking
+    }
+    else
+    {
+        std::cerr << "Error opening file: " << filepath << std::endl;
+    }
+
+    return certValid;
+}
+
+
 inline void getRADIUSConfigData(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
+    bool isCAFileUsed = false;
+    bool isPrivateKeyUsed = false;
+    bool isClientCertUsed = false;
+
     dbus::utility::getAllProperties(
         radisuDBusService, radiusConfigObjectPath, radiusConfigInterface,
-        [asyncResp](const boost::system::error_code& ec,
-                    const dbus::utility::DBusPropertiesMap& propertiesList) {
+        [asyncResp, &isCAFileUsed, &isPrivateKeyUsed, &isClientCertUsed]
+        (const boost::system::error_code& ec,
+         const dbus::utility::DBusPropertiesMap& propertiesList)
+        {
             if (ec)
             {
-                BMCWEB_LOG_ERROR("getRADIUSConfigData: Can't get "
-                                 "radiusConfigInterface ");
+                BMCWEB_LOG_ERROR("getRADIUSConfigData: Failed to get properties from DBus. Error: {}", ec.message());
                 messages::internalError(asyncResp->res);
                 return;
             }
-
-            BMCWEB_LOG_DEBUG("Got {}properties for getRADIUSConfigData",
-                             propertiesList.size());
 
             bool enable = true;
             const std::string* host = nullptr;
             const int32_t* port = nullptr;
+            bool enableEapTLS = false;
 
             const bool success = sdbusplus::unpackPropertiesNoThrow(
-                dbus_utils::UnpackErrorPrinter(), propertiesList, "Enable",
-                enable, "IP", host, "PortNumber", port);
+                dbus_utils::UnpackErrorPrinter(), propertiesList,
+                "Enable", enable,
+                "IP", host,
+                "PortNumber", port,
+                "EnableEapTLS", enableEapTLS);
 
             if (!success)
             {
+                BMCWEB_LOG_ERROR("getRADIUSConfigData: Failed to unpack DBus properties");
                 messages::internalError(asyncResp->res);
                 return;
             }
+
             asyncResp->res.jsonValue["ServiceEnabled"] = enable;
+            asyncResp->res.jsonValue["Oem"]["Ami"]["RADIUS"]["EnableEapTLS"] = enableEapTLS;
 
             if (host != nullptr)
             {
-                asyncResp->res
-                    .jsonValue["Oem"]["Ami"]["RADIUS"]["ServiceAddress"] =
-                    *host;
+                asyncResp->res.jsonValue["Oem"]["Ami"]["RADIUS"]["ServiceAddress"] = *host;
             }
 
-            asyncResp->res.jsonValue["Oem"]["Ami"]["RADIUS"]["Secret"] =
-                nullptr;
+            asyncResp->res.jsonValue["Oem"]["Ami"]["RADIUS"]["Secret"] = nullptr;
 
             if (port != nullptr)
             {
-                asyncResp->res
-                    .jsonValue["Oem"]["Ami"]["RADIUS"]["ServicePort"] = *port;
+                asyncResp->res.jsonValue["Oem"]["Ami"]["RADIUS"]["ServicePort"] = *port;
             }
+
+            // File checks
+            isCAFileUsed = ensureOpensslKeyPresentAndValid(caCertFile);
+            isClientCertUsed = ensureOpensslKeyPresentAndValid(clientCertFile);
+            isPrivateKeyUsed = ensureOpensslKeyPresentAndValid(privateKeyFile);
+
+            asyncResp->res.jsonValue["Oem"]["Ami"]["RADIUS"]["isCAFilePresent"] = isCAFileUsed;
+            asyncResp->res.jsonValue["Oem"]["Ami"]["RADIUS"]["isClientCertPresent"] = isClientCertUsed;
+            asyncResp->res.jsonValue["Oem"]["Ami"]["RADIUS"]["isPrivateKeyPresent"] = isPrivateKeyUsed;
+
+            // Modified dates
+            std::string caModifiedDate = modifiedDateTime(caCertFile);
+            std::string clientModifiedDate = modifiedDateTime(clientCertFile);
+            std::string keyModifiedDate = modifiedDateTime(privateKeyFile);        
+
+            if (caModifiedDate != "FileNotFound" && caModifiedDate != "Error")
+            {
+                asyncResp->res.jsonValue["Oem"]["Ami"]["RADIUS"]["CAFileModifiedDate"] = caModifiedDate;
+            }
+
+            if (clientModifiedDate != "FileNotFound" && clientModifiedDate != "Error")
+            {
+                asyncResp->res.jsonValue["Oem"]["Ami"]["RADIUS"]["ClientFileModifiedDate"] = clientModifiedDate;
+            }
+
+            if (keyModifiedDate != "FileNotFound" && keyModifiedDate != "Error")
+            {
+                asyncResp->res.jsonValue["Oem"]["Ami"]["RADIUS"]["PrivateKeyFileModifiedDate"] = keyModifiedDate;
+            }
+
         });
 }
+
 
 inline void getRADIUSRoleMap(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
@@ -1123,11 +1234,11 @@ inline void handleRadiusConfigRolemMapPatch(
 }
 
 inline void setRadiusEnable(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-                            bool& propertyValue)
+                            std::string propertyName, bool& propertyValue)
 {
     sdbusplus::asio::setProperty(
         *crow::connections::systemBus, radisuDBusService,
-        radiusConfigObjectPath, radiusConfigInterface, "Enable", propertyValue,
+        radiusConfigObjectPath, radiusConfigInterface, propertyName, propertyValue,
         [aResp](const boost::system::error_code& ec) {
             if (ec)
             {
@@ -2346,9 +2457,175 @@ inline void handleExternalProviderGet(
     json["Members@odata.count"] = memberArray.size();
 }
 
-inline void handleAccountRadiusGet(
+inline void uploadRadiusSSLFile(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                                std::string_view body, const std::string& fileName)
+{
+    std::string filePath = "/etc/ssl/certs/" + fileName;
+    std::filesystem::path path(filePath);
+
+    std::ofstream out(path, std::ios::binary | std::ios::trunc);
+    if (!out)
+    {
+        messages::internalError(asyncResp->res);
+        BMCWEB_LOG_ERROR("Failed to open file: {}", filePath);
+        return;
+    }
+
+    out.write(reinterpret_cast<const char*>(body.data()),
+              static_cast<std::streamsize>(body.size()));              
+    out.close();
+
+    if (out.bad())
+    {
+        messages::internalError(asyncResp->res);
+        BMCWEB_LOG_ERROR("Error writing file: {}", filePath);
+        return;
+    }
+    asyncResp->res.result(boost::beast::http::status::no_content);
+
+}
+
+inline void readRadiusSSLContext(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                                 const MultipartParser& parser)
+{
+    bool fileUploaded = false;
+    std::string SSLFileName ="";
+
+    for (const FormPart& formpart : parser.mime_fields)
+    {
+        auto it = formpart.fields.find("Content-Disposition");
+        if (it == formpart.fields.end())
+        {
+            continue;
+        }
+
+        size_t index = it->value().find(';');
+        if (index == std::string::npos)
+        {
+            continue;
+        }
+
+        std::string_view dispositionParams = it->value().substr(index);
+        std::string fieldName;
+
+        for (const auto& param : boost::beast::http::param_list{dispositionParams})
+        {
+            if (param.first == "name")
+            {
+                fieldName = std::string(param.second);
+            }
+            else if (param.first == "filename" && !param.second.empty())
+            {
+                SSLFileName = param.second;
+
+                if (SSLFileName.substr(SSLFileName.find_last_of('.') + 1) != "pem")
+                {
+                    messages::actionParameterValueFormatError(
+                        asyncResp->res, SSLFileName, fieldName, "RADIUS.SSLCertificateUpload");
+                    return;
+                }
+            }
+        }
+
+        if (!fieldName.empty())
+        {
+            if (formpart.content.empty())
+            {
+                messages::invalidFileContent(asyncResp->res, SSLFileName);
+                return;
+            }
+            std::string fileName = fieldName + ".pem";
+            uploadRadiusSSLFile(asyncResp, formpart.content, fileName);
+            fileUploaded = true;
+        }
+    }
+
+    if (!fileUploaded)
+    {
+        messages::invalidFileContent(asyncResp->res, SSLFileName);
+        return;
+    }
+}
+
+inline void handleRadiusSSLCertificateUploadAction(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
+    std::string_view contentType = req.getHeaderValue("Content-Type");
+    BMCWEB_LOG_DEBUG("doPost: contentType= ", contentType);
+    if (contentType.starts_with("multipart/form-data"))
+    {
+        MultipartParser parser;
+        ParserError ec = parser.parse(req);
+        if (ec != ParserError::PARSER_SUCCESS)
+        {
+            // handle error
+            BMCWEB_LOG_ERROR("SSL Certificate parse failed, ec :",
+                             static_cast<int>(ec));
+            messages::internalError(asyncResp->res);
+            return;
+        }
+
+        sdbusplus::asio::getProperty<bool>(
+            *crow::connections::systemBus,
+            radisuDBusService,
+            radiusConfigObjectPath,
+            radiusConfigInterface,
+            "Enable", // Fetching Enable property
+            [asyncResp, parser](const boost::system::error_code& ec1, bool Enable)
+            {
+                if (ec1)
+                {
+                    BMCWEB_LOG_DEBUG("DBUS response error for Enable {}", ec1);
+                    return;
+                }
+
+                // Validate the Enable property
+                if (!Enable)
+                {
+                    BMCWEB_LOG_ERROR("RADIUS service is disabled, skipping SSL upload handling");
+                    messages::configurationConflict(asyncResp->res, "Enable", "disabled");
+                    return;
+                }
+
+                // Fetch EnableEapTLS property only if Enable is true
+                sdbusplus::asio::getProperty<bool>(
+                    *crow::connections::systemBus,
+                    radisuDBusService,
+                    radiusConfigObjectPath,
+                    radiusConfigInterface,
+                    "EnableEapTLS", // Fetching EnableEapTLS property
+                    [asyncResp, parser, Enable](const boost::system::error_code& ec2, bool EnableEapTLS)
+                    {
+                        if (ec2)
+                        {
+                            BMCWEB_LOG_DEBUG("DBUS response error for EnableEapTLS {}", ec2);
+                            return;
+                        }
+
+                        // Validate EnableEapTLS if Enable is true
+                        if (!EnableEapTLS)
+                        {
+                            BMCWEB_LOG_ERROR("EAP-TLS is disabled, skipping SSL upload handling");
+                            messages::configurationConflict(asyncResp->res, "EnableEapTLS", "disabled");
+                            return;
+                        }
+
+                        // Proceed with reading SSL context if both Enable and EnableEapTLS are true
+                        readRadiusSSLContext(asyncResp, parser);
+                    });
+            });                       
+    }
+}
+
+inline void
+    handleAccountRadiusGet(App& app, const crow::Request& req,
+                           const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -2370,8 +2647,10 @@ inline void handleAccountRadiusGet(
     json["Oem"]["Ami"]["@odata.type"] = json_util::odataType("AMIExternalAccountProvider", "Ami");
     json["Id"] = "RADIUS";
     json["Name"] = "RADIUS Settings";
-    json["Description"] = "RADIUS server settings";
-
+    json["Description"] = "RADIUS server settings";          
+    json["Oem"]["Ami"]["Actions"]["#AMIExternalAccountProvider.v1_0_0.Ami"] = {
+        {"target", "/redfish/v1/AccountService/ExternalAccountProviders/Actions/Oem/Ami/RADIUS.SSLCertificateUpload"}};
+    
     getRADIUSConfigData(asyncResp);
     getRADIUSRoleMap(asyncResp);
 }
@@ -2437,6 +2716,7 @@ inline void handleAccountRadiusPatch(
 
                 if (!json_util::readJson(
                 *radius, asyncResp->res,
+                "EnableEapTLS", radiusObject.enabledEapTLS,
                 "ServiceAddress", radiusObject.host,
                 "Secret", radiusObject.password,
                 "ServicePort", radiusObject.port,
@@ -2637,14 +2917,18 @@ inline void handleAccountRadiusPatch(
                         return;
                     }
                 }
+                if(radiusObject.enabledEapTLS.has_value())
+                {
+                    setRadiusEnable(asyncResp, "EnableEapTLS", *radiusObject.enabledEapTLS);
+                }
             }
         }
     }
+
     if (radiusObject.enabled.has_value())
     {
-        // Enable or disable the RADIUS service based on the value of
-        // "ServiceEnabled"
-        setRadiusEnable(asyncResp, *radiusObject.enabled);
+        // Enable or disable the RADIUS service based on the value of "ServiceEnabled"
+        setRadiusEnable(asyncResp, "Enable", *radiusObject.enabled);
     }
     else
     {
@@ -4451,6 +4735,12 @@ inline void requestAccountServiceRoutes(App& app)
         .privileges(redfish::privileges::headAccountService)
         .methods(boost::beast::http::verb::patch)(
             std::bind_front(handleAccountRadiusPatch, std::ref(app)));
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/AccountService/ExternalAccountProviders/Actions/Oem/Ami/RADIUS.SSLCertificateUpload")
+        .privileges(redfish::privileges::privilegeSetConfigureUsers)
+        .methods(boost::beast::http::verb::post)(
+            std::bind_front(handleRadiusSSLCertificateUploadAction, std::ref(app)));
 }
 
 } // namespace redfish

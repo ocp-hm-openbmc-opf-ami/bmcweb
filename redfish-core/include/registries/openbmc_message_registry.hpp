@@ -2588,40 +2588,17 @@ constexpr std::array registry =
             "Remove the request body and retry the GET request.",        
         }},
     MessageEntry{
-        "ResourceAdded",
+        "ConfigurationConflict",
         {
-            "Indicates that a resource was added successfully.",
-            "The resource at %1 was successfully added.",
-            "OK",
-            1,
-            {
-                "string",
-            },
-            "None.",
-        }},
-    MessageEntry{
-        "ResourceRemoved",
-        {
-            "Indicates that a resource was successfully removed.",
-            "The resource at %1 was successfully removed.",
-            "OK",
-            1,
-            {
-                "string",
-            },
-            "None.",
-        }},
-    MessageEntry{
-        "ResourceModified",
-        {
-            "Indicates that the resource at a given URI was successfully modified.",
-            "The value of attribute %1 at %2 was successfully updated from %3 to %4.",
-            "OK",
-            4,
-            {
-                "string", "string", "string", "string"
-            },
-            "None.",
+            "Indicates that the Current Configuration is in conflict "
+            "with another Configuration.",
+            "The operation cannot be completed, since the "
+            "Configuration for %1 is not available when %2.",
+            "Critical",
+            2,
+            {"string", "string"},
+            "Please resolve the other Configuration before "
+            "proceeding with the current operation."
         }},
 };
 
@@ -2841,8 +2818,6 @@ enum class Index
     voltageRegulatorOverheated = 211,
     pmtKafkaStreamingDestinationError = 212,
     requestBodyNotAllowed = 213,
-    resourceAdded = 214,
-    resourceRemoved = 215,
-    resourceModified = 216,
+    configurationConflict = 214,
 };
 } // namespace redfish::registries::openbmc

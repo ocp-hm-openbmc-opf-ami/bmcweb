@@ -54,6 +54,21 @@
                 }
             },
             "properties": {
+                "CAFileModifiedDate": {
+                    "description": "The last modification timestamp of the CA certificate file.",
+                    "readonly": true,
+                    "type": "string"
+                },
+                "ClientFileModifiedDate": {
+                    "description": "The last modification timestamp of the client certificate file.",
+                    "readonly": true,
+                    "type": "string"
+                },
+                "EnableEapTLS": {
+                    "description": "This property is used to indicate if the EnableEapTLS is Enabled or not.",
+                    "readonly": false,
+                    "type": "boolean"
+                },
                 "GroupName1": {
                     "description": "The name of the remote group, or the remote role in the case of a Redfish Service, that maps to the local Redfish Role to which this entity links.",
                     "readonly": false,
@@ -77,6 +92,11 @@
                         "string",
                         "null"
                     ]
+                },
+                "PrivateKeyFileModifiedDate": {
+                    "description": "The last modification timestamp of the private key file.",
+                    "readonly": true,
+                    "type": "string"
                 },
                 "Privilege1": {
                     "description": "This property is used to indicate if the Role is one of the Redfish Predefined Roles.",
@@ -125,6 +145,21 @@
                         "number",
                         "null"
                     ]
+                },
+                "isCAFilePresent": {
+                    "description": "Indicates whether the RADIUS CA certificate file is present on the system.",
+                    "readonly": true,
+                    "type": "boolean"
+                },
+                "isClientCertPresent": {
+                    "description": "Indicates whether the RADIUS client certificate file is present on the system.",
+                    "readonly": true,
+                    "type": "boolean"
+                },
+                "isPrivateKeyPresent": {
+                    "description": "Indicates whether the private key file required for EAP-TLS is present.",
+                    "readonly": true,
+                    "type": "boolean"
                 }
             },
             "type": "object"

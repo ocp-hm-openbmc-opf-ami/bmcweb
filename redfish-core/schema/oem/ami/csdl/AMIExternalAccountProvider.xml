@@ -111,6 +111,47 @@ Copyright American Megatrends, Inc. (AMI).                                      
                     <Annotation Term="OData.Description"
                         String="This property is used to indicate if the Role is one of the Redfish Predefined Roles." />
                 </Property>
+                <Property Name="EnableEapTLS" Type="Edm.Boolean" Nullable="false">
+                    <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite" />
+                    <Annotation Term="OData.Description"
+                        String="This property is used to indicate if the EnableEapTLS is Enabled or not." />
+                </Property>
+                <Property Name="isCAFilePresent" Type="Edm.Boolean" Nullable="false">
+                    <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read" />
+                    <Annotation Term="OData.Description"
+                        String="Indicates whether the RADIUS CA certificate file is present on the system." />
+                </Property>
+
+                <Property Name="isClientCertPresent" Type="Edm.Boolean" Nullable="false">
+                    <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read" />
+                    <Annotation Term="OData.Description"
+                        String="Indicates whether the RADIUS client certificate file is present on the system." />
+                </Property>
+
+                <Property Name="isPrivateKeyPresent" Type="Edm.Boolean" Nullable="false">
+                    <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read" />
+                    <Annotation Term="OData.Description"
+                        String="Indicates whether the private key file required for EAP-TLS is present." />
+                </Property>
+
+                <Property Name="CAFileModifiedDate" Type="Edm.String" Nullable="false">
+                    <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read" />
+                    <Annotation Term="OData.Description"
+                        String="The last modification timestamp of the CA certificate file." />
+                </Property>
+
+                <Property Name="ClientFileModifiedDate" Type="Edm.String" Nullable="false">
+                    <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read" />
+                    <Annotation Term="OData.Description"
+                        String="The last modification timestamp of the client certificate file." />
+                </Property>
+
+                <Property Name="PrivateKeyFileModifiedDate" Type="Edm.String" Nullable="false">
+                    <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read" />
+                    <Annotation Term="OData.Description"
+                        String="The last modification timestamp of the private key file." />
+                </Property>
+
             </ComplexType>
         </Schema>
 

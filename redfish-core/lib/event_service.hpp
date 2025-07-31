@@ -14,6 +14,7 @@
 #include "registries_selector.hpp"
 #include "snmp_trap_event_clients.hpp"
 #include "utils/json_utils.hpp"
+#include "account_service.hpp"
 
 #include <stdlib.h>
 
@@ -229,49 +230,6 @@ inline void getSmtpConfig(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         });
 }
 
-inline std::string modifiedDateTime(const std::string& filepath)
-{
-    /* Modified date and time */
-
-    std::filesystem::file_time_type ftime = std::filesystem::last_write_time(filepath);
-
-    auto sys_time = std::chrono::file_clock::to_sys(ftime);
-    auto time_t = std::chrono::system_clock::to_time_t(sys_time);
-    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(sys_time.time_since_epoch()) % 1000;
-
-    std::tm* tm = std::localtime(&time_t);
-    std::ostringstream oss;
-    oss << std::put_time(tm, "%Y-%m-%dT%H:%M:%S");
-    oss << '.' << std::setw(3) << std::setfill('0') << ms.count();
-
-    // Calculate and format timezone offset
-    std::time_t gmt_time = std::mktime(tm);
-    //std::tm* gmt_tm = std::gmtime(&gmt_time);
-    int offset = static_cast<int>(std::difftime(time_t, gmt_time));
-    int hours = offset / 3600;
-    int minutes = (offset % 3600) / 60;
-    oss << (hours >= 0 ? '+' : '-') << std::setw(2) << std::setfill('0') << std::abs(hours)
-        << ':' << std::setw(2) << std::setfill('0') << std::abs(minutes);
-
-    std::string str = oss.str();
-    return str;
-}
-inline bool ensureOpensslKeyPresentAndValid(const std::string& filepath)
-{
-    bool certValid = false;
-
-    std::cerr << "Checking certs in file path " << filepath.c_str() << "\n";
-
-    FILE* file = fopen(filepath.c_str(), "r");
-    std::cerr << "Checking error logic" << "\n";
-    if (file != nullptr)
-    {
-        certValid = true;
-    }
-    std::cerr << "Checking exits logic" << certValid << "\n";
-    return certValid;
-}
-
 inline void
     getSmtpSSLCertificates(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
@@ -291,16 +249,16 @@ inline void
     std::cerr << "SSL Primary Key Context file= "
               << sslPrimaryServerKeyFile.c_str() << "\n";
 
-    isPrimaryCACERT = ensureOpensslKeyPresentAndValid(sslPrimaryCACERTFile);
+    isPrimaryCACERT = redfish::ensureOpensslKeyPresentAndValid(sslPrimaryCACERTFile);
     asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]["PrimaryConfiguration"]
                             ["isCACERTExist"] = isPrimaryCACERT;
     isPrimaryServerCRT =
-        ensureOpensslKeyPresentAndValid(sslPrimaryServerCRTFile);
+        redfish::ensureOpensslKeyPresentAndValid(sslPrimaryServerCRTFile);
 
     asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]["PrimaryConfiguration"]
                             ["isServerCRTExist"] = isPrimaryServerCRT;
     isPrimaryServerKey =
-        ensureOpensslKeyPresentAndValid(sslPrimaryServerKeyFile);
+        redfish::ensureOpensslKeyPresentAndValid(sslPrimaryServerKeyFile);
 
     asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]["PrimaryConfiguration"]
                             ["isServerKeyExist"] = isPrimaryServerKey;
@@ -308,7 +266,7 @@ inline void
     if (isPrimaryCACERT)
     {
         std::string primaryCACERTModifiedDate =
-            modifiedDateTime(sslPrimaryCACERTFile);
+            redfish::modifiedDateTime(sslPrimaryCACERTFile);
 
         std::cerr << "Modified date and time for Primary CACERT "
                   << primaryCACERTModifiedDate << "\n";
@@ -320,7 +278,7 @@ inline void
     if (isPrimaryServerCRT)
     {
         std::string primaryCACERTModifiedDate =
-            modifiedDateTime(sslPrimaryServerCRTFile);
+            redfish::modifiedDateTime(sslPrimaryServerCRTFile);
 
         std::cerr << "Modified date and time for Primary CACERT "
                   << primaryCACERTModifiedDate << "\n";
@@ -333,7 +291,7 @@ inline void
     if (isPrimaryServerKey)
     {
         std::string primaryCACERTModifiedDate =
-            modifiedDateTime(sslPrimaryServerKeyFile);
+            redfish::modifiedDateTime(sslPrimaryServerKeyFile);
 
         std::cerr << "Modified date and time for Primary CACERT "
                   << primaryCACERTModifiedDate << "\n";
@@ -353,23 +311,23 @@ inline void
     std::cerr << "SSL Secondary Key Context file= "
               << sslSecondaryServerKeyFile.c_str() << "\n";
 
-    isSecondrayCACERT = ensureOpensslKeyPresentAndValid(sslSecondaryCACERTFile);
+    isSecondrayCACERT = redfish::ensureOpensslKeyPresentAndValid(sslSecondaryCACERTFile);
     asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]["SecondaryConfiguration"]
                             ["isCACERTExist"] = isSecondrayCACERT;
     isSecondrayServerKey =
-        ensureOpensslKeyPresentAndValid(sslSecondaryServerKeyFile);
+        redfish::ensureOpensslKeyPresentAndValid(sslSecondaryServerKeyFile);
 
     asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]["SecondaryConfiguration"]
                             ["isServerKeyExist"] = isSecondrayServerKey;
     isSecondrayServerCRT =
-        ensureOpensslKeyPresentAndValid(sslSecondaryServerCRTFile);
+        redfish::ensureOpensslKeyPresentAndValid(sslSecondaryServerCRTFile);
 
     asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]["SecondaryConfiguration"]
                             ["isServerCRTExist"] = isSecondrayServerCRT;
 
     if (isSecondrayCACERT)
     {
-        std::string modifiedDate = modifiedDateTime(sslSecondaryCACERTFile);
+        std::string modifiedDate = redfish::modifiedDateTime(sslSecondaryCACERTFile);
 
         std::cerr << "Modified date and time for Primary CACERT "
                   << modifiedDate << "\n";
@@ -380,7 +338,7 @@ inline void
     }
     if (isSecondrayServerCRT)
     {
-        std::string modifiedDate = modifiedDateTime(sslSecondaryServerCRTFile);
+        std::string modifiedDate = redfish::modifiedDateTime(sslSecondaryServerCRTFile);
 
         std::cerr << "Modified date and time for Primary CACERT "
                   << modifiedDate << "\n";
@@ -391,7 +349,7 @@ inline void
     }
     if (isSecondrayServerKey)
     {
-        std::string modifiedDate = modifiedDateTime(sslSecondaryServerKeyFile);
+        std::string modifiedDate = redfish::modifiedDateTime(sslSecondaryServerKeyFile);
 
         std::cerr << "Modified date and time for Primary CACERT "
                   << modifiedDate << "\n";

@@ -1680,7 +1680,7 @@ void invalidTypeForCertificateString(crow::Response& res,
  */
 nlohmann::json privateKeyNotFound();
 
-void privateKeyNotFound(crow::Response& res);  
+void privateKeyNotFound(crow::Response& res);
 
 /**
  * @brief Formats RequestBodyNotAllowed message into JSON
@@ -1691,6 +1691,23 @@ void privateKeyNotFound(crow::Response& res);
 nlohmann::json requestBodyNotAllowed();
 
 void requestBodyNotAllowed(crow::Response& res);
+
+/**
+ * @brief Formats ConfigurationConflict message into JSON.
+ * Message body: "The operation cannot be completed, since the Configuration for %1 is not available when %2."
+ *
+ * @returns Message ConfigurationConflict formatted to JSON
+ */
+nlohmann::json configurationConflict(const std::string& configA, const std::string& configB);
+
+/**
+ * @brief Writes ConfigurationConflict message into response.
+ *
+ * @param res Response object to populate.
+ * @param configA First configuration element.
+ * @param configB Second configuration element.
+ */
+void configurationConflict(crow::Response& res, const std::string& configA, const std::string& configB);
 
 } // namespace messages
 
