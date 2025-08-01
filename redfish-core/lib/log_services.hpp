@@ -2206,11 +2206,50 @@ inline void
                            const std::string& entryId)
 {
     std::optional<bool> resolved;
-
+    std::optional<std::string> created;
+    std::optional<std::string> entryType;
+    std::optional<std::string> id;
+    std::optional<std::string> modified;
+    std::optional<std::string> severity;
     if (!json_util::readJsonPatch( //
             req, asyncResp->res, //
-            "Resolved", resolved //
+            "Resolved", resolved, //
+            "Created", created, //
+            "EntryType", entryType, //
+            "Id", id, //
+            "Modified", modified, //
+            "Severity", severity //
             ))
+    {
+        return;
+    }
+    bool isInValid = false;
+    if (created)
+    {
+        isInValid = true;
+        messages::propertyNotWritable(asyncResp->res, "Created");
+    }
+    if (entryType)
+    {
+        isInValid = true;
+        messages::propertyNotWritable(asyncResp->res, "EntryType");
+    }
+    if (id)
+    {
+        isInValid = true;
+        messages::propertyNotWritable(asyncResp->res, "Id");
+    }
+    if (modified)
+    {
+        isInValid = true;
+        messages::propertyNotWritable(asyncResp->res, "Modified");
+    }
+    if (severity)
+    {
+        isInValid = true;
+        messages::propertyNotWritable(asyncResp->res, "Severity");
+    }
+    if ( isInValid == true )
     {
         return;
     }
