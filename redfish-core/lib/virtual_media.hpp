@@ -1549,6 +1549,7 @@ inline void
 
         return;
     }
+
     if (req.session->username != "root")
     {
         auto result = find(req.session->userGroups.begin(),
@@ -1560,7 +1561,6 @@ inline void
             return;
         }
     }
-
     dbus::utility::getDbusObject(
         "/xyz/openbmc_project/VirtualMedia", {},
         [asyncResp, name,

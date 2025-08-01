@@ -3498,7 +3498,7 @@ inline void requestRoutesCrashdumpService(App& app)
         });
 
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/LogServices/Crashdump/")
-        .privileges({{"ConfigureComponents"}})
+        .privileges({{"ConfigureManager"}})
         .methods(boost::beast::http::verb::patch)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -3721,8 +3721,7 @@ void inline requestRoutesCrashdumpClear(App& app)
         app,
         "/redfish/v1/Systems/<str>/LogServices/Crashdump/Actions/LogService.ClearLog/")
         // This is incorrect, should be:
-        //.privileges(redfish::privileges::postLogService)
-        .privileges({{"ConfigureComponents"}})
+        .privileges(redfish::privileges::postLogService)
         .methods(boost::beast::http::verb::post)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -4070,9 +4069,7 @@ inline void requestRoutesCrashdumpCollect(App& app)
     BMCWEB_ROUTE(
         app,
         "/redfish/v1/Systems/<str>/LogServices/Crashdump/Actions/LogService.CollectDiagnosticData/")
-        // The below is incorrect;  Should be ConfigureManager
-        //.privileges(redfish::privileges::postLogService)
-        .privileges({{"ConfigureComponents"}})
+        .privileges(redfish::privileges::postLogService)
         .methods(boost::beast::http::verb::post)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
