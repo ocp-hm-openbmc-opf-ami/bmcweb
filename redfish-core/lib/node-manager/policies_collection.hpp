@@ -520,6 +520,18 @@ inline void requestRoutesNodeManagerPolicies(App& app)
 	
 	    asyncResp->res.clearHeader(boost::beast::http::field::allow);
         asyncResp->res.addHeader("Allow", "GET, PATCH, DELETE");
+                if (policyName == "DmtfPower_Processor7")
+                {
+                    //remove the delete and patch method from allow header
+                    asyncResp->res.clearHeader(boost::beast::http::field::allow);
+                    asyncResp->res.addHeader(boost::beast::http::field::allow, "GET");
+                }
+                if (policyName == "HwpmPerfPreferenceOverride")
+                {
+                    //remove the delete method from allow header
+                    asyncResp->res.clearHeader(boost::beast::http::field::allow);
+                    asyncResp->res.addHeader(boost::beast::http::field::allow, "GET, PATCH");
+                }
 
         crow::connections::systemBus->async_method_call(
             [asyncResp, policyName](const boost::system::error_code ec,
@@ -617,6 +629,20 @@ inline void requestRoutesNodeManagerPolicies(App& app)
             messages::internalError(asyncResp->res);
             return;
         }
+        if (policyName == "DmtfPower_Processor7")
+        {
+            //remove the delete and patch method from allow header
+            asyncResp->res.clearHeader(boost::beast::http::field::allow);
+            asyncResp->res.addHeader(boost::beast::http::field::allow, "GET");
+            messages::resourceCannotBeDeleted(asyncResp->res);  //DmtfPower_Processor7 was a ReadOnly Policy
+            return;
+        }
+        if (policyName == "HwpmPerfPreferenceOverride")
+        {
+            //remove the delete method from allow header
+            asyncResp->res.clearHeader(boost::beast::http::field::allow);
+            asyncResp->res.addHeader(boost::beast::http::field::allow, "GET, PATCH");
+        }
         deletePolicy(asyncResp, policyName);
         });
 
@@ -627,6 +653,18 @@ inline void requestRoutesNodeManagerPolicies(App& app)
             [](const crow::Request& req,
                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                const std::string& policyName) {
+        if (policyName == "DmtfPower_Processor7")
+        {
+            //remove the delete and patch method from allow header
+            asyncResp->res.clearHeader(boost::beast::http::field::allow);
+            asyncResp->res.addHeader(boost::beast::http::field::allow, "GET");
+        }
+        if (policyName == "HwpmPerfPreferenceOverride")
+        {
+            //remove the delete method from allow header
+            asyncResp->res.clearHeader(boost::beast::http::field::allow);
+            asyncResp->res.addHeader(boost::beast::http::field::allow, "GET, PATCH");
+        }
         getPolicyObjectPath(
             req, asyncResp, policyName,
             [req, asyncResp, policyName](const std::string& policyObjectPath) {

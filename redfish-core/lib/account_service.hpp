@@ -3950,11 +3950,17 @@ inline void fetchSnmpUserData(const std::string& accountName, const std::shared_
 inline void handleAccountHead(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& /*accountName*/)
+    const std::string& accountName)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
+    }
+    if (accountName == "root")
+    {
+        //remove the delete method from allow header
+        asyncResp->res.clearHeader(boost::beast::http::field::allow);
+        asyncResp->res.addHeader(boost::beast::http::field::allow, "GET, HEAD, PATCH");
     }
     asyncResp->res.addHeader(
         boost::beast::http::field::link,
@@ -3986,6 +3992,12 @@ inline void handleAccountGet(
     {
         messages::internalError(asyncResp->res);
         return;
+    }
+    if (accountName == "root")
+    {
+        //remove the delete method from allow header
+        asyncResp->res.clearHeader(boost::beast::http::field::allow);
+        asyncResp->res.addHeader(boost::beast::http::field::allow, "GET, HEAD, PATCH");
     }
     if (req.session->username != accountName)
     {
@@ -4177,6 +4189,16 @@ handleAccountDelete(App& app, const crow::Request& req,
     tempObjPathSnmp /= username;
     const std::string userSNMPPath(tempObjPathSnmp);
 
+    // Check if the username is "root"
+    if (username == "root")
+    {
+        //remove the delete method from allow header
+        asyncResp->res.clearHeader(boost::beast::http::field::allow);
+        asyncResp->res.addHeader(boost::beast::http::field::allow, "GET, HEAD, PATCH");
+        messages::resourceCannotBeDeleted(asyncResp->res);
+        return;
+    }
+
     if (!userSNMPPath.empty())
     {
         crow::connections::systemBus->async_method_call(
@@ -4191,16 +4213,6 @@ handleAccountDelete(App& app, const crow::Request& req,
             },
             "xyz.openbmc_project.Snmp.Conf", userSNMPPath,
             "xyz.openbmc_project.Object.Delete", "Delete");
-    }
-
-    // Check if the username is "root"
-    if (username == "root")
-    {
-        BMCWEB_LOG_DEBUG("Not able to delete root user\n");
-        const std::string& arg =
-            "redfish/v1/AccountService/Accounts/" + username;
-        messages::accessDenied(asyncResp->res, boost::urls::format(arg));
-        return;
     }
 
     crow::connections::systemBus->async_method_call(
@@ -4332,6 +4344,12 @@ inline void
         return;
     }
 
+    if (username == "root")
+    {
+        //remove the delete method from allow header
+        asyncResp->res.clearHeader(boost::beast::http::field::allow);
+        asyncResp->res.addHeader(boost::beast::http::field::allow, "GET, HEAD, PATCH");
+    }
     sdbusplus::message::object_path path("/xyz/openbmc_project/user");
     dbus::utility::getManagedObjects(
         "xyz.openbmc_project.User.Manager", path,
