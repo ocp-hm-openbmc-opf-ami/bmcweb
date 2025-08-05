@@ -2441,11 +2441,15 @@ inline void handleManagersInstanceGet(
                                            BMCWEB_REDFISH_MANAGER_URI_NAME);
     oemOpenbmc["@odata.type"] = json_util::odataType("OpenBMCManager", "Manager");
     oemOpenbmc["@odata.id"] =
-        boost::urls::format("/redfish/v1/Managers/{}#/Oem/OpenBmc",
+        boost::urls::format("/redfish/v1/Managers/bmc#/Oem#/OpenBmc/",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
-    oemOpenbmc["@odata.id"] =
+
+    nlohmann::json::object_t jpeg;
+    jpeg["@odata.id"] =
         boost::urls::format("/redfish/v1/Managers/{}/Oem/OpenBmc/Jpeg",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
+    oemOpenbmc["Jpeg"] = std::move(jpeg);
+
     nlohmann::json::object_t certificates;
     certificates["@odata.id"] =
         boost::urls::format("/redfish/v1/Managers/{}/Truststore/Certificates",
