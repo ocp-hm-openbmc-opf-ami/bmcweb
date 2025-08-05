@@ -4233,8 +4233,7 @@ inline void handleAccountGet(
         });
 }
 
-inline void
-handleAccountDelete(App& app, const crow::Request& req,
+inline void handleAccountDelete(App& app, const crow::Request& req,
                     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                     const std::string& username)
 {
@@ -4249,7 +4248,6 @@ handleAccountDelete(App& app, const crow::Request& req,
     }
     if constexpr (BMCWEB_INSECURE_DISABLE_AUTH)
     {
-        // If authentication is disabled, there are no user accounts
         messages::resourceNotFound(asyncResp->res, "ManagerAccount", username);
         return;
     }
@@ -4262,7 +4260,7 @@ handleAccountDelete(App& app, const crow::Request& req,
     tempObjPathSnmp /= username;
     const std::string userSNMPPath(tempObjPathSnmp);
 
-    // Check if the username is "root"
+  // Check if the username is "root"
     if (username == "root")
     {
         //remove the delete method from allow header
@@ -4271,37 +4269,66 @@ handleAccountDelete(App& app, const crow::Request& req,
         return;
     }
 
-    if (!userSNMPPath.empty())
-    {
-        crow::connections::systemBus->async_method_call(
-            [asyncResp, username](const boost::system::error_code& ec) {
-                if (ec)
-                {
-                    messages::resourceNotFound(asyncResp->res, "ManagerAccount", username);
-                    return;
-                }
+    sdbusplus::message::object_path path("/xyz/openbmc_project/snmp/UserManager");
 
-                messages::accountRemoved(asyncResp->res);
-            },
-            "xyz.openbmc_project.Snmp.Conf", userSNMPPath,
-            "xyz.openbmc_project.Object.Delete", "Delete");
-    }
+    dbus::utility::getManagedObjects(
+        "xyz.openbmc_project.Snmp.Conf", path,
+        [asyncResp, username, userPath, userSNMPPath](const boost::system::error_code& ec,
+                    const dbus::utility::ManagedObjectType& resp)
+        {
+            bool hasSNMPuserPath = false;
 
-    crow::connections::systemBus->async_method_call(
-        [asyncResp, username](const boost::system::error_code& ec) {
-            if (ec)
+            if (!ec)
             {
-                messages::resourceNotFound(asyncResp->res, "ManagerAccount", username);
-                return;
+                for (const auto& objectPath : resp)
+                {
+                    if (objectPath.first == "/xyz/openbmc_project/snmp/UserManager/" + username)
+                    {
+                        hasSNMPuserPath = true;
+                        break;
+                    }
+                }
             }
 
-            messages::accountRemoved(asyncResp->res);
-            std::string eventLogMessageId = "ResourceRemoved:/redfish/v1/AccountService/Accounts/" + username;
-            EventServiceManager::getInstance().resourceCreationDeletion(eventLogMessageId);
+            auto deleteUserManagerAccount = [asyncResp, username, userPath]() {
+                crow::connections::systemBus->async_method_call(
+                    [asyncResp, username](const boost::system::error_code& ec) {
+                        if (ec)
+                        {
+                            messages::resourceNotFound(asyncResp->res, "ManagerAccount", username);
+                            return;
+                        }
 
-        },
-        "xyz.openbmc_project.User.Manager", userPath,
-        "xyz.openbmc_project.Object.Delete", "Delete");
+                        messages::accountRemoved(asyncResp->res);
+                        std::string eventLogMessageId =
+                            "ResourceRemoved:/redfish/v1/AccountService/Accounts/" + username;
+                        EventServiceManager::getInstance().resourceCreationDeletion(eventLogMessageId);
+                    },
+                    "xyz.openbmc_project.User.Manager", userPath,
+                    "xyz.openbmc_project.Object.Delete", "Delete");
+            };
+
+            if (hasSNMPuserPath)
+            {
+                crow::connections::systemBus->async_method_call(
+                    [asyncResp, username, deleteUserManagerAccount](const boost::system::error_code& ec) {
+                        if (ec)
+                        {
+                            messages::resourceNotFound(asyncResp->res, "ManagerAccount", username);
+                            return;
+                        }
+
+                        deleteUserManagerAccount();
+                    },
+                    "xyz.openbmc_project.Snmp.Conf", userSNMPPath,
+                    "xyz.openbmc_project.Object.Delete", "Delete");
+            }
+            else
+            {
+                // No SNMP user, proceed directly
+                deleteUserManagerAccount();
+            }
+        });
 }
 
 inline void handleSNMPOEMProperties(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
