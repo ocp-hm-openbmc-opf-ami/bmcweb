@@ -296,9 +296,17 @@ static bool fillPostCodeEntry(
         }
 
 #if BMCWEB_SBMR_EXT_MACRO
+        while (asyncResp->res.jsonValue["Members"].size() >= 150)
+	    {
+	  	    asyncResp->res.jsonValue["Members"].erase(asyncResp->res.jsonValue["Members"].begin());
+	    }
         asyncResp->res.jsonValue["Members"].emplace_back(std::move(bmcLogEntry));
         asyncResp->res.jsonValue["Members@odata.count"] = asyncResp->res.jsonValue["Members"].size();
 #else
+        while (asyncResp->res.jsonValue["Members"].size() >= 150)
+	    {
+	  	    asyncResp->res.jsonValue["Members"].erase(asyncResp->res.jsonValue["Members"].begin());
+	    }
         nlohmann::json& logEntryArray = asyncResp->res.jsonValue["Members"];
         logEntryArray.emplace_back(std::move(bmcLogEntry));
 #endif
@@ -393,7 +401,7 @@ inline void
                     fillPostCodeEntry(asyncResp, postcode, bootIndex, 0,
                                       thisBootSkip, thisBootTop);
                 }
-                asyncResp->res.jsonValue["Members@odata.count"] = endCount;
+                asyncResp->res.jsonValue["Members@odata.count"] = asyncResp->res.jsonValue["Members"].size();
             }
 
             // continue to previous bootIndex
@@ -614,9 +622,7 @@ inline void requestRoutesSystemsLogServicesPostCode(App& app)
     BMCWEB_ROUTE(
         app,
         "/redfish/v1/Systems/<str>/LogServices/PostCodes/Actions/LogService.ClearLog/")
-        // The following privilege is correct; we need "SubordinateOverrides"
-        // before we can automate it.
-        .privileges({{"ConfigureComponents"}})
+        .privileges({{"ConfigureManager"}})
         .methods(boost::beast::http::verb::post)(std::bind_front(
             handleSystemsLogServicesPostCodesPost, std::ref(app)));
 

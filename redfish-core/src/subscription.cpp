@@ -332,21 +332,39 @@ bool Subscription::sendTestEventLog(TestEvent& testEvent)
     {
         logEntryJson["EventTimestamp"] = *testEvent.eventTimestamp;
     }
+    else
+    {
+        logEntryJson["EventTimestamp"] =
+            redfish::time_utils::getDateTimeOffsetNow().first;
+    }
 
     if (testEvent.originOfCondition)
     {
         logEntryJson["OriginOfCondition"]["@odata.id"] =
             *testEvent.originOfCondition;
     }
+    else
+    {
+        logEntryJson["OriginOfCondition"]["@odata.id"] =
+            "/redfish/v1/EventService/Actions/EventService.SubmitTestEvent";
+    }
 
     if (testEvent.severity)
     {
         logEntryJson["Severity"] = *testEvent.severity;
     }
+    else
+    {
+        logEntryJson["Severity"] = "OK";
+    }
 
     if (testEvent.message)
     {
         logEntryJson["Message"] = *testEvent.message;
+    }
+    else
+    {
+        logEntryJson["Message"] = "SubmitTestEvent Action has been triggered";
     }
 
     if (testEvent.resolution)
@@ -363,14 +381,25 @@ bool Subscription::sendTestEventLog(TestEvent& testEvent)
     {
         logEntryJson["MessageArgs"] = *testEvent.messageArgs;
     }
+    else
+    {
+        logEntryJson["MessageArgs"] = {*testEvent.eventId};
+    }
+
     // MemberId is 0 : since we are sending one event record.
     logEntryJson["MemberId"] = "0";
+    //  Adding EventType property as "Other" since it is deprecated but a
+    //  required property 
+    logEntryJson["EventType"] = "Other";
+    logEntryJson["Context"] = "Test_Event_Subcription";
 
     nlohmann::json msg;
     msg["@odata.type"] = json_util::odataType("Event");
     msg["Id"] = std::to_string(eventSeqNum);
     msg["Name"] = "Event Log";
-    msg["Events"] = logEntryArray;
+    msg["Events@odata.count"] = logEntryArray.size();
+    msg["Events"] = std::move(logEntryArray);
+    msg["Context"] = "Test_Event_Subcription";
 
     std::string strMsg =
         msg.dump(2, ' ', true, nlohmann::json::error_handler_t::replace);

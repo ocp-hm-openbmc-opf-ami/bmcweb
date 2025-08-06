@@ -21,6 +21,50 @@ namespace crow
 namespace login_routes
 {
 
+std::string getRole(std::string role)
+{
+    if (role == "priv-admin")
+        return "Administrator";
+    else if (role == "priv-operator")
+        return "Operator";
+    else if (role == "priv-user")
+        return "Readonly";
+    else
+        return "";
+}
+
+inline std::string getRolePrivilege(std::string user)
+{
+    using VariantType =
+        std::variant<bool, std::string, std::vector<std::string>>;
+
+    auto bus = sdbusplus::bus::new_default();
+    auto getuser_info_path = bus.new_method_call(
+        "xyz.openbmc_project.User.Manager", "/xyz/openbmc_project/user",
+        "xyz.openbmc_project.User.Manager", "GetUserInfo");
+    getuser_info_path.append(user);
+
+    auto user_info = bus.call(getuser_info_path);
+    std::map<std::string, VariantType> infoDetailes;
+    user_info.read(infoDetailes);
+
+    auto it = infoDetailes.find("UserPrivilege");
+    if (it != infoDetailes.end())
+    {
+        // Use std::get_if to check and get the value if it is a string
+        if (auto value = std::get_if<std::string>(&it->second))
+        {
+            std::string privileage_value = *value;
+            return privileage_value;
+        }
+    }
+    else
+    {
+        std::cout << "UserPrivilege not found" << std::endl;
+    }
+    return "";
+}
+
 inline void handleLogin(const crow::Request& req,
                         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
@@ -217,79 +261,15 @@ inline void handleLogin(const crow::Request& req,
             // if content type is json, assume json token
             asyncResp->res.jsonValue["token"] = session->sessionToken;
 
-            int userId = session->userId;
-            bool result;
-            uint8_t sessionId = 0;
-            uint8_t sessionType = 1;
-            
-	    std::unordered_map<std::string, uint8_t> roleToPriv = {{"Callback", 1},{"priv-user", 2},{"priv-operator", 3},{"OEM Proprietary", 5}};
-            uint8_t priv = roleToPriv.contains(session->userRole) ? roleToPriv[session->userRole] : 4;
+            // For User Privilege 
+            std::string roleId;
+            std::string user(username);
+            auto value = getRolePrivilege(user);
+            roleId = getRole(value);
+            asyncResp->res.jsonValue["RoleId"] = roleId;
 
-            auto b = sdbusplus::bus::new_default_system();
-            auto method = b.new_method_call("xyz.openbmc_project.SessionManager", "/xyz/openbmc_project/SessionManager",
-                                            "xyz.openbmc_project.SessionManager", "SessionRegister");
-            method.append(sessionId, session->clientIp, session->username, sessionType, priv, static_cast<uint8_t>(userId), "");
-            try
-	    {
-	    auto reply = b.call(method);
-            reply.read(result);
-
-            if (!result)
-            {
-                BMCWEB_LOG_DEBUG("back-end return false while call method ");
-                return;
-            }
-	    }
-            catch (const sdbusplus::exception::SdBusError& e)
-            {
-                    BMCWEB_LOG_ERROR("D-Bus call failed: {}", e.what());
-                    return;
-            }
-
-            // Get session ID
-            auto bus = sdbusplus::bus::new_default_system();
-            auto m =
-                bus.new_method_call("xyz.openbmc_project.SessionManager",
-                                    "/xyz/openbmc_project/SessionManager",
-                                    "org.freedesktop.DBus.Properties", "Get");
-
-            m.append("xyz.openbmc_project.SessionManager.Web",
-                     "WebSessionInfo");
-	 try
-	  {
-            sdbusplus::message::message r = bus.call(m);
-
-            std::variant<
-                std::vector<std::tuple<uint8_t, std::string, std::string,
-                                       uint8_t, uint8_t, uint8_t, std::string>>>
-                val;
-            r.read(val);
-
-            auto sessionArray = std::get<std::vector<
-                std::tuple<uint8_t, std::string, std::string, uint8_t, uint8_t,
-                           uint8_t, std::string>>>(val);
-
-            if (!sessionArray.empty())
-            {
-                auto lastSession = sessionArray.back();
-                uint8_t sessionId = std::get<0>(lastSession);
-                persistent_data::sessionMap[session->uniqueId] = sessionId;
-                asyncResp->res.jsonValue["Session_ID"] = "session_" + std::to_string(std::get<0>(lastSession));
-            }
-            else
-            {
-                BMCWEB_LOG_ERROR("No active session found!");
-            }
-	  }
-            catch (const sdbusplus::exception::SdBusError& e)
-           {
-                   BMCWEB_LOG_ERROR("Failed to fetch WebSessionInfo from D-Bus: {}", e.what());
-                return;
-           }
-	 
 #if (BMCWEB_AMI_2FA_MACRO)
 #if (BMCWEB_AMI_REP_MACRO)
-            std::string user(username);
             dbus::utility::getProperty<bool>(
                 "xyz.openbmc_project.User.Manager",
                 "/xyz/openbmc_project/user/" + user,

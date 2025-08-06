@@ -841,7 +841,10 @@ class EventServiceManager
                 }
                 continue;
             }
-
+            if (!testEvent.eventId)
+            {
+                testEvent.eventId = std::to_string(eventId);
+            }
             if (!entry->sendTestEventLog(testEvent))
             {
                 return false;

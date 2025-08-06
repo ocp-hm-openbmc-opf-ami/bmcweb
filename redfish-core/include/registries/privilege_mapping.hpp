@@ -55,6 +55,7 @@ std::vector<std::pair<std::string,
                                                 }},
                                                 {"NodeManager",{
                                                   {"GET", {"Login"}},
+						  {"POST", {"ConfigureManager"}},
                                                 }},
 						{"NmTriggerCollection", {
                                                   {"GET", {"Login"}},
@@ -129,6 +130,7 @@ std::vector<std::pair<std::string,
 						  {"PefService", {
 						    {"GET", {"Login"}},
                                                     {"PATCH", {"ConfigureComponents"}},
+						    {"POST", {"ConfigureComponents"}},
 						}},
 						  {"PefEntry", {
 						    {"GET", {"Login"}},

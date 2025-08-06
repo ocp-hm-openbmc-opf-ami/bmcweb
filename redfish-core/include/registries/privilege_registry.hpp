@@ -603,7 +603,7 @@ const static auto& deleteEthernetInterfaceCollection = privilegeSetConfigureComp
 // SubOverManagerEthernetInterfaceCollection
 const static auto& getSubOverManagerEthernetInterfaceCollection = privilegeSetLogin;
 const static auto& headSubOverManagerEthernetInterfaceCollection = privilegeSetLogin;
-const static auto& patchSubOverManagerEthernetInterfaceCollection = privilegeSetConfigureManager;
+const static auto& patchSubOverManagerEthernetInterfaceCollection = privilegeSetConfigureComponents;
 const static auto& postSubOverManagerEthernetInterfaceCollection = privilegeSetConfigureManager;
 const static auto& putSubOverManagerEthernetInterfaceCollection = privilegeSetConfigureManager;
 const static auto& deleteSubOverManagerEthernetInterfaceCollection = privilegeSetConfigureManager;
@@ -1968,11 +1968,11 @@ const static auto& postVLanNetworkInterfaceCollection = privilegeSetConfigureMan
 // VirtualMedia
 const static auto& getVirtualMedia = privilegeSetLogin;
 const static auto& headVirtualMedia = privilegeSetLogin;
-// const static auto& patchVirtualMedia = privilegeSetConfigureManager;
+const static auto& patchVirtualMedia = privilegeSetConfigureManager;
 // const static auto& putVirtualMedia = privilegeSetConfigureManager;
 // const static auto& deleteVirtualMedia = privilegeSetConfigureManager;
 // const static auto& postVirtualMedia = privilegeSetConfigureManager;
-const static auto& patchVirtualMedia = privilegeSetLoginConfigureManager; // Added to Vmedia for OEM Extended 
+//const static auto& patchVirtualMedia = privilegeSetLoginConfigureManager; // Added to Vmedia for OEM Extended 
 const static auto& putVirtualMedia = privilegeSetLoginConfigureManager;
 const static auto& deleteVirtualMedia = privilegeSetLoginConfigureManager;
 const static auto& postVirtualMedia = privilegeSetConfigureManager;
@@ -2019,7 +2019,7 @@ const static auto& deleteZoneCollection = privilegeSetConfigureComponents;
 
 // FIPS Enablement
 const static auto& getFIPS = privilegeSetLogin;
-const static auto& patchFIPS = privilegeSetConfigureComponents;
+const static auto& patchFIPS = privilegeSetConfigureManager;
 
 //License control - OEM AMI
 const static auto& getLicenseControl = privilegeSetLogin;

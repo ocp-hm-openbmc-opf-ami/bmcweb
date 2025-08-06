@@ -3070,6 +3070,13 @@ inline void handleEthernetInterfaceInstanceGet(
         return;
     }
 
+    if (ifaceId != "bond0" && ifaceId.find('_') == std::string::npos)
+    {
+        //remove the delete method from allow header
+        asyncResp->res.clearHeader(boost::beast::http::field::allow);
+        asyncResp->res.addHeader(boost::beast::http::field::allow, "GET, PATCH");
+    }
+
     getEthernetIfaceData(
         ifaceId,
         [asyncResp,
@@ -3113,6 +3120,13 @@ inline void handleEthernetInterfaceInstanceDelete(
     {
         messages::resourceNotFound(asyncResp->res, "Manager", managerId);
         return;
+    }
+
+    if (ifaceId != "bond0" && ifaceId.find('_') == std::string::npos)
+    {
+        //remove the delete method from allow header
+        asyncResp->res.clearHeader(boost::beast::http::field::allow);
+        asyncResp->res.addHeader(boost::beast::http::field::allow, "GET, PATCH");
     }
 
     crow::connections::systemBus->async_method_call(
@@ -3358,6 +3372,13 @@ inline void requestEthernetInterfacesRoutes(App& app)
                 messages::resourceNotFound(asyncResp->res, "Manager",
                                            managerId);
                 return;
+            }
+
+            if (ifaceId != "bond0" && ifaceId.find('_') == std::string::npos)
+            {
+                //remove the delete method from allow header
+                asyncResp->res.clearHeader(boost::beast::http::field::allow);
+                asyncResp->res.addHeader(boost::beast::http::field::allow, "GET, PATCH");
             }
 
             std::optional<std::string> hostname;
