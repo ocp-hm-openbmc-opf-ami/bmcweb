@@ -21,6 +21,50 @@ namespace crow
 namespace login_routes
 {
 
+std::string getRole(std::string role)
+{
+    if (role == "priv-admin")
+        return "Administrator";
+    else if (role == "priv-operator")
+        return "Operator";
+    else if (role == "priv-user")
+        return "Readonly";
+    else
+        return "";
+}
+
+inline std::string getRolePrivilege(std::string user)
+{
+    using VariantType =
+        std::variant<bool, std::string, std::vector<std::string>>;
+
+    auto bus = sdbusplus::bus::new_default();
+    auto getuser_info_path = bus.new_method_call(
+        "xyz.openbmc_project.User.Manager", "/xyz/openbmc_project/user",
+        "xyz.openbmc_project.User.Manager", "GetUserInfo");
+    getuser_info_path.append(user);
+
+    auto user_info = bus.call(getuser_info_path);
+    std::map<std::string, VariantType> infoDetailes;
+    user_info.read(infoDetailes);
+
+    auto it = infoDetailes.find("UserPrivilege");
+    if (it != infoDetailes.end())
+    {
+        // Use std::get_if to check and get the value if it is a string
+        if (auto value = std::get_if<std::string>(&it->second))
+        {
+            std::string privileage_value = *value;
+            return privileage_value;
+        }
+    }
+    else
+    {
+        std::cout << "UserPrivilege not found" << std::endl;
+    }
+    return "";
+}
+
 inline void handleLogin(const crow::Request& req,
                         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
@@ -189,9 +233,15 @@ inline void handleLogin(const crow::Request& req,
             // if content type is json, assume json token
             asyncResp->res.jsonValue["token"] = session->sessionToken;
 
+            // For User Privilege 
+            std::string roleId;
+            std::string user(username);
+            auto value = getRolePrivilege(user);
+            roleId = getRole(value);
+            asyncResp->res.jsonValue["RoleId"] = roleId;
+
 #if (BMCWEB_AMI_2FA_MACRO)
 #if (BMCWEB_AMI_REP_MACRO)
-            std::string user(username);
             dbus::utility::getProperty<bool>(
                 "xyz.openbmc_project.User.Manager",
                 "/xyz/openbmc_project/user/" + user,
