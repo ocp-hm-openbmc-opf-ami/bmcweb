@@ -1391,6 +1391,7 @@ inline void handleManagersNetworkProtocolPatch(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& managerId)
 {
+    bool isInValid = false;
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
@@ -1476,28 +1477,31 @@ inline void handleManagersNetworkProtocolPatch(
                 "NTPServers", ntpServerObjects //
                 ))
         {
-            return;
+            isInValid = true;
         }
-        if (ntpEnabled)
+        if (!isInValid)
         {
-            handleNTPProtocolEnabled(asyncResp, *ntpEnabled);
-        }
-        if (ntpServerObjects)
-        {
-            getEthernetIfaceData(
-                [asyncResp, ntpServerObjects](
-                    const bool success,
-                    std::vector<std::string>& currentNtpServers,
-                    const std::vector<std::string>& /*dynamicNtpServers*/,
-                    const std::vector<std::string>& /*domainNames*/) {
-                    if (!success)
-                    {
-                        messages::internalError(asyncResp->res);
-                        return;
-                    }
-                    handleNTPServersPatch(asyncResp, *ntpServerObjects,
+            if (ntpEnabled)
+            {
+                handleNTPProtocolEnabled(asyncResp, *ntpEnabled);
+            }
+            if (ntpServerObjects)
+            {
+                getEthernetIfaceData(
+                    [asyncResp, ntpServerObjects](
+                        const bool success,
+                        std::vector<std::string>& currentNtpServers,
+                        const std::vector<std::string>& /*dynamicNtpServers*/,
+                        const std::vector<std::string>& /*domainNames*/) {
+                        if (!success)
+                        {
+                            messages::internalError(asyncResp->res);
+                            return;
+                        }
+                        handleNTPServersPatch(asyncResp, *ntpServerObjects,
                                           std::move(currentNtpServers));
-                });
+                    });
+            }
         }
     }
     if (ipmi)
@@ -1508,15 +1512,16 @@ inline void handleManagersNetworkProtocolPatch(
         {
             messages::propertyValueTypeError(asyncResp->res, ipmi.value(),
                                              "IPMI");
+            isInValid = true;
         }
         if (!json_util::readJson( //
                 *ipmi, asyncResp->res, //
                 "ProtocolEnabled", ipmiEnabled //
                 ))
         {
-            return;
+            isInValid = true;
         }
-        if (ipmiEnabled)
+        if (ipmiEnabled && !isInValid)
         {
             /*handleProtocolEnabled(
                 *ipmiEnabled, asyncResp,
@@ -1532,16 +1537,16 @@ inline void handleManagersNetworkProtocolPatch(
         {
             messages::propertyValueTypeError(asyncResp->res, bmcweb.value(),
                                              "HTTPS");
-            return;
+            isInValid = true;
         }
         if (!json_util::readJson( //
                 *bmcweb, asyncResp->res, //
                 "ProtocolEnabled", bmcwebEnabled //
                 ))
         {
-            return;
+            isInValid = true;
         }
-        if (bmcwebEnabled)
+        if (bmcwebEnabled && !isInValid)
         {
             handleProtocolEnabled(
                 *bmcwebEnabled, asyncResp,
@@ -1556,15 +1561,16 @@ inline void handleManagersNetworkProtocolPatch(
         {
             messages::propertyValueTypeError(asyncResp->res, ssh.value(),
                                              "SSH");
+            isInValid = true;
         }
         if (!json_util::readJson( //
                 *ssh, asyncResp->res, //
                 "ProtocolEnabled", sshEnabled //
                 ))
         {
-            return;
+           isInValid = true;
         }
-        if (sshEnabled)
+        if (sshEnabled && !isInValid)
         {
             handleProtocolEnabled(*sshEnabled, asyncResp,
                                   encodeServiceObjectPath(sshServiceName));
@@ -1582,6 +1588,7 @@ inline void handleManagersNetworkProtocolPatch(
         {
             messages::propertyValueTypeError(asyncResp->res, snmp.value(),
                                              "SNMP");
+            isInValid = true;
         }
 
         if (!json_util::readJson( //
@@ -1593,91 +1600,97 @@ inline void handleManagersNetworkProtocolPatch(
                 "CommunityStrings", communityStrings //
                 ))
         {
-            return;
+             isInValid = true;
         }
+        if ( !isInValid)
+        {
+            if (enableSNMPv1)
+            {
+                sdbusplus::asio::setProperty(
+                    *crow::connections::systemBus, "xyz.openbmc_project.Snmp.Conf",
+                    "/xyz/openbmc_project/snmp/SnmpUtils",
+                    "xyz.openbmc_project.Snmp.SnmpUtils", "EnableSNMPV1",
+                    (*enableSNMPv1),
+                    [asyncResp](const boost::system::error_code& ec) {
+                        if (ec)
+                        {
+                            BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
+                            messages::internalError(asyncResp->res);
+                            return;
+                        }
+                    });
+            }
+            if (enableSNMPv2c)
+            {
+                sdbusplus::asio::setProperty(
+                    *crow::connections::systemBus, "xyz.openbmc_project.Snmp.Conf",
+                    "/xyz/openbmc_project/snmp/SnmpUtils",
+                    "xyz.openbmc_project.Snmp.SnmpUtils", "EnableSNMPV2",
+                    (*enableSNMPv2c),
+                    [asyncResp](const boost::system::error_code& ec) {
+                        if (ec)
+                        {
+                            BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
+                            messages::internalError(asyncResp->res);
+                            return;
+                        }
+                    });
+            }
+            if (enableSNMPv3)
+            {
+                sdbusplus::asio::setProperty(
+                    *crow::connections::systemBus, "xyz.openbmc_project.Snmp.Conf",
+                    "/xyz/openbmc_project/snmp/SnmpUtils",
+                    "xyz.openbmc_project.Snmp.SnmpUtils", "EnableSNMPV3",
+                    (*enableSNMPv3),
+                    [asyncResp](const boost::system::error_code& ec) {
+                        if (ec)
+                        {
+                            BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
+                            messages::internalError(asyncResp->res);
+                            return;
+                        }
+                    });
+            }
 
-        if (enableSNMPv1)
-        {
-            sdbusplus::asio::setProperty(
-                *crow::connections::systemBus, "xyz.openbmc_project.Snmp.Conf",
-                "/xyz/openbmc_project/snmp/SnmpUtils",
-                "xyz.openbmc_project.Snmp.SnmpUtils", "EnableSNMPV1",
-                (*enableSNMPv1),
-                [asyncResp](const boost::system::error_code& ec) {
-                    if (ec)
-                    {
-                        BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
-                        messages::internalError(asyncResp->res);
-                        return;
-                    }
-                });
-        }
-        if (enableSNMPv2c)
-        {
-            sdbusplus::asio::setProperty(
-                *crow::connections::systemBus, "xyz.openbmc_project.Snmp.Conf",
-                "/xyz/openbmc_project/snmp/SnmpUtils",
-                "xyz.openbmc_project.Snmp.SnmpUtils", "EnableSNMPV2",
-                (*enableSNMPv2c),
-                [asyncResp](const boost::system::error_code& ec) {
-                    if (ec)
-                    {
-                        BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
-                        messages::internalError(asyncResp->res);
-                        return;
-                    }
-                });
-        }
-        if (enableSNMPv3)
-        {
-            sdbusplus::asio::setProperty(
-                *crow::connections::systemBus, "xyz.openbmc_project.Snmp.Conf",
-                "/xyz/openbmc_project/snmp/SnmpUtils",
-                "xyz.openbmc_project.Snmp.SnmpUtils", "EnableSNMPV3",
-                (*enableSNMPv3),
-                [asyncResp](const boost::system::error_code& ec) {
-                    if (ec)
-                    {
-                        BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
-                        messages::internalError(asyncResp->res);
-                        return;
-                    }
-                });
-        }
+            if (snmpEnabled)
+            {
+                sdbusplus::asio::setProperty(
+                    *crow::connections::systemBus, "xyz.openbmc_project.Snmp.Conf",
+                    "/xyz/openbmc_project/snmp/SnmpUtils",
+                    "xyz.openbmc_project.Snmp.SnmpUtils", "SnmpTrapStatus",
+                    *snmpEnabled, [asyncResp](const boost::system::error_code& ec) {
+                        if (ec)
+                        {
+                            BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
+                            messages::internalError(asyncResp->res);
+                            return;
+                        }
+                    });
+            }
 
-        if (snmpEnabled)
-        {
-            sdbusplus::asio::setProperty(
-                *crow::connections::systemBus, "xyz.openbmc_project.Snmp.Conf",
-                "/xyz/openbmc_project/snmp/SnmpUtils",
-                "xyz.openbmc_project.Snmp.SnmpUtils", "SnmpTrapStatus",
-                *snmpEnabled, [asyncResp](const boost::system::error_code& ec) {
-                    if (ec)
+            if (communityStrings) {
+                if(oem_snmp){
+                    std::optional<std::vector<std::variant<nlohmann::json::object_t, std::nullptr_t>>> oem_communityStrings;
+                    std::size_t oem_snmp_size = oem_snmp.value().size();
+                    if (oem_snmp_size == 0)
                     {
-                        BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
-                        messages::internalError(asyncResp->res);
-                        return;
-                    }
-                });
-        }
-
-        if (communityStrings) {
-            if(oem_snmp){
-                std::optional<std::vector<std::variant<nlohmann::json::object_t, std::nullptr_t>>> oem_communityStrings;
-                std::size_t oem_snmp_size = oem_snmp.value().size();
-                if (oem_snmp_size == 0)
-                {
-                    messages::propertyValueTypeError(asyncResp->res, oem_snmp.value(),
+                        messages::propertyValueTypeError(asyncResp->res, oem_snmp.value(),
                                                     "Oem/OpenBmc/SNMP");
-                }
-                if (!json_util::readJson(*oem_snmp, asyncResp->res, "CommunityStrings", oem_communityStrings))
-                {
-                    syslog(LOG_WARNING,"ReadJson Failed");
+                    }
+                    if (!json_util::readJson(*oem_snmp, asyncResp->res, "CommunityStrings", oem_communityStrings))
+                    {
+                        syslog(LOG_WARNING,"ReadJson Failed");
                     return;
+                    }
+                    patchsnmpcommunitystring(communityStrings,oem_communityStrings,asyncResp);
                 }
-                patchsnmpcommunitystring(communityStrings,oem_communityStrings,asyncResp);
             }
         }
+    }
+    if (isInValid)
+    {
+        return;
     }
     if (ipmiMasked)
     {
