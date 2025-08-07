@@ -4010,6 +4010,8 @@ inline void handleComputerSystemHead(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& /*systemName*/)
 {
+    asyncResp->res.clearHeader(boost::beast::http::field::allow);
+    asyncResp->res.addHeader("Allow", "GET, HEAD, PATCH");
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
@@ -4064,11 +4066,15 @@ inline void
                             const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                             const std::string& systemName)
 {
+    asyncResp->res.clearHeader(boost::beast::http::field::allow);
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
     }
-
+    if (!membersResponseGet(asyncResp, systemName, "ComputerSystemCollection"))
+    {
+        return;
+    }
     if constexpr (BMCWEB_EXPERIMENTAL_REDFISH_MULTI_COMPUTER_SYSTEM)
     {
         // Option currently returns no systems.  TBD
@@ -4076,7 +4082,7 @@ inline void
                                    systemName);
         return;
     }
-
+    asyncResp->res.addHeader("Allow", "GET, HEAD, PATCH");
     if constexpr (BMCWEB_HYPERVISOR_COMPUTER_SYSTEM)
     {
         if (systemName == "hypervisor")
@@ -4203,7 +4209,12 @@ inline void handleComputerSystemPatch(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& systemName)
 {
+    asyncResp->res.clearHeader(boost::beast::http::field::allow);
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    if (!membersResponseGet(asyncResp, systemName, "ComputerSystemCollection"))
     {
         return;
     }
@@ -4220,7 +4231,6 @@ inline void handleComputerSystemPatch(
                                    systemName);
         return;
     }
-
     asyncResp->res.addHeader(
         boost::beast::http::field::link,
         "</redfish/v1/JsonSchemas/ComputerSystem/ComputerSystem.json>; rel=describedby");
@@ -4645,6 +4655,32 @@ inline void requestRoutesSystems(App& app)
         .privileges(redfish::privileges::patchComputerSystem)
         .methods(boost::beast::http::verb::patch)(
             std::bind_front(handleComputerSystemPatch, std::ref(app)));
+
+    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/")
+    .privileges(redfish::privileges::getComputerSystem)
+    .methods(boost::beast::http::verb::post,boost::beast::http::verb::delete_)(
+            [&app](const crow::Request &req,
+                    const std::shared_ptr<bmcweb::AsyncResp> &asyncResp,
+                    const std::string &systemName) {
+        asyncResp->res.clearHeader(boost::beast::http::field::allow);
+        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+        {
+           return;
+        }
+        if (!membersResponseGet(asyncResp, systemName, "ComputerSystemCollection"))
+        {
+            return;
+        }
+        if (systemName != "system")
+        {
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
+            return;
+        }
+        asyncResp->res.addHeader("Allow", "GET, PATCH");
+        messages::operationNotAllowed(asyncResp->res);
+        return;
+    });
 
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Actions/ComputerSystem.Reset/")
         .privileges(redfish::privileges::postComputerSystem)

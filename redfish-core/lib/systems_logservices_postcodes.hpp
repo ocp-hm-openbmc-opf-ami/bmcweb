@@ -589,7 +589,6 @@ inline void handleSystemsLogServicesPostCodesEntriesEntryGet(
     const std::string& systemName, const std::string& targetID)
 {
     asyncResp->res.clearHeader(boost::beast::http::field::allow);
-    asyncResp->res.addHeader("Allow", "GET");
 
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -608,7 +607,11 @@ inline void handleSystemsLogServicesPostCodesEntriesEntryGet(
                                    systemName);
         return;
     }
-
+    if (!membersResponseGet(asyncResp, targetID, "LogEntryCollection"))
+    {
+        return;
+    }
+    asyncResp->res.addHeader("Allow", "GET");
     getPostCodeForEntry(asyncResp, targetID);
 }
 
@@ -647,7 +650,10 @@ inline void requestRoutesSystemsLogServicesPostCode(App& app)
             [[maybe_unused]] const std::string& systemName, const std::string& targetID)
         {
             asyncResp->res.clearHeader(boost::beast::http::field::allow);
-            
+            if (!membersResponseGet(asyncResp, targetID, "LogEntryCollection"))
+            {
+                return;
+            }
             uint16_t bootIndex = 0;
             uint64_t codeIndex = 0;
             if (!parsePostCode(targetID, codeIndex, bootIndex))

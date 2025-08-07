@@ -822,15 +822,18 @@ inline void handleChassisGetSubTree(
 void handleChassisGet(App& app, const crow::Request& req,
                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                       const std::string& chassisId)
-{
-    
+{ 
     asyncResp->res.clearHeader(boost::beast::http::field::allow);
-    asyncResp->res.addHeader("Allow", "GET, PATCH");
 
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
     }
+    if (!membersResponseGet(asyncResp, chassisId,"ChassisCollection"))
+    {
+        return;
+    }
+    asyncResp->res.addHeader("Allow", "GET, PATCH");
     constexpr std::array<std::string_view, 2> interfaces = {
         "xyz.openbmc_project.Inventory.Item.Board",
         "xyz.openbmc_project.Inventory.Item.Chassis"};
@@ -856,9 +859,12 @@ void
                        const std::string& param)
 {
     asyncResp->res.clearHeader(boost::beast::http::field::allow);
-    asyncResp->res.addHeader("Allow", "GET, PATCH");
 
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    if (!membersResponseGet(asyncResp, param, "ChassisCollection"))
     {
         return;
     }
@@ -1031,6 +1037,10 @@ inline void requestRoutesChassis(App& app)
                     asyncResp->res.clearHeader(boost::beast::http::field::allow);
 
                     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                    {
+                        return;
+                    }
+                    if (!membersResponseGet(asyncResp, chassisId,"ChassisCollection"))
                     {
                         return;
                     }

@@ -465,13 +465,16 @@ inline void handleFruGet(App& app, const crow::Request& req,
                          const std::string& fruName)
 {
     asyncResp->res.clearHeader(boost::beast::http::field::allow);
-    asyncResp->res.addHeader("Allow", "GET");
 
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
     }
-
+    if (!membersResponseGet(asyncResp, fruName, "ChassisFRUCollection"))
+    {
+        return;
+    }
+    asyncResp->res.addHeader("Allow", "GET");
     constexpr std::array<std::string_view, 2> interfaces = {
         "xyz.openbmc_project.Inventory.Item.Board",
         "xyz.openbmc_project.Inventory.Item.Chassis"};
@@ -501,6 +504,10 @@ inline void requestRoutesFru(App& app)
                         if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                         {
                         return;
+                        }
+                        if (!membersResponseGet(asyncResp, fruName, "ChassisFRUCollection"))
+                        {
+                            return;
                         }
                         constexpr std::array<std::string_view, 2> interfaces = {
                             "xyz.openbmc_project.Inventory.Item.Board",

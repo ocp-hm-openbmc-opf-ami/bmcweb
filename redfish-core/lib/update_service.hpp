@@ -2727,12 +2727,15 @@ inline void handleUpdateServiceFirmwareInventoryGet(
     const std::string& param)
 {
     asyncResp->res.clearHeader(boost::beast::http::field::allow);
-    asyncResp->res.addHeader("Allow", "GET");
-
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
     }
+    if (!membersResponseGet(asyncResp, param, "SoftwareInventoryCollection"))
+    {
+        return;
+    }
+    asyncResp->res.addHeader("Allow", "GET");
     std::shared_ptr<std::string> swId = std::make_shared<std::string>(param);
 
     constexpr std::array<std::string_view, 1> interfaces = {
@@ -2838,8 +2841,12 @@ inline void requestRoutesUpdateService(App& app)
                 const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 const std::string& param)
             {
-		asyncResp->res.clearHeader(boost::beast::http::field::allow);
-                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+		    asyncResp->res.clearHeader(boost::beast::http::field::allow);
+            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+            {
+                return;
+            }
+            if (!membersResponseGet(asyncResp, param, "SoftwareInventoryCollection"))
             {
                 return;
             }

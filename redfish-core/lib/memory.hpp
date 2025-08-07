@@ -833,6 +833,7 @@ inline void requestRoutesMemory(App& app)
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& systemName, const std::string& dimmId) {
+                asyncResp->res.clearHeader(boost::beast::http::field::allow);
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
                     return;
@@ -852,8 +853,30 @@ inline void requestRoutesMemory(App& app)
                                                systemName);
                     return;
                 }
-
+                if (!membersResponseGet(asyncResp, dimmId, "MemoryCollection"))
+                {
+                    return;
+                }
+                asyncResp->res.addHeader("Allow", "GET");
                 getDimmData(asyncResp, dimmId);
+            });
+
+    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Memory/<str>/")
+        .privileges(redfish::privileges::getMemory)
+        .methods(boost::beast::http::verb::post,
+                 boost::beast::http::verb::patch, boost::beast::http::verb::put,
+                 boost::beast::http::verb::delete_)(
+            [&app](const crow::Request& /* req */,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const std::string& /* systemName */,
+                   const std::string& dimmId) {
+                asyncResp->res.clearHeader(boost::beast::http::field::allow);
+                if (!membersResponseGet(asyncResp, dimmId, "MemoryCollection"))
+                {
+                    return;
+                }
+                asyncResp->res.addHeader("Allow", "GET");
+                messages::operationNotAllowed(asyncResp->res);
             });
 }
 

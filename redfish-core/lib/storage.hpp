@@ -228,7 +228,6 @@ inline void handleSystemsStorageGet(
     const std::string& systemName, const std::string& storageId)
 {
     asyncResp->res.clearHeader(boost::beast::http::field::allow);
-    asyncResp->res.addHeader("Allow", "GET");
 
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -241,7 +240,11 @@ inline void handleSystemsStorageGet(
                                    systemName);
         return;
     }
-
+    if (!membersResponseGet(asyncResp, storageId, "StorageCollection"))
+    {
+        return;
+    }
+    asyncResp->res.addHeader("Allow", "GET");
     if (storageId == "1")
     {
         handleSystemsStorageGetSingleInstance(asyncResp);
@@ -357,9 +360,13 @@ inline void requestRoutesStorage(App& app)
             const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             [[maybe_unused]] const std::string& systemName, const std::string& storageId)
             {
-		        asyncResp->res.clearHeader(boost::beast::http::field::allow); 
-
+		        asyncResp->res.clearHeader(boost::beast::http::field::allow);
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
+                if (!membersResponseGet(asyncResp, storageId,
+                                        "StorageCollection"))
                 {
                     return;
                 }

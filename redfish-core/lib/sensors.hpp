@@ -2904,10 +2904,16 @@ inline void handleSensorThreshGet(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, const std::string& sensorId)
 {
+	asyncResp->res.clearHeader(boost::beast::http::field::allow);
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
     }
+    if (!membersResponseGet(asyncResp, sensorId, "ThresholdSensorCollection"))
+    {
+        return;
+    }
+    asyncResp->res.addHeader("Allow", "GET, PATCH");
     std::pair<std::string, std::string> nameType =
         redfish::sensor_utils::splitSensorNameAndType(sensorId);
     if (nameType.first.empty() || nameType.second.empty())
@@ -2915,7 +2921,6 @@ inline void handleSensorThreshGet(
         messages::resourceNotFound(asyncResp->res, sensorId, "Sensor");
         return;
     }
-
     asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
         "/redfish/v1/Chassis/{}/Sensors/Oem/Threshold/{}", chassisId, sensorId);
 
@@ -3106,11 +3111,15 @@ inline void handleSensorThreshPatch(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, const std::string& sensorId)
 {
+	asyncResp->res.clearHeader(boost::beast::http::field::allow);
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
     }
-
+    if (!membersResponseGet(asyncResp, sensorId, "ThresholdSensorCollection"))
+    {
+        return;
+    }
     std::pair<std::string, std::string> nameType =
         redfish::sensor_utils::splitSensorNameAndType(sensorId);
     if (nameType.first.empty() || nameType.second.empty())
@@ -3342,12 +3351,16 @@ inline void handleSensorGet(App& app, const crow::Request& req,
                             const std::string& sensorId)
 {
     asyncResp->res.clearHeader(boost::beast::http::field::allow);
-    asyncResp->res.addHeader("Allow", "GET, PATCH");
 
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
     }
+    if (!membersResponseGet(asyncResp, sensorId, "SensorCollection"))
+    {
+        return;
+    }
+    asyncResp->res.addHeader("Allow", "GET, PATCH");
     // Validate chassis ID via D-Bus call
     crow::connections::systemBus->async_method_call(
         [asyncResp, chassisId,
@@ -3469,7 +3482,10 @@ inline void
                      const std::string& chassisId, const std::string& sensorId)
 {
     asyncResp->res.clearHeader(boost::beast::http::field::allow);
-
+    if (!membersResponseGet(asyncResp, sensorId, "SensorCollection"))
+    {
+        return;
+    }
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
@@ -3739,12 +3755,6 @@ inline void requestRoutesSensorCollection(App& app)
         .privileges(redfish::privileges::getSensorCollection)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(sensors::handleSensorCollectionGet, std::ref(app)));
-            
-    BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/Sensors/<str>/")
-        .privileges(redfish::privileges::getSensor)
-        .methods(boost::beast::http::verb::post,
-                 boost::beast::http::verb::delete_)(
-            std::bind_front(sensors::handleSensorPost, std::ref(app)));
 }
 
 inline void requestRoutesSensorThreshCollection(App& app)
@@ -3766,6 +3776,22 @@ inline void requestRoutesSensorThresh(App& app)
         .privileges(redfish::privileges::patchSensorThresh)
         .methods(boost::beast::http::verb::patch)(
             std::bind_front(sensors::handleSensorThreshPatch, std::ref(app)));
+
+    BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/Sensors/Oem/Threshold/<str>/")
+        .methods(boost::beast::http::verb::post, boost::beast::http::verb::put,
+                 boost::beast::http::verb::delete_)(
+            [](const crow::Request& /* req */,
+               const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+               const std::string& /* chassisName */,
+               const std::string& sensorId) {
+                asyncResp->res.clearHeader(boost::beast::http::field::allow);
+                if (!membersResponseGet(asyncResp, sensorId, "ThresholdSensorCollection"))
+                {
+                    return;
+                }
+                asyncResp->res.addHeader("Allow", "GET, PATCH");
+                messages::operationNotAllowed(asyncResp->res);
+            });
 }
 
 inline void requestRoutesSensor(App& app)
@@ -3774,6 +3800,12 @@ inline void requestRoutesSensor(App& app)
         .privileges(redfish::privileges::getSensor)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(sensors::handleSensorGet, std::ref(app)));
+            
+    BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/Sensors/<str>/")
+        .privileges(redfish::privileges::getSensor)
+        .methods(boost::beast::http::verb::post,
+                 boost::beast::http::verb::delete_)(
+            std::bind_front(sensors::handleSensorPost, std::ref(app)));
 }
 
 inline void requestRoutesSensorHistory(App& app)

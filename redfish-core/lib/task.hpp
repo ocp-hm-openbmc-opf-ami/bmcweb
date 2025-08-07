@@ -475,8 +475,11 @@ inline void
                      const std::string& strParam)
 {
     asyncResp->res.clearHeader(boost::beast::http::field::allow);
-    asyncResp->res.addHeader("Allow", "GET, DELETE");
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    if (!membersResponseGet(asyncResp, strParam, "TaskCollection"))
     {
         return;
     }
@@ -652,11 +655,15 @@ inline void requestRoutesTask(App& app)
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& strParam) {
+                asyncResp->res.clearHeader(boost::beast::http::field::allow);
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-               {
+                {
                     return;
                 }
-                asyncResp->res.clearHeader(boost::beast::http::field::allow);
+                if (!membersResponseGet(asyncResp, strParam, "TaskCollection"))
+                {
+                    return;
+                }
                 asyncResp->res.addHeader("Allow", "GET, DELETE");
                 auto find = std::ranges::find_if(
                     task::tasks,
@@ -781,12 +788,15 @@ inline void requestRoutesTask(App& app)
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& strParam) {
+                asyncResp->res.clearHeader(boost::beast::http::field::allow);
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
                     return;
                 }
-                asyncResp->res.clearHeader(boost::beast::http::field::allow);
-                asyncResp->res.addHeader("Allow", "GET, DELETE");
+                if (!membersResponseGet(asyncResp, strParam, "TaskCollection"))
+                {
+                    return;
+                }
                 auto find = std::ranges::find_if(
                     task::tasks,
                     [&strParam](const std::shared_ptr<task::TaskData>& task) {
@@ -804,7 +814,7 @@ inline void requestRoutesTask(App& app)
                                                strParam);
                     return;
                 }
-
+                asyncResp->res.addHeader("Allow", "GET, DELETE");
                 messages::operationNotAllowed(asyncResp->res);
                 return;
             });

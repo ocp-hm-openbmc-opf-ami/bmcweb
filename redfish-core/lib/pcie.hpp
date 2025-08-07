@@ -560,6 +560,7 @@ inline void handlePCIeDeviceGet(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& systemName, const std::string& pcieDeviceId)
 {
+    asyncResp->res.clearHeader(boost::beast::http::field::allow);
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
@@ -577,7 +578,11 @@ inline void handlePCIeDeviceGet(
                                    systemName);
         return;
     }
-
+    if (!membersResponseGet(asyncResp, pcieDeviceId, "PCIeDeviceCollection"))
+    {
+        return;
+    }
+    asyncResp->res.addHeader("Allow", "GET");
     getValidPCIeDevicePath(
         pcieDeviceId, asyncResp,
         std::bind_front(afterGetValidPcieDevicePath, asyncResp, pcieDeviceId));
@@ -589,6 +594,25 @@ inline void requestRoutesSystemPCIeDevice(App& app)
         .privileges(redfish::privileges::getPCIeDevice)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handlePCIeDeviceGet, std::ref(app)));
+
+    BMCWEB_ROUTE(
+        app, "/redfish/v1/Systems/<str>/PCIeDevices/<str>/")
+        .methods(boost::beast::http::verb::post,
+                 boost::beast::http::verb::patch, boost::beast::http::verb::put,
+                 boost::beast::http::verb::delete_)(
+            [&app](const crow::Request& /* req */,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const std::string& /* systemName */,
+                   const std::string&  pcieDeviceId ) {
+                asyncResp->res.clearHeader(boost::beast::http::field::allow);
+                if (!membersResponseGet(asyncResp, pcieDeviceId,
+                                        "PCIeDeviceCollection"))
+                {
+                    return;
+                }
+                asyncResp->res.addHeader("Allow", "GET");
+                messages::operationNotAllowed(asyncResp->res);
+            });
 }
 
 inline void addPCIeFunctionList(
@@ -785,6 +809,7 @@ inline void handlePCIeFunctionGet(
     const std::string& systemName, const std::string& pcieDeviceId,
     const std::string& pcieFunctionIdStr)
 {
+    asyncResp->res.clearHeader(boost::beast::http::field::allow);
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
@@ -802,6 +827,11 @@ inline void handlePCIeFunctionGet(
                                    systemName);
         return;
     }
+    if (!membersResponseGet(asyncResp, pcieFunctionIdStr, "PCIeFunctionCollection"))
+    {
+        return;
+    }
+    asyncResp->res.addHeader("Allow", "GET");
     std::string_view pcieFunctionIdView = pcieFunctionIdStr;
 
     uint64_t pcieFunctionId = 0;
@@ -837,6 +867,26 @@ inline void requestRoutesSystemPCIeFunction(App& app)
         .privileges(redfish::privileges::getPCIeFunction)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handlePCIeFunctionGet, std::ref(app)));
+
+    BMCWEB_ROUTE(
+        app, "/redfish/v1/Systems/<str>/PCIeDevices/<str>/PCIeFunctions/<str>/")
+        .methods(boost::beast::http::verb::post,
+                 boost::beast::http::verb::patch, boost::beast::http::verb::put,
+                 boost::beast::http::verb::delete_)(
+            [&app](const crow::Request& /* req */,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const std::string& /* systemName */,
+                   const std::string& /* pcieDeviceId */,
+                   const std::string& pcieFunctionIdStr) {
+                asyncResp->res.clearHeader(boost::beast::http::field::allow);
+                if (!membersResponseGet(asyncResp, pcieFunctionIdStr,
+                                        "PCIeFunctionCollection"))
+                {
+                    return;
+                }
+                asyncResp->res.addHeader("Allow", "GET");
+                messages::operationNotAllowed(asyncResp->res);
+            });
 }
 
 } // namespace redfish

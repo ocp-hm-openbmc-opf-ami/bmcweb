@@ -1920,6 +1920,7 @@ inline void handleSystemsLogServiceEventLogEntriesGet(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& systemName, const std::string& param)
 {
+    asyncResp->res.clearHeader(boost::beast::http::field::allow);
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
@@ -1937,7 +1938,11 @@ inline void handleSystemsLogServiceEventLogEntriesGet(
                                    systemName);
         return;
     }
-
+    if (!membersResponseGet(asyncResp, param, "LogEntryCollection"))
+    {
+        return;
+    }
+    asyncResp->res.addHeader("Allow", "GET");
     const std::string& targetID = param;
 
     // Go through the log files and check the unique ID for each
@@ -1994,6 +1999,24 @@ inline void requestRoutesJournalEventLogEntry(App& app)
         .privileges(redfish::privileges::getLogEntry)
         .methods(boost::beast::http::verb::get)(std::bind_front(
             handleSystemsLogServiceEventLogEntriesGet, std::ref(app)));
+
+    BMCWEB_ROUTE(app,
+                 "/redfish/v1/Systems/<str>/LogServices/EventLog/Entries/<str>")
+        .methods(boost::beast::http::verb::post,
+                 boost::beast::http::verb::patch, boost::beast::http::verb::put,
+                 boost::beast::http::verb::delete_)(
+            [&app](const crow::Request& /* req */,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const std::string& /* systemName */,
+                   const std::string& param) {
+                asyncResp->res.clearHeader(boost::beast::http::field::allow);
+                if (!membersResponseGet(asyncResp, param, "LogEntryCollection"))
+                {
+                    return;
+                }
+                asyncResp->res.addHeader("Allow", "GET");
+                messages::operationNotAllowed(asyncResp->res);
+            });
 }
 inline void dBusEventLogEntryCollection(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
@@ -2054,6 +2077,7 @@ inline void handleLogServicesSELEntryGet(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& managerId, const std::string& entryID)
 {
+    asyncResp->res.clearHeader(boost::beast::http::field::allow);
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
@@ -2063,6 +2087,11 @@ inline void handleLogServicesSELEntryGet(
         messages::resourceNotFound(asyncResp->res, "Managers", managerId);
         return;
     }
+    if (!membersResponseGet(asyncResp, entryID, "LogEntryCollection"))
+    {
+        return;
+    }
+    asyncResp->res.addHeader("Allow", "GET, PATCH, DELETE");
     // DBus implementation of EventLog/Entries
     // Make call to Logging Service to find all log entry objects
     dbus::utility::getAllProperties(
@@ -2093,6 +2122,7 @@ inline void handleLogServicesSELEntryDelete(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& managerId, const std::string& entryID)
 {
+    asyncResp->res.clearHeader(boost::beast::http::field::allow);
     std::string entryId = entryID;
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -2103,7 +2133,10 @@ inline void handleLogServicesSELEntryDelete(
         messages::resourceNotFound(asyncResp->res, "Managers", managerId);
         return;
     }
-
+    if (!membersResponseGet(asyncResp, entryID, "LogEntryCollection"))
+    {
+        return;
+    }
     dbus::utility::escapePathForDbus(entryId);
 
     // Process response from Logging service.
@@ -2140,6 +2173,7 @@ inline void handleLogServicesSELEntryPatch(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& managerId, const std::string& entryID)
 {
+    asyncResp->res.clearHeader(boost::beast::http::field::allow);
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
@@ -2150,7 +2184,10 @@ inline void handleLogServicesSELEntryPatch(
         messages::resourceNotFound(asyncResp->res, "Managers", managerId);
         return;
     }
-
+    if (!membersResponseGet(asyncResp, entryID, "LogEntryCollection"))
+    {
+        return;
+    }
     // Process response from Logging service.
     std::optional<bool> resolved;
 
@@ -2323,9 +2360,7 @@ inline void requestRoutesDBusEventLogEntry(App& app)
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& systemName, const std::string& entryId) {
-
 		        asyncResp->res.clearHeader(boost::beast::http::field::allow);
-                asyncResp->res.addHeader("Allow", "GET, PATCH, DELETE");
 
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
@@ -2344,7 +2379,11 @@ inline void requestRoutesDBusEventLogEntry(App& app)
                                                systemName);
                     return;
                 }
-
+                if (!membersResponseGet(asyncResp, entryId, "LogEntryCollection"))
+                {
+                    return;
+                }
+                asyncResp->res.addHeader("Allow", "GET, PATCH, DELETE");
                 dBusEventLogEntryGet(asyncResp, entryId);
             });
 
@@ -2357,7 +2396,6 @@ inline void requestRoutesDBusEventLogEntry(App& app)
                    const std::string& systemName, const std::string& entryId) {
 
 		        asyncResp->res.clearHeader(boost::beast::http::field::allow);
-                asyncResp->res.addHeader("Allow", "GET, PATCH, DELETE");
 
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
@@ -2376,7 +2414,10 @@ inline void requestRoutesDBusEventLogEntry(App& app)
                                                systemName);
                     return;
                 }
-
+                if (!membersResponseGet(asyncResp, entryId, "LogEntryCollection"))
+                {
+                    return;
+                }
                 dbus::utility::getAllProperties(
                     "xyz.openbmc_project.Logging",
                     "/xyz/openbmc_project/logging/entry/" + entryId, "",
@@ -2401,8 +2442,7 @@ inline void requestRoutesDBusEventLogEntry(App& app)
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& systemName, const std::string& param) {
 
-		asyncResp->res.clearHeader(boost::beast::http::field::allow);
-                asyncResp->res.addHeader("Allow", "GET, PATCH, DELETE");
+		        asyncResp->res.clearHeader(boost::beast::http::field::allow);
 
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
@@ -2421,6 +2461,10 @@ inline void requestRoutesDBusEventLogEntry(App& app)
                                                systemName);
                     return;
                 }
+                if (!membersResponseGet(asyncResp, param, "LogEntryCollection"))
+                {
+                    return;
+                }
                 dBusEntryDelete(asyncResp, "default", param);
             });
 	
@@ -2432,8 +2476,12 @@ inline void requestRoutesDBusEventLogEntry(App& app)
                     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                     [[maybe_unused]] const std::string& systemName, [[maybe_unused]] const std::string& entryId) 
             {
-		asyncResp->res.clearHeader(boost::beast::http::field::allow);
+		        asyncResp->res.clearHeader(boost::beast::http::field::allow);
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
+                if (!membersResponseGet(asyncResp, entryId, "LogEntryCollection"))
                 {
                     return;
                 }
@@ -2828,7 +2876,6 @@ inline void handleLogServicesDumpEntryGet(
     const std::string& managerId, const std::string& dumpId)
 {
     asyncResp->res.clearHeader(boost::beast::http::field::allow);
-    asyncResp->res.addHeader("Allow", "GET, DELETE");
 
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -2839,6 +2886,11 @@ inline void handleLogServicesDumpEntryGet(
         messages::resourceNotFound(asyncResp->res, "Manager", managerId);
         return;
     }
+    if (!membersResponseGet(asyncResp, dumpId, "LogEntryCollection"))
+    {
+        return;
+    }
+    asyncResp->res.addHeader("Allow", "GET, DELETE");
     getDumpEntryById(asyncResp, dumpId, dumpType);
 }
 
@@ -2847,6 +2899,7 @@ inline void handleLogServicesDumpEntryComputerSystemGet(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, const std::string& dumpId)
 {
+    asyncResp->res.clearHeader(boost::beast::http::field::allow);
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
@@ -2856,6 +2909,11 @@ inline void handleLogServicesDumpEntryComputerSystemGet(
         messages::resourceNotFound(asyncResp->res, "ComputerSystem", chassisId);
         return;
     }
+    if (!membersResponseGet(asyncResp, dumpId, "LogEntryCollection"))
+    {
+        return;
+    }
+    asyncResp->res.addHeader("Allow", "GET, DELETE");
     getDumpEntryById(asyncResp, dumpId, "System");
 }
 
@@ -2865,8 +2923,6 @@ inline void handleLogServicesDumpEntryDelete(
     const std::string& managerId, const std::string& dumpId)
 {
     asyncResp->res.clearHeader(boost::beast::http::field::allow);
-    asyncResp->res.addHeader("Allow", "GET, DELETE");
-
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
@@ -2875,6 +2931,10 @@ inline void handleLogServicesDumpEntryDelete(
     if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
     {
         messages::resourceNotFound(asyncResp->res, "Manager", managerId);
+        return;
+    }
+    if (!membersResponseGet(asyncResp, dumpId, "LogEntryCollection"))
+    {
         return;
     }
     deleteDumpEntry(asyncResp, dumpId, dumpType);
@@ -2891,7 +2951,10 @@ inline void handleLogServicesDumpEntryPost(
     {
         return;
     }
-
+    if (!membersResponseGet(asyncResp, entryID, "LogEntryCollection"))
+    {
+        return;
+    }
     if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
     {
         messages::resourceNotFound(asyncResp->res, "Manager", managerId);
@@ -2951,6 +3014,7 @@ inline void handleLogServicesDumpEntryComputerSystemDelete(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, const std::string& dumpId)
 {
+    asyncResp->res.clearHeader(boost::beast::http::field::allow);
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
@@ -2958,6 +3022,10 @@ inline void handleLogServicesDumpEntryComputerSystemDelete(
     if (chassisId != BMCWEB_REDFISH_SYSTEM_URI_NAME)
     {
         messages::resourceNotFound(asyncResp->res, "ComputerSystem", chassisId);
+        return;
+    }
+    if (!membersResponseGet(asyncResp, dumpId, "LogEntryCollection"))
+    {
         return;
     }
     deleteDumpEntry(asyncResp, dumpId, "System");
@@ -3311,6 +3379,22 @@ inline void requestRoutesBMCSELEntry(App& app)
         .privileges(redfish::privileges::deleteLogEntry)
         .methods(boost::beast::http::verb::delete_)(
             std::bind_front(handleLogServicesSELEntryDelete, std::ref(app)));
+
+    BMCWEB_ROUTE(app,
+                 "/redfish/v1/Managers/<str>/LogServices/SEL/Entries/<str>/")
+        .methods(boost::beast::http::verb::post)(
+            [&app](const crow::Request& /* req */,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const std::string& /* chassisId */,
+                   const std::string& entryID) {
+                asyncResp->res.clearHeader(boost::beast::http::field::allow);
+                if (!membersResponseGet(asyncResp, entryID, "LogEntryCollection"))
+                {
+                    return;
+                }
+                asyncResp->res.addHeader("Allow", "GET, PATCH, DELETE");
+                messages::operationNotAllowed(asyncResp->res);
+            });
 }
 
 inline void requestRoutesBMCSELClear(App& app)
@@ -3444,6 +3528,24 @@ inline void requestRoutesSystemDumpEntry(App& app)
         .privileges(redfish::privileges::deleteLogEntry)
         .methods(boost::beast::http::verb::delete_)(std::bind_front(
             handleLogServicesDumpEntryComputerSystemDelete, std::ref(app)));
+
+    BMCWEB_ROUTE(app,
+                 "/redfish/v1/Systems/<str>/LogServices/Dump/Entries/<str>/")
+        .methods(boost::beast::http::verb::post,
+                 boost::beast::http::verb::patch,
+                 boost::beast::http::verb::put)(
+            [&app](const crow::Request& /* req */,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const std::string& /* chassisId */,
+                   const std::string& dumpId) {
+                asyncResp->res.clearHeader(boost::beast::http::field::allow);
+                if (!membersResponseGet(asyncResp, dumpId, "LogEntryCollection"))
+                {
+                    return;
+                }
+                asyncResp->res.addHeader("Allow", "GET, DELETE");
+                messages::operationNotAllowed(asyncResp->res);
+            });
 }
 
 inline void requestRoutesSystemDumpCreate(App& app)
@@ -5010,7 +5112,6 @@ inline void requestRoutesSystemRsyslog(App& app)
         .privileges(redfish::privileges::patchLogEntry)
         .methods(boost::beast::http::verb::patch)(std::bind_front(
             handleSyslogCertificatePatch, std::ref(app)));
-
 
 }
 } // namespace redfish

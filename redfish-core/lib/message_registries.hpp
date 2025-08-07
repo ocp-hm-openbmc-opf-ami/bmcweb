@@ -170,14 +170,17 @@ inline void handleMessageRoutesMessageRegistryFileGet(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& registry)
 {
-	
     asyncResp->res.clearHeader(boost::beast::http::field::allow);
-    asyncResp->res.addHeader("Allow", "GET");
 
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
     }
+    if (!membersResponseGet(asyncResp, registry, "MessageRegistryFileCollection"))
+    {
+        return;
+    }
+    asyncResp->res.addHeader("Allow", "GET");
     const registries::Header* header = nullptr;
     std::string dmtf = "DMTF ";
     std::vector<const registries::MessageEntry*> registryEntries;
@@ -527,6 +530,10 @@ inline void requestRoutesMessageRegistryFile(App& app)
   {
     asyncResp->res.clearHeader(boost::beast::http::field::allow);
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    if (!membersResponseGet(asyncResp, registry, "MessageRegistryFileCollection"))
     {
         return;
     }
