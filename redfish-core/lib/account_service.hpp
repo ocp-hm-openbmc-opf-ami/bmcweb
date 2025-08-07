@@ -3331,6 +3331,16 @@ inline void handleAccountServicePatch(
             std::variant<uint8_t>(*RememberOldPasswordTimes));
     }
 
+    if (ldapObject.baseDNList)
+    {
+        if (ldapObject.baseDNList->at(0).length() > 253 || ldapObject.baseDNList->at(0).length() < 4)
+        {
+            messages::propertyValueOutOfRange(asyncResp->res, *ldapObject.baseDNList,
+                    "BaseDistinguishedNames");
+            return;
+        }
+    }
+
     if (activeDirectoryObject.hasValue())
     {
         handleLDAPPatch(std::move(activeDirectoryObject), asyncResp,
