@@ -77,7 +77,7 @@ inline void requestRoutesDeleteBsodjpeg(App& app)
                 {
                     if (fs::remove(inputImagePath))
                     {
-                        messages::success(asyncResp->res);
+                        asyncResp->res.result(boost::beast::http::status::no_content);
                     }
                 }
                 else
@@ -113,7 +113,7 @@ inline void requestRoutesTriggerBsodjpeg(App& app)
                             messages::internalError(asyncResp->res);
                             return;
                         }
-                        messages::success(asyncResp->res);
+                        asyncResp->res.result(boost::beast::http::status::no_content);
                     },
                     "xyz.openbmc_project.Kvm", "/xyz/openbmc_project/Kvm",
                     "xyz.openbmc_project.Kvm.Screenshot", "TriggerScreenshot",
