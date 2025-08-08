@@ -1458,6 +1458,639 @@ inline std::string removeProtocol(const std::string& url)
     return std::regex_replace(url, pattern, "");
 }
 
+void handleEventServiceSubscriptionPost(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    if (EventServiceManager::getInstance().getNumberOfSubscriptions() >=
+        maxNoOfSubscriptions)
+    {
+        messages::eventSubscriptionLimitExceeded(asyncResp->res);
+        return;
+    }
+    std::string destUrl;
+    std::string protocol;
+    std::optional<bool> verifyCertificate;
+    std::optional<std::string> vId;
+    std::optional<std::string> context;
+    std::optional<std::string> subscriptionType;
+    std::optional<std::string> eventFormatType2;
+    std::optional<std::string> retryPolicy;
+    std::optional<bool> sendHeartbeat;
+    std::optional<uint64_t> hbIntervalMinutes;
+    std::optional<std::vector<std::string>> msgIds;
+    std::optional<std::vector<std::string>> regPrefixes;
+    std::optional<std::vector<std::string>> originResources;
+    std::optional<std::vector<std::string>> resTypes;
+    std::optional<std::vector<nlohmann::json::object_t>> headers;
+    std::optional<std::vector<nlohmann::json::object_t>> mrdJsonArray;
+    std::optional<nlohmann::json> oemObj;
+    std::optional<std::string> oemsnmpcommunitystring;
+    if (!json_util::readJsonPatch( //
+            req, asyncResp->res, //
+            "Destination", destUrl, //
+            "Context", context, //
+            "Protocol", protocol, //
+            "SubscriptionType", subscriptionType, //
+            "EventFormatType", eventFormatType2, //
+            "HeartbeatIntervalMinutes", hbIntervalMinutes, //
+            "HttpHeaders", headers, //
+            "RegistryPrefixes", regPrefixes, //
+            "MessageIds", msgIds, //
+            "OriginResources", originResources, //
+            "Id", vId, //
+            "DeliveryRetryPolicy", retryPolicy, //
+            "MetricReportDefinitions", mrdJsonArray, //
+            "ResourceTypes", resTypes, //
+            "SendHeartbeat", sendHeartbeat, //
+            "VerifyCertificate", verifyCertificate, //
+            "Oem/OpenBmc/CommunityString", oemsnmpcommunitystring, //
+            "Oem", oemObj //
+            ))
+    {
+        return;
+    }
+
+    if (protocol.empty())
+    {
+        messages::propertyValueEmpty(asyncResp->res, protocol, "Protocol");
+        return;
+    }
+
+    if (vId)
+    {
+        messages::propertyNotWritable(asyncResp->res, "Id");
+        asyncResp->res.result(boost::beast::http::status::bad_request);
+        return;
+    }
+
+    if (protocol == "Oem")
+    {
+        // Handle to support Kafka streaming support
+        KafkaManager::getInstance().createSubscription(*oemObj, destUrl,
+                                                       context, asyncResp);
+        return;
+    }
+
+    // https://stackoverflow.com/questions/417142/what-is-the-maximum-length-of-a-url-in-different-browsers
+    static constexpr const uint16_t maxDestinationSize = 2000;
+    if (destUrl.size() > maxDestinationSize)
+    {
+        messages::stringValueTooLong(asyncResp->res, "Destination",
+                                     maxDestinationSize);
+        return;
+    }
+
+    if (regPrefixes && msgIds)
+    {
+        if (!regPrefixes->empty() && !msgIds->empty())
+        {
+            messages::propertyValueConflict(asyncResp->res, "MessageIds",
+                                            "RegistryPrefixes");
+            return;
+        }
+    }
+
+    boost::system::result<boost::urls::url> url =
+        boost::urls::parse_absolute_uri(destUrl);
+    if (!url)
+    {
+        BMCWEB_LOG_WARNING("Failed to validate and split destination url");
+        messages::propertyValueFormatError(asyncResp->res, destUrl,
+                                           "Destination");
+        return;
+    }
+
+    if (url)
+    {
+        std::string destIp = removeProtocol(destUrl);
+        size_t atPos = destIp.find('@');
+        if (atPos != std::string::npos)
+        {
+            destIp = destIp.substr(atPos + 1);
+        }
+        if (destIp.front() == '[' && destIp.back() == ']')
+        {
+            destIp =
+                destIp.substr(1, destIp.size() - 2); // Remove brackets for IPv6
+        }
+        size_t lastColon = destIp.rfind(':');
+        if (lastColon != std::string::npos)
+        {
+            std::string possiblePort = destIp.substr(lastColon + 1);
+            if (std::all_of(possiblePort.begin(), possiblePort.end(),
+                            ::isdigit))
+            {
+                destIp = destIp.substr(0, lastColon);
+            }
+        }
+        size_t slashPos = destIp.rfind('/');
+        if (slashPos)
+        {
+            destIp = destIp.substr(0, slashPos);
+        }
+
+        std::string ip = destIp;
+        boost::system::error_code ec;
+        boost::asio::ip::make_address(ip, ec);
+        if (ec)
+        {
+            messages::propertyValueFormatError(asyncResp->res, destUrl,
+                                               "Destination");
+            return;
+        }
+    }
+
+    url->normalize();
+
+    // port_number returns zero if it is not a valid representable port
+    if (url->has_port() && url->port_number() == 0)
+    {
+        BMCWEB_LOG_WARNING("{} is an invalid port in destination url",
+                           url->port());
+        messages::propertyValueFormatError(asyncResp->res, destUrl,
+                                           "Destination");
+        return;
+    }
+
+    crow::utility::setProtocolDefaults(*url, protocol);
+    crow::utility::setPortDefaults(*url);
+
+    if (url->path().empty())
+    {
+        url->set_path("/");
+    }
+
+    if (protocol != "SNMPv3" && url->has_userinfo())
+    {
+        messages::propertyValueFormatError(asyncResp->res, destUrl,
+                                           "Destination");
+        return;
+    }
+
+    /* if (protocol == "SNMPv2c")
+     {
+        if (context)
+         {
+             messages::propertyValueConflict(asyncResp->res, "Context",
+                                             "Protocol");
+             return;
+         }
+         if (eventFormatType2)
+         {
+             messages::propertyValueConflict(asyncResp->res,
+                                             "EventFormatType",
+     "Protocol"); return;
+         }
+         if (retryPolicy)
+         {
+             messages::propertyValueConflict(asyncResp->res,
+     "RetryPolicy", "Protocol"); return;
+         }
+         if (sendHeartbeat)
+         {
+            messages::propertyValueConflict(
+                asyncResp->res, "SendHeartbeat", "Protocol");
+            return;
+         }
+         if (hbIntervalMinutes)
+         {
+            messages::propertyValueConflict(
+                asyncResp->res, "HeartbeatIntervalMinutes", "Protocol");
+            return;
+         }
+         if (msgIds)
+         {
+             messages::propertyValueConflict(asyncResp->res,
+     "MessageIds", "Protocol"); return;
+         }
+         if (regPrefixes)
+         {
+             messages::propertyValueConflict(asyncResp->res,
+                                             "RegistryPrefixes",
+     "Protocol"); return;
+         }
+         if (resTypes)
+         {
+             messages::propertyValueConflict(asyncResp->res,
+     "ResourceTypes", "Protocol"); return;
+         }
+         if (headers)
+         {
+             messages::propertyValueConflict(asyncResp->res,
+     "HttpHeaders", "Protocol"); return;
+         }
+         if (mrdJsonArray)
+         {
+             messages::propertyValueConflict(
+                 asyncResp->res, "MetricReportDefinitions", "Protocol");
+             return;
+         }
+         if (url->scheme() != "snmp")
+         {
+             messages::propertyValueConflict(asyncResp->res,
+     "Destination", "Protocol"); return;
+         }
+         if (*subscriptionType == "RedfishEvent")
+         {
+             messages::propertyValueConflict(asyncResp->res,
+                                             "SubscriptionType",
+     "Protocol"); return;
+         }
+         addSnmpTrapClient(asyncResp, url->host_address(),
+                           url->port_number());
+         return;
+     }*/
+
+    if (req.session == nullptr || req.session->username.empty())
+    {
+        BMCWEB_LOG_ERROR("Request Session Undefined");
+        messages::noValidSession(asyncResp->res);
+        return;
+    }
+
+    std::shared_ptr<Subscription> subValue = std::make_shared<Subscription>(
+        std::make_shared<persistent_data::UserSubscription>(), *url,
+        app.ioContext());
+
+    subValue->userSub->destinationUrl = *url;
+    subValue->userSub->owner = req.session->username;
+
+    if (subscriptionType)
+    {
+        if ((protocol == "Redfish" && *subscriptionType != "RedfishEvent") ||
+            (protocol == "SNMPv2c" && *subscriptionType != "SNMPTrap") ||
+            (protocol == "SNMPv3" && *subscriptionType != "SNMPTrap") ||
+            (protocol == "SNMPv1" && *subscriptionType != "SNMPTrap"))
+        {
+            messages::propertyValueNotInList(asyncResp->res, *subscriptionType,
+                                             "SubscriptionType");
+            return;
+        }
+        subValue->userSub->subscriptionType = *subscriptionType;
+    }
+    else
+    {
+        if (protocol == "SNMPv1" || protocol == "SNMPv2c" ||
+            protocol == "SNMPv3")
+        {
+            subValue->userSub->subscriptionType = "SNMPTrap";
+        }
+        else
+        {
+            subValue->userSub->subscriptionType = "RedfishEvent"; // Default
+        }
+    }
+
+    if ((protocol != "Redfish") && (protocol != "SNMPv2c") &&
+        (protocol != "SNMPv3") && (protocol != "SNMPv1"))
+    {
+        messages::propertyValueNotInList(asyncResp->res, protocol, "Protocol");
+        return;
+    }
+    subValue->userSub->protocol = protocol;
+
+    if (verifyCertificate)
+    {
+        subValue->userSub->verifyCertificate = *verifyCertificate;
+    }
+
+    if (eventFormatType2)
+    {
+        if (protocol == "SNMPv2c" || protocol == "SNMPv3" ||
+            protocol == "SNMPv1")
+        {
+            if (*eventFormatType2 != "Event")
+            {
+                messages::propertyValueNotInList(
+                    asyncResp->res, *eventFormatType2, "EventFormatType");
+                return;
+            }
+            subValue->userSub->eventFormatType = *eventFormatType2;
+        }
+        else
+        {
+            if (std::ranges::find(supportedEvtFormatTypes, *eventFormatType2) ==
+                supportedEvtFormatTypes.end())
+            {
+                messages::propertyValueNotInList(
+                    asyncResp->res, *eventFormatType2, "EventFormatType");
+                return;
+            }
+            subValue->userSub->eventFormatType = *eventFormatType2;
+        }
+    }
+    else
+    {
+        // If not specified, use default "Event"
+        subValue->userSub->eventFormatType = "Event";
+    }
+
+    if (context)
+    {
+        // This value is selected arbitrarily.
+        constexpr const size_t maxContextSize = 256;
+        if (context->size() > maxContextSize)
+        {
+            messages::stringValueTooLong(asyncResp->res, "Context",
+                                         maxContextSize);
+            return;
+        }
+        subValue->userSub->customText = *context;
+    }
+
+    if (headers)
+    {
+        size_t cumulativeLen = 0;
+
+        for (const nlohmann::json::object_t& headerChunk : *headers)
+        {
+            for (const auto& item : headerChunk)
+            {
+                const std::string* value =
+                    item.second.get_ptr<const std::string*>();
+                if (value == nullptr)
+                {
+                    messages::propertyValueFormatError(
+                        asyncResp->res, item.second,
+                        "HttpHeaders/" + item.first);
+                    return;
+                }
+                // Adding a new json value is the size of the key, +
+                // the size of the value + 2 * 2 quotes for each, +
+                // the colon and space between. example:
+                // "key": "value"
+                cumulativeLen += item.first.size() + value->size() + 6;
+                // This value is selected to mirror http_connection.hpp
+                constexpr const uint16_t maxHeaderSizeED = 8096;
+                if (cumulativeLen > maxHeaderSizeED)
+                {
+                    messages::arraySizeTooLong(asyncResp->res, "HttpHeaders",
+                                               maxHeaderSizeED);
+                    return;
+                }
+                subValue->userSub->httpHeaders.set(item.first, *value);
+            }
+        }
+    }
+
+    if (regPrefixes)
+    {
+        for (const std::string& it : *regPrefixes)
+        {
+            if (std::ranges::find(supportedRegPrefixes, it) ==
+                supportedRegPrefixes.end())
+            {
+                messages::propertyValueNotInList(asyncResp->res, it,
+                                                 "RegistryPrefixes");
+                return;
+            }
+        }
+        subValue->userSub->registryPrefixes = *regPrefixes;
+    }
+
+    if (originResources)
+    {
+        subValue->userSub->originResources = *originResources;
+    }
+
+    if (resTypes)
+    {
+        for (const std::string& it : *resTypes)
+        {
+            if (std::ranges::find(supportedResourceTypes, it) ==
+                supportedResourceTypes.end())
+            {
+                messages::propertyValueNotInList(asyncResp->res, it,
+                                                 "ResourceTypes");
+                return;
+            }
+        }
+        subValue->userSub->resourceTypes = *resTypes;
+    }
+
+    if (msgIds)
+    {
+        std::vector<std::string> registryPrefix;
+
+        // If no registry prefixes are mentioned, consider all
+        // supported prefixes
+        if (subValue->userSub->registryPrefixes.empty())
+        {
+            registryPrefix.assign(supportedRegPrefixes.begin(),
+                                  supportedRegPrefixes.end());
+        }
+        else
+        {
+            registryPrefix = subValue->userSub->registryPrefixes;
+        }
+
+        for (const std::string& id : *msgIds)
+        {
+            bool validId = false;
+
+            // Check for Message ID in each of the selected Registry
+            for (const std::string& it : registryPrefix)
+            {
+                const std::span<const redfish::registries::MessageEntry>
+                    registry = redfish::registries::getRegistryFromPrefix(it);
+
+                if (std::ranges::any_of(
+                        registry, [&id](const redfish::registries::MessageEntry&
+                                            messageEntry) {
+                            return id == messageEntry.first;
+                        }))
+                {
+                    validId = true;
+                    break;
+                }
+            }
+
+            if (!validId)
+            {
+                messages::propertyValueNotInList(asyncResp->res, id,
+                                                 "MessageIds");
+                return;
+            }
+        }
+
+        subValue->userSub->registryMsgIds = *msgIds;
+    }
+
+    if (retryPolicy)
+    {
+        if (std::ranges::find(supportedRetryPolicies, *retryPolicy) ==
+            supportedRetryPolicies.end())
+        {
+            messages::propertyValueNotInList(asyncResp->res, *retryPolicy,
+                                             "DeliveryRetryPolicy");
+            return;
+        }
+        subValue->userSub->retryPolicy = *retryPolicy;
+    }
+    else
+    {
+        // Default "TerminateAfterRetries"
+        subValue->userSub->retryPolicy = "TerminateAfterRetries";
+    }
+
+    if (sendHeartbeat)
+    {
+        subValue->userSub->sendHeartbeat = *sendHeartbeat;
+    }
+    if (hbIntervalMinutes)
+    {
+        if (*hbIntervalMinutes < 1 || *hbIntervalMinutes > 65535)
+        {
+            messages::propertyValueOutOfRange(
+                asyncResp->res, *hbIntervalMinutes, "HeartbeatIntervalMinutes");
+            return;
+        }
+        subValue->userSub->hbIntervalMinutes = *hbIntervalMinutes;
+    }
+
+    if (mrdJsonArray)
+    {
+        for (nlohmann::json::object_t& mrdObj : *mrdJsonArray)
+        {
+            std::string mrdUri;
+
+            if (!json_util::readJsonObject( //
+                    mrdObj, asyncResp->res, //
+                    "@odata.id", mrdUri //
+                    ))
+
+            {
+                return;
+            }
+            subValue->userSub->metricReportDefinitions.emplace_back(mrdUri);
+        }
+    }
+
+    // Default is Enabled, when subscription is suspended, this will
+    // be set to "Disabled" state.
+    subValue->userSub->state = "Enabled";
+
+    if (protocol == "SNMPv2c" || protocol == "SNMPv3" || protocol == "SNMPv1")
+    {
+        auto subId = std::make_shared<std::string>();
+        snmpCompletedOperations = 0;
+        auto snmpCompletionHandler = [asyncResp, subId, oemsnmpcommunitystring,
+                                      protocol](bool success) {
+            if (success)
+            {
+                snmpCompletedOperations++;
+            }
+            // As of now two snmpcompletedoperations for SNMPV1 and SNMPV2 and
+            // one snmpcompletedoperations for SNMPv3. In Future if new dbus
+            // call are added for these protocols please increment the values of
+            // snmpcompletedoperations.
+            if ((oemsnmpcommunitystring && (snmpCompletedOperations == 2)) ||
+                (protocol == "SNMPv3" && (snmpCompletedOperations == 1)))
+            {
+                getEventServiceSubscriptionIdInfo(asyncResp, *subId);
+                asyncResp->res.result(boost::beast::http::status::created);
+            }
+        };
+        auto value = getSnmpProtocol();
+        auto protocolStatus = std::get<bool>(value);
+        if (!protocolStatus)
+        {
+            messages::serviceDisabled(asyncResp->res, "SNMP");
+            return;
+        }
+        if (protocol == "SNMPv2c" || protocol == "SNMPv1")
+        {
+            std::string hostaddress = url->host_address();
+            uint16_t portnumber = url->port_number();
+            std::string user_name = url->user();
+            if (oemsnmpcommunitystring)
+            {
+                // validatecommunitystring(asyncResp, *oemsnmpcommunitystring);
+                sdbusplus::message::object_path path(
+                    "/xyz/openbmc_project/snmp/CommunityStrManager/" +
+                    *oemsnmpcommunitystring);
+                dbus::utility::getProperty<std::string>(
+                    "xyz.openbmc_project.Snmp.Conf", path,
+                    "xyz.openbmc_project.Snmp.CommunityStrManager",
+                    "CommunityString",
+                    [asyncResp, oemsnmpcommunitystring, hostaddress, portnumber,
+                     protocol, user_name, subValue, subId,
+                     snmpCompletionHandler](const boost::system::error_code& ec,
+                                            std::string communitystring) {
+                        if (ec)
+                        {
+                            BMCWEB_LOG_ERROR(
+                                "no communitystring object path avaliable");
+                            messages::propertyValueNotInList(
+                                asyncResp->res, *oemsnmpcommunitystring,
+                                "Oem/OpenBmc/CommunityString");
+                            asyncResp->res.result(
+                                boost::beast::http::status::bad_request);
+                            return;
+                        }
+                        else if (communitystring.empty())
+                        {
+                            messages::propertyValueNotInList(
+                                asyncResp->res, *oemsnmpcommunitystring,
+                                "Oem/OpenBmc/CommunityString");
+                            asyncResp->res.result(
+                                boost::beast::http::status::bad_request);
+                            return;
+                        }
+                        else
+                        {
+                            snmpCompletionHandler(true);
+                            addSnmpTrapClient(asyncResp, hostaddress,
+                                              portnumber, protocol, user_name,
+                                              subValue, *oemsnmpcommunitystring,
+                                              subId, snmpCompletionHandler);
+                        }
+                    });
+            }
+            else
+            {
+                messages::propertyMissing(asyncResp->res,
+                                          "Oem/OpenBmc/CommunityString");
+                return;
+            }
+        }
+        else
+        {
+            if (protocol == "SNMPv3" && url->has_userinfo() == false)
+            {
+                BMCWEB_LOG_DEBUG("Missing UserName in Destination");
+                messages::propertyValueFormatError(asyncResp->res, destUrl,
+                                                   "Destination");
+                return;
+            }
+            addSnmpTrapClient(asyncResp, url->host_address(),
+                              url->port_number(), protocol, url->user(),
+                              subValue, *oemsnmpcommunitystring, subId,
+                              snmpCompletionHandler);
+        }
+        return;
+    }
+
+    std::string id;
+    EventServiceManager::getInstance().addPushSubscription(subValue, id);
+
+    getEventServiceSubscriptionIdInfo(asyncResp, id);
+    asyncResp->res.result(boost::beast::http::status::created);
+    asyncResp->res.addHeader("Location",
+                             "/redfish/v1/EventService/Subscriptions/" + id);
+
+    // schedule a heartbeat
+    if (subValue->userSub->sendHeartbeat)
+    {
+        subValue->scheduleNextHeartbeatEvent();
+    }
+}
+
 inline void requestRoutesEventDestinationCollection(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/EventService/Subscriptions/")
@@ -1523,635 +2156,8 @@ inline void requestRoutesEventDestinationCollection(App& app)
 
     BMCWEB_ROUTE(app, "/redfish/v1/EventService/Subscriptions/")
         .privileges(redfish::privileges::postEventDestinationCollection)
-        .methods(
-            boost::beast::http::verb::
-                post)([&app](
-                          const crow::Request& req,
-                          const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
-            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-            {
-                return;
-            }
-            if (EventServiceManager::getInstance().getNumberOfSubscriptions() >=
-                maxNoOfSubscriptions)
-            {
-                messages::eventSubscriptionLimitExceeded(asyncResp->res);
-                return;
-            }
-            std::string destUrl;
-            std::string protocol;
-            std::optional<bool> verifyCertificate;
-            std::optional<std::string> vId;
-            std::optional<std::string> context;
-            std::optional<std::string> subscriptionType;
-            std::optional<std::string> eventFormatType2;
-            std::optional<std::string> retryPolicy;
-            std::optional<bool> sendHeartbeat;
-            std::optional<uint64_t> hbIntervalMinutes;
-            std::optional<std::vector<std::string>> msgIds;
-            std::optional<std::vector<std::string>> regPrefixes;
-            std::optional<std::vector<std::string>> originResources;
-            std::optional<std::vector<std::string>> resTypes;
-            std::optional<std::vector<nlohmann::json::object_t>> headers;
-            std::optional<std::vector<nlohmann::json::object_t>> mrdJsonArray;
-            std::optional<nlohmann::json> oemObj;
-            std::optional<std::string> oemsnmpcommunitystring;
-            if (!json_util::readJsonPatch( //
-                    req, asyncResp->res, //
-                    "Destination", destUrl, //
-                    "Context", context, //
-                    "Protocol", protocol, //
-                    "SubscriptionType", subscriptionType, //
-                    "EventFormatType", eventFormatType2, //
-                    "HeartbeatIntervalMinutes", hbIntervalMinutes, //
-                    "HttpHeaders", headers, //
-                    "RegistryPrefixes", regPrefixes, //
-                    "MessageIds", msgIds, //
-                    "OriginResources", originResources, //
-                    "Id", vId, //
-                    "DeliveryRetryPolicy", retryPolicy, //
-                    "MetricReportDefinitions", mrdJsonArray, //
-                    "ResourceTypes", resTypes, //
-                    "SendHeartbeat", sendHeartbeat, //
-                    "VerifyCertificate", verifyCertificate, //
-                    "Oem/OpenBmc/CommunityString", oemsnmpcommunitystring, //
-                    "Oem", oemObj //
-                    ))
-            {
-                return;
-            }
-
-            if(protocol.empty())
-            {
-                messages::propertyValueEmpty(asyncResp->res, protocol, "Protocol");
-                return;
-            }
-
-            if (vId)
-            {
-                messages::propertyNotWritable(asyncResp->res, "Id");
-                asyncResp->res.result(boost::beast::http::status::bad_request);
-                return;
-            }
-
-            if (protocol == "Oem")
-            {
-                // Handle to support Kafka streaming support
-                KafkaManager::getInstance().createSubscription(
-                    *oemObj, destUrl, context, asyncResp);
-                return;
-            }
-
-            // https://stackoverflow.com/questions/417142/what-is-the-maximum-length-of-a-url-in-different-browsers
-            static constexpr const uint16_t maxDestinationSize = 2000;
-            if (destUrl.size() > maxDestinationSize)
-            {
-                messages::stringValueTooLong(asyncResp->res, "Destination",
-                                             maxDestinationSize);
-                return;
-            }
-
-            if (regPrefixes && msgIds)
-            {
-                if (!regPrefixes->empty() && !msgIds->empty())
-                {
-                    messages::propertyValueConflict(
-                        asyncResp->res, "MessageIds", "RegistryPrefixes");
-                    return;
-                }
-            }
-
-            boost::system::result<boost::urls::url> url =
-                boost::urls::parse_absolute_uri(destUrl);
-            if (!url)
-            {
-                BMCWEB_LOG_WARNING(
-                    "Failed to validate and split destination url");
-                messages::propertyValueFormatError(asyncResp->res, destUrl,
-                                                    "Destination");
-                return;
-            }
-
-            if (url)
-            {
-                std::string destIp = removeProtocol(destUrl);
-                size_t atPos = destIp.find('@');
-                if (atPos != std::string::npos)
-                {
-                    destIp = destIp.substr(atPos + 1);
-                }
-                if (destIp.front() == '[' && destIp.back() == ']')
-                {
-                    destIp = destIp.substr(
-                        1, destIp.size() - 2); // Remove brackets for IPv6
-                }
-                size_t lastColon = destIp.rfind(':');
-                if (lastColon != std::string::npos)
-                {
-                    std::string possiblePort = destIp.substr(lastColon + 1);
-                    if (std::all_of(possiblePort.begin(), possiblePort.end(),
-                                    ::isdigit))
-                    {
-                        destIp = destIp.substr(0, lastColon);
-                    }
-                }
-                size_t slashPos = destIp.rfind('/');
-                if (slashPos)
-                {
-                    destIp = destIp.substr(0, slashPos);
-                }
-
-                std::string ip = destIp;
-                boost::system::error_code ec;
-                boost::asio::ip::make_address(ip, ec);
-                if (ec)
-                {
-                    messages::propertyValueFormatError(asyncResp->res, destUrl,
-                                                       "Destination");
-                    return;
-                }
-            }
-
-            url->normalize();
-
-            // port_number returns zero if it is not a valid representable port
-            if (url->has_port() && url->port_number() == 0)
-            {
-                BMCWEB_LOG_WARNING("{} is an invalid port in destination url",
-                                   url->port());
-                messages::propertyValueFormatError(asyncResp->res, destUrl,
-                                                   "Destination");
-                return;
-            }
-
-            crow::utility::setProtocolDefaults(*url, protocol);
-            crow::utility::setPortDefaults(*url);
-
-            if (url->path().empty())
-            {
-                url->set_path("/");
-            }
-
-            if (protocol != "SNMPv3" && url->has_userinfo())
-            {
-                messages::propertyValueFormatError(asyncResp->res, destUrl,
-                                                   "Destination");
-                return;
-            }
-
-            /* if (protocol == "SNMPv2c")
-             {
-                if (context)
-                 {
-                     messages::propertyValueConflict(asyncResp->res, "Context",
-                                                     "Protocol");
-                     return;
-                 }
-                 if (eventFormatType2)
-                 {
-                     messages::propertyValueConflict(asyncResp->res,
-                                                     "EventFormatType",
-             "Protocol"); return;
-                 }
-                 if (retryPolicy)
-                 {
-                     messages::propertyValueConflict(asyncResp->res,
-             "RetryPolicy", "Protocol"); return;
-                 }
-                 if (sendHeartbeat)
-                 {
-                    messages::propertyValueConflict(
-                        asyncResp->res, "SendHeartbeat", "Protocol");
-                    return;
-                 }
-                 if (hbIntervalMinutes)
-                 {
-                    messages::propertyValueConflict(
-                        asyncResp->res, "HeartbeatIntervalMinutes", "Protocol");
-                    return;
-                 }
-                 if (msgIds)
-                 {
-                     messages::propertyValueConflict(asyncResp->res,
-             "MessageIds", "Protocol"); return;
-                 }
-                 if (regPrefixes)
-                 {
-                     messages::propertyValueConflict(asyncResp->res,
-                                                     "RegistryPrefixes",
-             "Protocol"); return;
-                 }
-                 if (resTypes)
-                 {
-                     messages::propertyValueConflict(asyncResp->res,
-             "ResourceTypes", "Protocol"); return;
-                 }
-                 if (headers)
-                 {
-                     messages::propertyValueConflict(asyncResp->res,
-             "HttpHeaders", "Protocol"); return;
-                 }
-                 if (mrdJsonArray)
-                 {
-                     messages::propertyValueConflict(
-                         asyncResp->res, "MetricReportDefinitions", "Protocol");
-                     return;
-                 }
-                 if (url->scheme() != "snmp")
-                 {
-                     messages::propertyValueConflict(asyncResp->res,
-             "Destination", "Protocol"); return;
-                 }
-                 if (*subscriptionType == "RedfishEvent")
-                 {
-                     messages::propertyValueConflict(asyncResp->res,
-                                                     "SubscriptionType",
-             "Protocol"); return;
-                 }
-                 addSnmpTrapClient(asyncResp, url->host_address(),
-                                   url->port_number());
-                 return;
-             }*/
-
-            if (req.session == nullptr || req.session->username.empty())
-            {
-                BMCWEB_LOG_ERROR("Request Session Undefined");
-                messages::noValidSession(asyncResp->res);
-                return;
-            }
-
-            std::shared_ptr<Subscription> subValue =
-                std::make_shared<Subscription>(
-                    std::make_shared<persistent_data::UserSubscription>(), *url,
-                    app.ioContext());
-
-            subValue->userSub->destinationUrl = *url;
-            subValue->userSub->owner = req.session->username;
-
-            if (subscriptionType)
-            {
-                if ((protocol == "Redfish" &&
-                     *subscriptionType != "RedfishEvent") ||
-                    (protocol == "SNMPv2c" &&
-                     *subscriptionType != "SNMPTrap") ||
-                    (protocol == "SNMPv3" && *subscriptionType != "SNMPTrap") ||
-                    (protocol == "SNMPv1" && *subscriptionType != "SNMPTrap"))
-                {
-                    messages::propertyValueNotInList(
-                        asyncResp->res, *subscriptionType, "SubscriptionType");
-                    return;
-                }
-                subValue->userSub->subscriptionType = *subscriptionType;
-            }
-            else
-            {
-                if (protocol == "SNMPv1" || protocol == "SNMPv2c" ||
-                    protocol == "SNMPv3")
-                {
-                    subValue->userSub->subscriptionType = "SNMPTrap";
-                }
-                else
-                {
-                    subValue->userSub->subscriptionType =
-                        "RedfishEvent"; // Default
-                }
-            }
-
-            if ((protocol != "Redfish") && (protocol != "SNMPv2c") &&
-                (protocol != "SNMPv3") && (protocol != "SNMPv1"))
-            {
-                messages::propertyValueNotInList(asyncResp->res, protocol,
-                                                 "Protocol");
-                return;
-            }
-            subValue->userSub->protocol = protocol;
-
-
-            if (verifyCertificate)
-            {
-                subValue->userSub->verifyCertificate = *verifyCertificate;
-            }
-
-            if (eventFormatType2)
-            {
-                if (protocol == "SNMPv2c" || protocol == "SNMPv3" ||
-                    protocol == "SNMPv1")
-                {
-                    if (*eventFormatType2 != "Event")
-                    {
-                        messages::propertyValueNotInList(asyncResp->res,
-                                                         *eventFormatType2,
-                                                         "EventFormatType");
-                        return;
-                    }
-                    subValue->userSub->eventFormatType = *eventFormatType2;
-                }
-                else
-                {
-                    if (std::ranges::find(supportedEvtFormatTypes,
-                                          *eventFormatType2) ==
-                        supportedEvtFormatTypes.end())
-                    {
-                        messages::propertyValueNotInList(asyncResp->res,
-                                                         *eventFormatType2,
-                                                         "EventFormatType");
-                        return;
-                    }
-                    subValue->userSub->eventFormatType = *eventFormatType2;
-                }
-            }
-            else
-            {
-                // If not specified, use default "Event"
-                subValue->userSub->eventFormatType = "Event";
-            }
-
-            if (context)
-            {
-                // This value is selected arbitrarily.
-                constexpr const size_t maxContextSize = 256;
-                if (context->size() > maxContextSize)
-                {
-                    messages::stringValueTooLong(asyncResp->res, "Context",
-                                                 maxContextSize);
-                    return;
-                }
-                subValue->userSub->customText = *context;
-            }
-
-            if (headers)
-            {
-                size_t cumulativeLen = 0;
-
-                for (const nlohmann::json::object_t& headerChunk : *headers)
-                {
-                    for (const auto& item : headerChunk)
-                    {
-                        const std::string* value =
-                            item.second.get_ptr<const std::string*>();
-                        if (value == nullptr)
-                        {
-                            messages::propertyValueFormatError(
-                                asyncResp->res, item.second,
-                                "HttpHeaders/" + item.first);
-                            return;
-                        }
-                        // Adding a new json value is the size of the key, +
-                        // the size of the value + 2 * 2 quotes for each, +
-                        // the colon and space between. example:
-                        // "key": "value"
-                        cumulativeLen += item.first.size() + value->size() + 6;
-                        // This value is selected to mirror http_connection.hpp
-                        constexpr const uint16_t maxHeaderSizeED = 8096;
-                        if (cumulativeLen > maxHeaderSizeED)
-                        {
-                            messages::arraySizeTooLong(
-                                asyncResp->res, "HttpHeaders", maxHeaderSizeED);
-                            return;
-                        }
-                        subValue->userSub->httpHeaders.set(item.first, *value);
-                    }
-                }
-            }
-
-            if (regPrefixes)
-            {
-                for (const std::string& it : *regPrefixes)
-                {
-                    if (std::ranges::find(supportedRegPrefixes, it) ==
-                        supportedRegPrefixes.end())
-                    {
-                        messages::propertyValueNotInList(asyncResp->res, it,
-                                                         "RegistryPrefixes");
-                        return;
-                    }
-                }
-                subValue->userSub->registryPrefixes = *regPrefixes;
-            }
-
-            if (originResources)
-            {
-                subValue->userSub->originResources = *originResources;
-            }
-
-            if (resTypes)
-            {
-                for (const std::string& it : *resTypes)
-                {
-                    if (std::ranges::find(supportedResourceTypes, it) ==
-                        supportedResourceTypes.end())
-                    {
-                        messages::propertyValueNotInList(asyncResp->res, it,
-                                                         "ResourceTypes");
-                        return;
-                    }
-                }
-                subValue->userSub->resourceTypes = *resTypes;
-            }
-
-            if (msgIds)
-            {
-                std::vector<std::string> registryPrefix;
-
-                // If no registry prefixes are mentioned, consider all
-                // supported prefixes
-                if (subValue->userSub->registryPrefixes.empty())
-                {
-                    registryPrefix.assign(supportedRegPrefixes.begin(),
-                                          supportedRegPrefixes.end());
-                }
-                else
-                {
-                    registryPrefix = subValue->userSub->registryPrefixes;
-                }
-
-                for (const std::string& id : *msgIds)
-                {
-                    bool validId = false;
-
-                    // Check for Message ID in each of the selected Registry
-                    for (const std::string& it : registryPrefix)
-                    {
-                        const std::span<const redfish::registries::MessageEntry>
-                            registry =
-                                redfish::registries::getRegistryFromPrefix(it);
-
-                        if (std::ranges::any_of(
-                                registry,
-                                [&id](const redfish::registries::MessageEntry&
-                                          messageEntry) {
-                                    return id == messageEntry.first;
-                                }))
-                        {
-                            validId = true;
-                            break;
-                        }
-                    }
-
-                    if (!validId)
-                    {
-                        messages::propertyValueNotInList(asyncResp->res, id,
-                                                         "MessageIds");
-                        return;
-                    }
-                }
-
-                subValue->userSub->registryMsgIds = *msgIds;
-            }
-
-            if (retryPolicy)
-            {
-                if (std::ranges::find(supportedRetryPolicies, *retryPolicy) ==
-                    supportedRetryPolicies.end())
-                {
-                    messages::propertyValueNotInList(
-                        asyncResp->res, *retryPolicy, "DeliveryRetryPolicy");
-                    return;
-                }
-                subValue->userSub->retryPolicy = *retryPolicy;
-            }
-            else
-            {
-                // Default "TerminateAfterRetries"
-                subValue->userSub->retryPolicy = "TerminateAfterRetries";
-            }
-
-            if (sendHeartbeat)
-            {
-                subValue->userSub->sendHeartbeat = *sendHeartbeat;
-            }
-            if (hbIntervalMinutes)
-            {
-                if (*hbIntervalMinutes < 1 || *hbIntervalMinutes > 65535)
-                {
-                    messages::propertyValueOutOfRange(
-                        asyncResp->res, *hbIntervalMinutes,
-                        "HeartbeatIntervalMinutes");
-                    return;
-                }
-                subValue->userSub->hbIntervalMinutes = *hbIntervalMinutes;
-            }
-
-            if (mrdJsonArray)
-            {
-                for (nlohmann::json::object_t& mrdObj : *mrdJsonArray)
-                {
-                    std::string mrdUri;
-
-                    if (!json_util::readJsonObject( //
-                            mrdObj, asyncResp->res, //
-                            "@odata.id", mrdUri //
-                            ))
-
-                    {
-                        return;
-                    }
-                    subValue->userSub->metricReportDefinitions.emplace_back(
-                        mrdUri);
-                }
-            }
-
-            // Default is Enabled, when subscription is suspended, this will
-            // be set to "Disabled" state.
-            subValue->userSub->state = "Enabled";
-
-            if (protocol == "SNMPv2c" || protocol == "SNMPv3" ||
-                protocol == "SNMPv1")
-            {
-                auto subId = std::make_shared<std::string>();
-                snmpCompletedOperations = 0;
-                auto snmpCompletionHandler = [asyncResp, subId, oemsnmpcommunitystring, protocol](bool success)
-                {
-                    if (success)
-                    {
-                        snmpCompletedOperations++;
-                    }
-                    // As of now two snmpcompletedoperations for SNMPV1 and SNMPV2 and one snmpcompletedoperations for SNMPv3. In Future if new dbus call are added for these protocols please increment the values of snmpcompletedoperations.
-                    if ((oemsnmpcommunitystring && (snmpCompletedOperations == 2)) || (protocol == "SNMPv3" && (snmpCompletedOperations == 1)))
-                    {
-                        getEventServiceSubscriptionIdInfo(asyncResp,*subId);
-                        asyncResp->res.result(boost::beast::http::status::created);
-                    }
-                };
-                auto value = getSnmpProtocol();
-                auto protocolStatus = std::get<bool>(value);
-                if (!protocolStatus)
-                {
-                    messages::serviceDisabled(asyncResp->res, "SNMP");
-                    return;
-                }
-                if(protocol == "SNMPv2c" || protocol == "SNMPv1" )
-                {
-                    std::string hostaddress = url->host_address();
-                    uint16_t portnumber = url->port_number();
-                    std::string user_name = url->user();
-                    if(oemsnmpcommunitystring)
-                    {
-                        //validatecommunitystring(asyncResp, *oemsnmpcommunitystring);
-                        sdbusplus::message::object_path path("/xyz/openbmc_project/snmp/CommunityStrManager/" + *oemsnmpcommunitystring);
-                        dbus::utility::getProperty<std::string>(
-                            "xyz.openbmc_project.Snmp.Conf", path,
-                            "xyz.openbmc_project.Snmp.CommunityStrManager", "CommunityString",
-                            [asyncResp, oemsnmpcommunitystring, hostaddress, portnumber, protocol, user_name, subValue, subId, snmpCompletionHandler](const boost::system::error_code& ec, std::string communitystring) {
-                            if (ec)
-                            {
-                                BMCWEB_LOG_ERROR("no communitystring object path avaliable");
-                                messages::propertyValueNotInList(asyncResp->res, *oemsnmpcommunitystring, "Oem/OpenBmc/CommunityString");
-                                asyncResp->res.result(boost::beast::http::status::bad_request);
-                                return;
-                            }
-                            else if (communitystring.empty()){
-                                messages::propertyValueNotInList(asyncResp->res, *oemsnmpcommunitystring, "Oem/OpenBmc/CommunityString");
-                                asyncResp->res.result(boost::beast::http::status::bad_request);
-                                return;
-                            }
-                            else
-                            {
-                                snmpCompletionHandler(true);
-                                addSnmpTrapClient(asyncResp, hostaddress,
-                                    portnumber, protocol, user_name,
-                                    subValue, *oemsnmpcommunitystring, subId, snmpCompletionHandler);
-                            }
-                        });
-                    }
-                    else
-                    {
-                        messages::propertyMissing(asyncResp->res, 
-                                            "Oem/OpenBmc/CommunityString");
-                        return;
-                    }
-                }
-                else
-                {
-                    if (protocol == "SNMPv3" && url->has_userinfo() == false)
-                    {
-                        BMCWEB_LOG_DEBUG("Missing UserName in Destination");
-                        messages::propertyValueFormatError(asyncResp->res, destUrl,
-                                                        "Destination");
-                        return;
-                    }
-                    addSnmpTrapClient(asyncResp, url->host_address(),
-                                    url->port_number(), protocol, url->user(),
-                                    subValue, *oemsnmpcommunitystring, subId, snmpCompletionHandler);                    
-                }
-                return;
-            }
-
-            std::string id;
-            EventServiceManager::getInstance().addPushSubscription(
-                subValue, id);
-
-            getEventServiceSubscriptionIdInfo(asyncResp,id);
-            asyncResp->res.result(boost::beast::http::status::created);
-            asyncResp->res.addHeader(
-                "Location", "/redfish/v1/EventService/Subscriptions/" + id);
-
-            // schedule a heartbeat
-            if (subValue->userSub->sendHeartbeat)
-            {
-                subValue->scheduleNextHeartbeatEvent();
-            }
-        });
+        .methods(boost::beast::http::verb::post)(
+            std::bind_front(handleEventServiceSubscriptionPost, std::ref(app)));
 }
 
 bool isConfigureManagerOrSelf(const crow::Request& req,
@@ -2212,7 +2218,12 @@ inline void requestRoutesEventDestination(App& app)
                 {
                     return;
                 }
-
+                if (membersResponsePost(req, asyncResp, param) ==
+                    membersResponse::postNotAllowed)
+                {
+                    return;
+                }
+                asyncResp->res.addHeader("Allow", "GET, PATCH, DELETE");
                 getEventServiceSubscriptionIdInfo(asyncResp,param);
             });
     BMCWEB_ROUTE(app, "/redfish/v1/EventService/Subscriptions/<str>/")
@@ -2222,6 +2233,11 @@ inline void requestRoutesEventDestination(App& app)
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& param) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
+                if (membersResponsePost(req, asyncResp, param) ==
+                    membersResponse::postNotAllowed)
                 {
                     return;
                 }
@@ -2350,7 +2366,11 @@ inline void requestRoutesEventDestination(App& app)
                 {
                     return;
                 }
-
+                if (membersResponsePost(req, asyncResp, param) ==
+                    membersResponse::postNotAllowed)
+                {
+                    return;
+                }
                 if (param.starts_with("snmp"))
                 {
                     deleteSnmpTrapClient(asyncResp, param);
@@ -2384,7 +2404,27 @@ inline void requestRoutesEventDestination(App& app)
 		    messages::resourceNotFound(asyncResp->res, "Subscriptions", param);
 		}
             });
+
+    BMCWEB_ROUTE(app, "/redfish/v1/EventService/Subscriptions/<str>/")
+        .privileges(redfish::privileges::postEventDestinationCollection)
+        .methods(boost::beast::http::verb::post, boost::beast::http::verb::put)(
+            [&app](const crow::Request& req,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const std::string& param) {
+                membersResponse result =
+                    membersResponsePost(req, asyncResp, param);
+                if (result == membersResponse::postAllowed)
+                {
+                    handleEventServiceSubscriptionPost(app, req, asyncResp);
+                    return;
+                }
+                else if (result == membersResponse::postNotAllowed)
+                {
+                    return;
+                }
+                asyncResp->res.addHeader("Allow", "GET, PATCH, DELETE");
+                messages::operationNotAllowed(asyncResp->res);
+            });            
 }
 
 } // namespace redfish
-

@@ -121,11 +121,12 @@ inline void requestRoutesSensorPatching(App& app)
         .methods(boost::beast::http::verb::patch)(
             [](const crow::Request& req,
                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-               const std::string& chassisName, const std::string&) {
-
+               const std::string& chassisName, const std::string& sensorId) {
                 asyncResp->res.clearHeader(boost::beast::http::field::allow);
-                asyncResp->res.addHeader("Allow", "GET, PATCH");
-
+                if (!membersResponseGet(asyncResp, sensorId, "SensorCollection"))
+                {
+                    return;
+                }
                 crow::connections::systemBus->async_method_call(
                 [asyncResp, chassisName,
                  req](const boost::system::error_code ec_,

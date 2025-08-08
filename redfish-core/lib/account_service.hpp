@@ -3331,6 +3331,16 @@ inline void handleAccountServicePatch(
             std::variant<uint8_t>(*RememberOldPasswordTimes));
     }
 
+    if (ldapObject.baseDNList)
+    {
+        if (ldapObject.baseDNList->at(0).length() > 253 || ldapObject.baseDNList->at(0).length() < 4)
+        {
+            messages::propertyValueOutOfRange(asyncResp->res, *ldapObject.baseDNList,
+                    "BaseDistinguishedNames");
+            return;
+        }
+    }
+
     if (activeDirectoryObject.hasValue())
     {
         handleLDAPPatch(std::move(activeDirectoryObject), asyncResp,
@@ -4010,6 +4020,12 @@ inline void handleAccountGet(
     {
         return;
     }
+    if (membersResponsePost(req, asyncResp, accountName) ==
+        membersResponse::postNotAllowed)
+    {
+        return;
+    }
+    asyncResp->res.addHeader("Allow", "GET, HEAD, PATCH, DELETE");
     asyncResp->res.addHeader(
         boost::beast::http::field::link,
         "</redfish/v1/JsonSchemas/ManagerAccount/ManagerAccount.json>; rel=describedby");
@@ -4207,7 +4223,11 @@ handleAccountDelete(App& app, const crow::Request& req,
     {
         return;
     }
-
+    if (membersResponsePost(req, asyncResp, username) ==
+        membersResponse::postNotAllowed)
+    {
+        return;
+    }
     if constexpr (BMCWEB_INSECURE_DISABLE_AUTH)
     {
         // If authentication is disabled, there are no user accounts
@@ -4227,7 +4247,6 @@ handleAccountDelete(App& app, const crow::Request& req,
     if (username == "root")
     {
         //remove the delete method from allow header
-        asyncResp->res.clearHeader(boost::beast::http::field::allow);
         asyncResp->res.addHeader(boost::beast::http::field::allow, "GET, HEAD, PATCH");
         messages::resourceCannotBeDeleted(asyncResp->res);
         return;
@@ -4400,6 +4419,11 @@ inline void handleAccountPatch(App& app, const crow::Request& req,
     {
         return;
     }
+    if (membersResponsePost(req, asyncResp, username) ==
+        membersResponse::postNotAllowed)
+    {
+        return;
+    }
     if constexpr (BMCWEB_INSECURE_DISABLE_AUTH)
     {
         // If authentication is disabled, there are no user accounts
@@ -4417,7 +4441,6 @@ inline void handleAccountPatch(App& app, const crow::Request& req,
 
     {
         //remove the delete method from allow header
-        asyncResp->res.clearHeader(boost::beast::http::field::allow);
         asyncResp->res.addHeader(boost::beast::http::field::allow, "GET, HEAD, PATCH");
     }
 
@@ -4825,6 +4848,26 @@ inline void requestAccountServiceRoutes(App& app)
             std::bind_front(handleAccountCollectionPost, std::ref(app)));
 
     BMCWEB_ROUTE(app, "/redfish/v1/AccountService/Accounts/<str>/")
+        .methods(boost::beast::http::verb::post, boost::beast::http::verb::put)(
+            [&app](const crow::Request& req,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const std::string& accountName) {
+                membersResponse result =
+                    membersResponsePost(req, asyncResp, accountName);
+                if (result == membersResponse::postAllowed)
+                {
+                    handleAccountCollectionPost(app, req, asyncResp);
+                    return;
+                }
+                else if (result == membersResponse::postNotAllowed)
+                {
+                    return;
+                }
+                asyncResp->res.addHeader("Allow", "GET, HEAD, PATCH, DELETE");
+                messages::operationNotAllowed(asyncResp->res);
+            });
+
+    BMCWEB_ROUTE(app, "/redfish/v1/AccountService/Accounts/<str>/")
         .privileges(redfish::privileges::headManagerAccount)
         .methods(boost::beast::http::verb::head)(
             std::bind_front(handleAccountHead, std::ref(app)));
@@ -4872,4 +4915,3 @@ inline void requestAccountServiceRoutes(App& app)
 }
 
 } // namespace redfish
-

@@ -1546,7 +1546,6 @@ inline void
                           const std::string& name, const std::string& resName)
 {
     asyncResp->res.clearHeader(boost::beast::http::field::allow);
-    asyncResp->res.addHeader("Allow", "GET, PATCH");
 
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -1559,6 +1558,11 @@ inline void
         return;
     }
 
+    if (!membersResponseGet(asyncResp, resName, "VirtualMediaCollection"))
+    {
+        return;
+    }
+    asyncResp->res.addHeader("Allow", "GET, PATCH");
     if (req.session->username != "root")
     {
         auto result = find(req.session->userGroups.begin(),
@@ -1623,7 +1627,6 @@ inline void
                             const std::string& name, const std::string& resName)
 {
     asyncResp->res.clearHeader(boost::beast::http::field::allow);
-    asyncResp->res.addHeader("Allow", "GET, PATCH");
 
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -1637,6 +1640,10 @@ inline void
     if (resName.empty())
     {
         messages::resourceNotFound(asyncResp->res, "Virtual Media", resName);
+        return;
+    }
+    if (!membersResponseGet(asyncResp, resName, "VirtualMediaCollection"))
+    {
         return;
     }
 
@@ -1780,6 +1787,10 @@ inline void requestNBDVirtualMediaRoutes(App& app)
                    const std::string& name, const std::string& resName) {
                 asyncResp->res.clearHeader(boost::beast::http::field::allow);
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
+                if (!membersResponseGet(asyncResp, resName, "VirtualMediaCollection"))
                 {
                     return;
                 }

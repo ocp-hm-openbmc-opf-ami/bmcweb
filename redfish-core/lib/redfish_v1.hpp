@@ -228,13 +228,16 @@ inline void jsonSchemaGet(App& app, const crow::Request& req,
                           const std::string& schema)
 {
     asyncResp->res.clearHeader(boost::beast::http::field::allow);
-    asyncResp->res.addHeader("Allow", "GET"); 
 
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
     }
-
+    if (!membersResponseGet(asyncResp, schema, "JsonSchemaFileCollection"))
+    {
+        return;
+    }
+    asyncResp->res.addHeader("Allow", "GET");
     std::error_code ec;
     std::filesystem::directory_iterator dirList(
         "/usr/share/www/redfish/v1/JsonSchemas", ec);
@@ -370,6 +373,10 @@ inline void requestRoutesRedfish(App& app)
         {
 			asyncResp->res.clearHeader(boost::beast::http::field::allow);
             if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+            {
+                return;
+            }
+            if (!membersResponseGet(asyncResp, schema, "JsonSchemaFileCollection"))
             {
                 return;
             }

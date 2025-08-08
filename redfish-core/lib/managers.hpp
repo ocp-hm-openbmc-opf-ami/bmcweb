@@ -2370,20 +2370,22 @@ inline void handleManagersInstanceGet(
     const std::string& managerId)
 {
     asyncResp->res.clearHeader(boost::beast::http::field::allow);
-    asyncResp->res.addHeader("Allow", "GET, PATCH");
 
     std::string uuid = persistent_data::getConfig().systemUuid;
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
     }
-
+    if (!membersResponseGet(asyncResp, managerId, "ManagerCollection"))
+    {
+        return;
+    }
     if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
     {
         messages::resourceNotFound(asyncResp->res, "Manager", managerId);
         return;
     }
-
+    asyncResp->res.addHeader("Allow", "GET, PATCH");
     ishandleManagersInstanceGet = true;
 
     asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
@@ -2439,11 +2441,15 @@ inline void handleManagersInstanceGet(
                                            BMCWEB_REDFISH_MANAGER_URI_NAME);
     oemOpenbmc["@odata.type"] = json_util::odataType("OpenBMCManager", "Manager");
     oemOpenbmc["@odata.id"] =
-        boost::urls::format("/redfish/v1/Managers/{}#/Oem/OpenBmc",
+        boost::urls::format("/redfish/v1/Managers/bmc#/Oem#/OpenBmc/",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
-    oemOpenbmc["@odata.id"] =
+
+    nlohmann::json::object_t jpeg;
+    jpeg["@odata.id"] =
         boost::urls::format("/redfish/v1/Managers/{}/Oem/OpenBmc/Jpeg",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
+    oemOpenbmc["Jpeg"] = std::move(jpeg);
+
     nlohmann::json::object_t certificates;
     certificates["@odata.id"] =
         boost::urls::format("/redfish/v1/Managers/{}/Truststore/Certificates",
@@ -2693,9 +2699,12 @@ inline void requestRoutesManager(App& app)
                            const std::string& managerId) {
 	    
 	        asyncResp->res.clearHeader(boost::beast::http::field::allow);
-            asyncResp->res.addHeader("Allow", "GET, PATCH");
 
             if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+            {
+                return;
+            }
+            if (!membersResponseGet(asyncResp, managerId, "ManagerCollection"))
             {
                 return;
             }
@@ -2709,7 +2718,6 @@ inline void requestRoutesManager(App& app)
                                            managerId);
                 return;
             }
-
             std::optional<std::string> activeSoftwareImageOdataId;
             std::optional<std::string> datetime;
             std::optional<std::string> timeZoneName;
@@ -2813,6 +2821,10 @@ inline void requestRoutesManager(App& app)
             {
                asyncResp->res.clearHeader(boost::beast::http::field::allow);
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
+                if (!membersResponseGet(asyncResp, managerId, "ManagerCollection"))
                 {
                     return;
                 }

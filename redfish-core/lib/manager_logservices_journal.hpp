@@ -286,6 +286,7 @@ inline void handleManagersJournalEntriesLogEntryGet(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& managerId, const std::string& entryID)
 {
+    asyncResp->res.clearHeader(boost::beast::http::field::allow);
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
@@ -296,7 +297,11 @@ inline void handleManagersJournalEntriesLogEntryGet(
         messages::resourceNotFound(asyncResp->res, "Manager", managerId);
         return;
     }
-
+    if (!membersResponseGet(asyncResp, entryID, "LogEntryCollection"))
+    {
+        return;
+    }
+    asyncResp->res.addHeader("Allow", "GET");
     sd_journal* journalTmp = nullptr;
     int ret = sd_journal_open(&journalTmp, SD_JOURNAL_LOCAL_ONLY);
     if (ret < 0)
@@ -366,5 +371,23 @@ inline void requestRoutesBMCJournalLogService(App& app)
         .privileges(redfish::privileges::getLogEntry)
         .methods(boost::beast::http::verb::get)(std::bind_front(
             handleManagersJournalEntriesLogEntryGet, std::ref(app)));
+
+    BMCWEB_ROUTE(
+        app, "/redfish/v1/Managers/<str>/LogServices/Journal/Entries/<str>/")
+        .methods(boost::beast::http::verb::post,
+                 boost::beast::http::verb::patch, boost::beast::http::verb::put,
+                 boost::beast::http::verb::delete_)(
+            [&app](const crow::Request& /* req */,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const std::string& /* managerId */,
+                   const std::string& entryID) {
+                asyncResp->res.clearHeader(boost::beast::http::field::allow);
+                if (!membersResponseGet(asyncResp, entryID, "LogEntryCollection"))
+                {
+                    return;
+                }
+                asyncResp->res.addHeader("Allow", "GET");
+                messages::operationNotAllowed(asyncResp->res);
+            });
 }
 } // namespace redfish

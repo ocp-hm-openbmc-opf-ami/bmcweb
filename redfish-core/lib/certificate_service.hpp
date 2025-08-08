@@ -1470,7 +1470,12 @@ inline void handleHTTPSCertificateGet(
     {
         return;
     }
-
+    if (membersResponsePost(req, asyncResp, certId) ==
+        membersResponse::postNotAllowed)
+    {
+        return;
+    }
+    asyncResp->res.addHeader("Allow", "GET");
     if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
     {
         messages::resourceNotFound(asyncResp->res, "Manager", managerId);
@@ -1500,6 +1505,69 @@ inline void requestRoutesHTTPSCertificate(App& app)
         .privileges(redfish::privileges::postCertificateCollection)
         .methods(boost::beast::http::verb::post)(std::bind_front(
             handleHTTPSCertificateCollectionPost, std::ref(app)));
+
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/Managers/<str>/NetworkProtocol/HTTPS/Certificates/<str>/")
+        .privileges(redfish::privileges::getCertificate)
+        .methods(boost::beast::http::verb::post,
+                 boost::beast::http::verb::patch,
+                 boost::beast::http::verb::
+                     delete_)([&app](const crow::Request& req,
+                                     const std::shared_ptr<bmcweb::AsyncResp>&
+                                         asyncResp,
+                                     const std::string& managerId,
+                                     const std::string& id) {
+            asyncResp->res.clearHeader(boost::beast::http::field::allow);
+            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+            {
+                return;
+            }
+            if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
+            {
+                messages::resourceNotFound(asyncResp->res, "Manager",
+                                           managerId);
+                return;
+            }
+            membersResponse result =
+                membersResponsePost(req, asyncResp, id);
+            if (result == membersResponse::postAllowed)
+            {
+                handleHTTPSCertificateCollectionPost(app, req, asyncResp,
+                                                         managerId);
+                return;
+            }
+            else if (result == membersResponse::postNotAllowed)
+            {
+                return;
+            }
+            BMCWEB_LOG_DEBUG("HTTPS Certificate ID={}", id);
+            const boost::urls::url certURL = boost::urls::format(
+                "/redfish/v1/Managers/bmc/NetworkProtocol/HTTPS/Certificates/{}",
+                id);
+            std::string objPath =
+                sdbusplus::message::object_path(certs::httpsObjectPath) / id;
+            const std::string service = certs::httpsServiceName;
+            const std::string name = "HTTPS Certificate";
+            sdbusplus::asio::getAllProperties(
+                *crow::connections::systemBus, service, objPath,
+                certs::certPropIntf,
+                [asyncResp, service, certURL, id,
+                 name](const boost::system::error_code ec,
+                       [[maybe_unused]] const dbus::utility::DBusPropertiesMap&
+                           properties) {
+                    if (ec)
+                    {
+                        BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
+                        messages::resourceNotFound(asyncResp->res,
+                                                   "Certificate", id);
+                        return;
+                    }
+                    asyncResp->res.addHeader("Allow", "GET");
+                    messages::operationNotAllowed(asyncResp->res);
+                    return;
+                });
+        });
 
     BMCWEB_ROUTE(
         app,
@@ -1586,8 +1654,11 @@ inline void handleLDAPCertificateGet(
     {
         return;
     }
-
-    asyncResp->res.clearHeader(boost::beast::http::field::allow);
+    if (membersResponsePost(req, asyncResp, id) ==
+        membersResponse::postNotAllowed)
+    {
+        return;
+    }
     asyncResp->res.addHeader("Allow", "GET, DELETE");
 
     BMCWEB_LOG_DEBUG("LDAP Certificate ID={}", id);
@@ -1607,9 +1678,11 @@ inline void handleLDAPCertificateDelete(
     {
         return;
     }
-
-    asyncResp->res.clearHeader(boost::beast::http::field::allow);
-    asyncResp->res.addHeader("Allow", "GET, DELETE");
+    if (membersResponsePost(req, asyncResp, id) ==
+        membersResponse::postNotAllowed)
+    {
+        return;
+    }
 
     BMCWEB_LOG_DEBUG("Delete LDAP Certificate ID={}", id);
     std::string objPath =
@@ -1652,7 +1725,17 @@ inline void requestRoutesLDAPCertificate(App& app)
                         messages::internalError(asyncResp->res);
                         return;
                     }
-
+                    membersResponse result =
+                        membersResponsePost(req, asyncResp, certId);
+                    if (result == membersResponse::postAllowed)
+                    {
+                        handleLDAPCertificateCollectionPost(app, req, asyncResp);
+                        return;
+                    }
+                    else if (result == membersResponse::postNotAllowed)
+                    {
+                        return;
+                    }
                     const boost::urls::url certURL = boost::urls::format("/redfish/v1/AccountService/LDAP/Certificates/{}", BMCWEB_REDFISH_MANAGER_URI_NAME, certId);
                     const boost::urls::url objPath = boost::urls::format("/xyz/openbmc_project/certs/client/ldap/{}", certId);
                     std::string objectPath = objPath.data();
@@ -1774,8 +1857,11 @@ inline void handleTrustStoreCertificateGet(
     {
         return;
     }
-
-    asyncResp->res.clearHeader(boost::beast::http::field::allow);
+    if (membersResponsePost(req, asyncResp, certId) ==
+        membersResponse::postNotAllowed)
+    {
+        return;
+    }
     asyncResp->res.addHeader("Allow", "GET, DELETE");
 
     if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
@@ -1803,9 +1889,11 @@ inline void handleTrustStoreCertificateDelete(
     {
         return;
     }
-
-    asyncResp->res.clearHeader(boost::beast::http::field::allow);
-    asyncResp->res.addHeader("Allow", "GET, DELETE");
+    if (membersResponsePost(req, asyncResp, certId) ==
+        membersResponse::postNotAllowed)
+    {
+        return;
+    }
 
     if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
     {
@@ -1857,7 +1945,18 @@ inline void requestRoutesTrustStoreCertificate(App& app)
                         messages::internalError(asyncResp->res);
                         return;
                     }
-
+                    membersResponse result =
+                        membersResponsePost(req, asyncResp, certId);
+                    if (result == membersResponse::postAllowed)
+                    {
+                        handleTrustStoreCertificateCollectionPost(
+                            app, req, asyncResp, managerId);
+                        return;
+                    }
+                    else if (result == membersResponse::postNotAllowed)
+                    {
+                        return;
+                    }
                     if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
                     {
                         messages::resourceNotFound(asyncResp->res, "Manager", managerId);
@@ -1889,5 +1988,6 @@ inline void requestRoutesTrustStoreCertificate(App& app)
 
                        asyncResp->res.addHeader("Allow", "GET, DELETE");
                 });
+
 } // requestRoutesTrustStoreCertificate
 } // namespace redfish

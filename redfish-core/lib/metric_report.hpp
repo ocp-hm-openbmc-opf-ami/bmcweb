@@ -99,10 +99,16 @@ inline void requestRoutesMetricReport(App& app)
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& id) {
+                asyncResp->res.clearHeader(boost::beast::http::field::allow);
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
                     return;
                 }
+                if (!membersResponseGet(asyncResp, id, "MetricReportCollection"))
+                {
+                    return;
+                }
+                asyncResp->res.addHeader("Allow", "GET");
                 const std::string reportPath = telemetry::getDbusReportPath(id);
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, id,
@@ -142,6 +148,24 @@ inline void requestRoutesMetricReport(App& app)
                     },
                     telemetry::service, reportPath, telemetry::reportInterface,
                     "Update");
+            });
+
+    BMCWEB_ROUTE(app,
+                 "/redfish/v1/TelemetryService/MetricReports/<str>/")
+        .methods(boost::beast::http::verb::post,
+                 boost::beast::http::verb::patch,
+                 boost::beast::http::verb::put,
+                 boost::beast::http::verb::delete_)(
+            [&app](const crow::Request& /* req */,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const std::string& id) {
+                asyncResp->res.clearHeader(boost::beast::http::field::allow);
+                if (!membersResponseGet(asyncResp, id, "MetricReportCollection"))
+                {
+                    return;
+                }
+                asyncResp->res.addHeader("Allow", "GET");
+                messages::operationNotAllowed(asyncResp->res);
             });
 }
 } // namespace redfish

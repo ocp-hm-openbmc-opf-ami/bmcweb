@@ -306,15 +306,12 @@ inline void handleSessionGet(
     {
         return;
     }
-
-    if(sessionId == "Members")
+    if (membersResponsePost(req, asyncResp, sessionId) ==
+        membersResponse::postNotAllowed)
     {
-        messages::operationNotAllowed(asyncResp->res);
         return;
     }
-
-    asyncResp->res.clearHeader(boost::beast::http::field::allow);
-    asyncResp->res.addHeader("Allow", "GET,DELETE,HEAD");
+    asyncResp->res.addHeader("Allow", "GET, HEAD, DELETE");
     asyncResp->res.addHeader(
         boost::beast::http::field::link,
         "</redfish/v1/JsonSchemas/Session/Session.json>; rel=describedby");
@@ -460,10 +457,13 @@ inline void handleSessionDelete(
         return;
     }
 
+    if (membersResponsePost(req, asyncResp, sessionId) ==
+        membersResponse::postNotAllowed)
+    {
+        return;
+    }
     std::string deletionMessageId = "ResourceRemoved:/redfish/v1/SessionService/Sessions/" + sessionId;
 
-    asyncResp->res.clearHeader(boost::beast::http::field::allow);
-    asyncResp->res.addHeader("Allow", "GET,DELETE,HEAD");
     if (sessionId.find('_') != std::string::npos)
     {
         size_t Pos = sessionId.find('_');
@@ -1195,12 +1195,22 @@ inline void requestRoutesSession(App& app)
 
     BMCWEB_ROUTE(app, "/redfish/v1/SessionService/Sessions/<str>/")
         .methods(boost::beast::http::verb::post,
-                 boost::beast::http::verb::patch)(
+                 boost::beast::http::verb::patch,
+                 boost::beast::http::verb::put)(
             [&app](const crow::Request& req,
-               const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-               const std::string& sessionId) {
-                asyncResp->res.clearHeader(boost::beast::http::field::allow);
-                asyncResp->res.addHeader("Allow", "GET,DELETE,HEAD");
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const std::string& sessionId) {
+                membersResponse result =
+                    membersResponsePost(req, asyncResp, sessionId);
+                if (result == membersResponse::postAllowed)
+                {
+                    handleSessionCollectionPost(app, req, asyncResp);
+                    return;
+                }
+                else if (result == membersResponse::postNotAllowed)
+                {
+                    return;
+                }
                 if (sessionId.find('_') != std::string::npos)
                 {
                     size_t Pos = sessionId.find('_');
@@ -1229,27 +1239,15 @@ inline void requestRoutesSession(App& app)
                         }
                         if (found)
                         {
+                            asyncResp->res.addHeader("Allow",
+                                                     "GET, HEAD, DELETE");
                             messages::operationNotAllowed(asyncResp->res);
                             return;
                         }
                     }
                 }
-                else if(sessionId == "Members" )
-                {
-                    if (req.method() == boost::beast::http::verb::post)
-                    {
-                        handleSessionCollectionPost(app, req, asyncResp);
-                    }
-                    else
-                    {
-                        messages::operationNotAllowed(asyncResp->res);
-                    }
-                }
-                else
-                {
-                    messages::resourceNotFound(asyncResp->res, "Session",
+                messages::resourceNotFound(asyncResp->res, "Session",
                                            sessionId);
-                }
             });
 
     BMCWEB_ROUTE(app, "/redfish/v1/SessionService/Sessions/")

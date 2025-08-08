@@ -286,11 +286,16 @@ inline void handleFanGet(App& app, const crow::Request& req,
                          const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                          const std::string& chassisId, const std::string& fanId)
 {
+    asyncResp->res.clearHeader(boost::beast::http::field::allow);
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
     }
-
+    if (!membersResponseGet(asyncResp, fanId, "FanCollection"))
+    {
+        return;
+    }
+    asyncResp->res.addHeader("Allow", "GET");
     redfish::chassis_utils::getValidChassisPath(
         asyncResp, chassisId,
         std::bind_front(doFanGet, asyncResp, chassisId, fanId));
@@ -310,6 +315,23 @@ inline void requestRoutesFan(App& app)
         .privileges(redfish::privileges::getFan)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleFanGet, std::ref(app)));
+
+    BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/ThermalSubsystem/Fans/<str>/")
+        .methods(boost::beast::http::verb::post,
+                 boost::beast::http::verb::patch, boost::beast::http::verb::put,
+                 boost::beast::http::verb::delete_)(
+            [&app](const crow::Request& /* req */,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const std::string& /* chassisId */,
+                   const std::string& fanId) {
+                asyncResp->res.clearHeader(boost::beast::http::field::allow);
+                if (!membersResponseGet(asyncResp, fanId, "FanCollection"))
+                {
+                    return;
+                }
+                asyncResp->res.addHeader("Allow", "GET");
+                messages::operationNotAllowed(asyncResp->res);
+            });
 }
 
 } // namespace redfish

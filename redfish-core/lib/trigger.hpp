@@ -1019,6 +1019,12 @@ inline void requestRoutesTrigger(App& app)
                 {
                     return;
                 }
+                if (membersResponsePost(req, asyncResp, id) ==
+                    membersResponse::postNotAllowed)
+                {
+                    return;
+                }
+                asyncResp->res.addHeader("Allow", "GET, DELETE");
                 sdbusplus::asio::getAllProperties(
                     *crow::connections::systemBus, telemetry::service,
                     telemetry::getDbusTriggerPath(id),
@@ -1060,6 +1066,11 @@ inline void requestRoutesTrigger(App& app)
                 {
                     return;
                 }
+                if (membersResponsePost(req, asyncResp, id) ==
+                    membersResponse::postNotAllowed)
+                {
+                    return;
+                }
                 const std::string triggerPath =
                     telemetry::getDbusTriggerPath(id);
 
@@ -1084,6 +1095,29 @@ inline void requestRoutesTrigger(App& app)
                     },
                     telemetry::service, triggerPath,
                     "xyz.openbmc_project.Object.Delete", "Delete");
+            });
+
+    BMCWEB_ROUTE(app, "/redfish/v1/TelemetryService/Triggers/<str>/")
+        .privileges(redfish::privileges::postTriggersCollection)
+        .methods(boost::beast::http::verb::post,
+                 boost::beast::http::verb::patch,
+                 boost::beast::http::verb::put)(
+            [&app](const crow::Request& req,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const std::string& id) {
+                membersResponse result =
+                    membersResponsePost(req, asyncResp, id);
+                if (result == membersResponse::postAllowed)
+                {
+                    telemetry::handleTriggerCollectionPost(app, req, asyncResp);
+                    return;
+                }
+                else if (result == membersResponse::postNotAllowed)
+                {
+                    return;
+                }
+                asyncResp->res.addHeader("Allow", "GET, DELETE");
+                messages::operationNotAllowed(asyncResp->res);
             });
 }
 

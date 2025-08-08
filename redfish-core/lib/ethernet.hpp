@@ -3057,24 +3057,20 @@ inline void handleEthernetInterfaceInstanceGet(
     const std::string& managerId, const std::string& ifaceId)
 {
     asyncResp->res.clearHeader(boost::beast::http::field::allow);
-    asyncResp->res.addHeader("Allow", "GET, PATCH, DELETE");
 
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
     }
-
+    if (membersResponsePost(req, asyncResp, ifaceId) ==
+        membersResponse::postNotAllowed)
+    {
+        return;
+    }
     if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
     {
         messages::resourceNotFound(asyncResp->res, "Manager", managerId);
         return;
-    }
-
-    if (ifaceId != "bond0" && ifaceId.find('_') == std::string::npos)
-    {
-        //remove the delete method from allow header
-        asyncResp->res.clearHeader(boost::beast::http::field::allow);
-        asyncResp->res.addHeader(boost::beast::http::field::allow, "GET, PATCH");
     }
 
     getEthernetIfaceData(
@@ -3092,7 +3088,14 @@ inline void handleEthernetInterfaceInstanceGet(
                                            ifaceId);
                 return;
             }
-
+            if (ifaceId == "bond0" || ifaceId.find('_') != std::string::npos)
+            {
+                asyncResp->res.addHeader("Allow", "GET, PATCH, DELETE");
+            }
+            else
+            {
+                asyncResp->res.addHeader("Allow", "GET, PATCH");
+            }
             asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("EthernetInterface");
             asyncResp->res.jsonValue["Name"] = "Manager Ethernet Interface";
             asyncResp->res.jsonValue["Description"] =
@@ -3109,13 +3112,15 @@ inline void handleEthernetInterfaceInstanceDelete(
     const std::string& managerId, const std::string& ifaceId)
 {
     asyncResp->res.clearHeader(boost::beast::http::field::allow);
-    asyncResp->res.addHeader("Allow", "GET, PATCH, DELETE");
-
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
     }
-
+    if (membersResponsePost(req, asyncResp, ifaceId) ==
+        membersResponse::postNotAllowed)
+    {
+        return;
+    }
     if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
     {
         messages::resourceNotFound(asyncResp->res, "Manager", managerId);
@@ -3138,7 +3143,105 @@ inline void handleEthernetInterfaceInstanceDelete(
         std::string("/xyz/openbmc_project/network/") + ifaceId,
         "xyz.openbmc_project.Object.Delete", "Delete");
 }
+inline void handleEthernetInterfacePost(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& managerId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
 
+    if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "Manager", managerId);
+        return;
+    }
+
+    bool vlanEnable = false;
+    uint32_t vlanId = 0;
+    std::optional<uint32_t> vlanPriority;
+
+    std::vector<nlohmann::json::object_t> relatedInterfaces;
+
+    if (!json_util::readJsonPatch( //
+            req, asyncResp->res, //
+            "VLAN/VLANEnable", vlanEnable, //
+            "VLAN/VLANId", vlanId, //
+            "VLAN/VLANPriority", vlanPriority, //
+            "Links/RelatedInterfaces", relatedInterfaces //
+            ))
+    {
+        return;
+    }
+
+    if (relatedInterfaces.size() != 1)
+    {
+        messages::arraySizeTooLong(asyncResp->res, "Links/RelatedInterfaces",
+                                   relatedInterfaces.size());
+        return;
+    }
+
+    std::string parentInterfaceUri;
+    if (!json_util::readJsonObject( //
+            relatedInterfaces[0], asyncResp->res, //
+            "@odata.id", parentInterfaceUri //
+            ))
+    {
+        messages::propertyMissing(asyncResp->res,
+                                  "Links/RelatedInterfaces/0/@odata.id");
+        return;
+    }
+    BMCWEB_LOG_INFO("Parent Interface URI: {}", parentInterfaceUri);
+
+    boost::system::result<boost::urls::url_view> parsedUri =
+        boost::urls::parse_relative_ref(parentInterfaceUri);
+    if (!parsedUri)
+    {
+        messages::propertyValueFormatError(
+            asyncResp->res, parentInterfaceUri,
+            "Links/RelatedInterfaces/0/@odata.id");
+        return;
+    }
+
+    std::string parentInterface;
+    if (!crow::utility::readUrlSegments(*parsedUri, "redfish", "v1", "Managers",
+                                        "bmc", "EthernetInterfaces",
+                                        std::ref(parentInterface)))
+    {
+        messages::propertyValueNotInList(asyncResp->res, parentInterfaceUri,
+                                         "Links/RelatedInterfaces/0/@odata.id");
+        return;
+    }
+
+    if (!vlanEnable)
+    {
+        // In OpenBMC implementation, VLANEnable cannot be false on
+        // create
+        messages::propertyValueIncorrect(asyncResp->res, "VLAN/VLANEnable",
+                                         "false");
+        return;
+    }
+
+    uint32_t vlanPriorityVal = vlanPriority.value_or(0);
+
+    std::string vlanInterface = parentInterface + "_" + std::to_string(vlanId);
+
+    if (validateVlanPriority(asyncResp, vlanPriorityVal))
+    {
+        crow::connections::systemBus->async_method_call(
+            [asyncResp, parentInterfaceUri, vlanInterface, vlanId,
+             vlanPriorityVal](const boost::system::error_code& ec,
+                              const sdbusplus::message_t& m) {
+                afterVlanCreate(asyncResp, parentInterfaceUri, vlanInterface,
+                                vlanPriorityVal, vlanId, ec, m);
+            },
+            "xyz.openbmc_project.Network", "/xyz/openbmc_project/network",
+            "xyz.openbmc_project.Network.VLAN.Create", "VLAN", parentInterface,
+            vlanId);
+    }
+}
 inline void requestEthernetInterfacesRoutes(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/EthernetInterfaces/")
@@ -3200,113 +3303,10 @@ inline void requestEthernetInterfacesRoutes(App& app)
                                 BMCWEB_REDFISH_MANAGER_URI_NAME);
                     });
             });
-
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/EthernetInterfaces/")
         .privileges(redfish::privileges::postEthernetInterfaceCollection)
         .methods(boost::beast::http::verb::post)(
-            [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   const std::string& managerId) {
-                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-                {
-                    return;
-                }
-
-                if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
-                {
-                    messages::resourceNotFound(asyncResp->res, "Manager",
-                                               managerId);
-                    return;
-                }
-
-                bool vlanEnable = false;
-                uint32_t vlanId = 0;
-                std::optional<uint32_t> vlanPriority;
-
-                std::vector<nlohmann::json::object_t> relatedInterfaces;
-
-                if (!json_util::readJsonPatch( //
-                        req, asyncResp->res, //
-                        "VLAN/VLANEnable", vlanEnable, //
-                        "VLAN/VLANId", vlanId, //
-                        "VLAN/VLANPriority", vlanPriority, //
-                        "Links/RelatedInterfaces", relatedInterfaces //
-                        ))
-                {
-                    return;
-                }
-
-                if (relatedInterfaces.size() != 1)
-                {
-                    messages::arraySizeTooLong(asyncResp->res,
-                                               "Links/RelatedInterfaces",
-                                               relatedInterfaces.size());
-                    return;
-                }
-
-                std::string parentInterfaceUri;
-                if (!json_util::readJsonObject( //
-                        relatedInterfaces[0], asyncResp->res, //
-                        "@odata.id", parentInterfaceUri //
-                        ))
-                {
-                    messages::propertyMissing(
-                        asyncResp->res, "Links/RelatedInterfaces/0/@odata.id");
-                    return;
-                }
-                BMCWEB_LOG_INFO("Parent Interface URI: {}", parentInterfaceUri);
-
-                boost::system::result<boost::urls::url_view> parsedUri =
-                    boost::urls::parse_relative_ref(parentInterfaceUri);
-                if (!parsedUri)
-                {
-                    messages::propertyValueFormatError(
-                        asyncResp->res, parentInterfaceUri,
-                        "Links/RelatedInterfaces/0/@odata.id");
-                    return;
-                }
-
-                std::string parentInterface;
-                if (!crow::utility::readUrlSegments(
-                        *parsedUri, "redfish", "v1", "Managers", "bmc",
-                        "EthernetInterfaces", std::ref(parentInterface)))
-                {
-                    messages::propertyValueNotInList(
-                        asyncResp->res, parentInterfaceUri,
-                        "Links/RelatedInterfaces/0/@odata.id");
-                    return;
-                }
-
-                if (!vlanEnable)
-                {
-                    // In OpenBMC implementation, VLANEnable cannot be false on
-                    // create
-                    messages::propertyValueIncorrect(
-                        asyncResp->res, "VLAN/VLANEnable", "false");
-                    return;
-                }
-
-                uint32_t vlanPriorityVal = vlanPriority.value_or(0);
-
-                std::string vlanInterface =
-                    parentInterface + "_" + std::to_string(vlanId);
-
-                if (validateVlanPriority(asyncResp, vlanPriorityVal))
-                {
-                    crow::connections::systemBus->async_method_call(
-                        [asyncResp, parentInterfaceUri, vlanInterface, vlanId,
-                         vlanPriorityVal](const boost::system::error_code& ec,
-                                          const sdbusplus::message_t& m) {
-                            afterVlanCreate(asyncResp, parentInterfaceUri,
-                                            vlanInterface, vlanPriorityVal,
-                                            vlanId, ec, m);
-                        },
-                        "xyz.openbmc_project.Network",
-                        "/xyz/openbmc_project/network",
-                        "xyz.openbmc_project.Network.VLAN.Create", "VLAN",
-                        parentInterface, vlanId);
-                }
-            });
+            std::bind_front(handleEthernetInterfacePost, std::ref(app)));
 
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/EthernetInterfaces/<str>/")
         .privileges(redfish::privileges::getEthernetInterface)
@@ -3321,8 +3321,18 @@ inline void requestEthernetInterfacesRoutes(App& app)
                    [[maybe_unused]] const std::string& managerId,
                    const std::string& ifaceId) {
                 asyncResp->res.clearHeader(boost::beast::http::field::allow);
-
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
+                membersResponse result =
+                    membersResponsePost(req, asyncResp, ifaceId);
+                if (result == membersResponse::postAllowed)
+                {
+                    handleEthernetInterfacePost(app, req, asyncResp, managerId);
+                    return;
+                }
+                else if (result == membersResponse::postNotAllowed)
                 {
                     return;
                 }
@@ -3345,12 +3355,18 @@ inline void requestEthernetInterfacesRoutes(App& app)
                                 asyncResp->res, "EthernetInterface", ifaceId);
                             return;
                         }
-                        asyncResp->res.addHeader("Allow", "GET, PATCH, DELETE");
+                        if (ifaceId == "bond0" || ifaceId.find('_') != std::string::npos)
+                        {
+                            asyncResp->res.addHeader("Allow", "GET, PATCH, DELETE");
+                        }
+                        else
+                        {
+                            asyncResp->res.addHeader("Allow", "GET, PATCH");
+                        }
                         messages::operationNotAllowed(asyncResp->res);
                         return;
                     });
             });
-
 
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/EthernetInterfaces/<str>/")
         .privileges(
@@ -3362,11 +3378,16 @@ inline void requestEthernetInterfacesRoutes(App& app)
                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                            const std::string& managerId,
                            const std::string& ifaceId) {
+            asyncResp->res.clearHeader(boost::beast::http::field::allow);
             if (!redfish::setUpRedfishRoute(app, req, asyncResp))
             {
                 return;
             }
-
+            if (membersResponsePost(req, asyncResp, ifaceId) ==
+                membersResponse::postNotAllowed)
+            {
+                return;
+            }
             if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
             {
                 messages::resourceNotFound(asyncResp->res, "Manager",

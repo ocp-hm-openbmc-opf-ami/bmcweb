@@ -1411,6 +1411,11 @@ inline void handleReportPatch(
     {
         return;
     }
+    if (membersResponsePost(req, asyncResp, (const std::string)id) ==
+        membersResponse::postNotAllowed)
+    {
+        return;
+    }
 
     std::optional<std::string> reportingTypeStr;
     std::optional<std::string> reportUpdatesStr;
@@ -1467,7 +1472,11 @@ inline void handleReportPut(App& app, const crow::Request& req,
     {
         return;
     }
-
+    if (membersResponsePost(req, asyncResp, (const std::string)id) ==
+        membersResponse::postNotAllowed)
+    {
+        return;
+    }
     telemetry::AddReportArgs args;
     telemetry::ReportUserArgs userArgs;
     if (!userArgs.getUserParameters(asyncResp->res, req, args))
@@ -1617,6 +1626,12 @@ inline void handleMetricReportGet(
     {
         return;
     }
+    if (membersResponsePost(req, asyncResp, id) ==
+        membersResponse::postNotAllowed)
+    {
+        return;
+    }
+    asyncResp->res.addHeader("Allow", "GET, HEAD, PUT, PATCH, DELETE");
     asyncResp->res.addHeader(
         boost::beast::http::field::link,
         "</redfish/v1/JsonSchemas/MetricReport/MetricReport.json>; rel=describedby");
@@ -1645,7 +1660,11 @@ inline void handleMetricReportDelete(
     {
         return;
     }
-
+    if (membersResponsePost(req, asyncResp, id) ==
+        membersResponse::postNotAllowed)
+    {
+        return;
+    }
     const std::string reportPath = telemetry::getDbusReportPath(id);
 
     crow::connections::systemBus->async_method_call(
@@ -1725,5 +1744,28 @@ inline void requestRoutesMetricReportDefinition(App& app)
         .privileges(redfish::privileges::putMetricReportDefinition)
         .methods(boost::beast::http::verb::put)(
             std::bind_front(telemetry::handleReportPut, std::ref(app)));
+
+    BMCWEB_ROUTE(app,
+                 "/redfish/v1/TelemetryService/MetricReportDefinitions/<str>/")
+        .privileges(redfish::privileges::postMetricReportDefinitionCollection)
+        .methods(boost::beast::http::verb::post)(
+            [&app](const crow::Request& req,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const std::string& id) {
+                membersResponse result =
+                    membersResponsePost(req, asyncResp, id);
+                if (result == membersResponse::postAllowed)
+                {
+                    handleMetricReportDefinitionsPost(app, req, asyncResp);
+                    return;
+                }
+                else if (result == membersResponse::postNotAllowed)
+                {
+                    return;
+                }
+                asyncResp->res.addHeader("Allow",
+                                         "GET, HEAD, PUT, PATCH, DELETE");
+                messages::operationNotAllowed(asyncResp->res);
+            });
 }
 } // namespace redfish

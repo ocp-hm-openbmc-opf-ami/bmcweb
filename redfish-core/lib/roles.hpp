@@ -74,14 +74,17 @@ inline void requestRoutesRoles(App& app)
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& roleId) {
 		
-		asyncResp->res.clearHeader(boost::beast::http::field::allow);
-    		asyncResp->res.addHeader("Allow", "GET");
+		        asyncResp->res.clearHeader(boost::beast::http::field::allow);
                 
-		if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+		        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
                     return;
                 }
-
+                if (!membersResponseGet(asyncResp, roleId, "RoleCollection"))
+                {
+                    return;
+                }
+                asyncResp->res.addHeader("Allow", "GET");
                 std::optional<nlohmann::json::array_t> privArray =
                     getAssignedPrivFromRole(roleId);
                 if (!privArray)
@@ -113,6 +116,10 @@ inline void requestRoutesRoles(App& app)
                        const std::string& roleId) {
 			        asyncResp->res.clearHeader(boost::beast::http::field::allow);
                     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                    {
+                        return;
+                    }
+                    if (!membersResponseGet(asyncResp, roleId, "RoleCollection"))
                     {
                         return;
                     }

@@ -28,8 +28,46 @@
 
 #include "redfish_aggregator.hpp"
 
+enum class membersResponse
+{
+    postAllowed = 0,
+    postNotAllowed,
+    paramNotMatched
+};
+
 namespace redfish
 {
+inline membersResponse
+    membersResponsePost(const crow::Request& req,
+                           const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                           const std::string param)
+{
+    asyncResp->res.clearHeader(boost::beast::http::field::allow);
+    if (param == "Members")
+    {
+        if (!(req.method() == boost::beast::http::verb::post))
+        {
+            asyncResp->res.addHeader("Allow", "POST");
+            messages::operationNotAllowed(asyncResp->res);
+            return membersResponse::postNotAllowed;
+        }
+        return membersResponse::postAllowed;
+    }
+    return membersResponse::paramNotMatched;
+}
+
+inline bool membersResponseGet(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& members, const std::string& param)
+{
+    if (members == "Members")
+    {
+        messages::resourceNotFound(asyncResp->res, param, "Members");
+        return false;
+    }
+    return true;
+}
+
 inline void afterIfMatchRequest(
     crow::App& app, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::shared_ptr<crow::Request>& req, const std::string& ifMatchHeader,

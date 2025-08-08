@@ -1291,6 +1291,7 @@ inline void requestRoutesProcessor(App& app)
                             const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                             const std::string& systemName,
                             const std::string& processorId) {
+            asyncResp->res.clearHeader(boost::beast::http::field::allow);
             if (!redfish::setUpRedfishRoute(app, req, asyncResp))
             {
                 return;
@@ -1308,7 +1309,11 @@ inline void requestRoutesProcessor(App& app)
                                            systemName);
                 return;
             }
-
+            if (!membersResponseGet(asyncResp, processorId, "ProcessorCollection"))
+            {
+                return;
+            }
+            asyncResp->res.addHeader("Allow", "GET, HEAD, PATCH");
             asyncResp->res.addHeader(
                 boost::beast::http::field::link,
                 "</redfish/v1/JsonSchemas/Processor/Processor.json>; rel=describedby");
@@ -1329,6 +1334,7 @@ inline void requestRoutesProcessor(App& app)
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& systemName,
                    const std::string& processorId) {
+                asyncResp->res.clearHeader(boost::beast::http::field::allow);
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
                     return;
@@ -1346,7 +1352,10 @@ inline void requestRoutesProcessor(App& app)
                                                systemName);
                     return;
                 }
-
+                if (!membersResponseGet(asyncResp, processorId, "ProcessorCollection"))
+                {
+                    return;
+                }
                 std::optional<std::string> appliedConfigUri;
                 if (!json_util::readJsonPatch( //
                         req, asyncResp->res, //
@@ -1365,6 +1374,23 @@ inline void requestRoutesProcessor(App& app)
                         std::bind_front(patchAppliedOperatingConfig, asyncResp,
                                         processorId, *appliedConfigUri));
                 }
+            });
+
+    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Processors/<str>/")
+        .privileges(redfish::privileges::patchProcessor)
+        .methods(boost::beast::http::verb::post, boost::beast::http::verb::put,
+                 boost::beast::http::verb::delete_)(
+            [&app](const crow::Request& /* req */,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const std::string& /* systemName */,
+                   const std::string& processorId) {
+                asyncResp->res.clearHeader(boost::beast::http::field::allow);
+                if (!membersResponseGet(asyncResp, processorId, "ProcessorCollection"))
+                {
+                    return;
+                }
+                asyncResp->res.addHeader("Allow", "GET, HEAD, PATCH");
+                messages::operationNotAllowed(asyncResp->res);
             });
 }
 
