@@ -1286,6 +1286,9 @@ inline void handleManagersVirtualMediaActionInsertPost(
     }
     InsertMediaActionParams actionParams;
 
+    asyncResp->res.clearHeader(boost::beast::http::field::allow);
+    asyncResp->res.addHeader("Allow", "POST");
+
     // Read obligatory parameters (url of image)
     if (!json_util::readJsonAction( //
             req, asyncResp->res, //
@@ -1602,6 +1605,8 @@ inline void handleVirtualMediaValueGet(
     {
         return;
     }
+
+    asyncResp->res.clearHeader(boost::beast::http::field::allow);
     if (name != "bmc")
     {
         messages::resourceNotFound(asyncResp->res, "VirtualMedia", name);
@@ -1610,8 +1615,8 @@ inline void handleVirtualMediaValueGet(
 
     if (resName == "Slot_2" || resName == "Slot_3")
     {
-        asyncResp->res.result(boost::beast::http::status::method_not_allowed);
-        messages::operationNotAllowed(asyncResp->res);
+        asyncResp->res.addHeader("Allow", "POST");
+	messages::operationNotAllowed(asyncResp->res);
         return;
     }
     else
@@ -1680,8 +1685,9 @@ inline void insertMediaCheckMode(
     {
         BMCWEB_LOG_DEBUG(
             "InsertMedia only allowed with POST method in legacy mode");
-        // aResp->res.result(boost::beast::http::status::method_not_allowed);
-        messages::operationNotAllowed(aResp->res);
+        aResp->res.clearHeader(boost::beast::http::field::allow);
+        aResp->res.addHeader("Allow", "POST");
+	messages::operationNotAllowed(aResp->res);
         return;
     }
     // Check if dbus path is Proxy type

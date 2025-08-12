@@ -63,6 +63,10 @@ inline void handleCollectionMembers(
         {
             continue;
         }
+        if (object.starts_with("/xyz/openbmc_project/inventory/system/component/"))
+	{
+	    continue;
+	}
         pathNames.push_back(leaf);
     }
     std::ranges::sort(pathNames, AlphanumLess<std::string>());

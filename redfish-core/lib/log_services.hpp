@@ -1718,8 +1718,11 @@ inline void fillEventLogLogEntryFromPropertyMap(
         objectToFillOut["Resolution"] = *entry.Resolution;
     }
     objectToFillOut["EntryType"] = "Event";
-    objectToFillOut["Severity"] =
-        translateSeverityDbusToRedfish(entry.Severity);
+    std::string severity = translateSeverityDbusToRedfish(entry.Severity);
+    if (!severity.empty())
+    {
+        objectToFillOut["Severity"] = severity;
+    }
     objectToFillOut["Created"] =
         std::move(timeFormat(redfish::time_utils::getDateTimeUintMs(entry.Timestamp)));
     objectToFillOut["Modified"] =
@@ -1822,8 +1825,11 @@ inline void fillSELEntryFromPropertyMap(
         objectToFillOut["Resolution"] = *entry.Resolution;
     }
     objectToFillOut["EntryType"] = "SEL";
-    objectToFillOut["Severity"] =
-        translateSeverityDbusToRedfish(entry.Severity);
+    std::string severity = translateSeverityDbusToRedfish(entry.Severity);
+    if (!severity.empty())
+    {
+        objectToFillOut["Severity"] = severity;
+    }
     objectToFillOut["Created"] =
         std::move(timeFormat(redfish::time_utils::getDateTimeUintMs(entry.Timestamp)));
     objectToFillOut["Modified"] =

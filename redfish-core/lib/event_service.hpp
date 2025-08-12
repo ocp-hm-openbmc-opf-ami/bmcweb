@@ -1508,8 +1508,8 @@ void handleEventServiceSubscriptionPost(
             "ResourceTypes", resTypes, //
             "SendHeartbeat", sendHeartbeat, //
             "VerifyCertificate", verifyCertificate, //
-            "Oem/OpenBmc/CommunityString", oemsnmpcommunitystring, //
-            "Oem", oemObj //
+            "Oem", oemObj, //
+            "Oem/OpenBmc/CommunityString", oemsnmpcommunitystring //
             ))
     {
         return;
@@ -1528,7 +1528,7 @@ void handleEventServiceSubscriptionPost(
         return;
     }
 
-    if (protocol == "Oem")
+    if (protocol == "Oem" || protocol == "Kafka")
     {
         // Handle to support Kafka streaming support
         KafkaManager::getInstance().createSubscription(*oemObj, destUrl,

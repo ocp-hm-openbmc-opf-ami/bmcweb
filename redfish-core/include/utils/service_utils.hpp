@@ -143,9 +143,19 @@ inline void getRunning(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                                 }
                                 if (*runningStatus)
                                 {
-                                    asyncResp->res.jsonValue[valueJsonPtr] =
-                                        true;
+                                    asyncResp->res.jsonValue[valueJsonPtr] = true;
+                                    if (serviceName == "start_2dipkvm")
+                                        asyncResp->res.jsonValue
+                                            ["GraphicalConsole"]
+                                            ["MaxConcurrentSessions"] = 1;
                                     return;
+                                }
+                                else
+                                {
+                                    if (serviceName == "start_2dipkvm")
+                                        asyncResp->res.jsonValue
+                                            ["GraphicalConsole"]
+                                            ["MaxConcurrentSessions"] = 0;
                                 }
                             }
                         }
