@@ -524,6 +524,7 @@ inline void handleRoleMapPatch(
     const std::string& serverType,
     std::vector<std::variant<nlohmann::json::object_t, std::nullptr_t>>& input)
 {
+    u_int32_t count = 0;
     for (size_t i = 0; i < input.size(); ++i)
     {
         for (size_t j = i + 1; j < input.size(); ++j)
@@ -554,6 +555,13 @@ inline void handleRoleMapPatch(
             // delete the existing object
             if (index < roleMapObjData.size())
             {
+                if (input.size() != roleMapObjData.size())
+                {
+                    messages::propertyValueConflict(
+                        asyncResp->res, "RemoteRoleMapping",
+                        "RemoteGroup");
+                    return;
+                }
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, roleMapObjData, serverType,
                      index](const boost::system::error_code& ec) {
@@ -564,9 +572,9 @@ inline void handleRoleMapPatch(
                                 asyncResp->res, "Missing", "Invalid");
                             return;
                         }
-                        asyncResp->res
+                       /*  asyncResp->res
                             .jsonValue[serverType]["RemoteRoleMapping"][index] =
-                            nullptr;
+                            nullptr; */
                     },
                     ldapDbusService, roleMapObjData[index].first,
                     "xyz.openbmc_project.Object.Delete", "Delete");
@@ -604,7 +612,7 @@ inline void handleRoleMapPatch(
             if (index < roleMapObjData.size())
             {
                 BMCWEB_LOG_DEBUG("Update Role Map Object");
-
+                bool allDuplicate = false;
                 // Check for duplicate RemoteGroup in roleMapObjData
                 for (const auto& [path, data] : roleMapObjData)
                 {
@@ -612,8 +620,18 @@ inline void handleRoleMapPatch(
                     {
                         BMCWEB_LOG_DEBUG("Duplicate RemoteGroup: {} found",
                                          *remoteGroup);
-                        messages::noOperation(asyncResp->res);
+                        count++;
+                        allDuplicate = true;
                     }
+                }
+                if (count == input.size())
+                {
+                    messages::noOperation(asyncResp->res);
+                    return;
+                }
+                else if (allDuplicate)
+                {
+                    continue;
                 }
 
                 // If "RemoteGroup" info is provided
@@ -645,9 +663,9 @@ inline void handleRoleMapPatch(
                                 messages::internalError(asyncResp->res);
                                 return;
                             }
-                            asyncResp->res
+                            /* asyncResp->res
                                 .jsonValue[serverType]["RemoteRoleMapping"]
-                                          [index]["RemoteGroup"] = *remoteGroup;
+                                          [index]["RemoteGroup"] = *remoteGroup; */
                         });
                 }
 
@@ -689,9 +707,9 @@ inline void handleRoleMapPatch(
                                 messages::internalError(asyncResp->res);
                                 return;
                             }
-                            asyncResp->res
+                            /* asyncResp->res
                                 .jsonValue[serverType]["RemoteRoleMapping"]
-                                          [index]["LocalRole"] = *localRole;
+                                          [index]["LocalRole"] = *localRole; */
                         });
                 }
             }
@@ -749,13 +767,13 @@ inline void handleRoleMapPatch(
                             }
                             return;
                         }
-                        nlohmann::json& remoteRoleJson =
+                        /* nlohmann::json& remoteRoleJson =
                             asyncResp->res
                                 .jsonValue[serverType]["RemoteRoleMapping"];
                         nlohmann::json::object_t roleMapEntry;
                         roleMapEntry["LocalRole"] = *localRole;
                         roleMapEntry["RemoteGroup"] = *remoteGroup;
-                        remoteRoleJson.emplace_back(std::move(roleMapEntry));
+                        remoteRoleJson.emplace_back(std::move(roleMapEntry)); */
                     },
                     ldapDbusService, dbusObjectPath, ldapPrivMapperInterface,
                     "Create", *remoteGroup,
@@ -832,8 +850,9 @@ inline void getLDAPConfigData(const std::string& ldapType,
                     std::string ldapEnableInterfaceStr = ldapEnableInterface;
                     std::string ldapConfigInterfaceStr = ldapConfigInterface;
 
-                    for (const auto& object : ldapObjects)
+                    for (auto it = ldapObjects.rbegin(); it != ldapObjects.rend(); ++it)
                     {
+                        const auto& object = *it;
                         // let's find the object whose ldap type is equal to the
                         // given type
                         if (object.first.str.find(searchString) ==
@@ -1285,11 +1304,11 @@ inline void handleServiceAddressPatch(
                 messages::internalError(asyncResp->res);
                 return;
             }
-            std::vector<std::string> modifiedserviceAddressList = {
+            /* std::vector<std::string> modifiedserviceAddressList = {
                 serviceAddressList.front()};
             asyncResp->res
                 .jsonValue[ldapServerElementName]["ServiceAddresses"] =
-                modifiedserviceAddressList;
+                modifiedserviceAddressList; */
             if ((serviceAddressList).size() > 1)
             {
                 messages::propertyValueModified(asyncResp->res,
@@ -1325,8 +1344,8 @@ inline void handleUserNamePatch(
                 messages::internalError(asyncResp->res);
                 return;
             }
-            asyncResp->res.jsonValue[ldapServerElementName]["Authentication"]
-                                    ["Username"] = username;
+            /* asyncResp->res.jsonValue[ldapServerElementName]["Authentication"]
+                                    ["Username"] = username; */
             BMCWEB_LOG_DEBUG("Updated the username");
         });
     // setDbusProperty(asyncResp,
@@ -1360,8 +1379,8 @@ inline void handlePasswordPatch(
                 messages::internalError(asyncResp->res);
                 return;
             }
-            asyncResp->res.jsonValue[ldapServerElementName]["Authentication"]
-                                    ["Password"] = "";
+            /* asyncResp->res.jsonValue[ldapServerElementName]["Authentication"]
+                                    ["Password"] = ""; */
             BMCWEB_LOG_DEBUG("Updated the password");
         });
 }
@@ -1404,12 +1423,12 @@ inline void handleBaseDNPatch(
                 messages::internalError(asyncResp->res);
                 return;
             }
-            auto& serverTypeJson =
+            /* auto& serverTypeJson =
                 asyncResp->res.jsonValue[ldapServerElementName];
             auto& searchSettingsJson =
                 serverTypeJson["LDAPService"]["SearchSettings"];
             std::vector<std::string> modifiedBaseDNList = {baseDNList.front()};
-            searchSettingsJson["BaseDistinguishedNames"] = modifiedBaseDNList;
+            searchSettingsJson["BaseDistinguishedNames"] = modifiedBaseDNList; */
             if (baseDNList.size() > 1)
             {
                 messages::propertyValueModified(asyncResp->res,
@@ -1446,11 +1465,11 @@ inline void handleUserNameAttrPatch(
                 messages::internalError(asyncResp->res);
                 return;
             }
-            auto& serverTypeJson =
+            /* auto& serverTypeJson =
                 asyncResp->res.jsonValue[ldapServerElementName];
             auto& searchSettingsJson =
                 serverTypeJson["LDAPService"]["SearchSettings"];
-            searchSettingsJson["UsernameAttribute"] = userNameAttribute;
+            searchSettingsJson["UsernameAttribute"] = userNameAttribute; */
             BMCWEB_LOG_DEBUG("Updated the user name attr.");
         });
 }
@@ -1481,11 +1500,11 @@ inline void handleGroupNameAttrPatch(
                 messages::internalError(asyncResp->res);
                 return;
             }
-            auto& serverTypeJson =
+            /* auto& serverTypeJson =
                 asyncResp->res.jsonValue[ldapServerElementName];
             auto& searchSettingsJson =
                 serverTypeJson["LDAPService"]["SearchSettings"];
-            searchSettingsJson["GroupsAttribute"] = groupsAttribute;
+            searchSettingsJson["GroupsAttribute"] = groupsAttribute; */
             BMCWEB_LOG_DEBUG("Updated the groupname attr");
         });
 }
@@ -1516,8 +1535,8 @@ inline void handleServiceEnablePatch(
                                                   "ServiceEnabled", "true");
                 return;
             }
-            asyncResp->res.jsonValue[ldapServerElementName]["ServiceEnabled"] =
-                serviceEnabled;
+           /*  asyncResp->res.jsonValue[ldapServerElementName]["ServiceEnabled"] =
+                serviceEnabled; */
             BMCWEB_LOG_DEBUG("Updated Service enable = {}", serviceEnabled);
         });
 }
@@ -1615,7 +1634,7 @@ inline void handleAuthMethodsPatch(
     persistent_data::getConfig().writeData();
 
     // messages::success(asyncResp->res);
-    // asyncResp->res.result(boost::beast::http::status::no_content);
+    asyncResp->res.result(boost::beast::http::status::no_content);
 }
 
 /**
@@ -1725,7 +1744,7 @@ inline void handleLDAPPatch(LdapPatchParams&& input,
             messages::internalError(asyncResp->res);
             return;
         }
-        parseLDAPConfigData(asyncResp->res.jsonValue, confData, serverT);
+        // parseLDAPConfigData(asyncResp->res.jsonValue, confData, serverT);
         if (confData.serviceEnabled)
         {
             // Disable the service first and update the rest of
@@ -3375,7 +3394,7 @@ inline void handleAccountServicePatch(
                     messages::internalError(asyncResp->res);
                     return;
                 }
-                messages::success(asyncResp->res);
+                //messages::success(asyncResp->res);
             });
     }
     if (lockoutThreshold)
@@ -3391,7 +3410,7 @@ inline void handleAccountServicePatch(
                     messages::internalError(asyncResp->res);
                     return;
                 }
-                messages::success(asyncResp->res);
+                //messages::success(asyncResp->res);
             });
     }
 }
