@@ -30,6 +30,14 @@ inline void
         return;
     }
 
+    std::string url = (std::string)req.target();
+    BMCWEB_LOG_DEBUG("target : {}", req.target());
+    if (url.find("$filter") != std::string::npos)
+    {
+        messages::queryNotSupportedOnResource(asyncResp->res);
+        return;
+    }
+
     std::optional<filter_ast::LogicalAnd> filter;
     boost::urls::params_base::iterator filterIt =
         req.url().params().find("$filter");
