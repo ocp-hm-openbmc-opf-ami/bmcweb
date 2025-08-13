@@ -510,7 +510,7 @@ inline void requestRoutesPefService(App& app)
             });
 
     BMCWEB_ROUTE(app, "/redfish/v1/PefService/")
-        .privileges({{"Login"}, {"ConfigureComponents"}})
+        .privileges({{"ConfigureManager"}})
         .methods(boost::beast::http::verb::patch)(
             [&app](const crow::Request& req,
                const std::shared_ptr<bmcweb::AsyncResp>& aResp) {
