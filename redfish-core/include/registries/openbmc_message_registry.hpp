@@ -2600,6 +2600,18 @@ constexpr std::array registry =
             "Please resolve the other Configuration before "
             "proceeding with the current operation."
         }},
+    MessageEntry{
+        "Alert",
+        {
+            "Indicates that the Manager.Reset was triggered",
+            "Manager.Reset - %1 was triggered",
+            "OK",
+            1,
+            {
+                "string"
+            },
+            "None.",
+        }},
 };
 
 enum class Index

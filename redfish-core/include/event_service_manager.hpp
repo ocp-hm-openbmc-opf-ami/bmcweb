@@ -1244,6 +1244,28 @@ class EventServiceManager
                         << std::endl;
         }
     }
+    void alertSystem(const std::string& managerMessageID)
+    {
+        std::string severity =
+            "xyz.openbmc_project.Logging.Entry.Level.Informational";
+        auto bus = sdbusplus::bus::new_default_system();
+        sdbusplus::message::message m = bus.new_method_call(
+            "xyz.openbmc_project.Logging", "/xyz/openbmc_project/logging",
+            "xyz.openbmc_project.Logging.Create", "Create");
+        std::string journalMsg = managerMessageID;
+
+        // Append the arguments to the method call
+        m.append(journalMsg, severity, std::map<std::string, std::string>());
+        try
+        {
+            bus.call(m);
+        }
+        catch (const sdbusplus::exception_t& e)
+        {
+            std::cerr << "Failed to create log entry: " << e.what()
+                        << std::endl;
+        }
+    }
  
 };
 
