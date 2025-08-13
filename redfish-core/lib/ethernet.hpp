@@ -3084,6 +3084,10 @@ inline void handleEthernetInterfaceInstanceGet(
             {
                 // TODO(Pawel)consider distinguish between non
                 // existing object, and other errors
+		if(ifaceId == "hostusb0")
+                {
+                   return;
+                }
                 messages::resourceNotFound(asyncResp->res, "EthernetInterface",
                                            ifaceId);
                 return;
