@@ -131,7 +131,7 @@ inline std::string getCertificateFromReqBody(
     }
 
     std::string certificate;
-    std::optional<std::string> certificateType = "PEM";
+    std::string certificateType;
 
     if (!json_util::readJsonPatch( //
             req, asyncResp->res, //
@@ -143,9 +143,9 @@ inline std::string getCertificateFromReqBody(
         return {};
     }
 
-    if (*certificateType != "PEM")
+    if (certificateType != "PEM")
     {
-        messages::propertyValueNotInList(asyncResp->res, *certificateType,
+        messages::propertyValueNotInList(asyncResp->res, certificateType,
                                          "CertificateType");
         return {};
     }
@@ -153,7 +153,7 @@ inline std::string getCertificateFromReqBody(
     if (detectCertificateType(certificate) != certificateType)
     {
         // If the CertificateString does not match the certificateType
-        messages::invalidTypeForCertificateString(asyncResp->res, *certificateType);
+        messages::invalidTypeForCertificateString(asyncResp->res, certificateType);
         BMCWEB_LOG_ERROR("invalidTypeForCertificateString");
         return {};
     }
