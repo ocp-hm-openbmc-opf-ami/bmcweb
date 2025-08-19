@@ -1585,12 +1585,12 @@ inline void fillEventLogLogEntryFromPropertyMap(
     }
     DbusEventLogEntry entry = optEntry.value();
 
-    objectToFillOut["@odata.type"] = json_util::odataType("LogEntry");
+    std::string Id = std::to_string(entry.Id);
     objectToFillOut["@odata.id"] = boost::urls::format(
         "/redfish/v1/Systems/{}/LogServices/EventLog/Entries/{}",
-        BMCWEB_REDFISH_SYSTEM_URI_NAME, std::to_string(entry.Id));
+        BMCWEB_REDFISH_SYSTEM_URI_NAME, Id);
     objectToFillOut["Name"] = "System Event Log Entry";
-    objectToFillOut["Id"] = std::to_string(entry.Id);
+    objectToFillOut["Id"] = Id;
     if(!entry.Message.empty())
     {        
         std::size_t pos = entry.Message.find(':');
@@ -1622,10 +1622,8 @@ inline void fillEventLogLogEntryFromPropertyMap(
     {
         objectToFillOut["Severity"] = severity;
     }
-    objectToFillOut["Created"] =
-        redfish::time_utils::getDateTimeUintMs(entry.Timestamp);
-    objectToFillOut["Modified"] =
-        redfish::time_utils::getDateTimeUintMs(entry.UpdateTimestamp);
+    objectToFillOut["Created"] = entry.Timestamp;
+    objectToFillOut["Modified"] = entry.UpdateTimestamp;
     if (entry.Path != nullptr)
     {
         objectToFillOut["AdditionalDataURI"] = boost::urls::format(
@@ -1648,6 +1646,8 @@ inline void afterLogEntriesGetManagedObjects(
         return;
     }
     nlohmann::json::array_t entriesArray;
+    std::string logEntryOdata = json_util::odataType("LogEntry");
+    std::string timeZone = crow::utility::getTimeZone(crow::utility::localTimeZone);
     for (const auto& objectPath : resp)
     {
         dbus::utility::DBusPropertiesMap propsFlattened;
@@ -1667,8 +1667,12 @@ inline void afterLogEntriesGetManagedObjects(
                                             propertyMap.second);
             }
         }
+        auto& entry = entriesArray.emplace_back();
         fillEventLogLogEntryFromPropertyMap(asyncResp, propsFlattened,
-                                            entriesArray.emplace_back());
+                                            entry);
+        entry["@odata.type"] = logEntryOdata;  //common for all entries
+        entry["Created"] = redfish::time_utils::getDateTimeUintMs(entry["Created"], timeZone);
+        entry["Modified"] = redfish::time_utils::getDateTimeUintMs(entry["Modified"], timeZone);
     }
 
     std::ranges::sort(entriesArray, [](const nlohmann::json& left,
@@ -2040,7 +2044,7 @@ inline void dBusEventLogEntryCollection(
 
     // DBus implementation of EventLog/Entries
     // Make call to Logging Service to find all log entry objects
-    sdbusplus::message::object_path path("/xyz/openbmc_project/logging");
+    sdbusplus::message::object_path path("/xyz/openbmc_project/logging/entry");
     dbus::utility::getManagedObjects(
         "xyz.openbmc_project.Logging", path,
         [asyncResp](const boost::system::error_code& ec,
@@ -2239,6 +2243,10 @@ inline void dBusEventLogEntryGet(
             }
             fillEventLogLogEntryFromPropertyMap(asyncResp, resp,
                                                 asyncResp->res.jsonValue);
+            asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("LogEntry"); 
+            std::string timeZone = crow::utility::getTimeZone(crow::utility::localTimeZone);
+            asyncResp->res.jsonValue["Created"] = redfish::time_utils::getDateTimeUintMs(asyncResp->res.jsonValue["Created"], timeZone);
+            asyncResp->res.jsonValue["Modified"] = redfish::time_utils::getDateTimeUintMs(asyncResp->res.jsonValue["Modified"], timeZone);
         });
 }
 
