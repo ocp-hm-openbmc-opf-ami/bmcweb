@@ -256,10 +256,18 @@ constexpr std::tuple<IntType, unsigned, unsigned>
 }
 
 template <typename IntType, typename Period>
-std::string toISO8061ExtendedStr(std::chrono::duration<IntType, Period> t)
+std::string toISO8061ExtendedStr(std::chrono::duration<IntType, Period> t, std::optional<std::string> timezone = std::nullopt)
 {
-    std::string timeZone = crow::utility::getTimeZone(crow::utility::localTimeZone);
-    std::string offSet = crow::utility::getOffset(timeZone);
+    std::string timeZone;
+    if (timezone)
+    {
+        timeZone = timezone.value();
+    }
+    else
+    {
+        timeZone = crow::utility::getTimeZone(crow::utility::localTimeZone);
+    }
+    std::string offSet = crow::utility::getOffset(std::move(timeZone));
 
     using seconds = std::chrono::duration<int>;
     using minutes = std::chrono::duration<int, std::ratio<60>>;
@@ -328,10 +336,18 @@ std::string toISO8061ExtendedStr(std::chrono::duration<IntType, Period> t)
 
 template <typename IntType, typename Period>
 
-std::string toISO8061ExtendedStr(std::chrono::duration<IntType, Period> dur)
+std::string toISO8061ExtendedStr(std::chrono::duration<IntType, Period> dur, std::optional<std::string> timezone = std::nullopt)
 {
-    std::string timeZone = crow::utility::getTimeZone(crow::utility::localTimeZone);
-    std::string offSet = crow::utility::getOffset(timeZone);
+    std::string timeZone;
+    if (timezone)
+    {
+        timeZone = timezone.value();
+    }
+    else
+    {
+        timeZone = crow::utility::getTimeZone(crow::utility::localTimeZone);
+    }
+    std::string offSet = crow::utility::getOffset(std::move(timeZone));
 
     using namespace std::literals::chrono_literals;
 
@@ -398,10 +414,14 @@ std::string getDateTimeUint(uint64_t secondsSinceEpoch)
 // Note that the maximum supported date is 9999-12-31T23:59:59+00:00, if
 // the given |secondsSinceEpoch| is too large, we return the maximum supported
 // date.
-std::string getDateTimeUintMs(uint64_t milliSecondsSinceEpoch)
+std::string getDateTimeUintMs(uint64_t milliSecondsSinceEpoch, std::optional<std::string> timezone)
 {
     using DurationType = std::chrono::duration<uint64_t, std::milli>;
     DurationType sinceEpoch(milliSecondsSinceEpoch);
+    if (timezone)
+    {
+        return details::toISO8061ExtendedStr(sinceEpoch, timezone.value());
+    }
     return details::toISO8061ExtendedStr(sinceEpoch);
 }
 

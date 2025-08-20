@@ -26,6 +26,7 @@
 #include <sdbusplus/asio/property.hpp>
 #include <sdbusplus/unpack_properties.hpp>
 #include <task.hpp>
+#include <event_service_manager.hpp>
 
 #include <algorithm>
 #include <array>
@@ -231,12 +232,16 @@ inline void resetOperation(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 {
     if (resetType == "GracefulRestart")
     {
+        std::string alertMessageId = "Alert:" + resetType;
+        EventServiceManager::getInstance().alertSystem(alertMessageId);
         BMCWEB_LOG_ERROR("Proceeding with", resetType);
         doBMCGracefulRestart(asyncResp);
         return;
     }
     if (resetType == "ForceRestart")
     {
+        std::string alertMessageId = "Alert:" + resetType;
+        EventServiceManager::getInstance().alertSystem(alertMessageId);
         BMCWEB_LOG_ERROR("Proceeding with", resetType);
         doBMCForceRestart(asyncResp);
         return;

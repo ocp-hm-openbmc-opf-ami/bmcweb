@@ -65,6 +65,8 @@
 #include "trigger.hpp"
 #include "update_service.hpp"
 #include "virtual_media.hpp"
+#include "utils/json_utils.hpp"
+#include "dashboard.hpp"
 
 #if BMCWEB_AMI_NIC_MACRO
 #include "ext/src/nic.hpp"
@@ -136,6 +138,8 @@ namespace redfish
 
 RedfishService::RedfishService(App& app)
 {
+    //init schemaVersionMap
+    json_util::initSchemaVersionMap();
 #if BMCWEB_AMI_ACD_MACRO
     redfish::ami::core::resource::requestRoutesACDService(app);
 #endif
@@ -150,6 +154,7 @@ RedfishService::RedfishService(App& app)
 
     requestRoutesMetadata(app);
     requestRoutesOdata(app);
+    requestRoutesDashboard(app);
 
     requestRoutesNodeManagerService(app);
     requestRoutesNodeManagerDomains(app);

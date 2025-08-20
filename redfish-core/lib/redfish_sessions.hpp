@@ -140,6 +140,47 @@ uint16_t getBmcwebPort()
     return portNumber;
 }
 
+uint16_t getkvmPort()
+{
+    PropertyValue property;
+    uint16_t portNumber;
+    try
+    {
+        // Create a D-Bus connection
+        auto bus = sdbusplus::bus::new_default_system();
+
+        // Prepare the D-Bus method call
+        auto method =
+            bus.new_method_call("xyz.openbmc_project.Control.Service.Manager",
+                                "/xyz/openbmc_project/control/service/start_2dipkvm",
+                                "org.freedesktop.DBus.Properties", "Get");
+
+        // Append interface and property name to the method call
+        method.append("xyz.openbmc_project.Control.Service.SocketAttributes",
+                      "Port");
+
+        auto reply = bus.call(method);
+
+        reply.read(property);
+
+        if (auto val = std::get_if<uint16_t>(&property))
+        {
+            portNumber = *val;
+        }
+        else
+        {
+            std::cerr << "Property is not of type uint16_t" << std::endl;
+        }
+    }
+    catch (const std::exception& e)
+    {
+        std::cerr << "Error retrieving port number from D-Bus: " << e.what()
+                  << std::endl;
+    }
+
+    return portNumber;
+}
+
 inline void fillSessionObject(crow::Response& res,
                               const persistent_data::UserSession& session)
 {
@@ -1128,6 +1169,13 @@ inline void handleSessionServicePatch(
 
             if (bmcwebPort)
             {
+                uint16_t kvm_Port = getkvmPort();
+                if (bmcwebPort == kvm_Port)
+                {
+                    messages::propertyValueConflict(asyncResp->res, "BMCwebPort", "KVMPort");
+                    return;
+                }
+
                 crow::connections::systemBus->async_method_call(
                     [asyncResp](const boost::system::error_code ec) {
                         if (ec)
@@ -1168,7 +1216,7 @@ inline void handleSessionServicePatch(
                 }
                 else
                 {
-                    messages::resourceInUse(asyncResp->res);
+                    messages::propertyValueConflict(asyncResp->res, "KVMPort", "BMCwebPort");
                     return;
                 }
             }

@@ -19,6 +19,8 @@ namespace redfish
 namespace json_util
 {
 
+std::unordered_map<std::string, std::string> schemaVersionMap;
+
 bool processJsonFromRequest(crow::Response& res, const crow::Request& req,
                             nlohmann::json& reqJson)
 {

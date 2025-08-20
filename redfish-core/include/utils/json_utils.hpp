@@ -911,8 +911,10 @@ inline void sortJsonArrayByOData(nlohmann::json::array_t& array)
 //  5. null: 4 characters (null)
 uint64_t getEstimatedJsonSize(const nlohmann::json& root);
 
-// function to return the given JsonSchema version
-inline std::string getSchemaVersion(const std::string_view& schema)
+extern std::unordered_map<std::string, std::string> schemaVersionMap;
+
+//Intitilize SchemaVerion Map
+inline void initSchemaVersionMap()
 {
     std::error_code ec;
     //directory where all the JsonSchemas present
@@ -920,27 +922,28 @@ inline std::string getSchemaVersion(const std::string_view& schema)
         "/usr/share/www/redfish/v1/JsonSchemas", ec);
     if (ec)
     {
-        return "";
+        BMCWEB_LOG_ERROR("Failed to Initialize Schema Version Map");
+        return ;
     }
-    for(const std::filesystem::path& file : dirList)
+    for (const std::filesystem::path& file : dirList)
     {
         std::vector<std::string> split;
         bmcweb::split(split, file.filename().string(), '.');
-        //check the schema name and verify whether it includes a version
-        if (split[0] == schema)
+        if (split.size() > 2)
         {
-            if (split.size() > 2)
-            {
-                return split[1];
-            }
-            break;
+            schemaVersionMap[split[0]] = split[1];
         }
     }
-    return "";
+}
+// function to return the given JsonSchema version
+inline std::string getSchemaVersion(const std::string& schemaName)
+{
+    auto it = schemaVersionMap.find(schemaName);
+    return (it != schemaVersionMap.end()) ? it->second : "";
 }
 
 //return standard odata type
-inline std::string odataType(const std::string_view& schema)
+inline std::string odataType(const std::string& schema)
 {
     std::string schemaVersion, odataType;
     schemaVersion = getSchemaVersion(schema);
@@ -956,7 +959,7 @@ inline std::string odataType(const std::string_view& schema)
 }
 
 //return standard odata type for namespace along with the specified entity
-inline std::string odataType(const std::string_view& schema, const std::string_view& entity)
+inline std::string odataType(const std::string& schema, const std::string_view& entity)
 {
     std::string schemaVersion, odataType;
     schemaVersion = getSchemaVersion(schema);
@@ -972,7 +975,7 @@ inline std::string odataType(const std::string_view& schema, const std::string_v
 }
 
 //return standard odata type for namespace along with the specified entities
-inline std::string odataType(const std::string_view& schema, const std::string_view& entity, const std::string_view& entity2)
+inline std::string odataType(const std::string& schema, const std::string_view& entity, const std::string_view& entity2)
 {
     std::string schemaVersion, odataType;
     schemaVersion = getSchemaVersion(schema);

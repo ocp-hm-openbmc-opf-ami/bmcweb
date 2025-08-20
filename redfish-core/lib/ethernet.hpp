@@ -3084,6 +3084,10 @@ inline void handleEthernetInterfaceInstanceGet(
             {
                 // TODO(Pawel)consider distinguish between non
                 // existing object, and other errors
+		if(ifaceId == "hostusb0")
+                {
+                   return;
+                }
                 messages::resourceNotFound(asyncResp->res, "EthernetInterface",
                                            ifaceId);
                 return;
@@ -3406,6 +3410,12 @@ inline void requestEthernetInterfacesRoutes(App& app)
             std::optional<std::string> fqdn;
             std::optional<std::string> macAddress;
             std::optional<std::string> ipv6DefaultGateway;
+            std::optional<std::string> id;
+            std::optional<std::string> name;
+            std::optional<nlohmann::json> linkStatus;
+            std::optional<std::vector<nlohmann::json::object_t>> ipv4Addresses;
+            std::optional<std::vector<nlohmann::json::object_t>> ipv6Addresses;
+            std::optional<nlohmann::json> status;
             std::optional<std::vector<
                 std::variant<nlohmann::json::object_t, std::nullptr_t>>>
                 ipv4StaticAddresses;
@@ -3436,6 +3446,12 @@ inline void requestEthernetInterfacesRoutes(App& app)
                 "HostName", hostname, //
                 "IPv4StaticAddresses", ipv4StaticAddresses, //
                 "IPv6DefaultGateway", ipv6DefaultGateway, //
+                "Id", id,
+                "Name", name,
+                "LinkStatus", linkStatus,
+                "IPv4Addresses", ipv4Addresses,
+                "IPv6Addresses", ipv6Addresses,
+                "Status", status,
                 "IPv6StaticAddresses", ipv6StaticAddresses, //
                 "IPv6StaticDefaultGateways", ipv6StaticDefaultGateways, //
                 "InterfaceEnabled", interfaceEnabled, //
@@ -3459,6 +3475,12 @@ inline void requestEthernetInterfacesRoutes(App& app)
                  fqdn = std::move(fqdn), macAddress = std::move(macAddress),
                  ipv4StaticAddresses = std::move(ipv4StaticAddresses),
                  ipv6DefaultGateway = std::move(ipv6DefaultGateway),
+                 id = std::move(id),
+                 name = std::move(name),
+                 linkStatus = std::move(linkStatus),
+                 ipv4Addresses = std::move(ipv4Addresses),
+                 ipv6Addresses = std::move(ipv6Addresses),
+                 status = std::move(status),
                  ipv6StaticAddresses = std::move(ipv6StaticAddresses),
                  ipv6StaticDefaultGateway =
                      std::move(ipv6StaticDefaultGateways),
@@ -3876,6 +3898,36 @@ inline void requestEthernetInterfacesRoutes(App& app)
                         handleIPv6DefaultGateway(ifaceId,
                                                  *ipv6StaticDefaultGateway,
                                                  ipv6GatewayData, asyncResp, ipv6Data);
+                    }
+
+                    if (id)
+                    {
+                        messages::propertyNotWritable(asyncResp->res,"Id");
+                    }
+
+                    if (name)
+                    {
+                        messages::propertyNotWritable(asyncResp->res,"Name");
+                    }
+
+                    if(linkStatus)
+                    {
+                        messages::propertyNotWritable(asyncResp->res,"LinkStatus");
+                    }
+
+                    if (ipv4Addresses)
+                    {
+                        messages::propertyNotWritable(asyncResp->res, "IPv4Addresses");
+                    }
+
+                    if (ipv6Addresses)
+                    {
+                        messages::propertyNotWritable(asyncResp->res, "IPv6Addresses");
+                    }
+
+                    if (status)
+                    {
+                        messages::propertyNotWritable(asyncResp->res,"Status");
                     }
 
                     if (mtuSize)

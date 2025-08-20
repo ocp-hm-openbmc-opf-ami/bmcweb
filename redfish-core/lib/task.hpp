@@ -304,9 +304,9 @@ struct TaskData : std::enable_shared_from_this<TaskData>
         // "Cancelled" = taskCancelled
         nlohmann::json event;
         std::string indexStr = std::to_string(index);
-        if (state == "Starting")
+        if (state == "New")
         {
-            event = redfish::messages::taskResumed(indexStr);
+            event = redfish::messages::taskStarted(indexStr);
         }
         else if (state == "Running")
         {

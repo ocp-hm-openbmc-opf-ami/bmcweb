@@ -131,7 +131,7 @@ inline std::string getCertificateFromReqBody(
     }
 
     std::string certificate;
-    std::optional<std::string> certificateType = "PEM";
+    std::string certificateType;
 
     if (!json_util::readJsonPatch( //
             req, asyncResp->res, //
@@ -143,9 +143,9 @@ inline std::string getCertificateFromReqBody(
         return {};
     }
 
-    if (*certificateType != "PEM")
+    if (certificateType != "PEM")
     {
-        messages::propertyValueNotInList(asyncResp->res, *certificateType,
+        messages::propertyValueNotInList(asyncResp->res, certificateType,
                                          "CertificateType");
         return {};
     }
@@ -153,7 +153,7 @@ inline std::string getCertificateFromReqBody(
     if (detectCertificateType(certificate) != certificateType)
     {
         // If the CertificateString does not match the certificateType
-        messages::invalidTypeForCertificateString(asyncResp->res, *certificateType);
+        messages::invalidTypeForCertificateString(asyncResp->res, certificateType);
         BMCWEB_LOG_ERROR("invalidTypeForCertificateString");
         return {};
     }
@@ -377,7 +377,7 @@ inline void getCertificateProperties(
 {
     BMCWEB_LOG_DEBUG("getCertificateProperties Path={} certId={} certURl={}",
                      objectPath, certId, certURL);
-                     
+
     sdbusplus::asio::getAllProperties(
         *crow::connections::systemBus, service, objectPath, certs::certPropIntf,
         [asyncResp, service, certURL, certId,
@@ -419,7 +419,7 @@ inline void getCertificateProperties(
                 messages::internalError(asyncResp->res);
                 return;
             }
-        
+
             asyncResp->res.jsonValue["@odata.id"] = certURL;
             asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("Certificate");
             asyncResp->res.jsonValue["Id"] = certId;
@@ -427,16 +427,12 @@ inline void getCertificateProperties(
             asyncResp->res.jsonValue["Description"] = name;
             asyncResp->res.jsonValue["CertificateString"] = "";
             asyncResp->res.jsonValue["CertificateType"] = "";
-            asyncResp->res.jsonValue["KeyUsage"] = nlohmann::json::array();   
-            
+            asyncResp->res.jsonValue["KeyUsage"] = nlohmann::json::array();
+
             #if BMCWEB_AMI_REP_MACRO
-                constexpr const char* securebootServiceName =
-                    "xyz.openbmc_project.OOBInventoryConfig";
-                constexpr const char* asdServiceName =
-                    "xyz.openbmc_project.Certs.Manager.Server.Asd";
-                // ASD certificate not support rekey/renew action
-                if (service != securebootServiceName &&
-                        service != asdServiceName)
+                // Only HTTPS and LDAP certificates support rekey/renew action
+                if (service == certs::httpsServiceName ||
+                        service == certs::ldapServiceName)
                 {
                     BMCWEB_LOG_DEBUG("Certificate Actions URI, service {}",
                                      service);
@@ -451,7 +447,7 @@ inline void getCertificateProperties(
                     actions["#Certificate.Rekey"]["@Redfish.ActionInfo"] =
                         url + "/Certificate.RekeyActionInfo";
                 }
-            #endif         
+            #endif
 
             if (certificateString != nullptr)
             {

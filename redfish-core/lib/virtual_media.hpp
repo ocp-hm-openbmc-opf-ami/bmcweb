@@ -268,115 +268,6 @@ inline void  findAndParsePostObject(
     return;
 }
 
-
-inline void findAndParsePatchObject(
-    const std::string& service, const std::string& resName,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const crow::Request& req, CheckItemHandler&& handler)
-{
-    sdbusplus::message::object_path path("/xyz/openbmc_project/VirtualMedia");
-    dbus::utility::getManagedObjects(
-        service, path,
-        [service, resName, asyncResp, req, handler = std::move(handler)](
-            const boost::system::error_code& ec,
-            const dbus::utility::ManagedObjectType& subtree) {
-            if (ec)
-            {
-                BMCWEB_LOG_DEBUG("DBUS response error");
-
-                return;
-            }
-
-            for (const auto& item : subtree)
-            {
-                VmMode mode = parseObjectPathAndGetMode(item.first, resName);
-                if (mode != VmMode::Invalid)
-                {
-                    if (resName == "Slot_0" || resName == "Slot_1")
-                    {
-                        asyncResp->res.result(
-                            boost::beast::http::status::method_not_allowed);
-                        messages::operationNotAllowed(asyncResp->res);
-                        return;
-                    }
-                    std::optional<nlohmann::json> oem;
-                    if (!json_util::readJsonPatch(req, asyncResp->res, "Oem",
-                                                  oem))
-                    {
-                        return;
-                    }
-                    if (oem)
-                    {
-                        std::optional<nlohmann::json> openBMC;
-
-                        if (!json_util::readJson(*oem, asyncResp->res,
-                                                 "OpenBMC", openBMC))
-                        {
-                            return;
-                        }
-                        if (openBMC)
-                        {
-                            std::optional<uint32_t> retryCount;
-                            std::optional<uint32_t> retryInterval;
-                            bool retryFlag = true;
-
-                            if (!json_util::readJson(
-                                    *openBMC, asyncResp->res, "RetryCount",
-                                    retryCount, "RetryInterval", retryInterval))
-                            {
-                                return;
-                            }
-                            if (retryCount < 3 || retryCount > 6)
-                            {
-                                retryFlag = false;
-                                messages::propertyValueOutOfRange(
-                                    asyncResp->res, std::to_string(*retryCount),
-                                    "RetryCount");
-                            }
-                            if (retryInterval < 15 || retryInterval > 30)
-                            {
-                                retryFlag = false;
-                                messages::propertyValueOutOfRange(
-                                    asyncResp->res,
-                                    std::to_string(*retryInterval),
-                                    "RetryInterval");
-                            }
-                            if (retryFlag)
-                            {
-                                crow::connections::systemBus->async_method_call(
-                                    [asyncResp](
-                                        const boost::system::error_code ec,
-                                        std::string& ret) {
-                                        if (ec)
-                                        {
-                                            BMCWEB_LOG_ERROR(
-                                                "Error patching {}", ec);
-                                            messages::internalError(
-                                                asyncResp->res);
-                                            return;
-                                        }
-                                        if (ret == "Success")
-                                        {
-                                            messages::success(asyncResp->res);
-                                        }
-                                    },
-                                    rmediaServiceName, rmediaObjPath,
-                                    rmediaInterfaceName, "SetAll", *retryCount,
-                                    *retryInterval);
-                            }
-                        }
-                    }
-                }
-                else
-                {
-                    messages::resourceNotFound(asyncResp->res, "VirtualMedia",
-                                               resName);
-                    return;
-                }
-            }
-        });
-    return;
-}
 /**
  * @brief Function parses getManagedObject response, finds item, makes generic
  *        validation and invokes callback handler on this item.
@@ -1565,7 +1456,16 @@ inline void
     {
         return;
     }
-    asyncResp->res.addHeader("Allow", "GET, PATCH");
+
+    if(resName == "Slot_0" || resName == "Slot_1")
+    {
+        asyncResp->res.addHeader("Allow", "GET");   
+    }
+    else
+    {
+        asyncResp->res.addHeader("Allow", "GET, PATCH");
+    }
+ 
     if (req.session->username != "root")
     {
         auto result = find(req.session->userGroups.begin(),
@@ -1652,23 +1552,106 @@ inline void
         return;
     }
 
-   dbus::utility::getDbusObject(
-        "/xyz/openbmc_project/VirtualMedia", {},
-        [asyncResp, name, resName,
-         req](const boost::system::error_code& ec,
-              const dbus::utility::MapperGetObject& getObjectType) {
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR("ObjectMapper::GetObject call failed: {}", ec);
-                messages::internalError(asyncResp->res);
+    sdbusplus::message::object_path path("/xyz/openbmc_project/VirtualMedia");
+    dbus::utility::getManagedObjects(
+            "xyz.openbmc_project.VirtualMedia", path,
+            [asyncResp, resName,
+             &req](const boost::system::error_code& ec,
+                   const dbus::utility::ManagedObjectType& slot) {
+                if (ec)
+                {
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+                const auto slotIt = std::ranges::find_if(
+                    slot,
+                    [resName](
+                        const std::pair<sdbusplus::message::object_path,
+                                        dbus::utility::DBusInterfacesMap>& slotName) {
+                        return resName == slotName.first.filename();
+                    });
+                if (slotIt == slot.end())
+                {
+                    messages::resourceNotFound(asyncResp->res, "ManagerAccount",
+                                               resName);
+                    return;
+                }
+                 if (resName == "Slot_0" || resName == "Slot_1")
+                    {
+                       asyncResp->res.addHeader("Allow", "GET");
+                       asyncResp->res.result(
+                            boost::beast::http::status::method_not_allowed);
+                        messages::operationNotAllowed(asyncResp->res);
+                        return;
+                    }
+                    std::optional<nlohmann::json> oem;
+                    if (!json_util::readJsonPatch(req, asyncResp->res, "Oem",
+                                                  oem))
+                    {
+                        return;
+                    }
+                    if (oem)
+                    {
+                        std::optional<nlohmann::json> openBMC;
 
-                return;
-            }
-            std::string service = getObjectType.begin()->first;
-            BMCWEB_LOG_DEBUG("GetObjectType: {}", service);
-            findAndParsePatchObject(service, resName, asyncResp, req,
-                                    std::bind_front(afterGetVmData, name));
-        });
+                        if (!json_util::readJson(*oem, asyncResp->res,
+                                                 "OpenBMC", openBMC))
+                        {
+                            return;
+                        }
+                        if (openBMC)
+                        {
+                            std::optional<uint32_t> retryCount;
+                            std::optional<uint32_t> retryInterval;
+                            bool retryFlag = true;
+
+                            if (!json_util::readJson(
+                                    *openBMC, asyncResp->res, "RetryCount",
+                                    retryCount, "RetryInterval", retryInterval))
+                            {
+                                return;
+                            }
+                            if (retryCount < 3 || retryCount > 6)
+                            {
+                                retryFlag = false;
+                                messages::propertyValueOutOfRange(
+                                    asyncResp->res, std::to_string(*retryCount),
+                                    "RetryCount");
+                            }
+                            if (retryInterval < 15 || retryInterval > 30)
+                            {
+                                retryFlag = false;
+                                messages::propertyValueOutOfRange(
+                                    asyncResp->res,
+                                    std::to_string(*retryInterval),
+                                    "RetryInterval");
+                            }
+                            if (retryFlag)
+                            {
+                                crow::connections::systemBus->async_method_call(
+                                    [asyncResp](
+                                        const boost::system::error_code ec,
+                                        std::string& ret) {
+                                        if (ec)
+                                        {
+                                            BMCWEB_LOG_ERROR(
+                                                "Error patching {}", ec);
+                                            messages::internalError(
+                                                asyncResp->res);
+                                            return;
+                                        }
+                                        if (ret == "Success")
+                                        {
+                                            messages::success(asyncResp->res);
+                                        }
+                                    },
+                                    rmediaServiceName, rmediaObjPath,
+                                    rmediaInterfaceName, "SetAll", *retryCount,
+                                    *retryInterval);
+                            }
+                        }
+                    }
+                });
 }
 
 inline void insertMediaCheckMode(
