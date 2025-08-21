@@ -3997,7 +3997,7 @@ inline void fetchSnmpUserData(const std::string& accountName, const std::shared_
                 std::string mode = getAccessModeFromMode(*permission);
                 if (mode.empty())
                 {
-                    messages::propertyValueNotInList(asyncResp->res, *permission, "AccessMode");
+                    messages::propertyValueNotInList(asyncResp->res, *permission, "Access");
                     return;
                 }
                 asyncResp->res.jsonValue["Oem"]["Ami"]["SNMP"]["Access"] = mode;
@@ -4414,7 +4414,7 @@ inline void handleSNMPOEMProperties(const std::shared_ptr<bmcweb::AsyncResp>& as
         std::string mode = getModeFromAccessMode(*accessMode);
         if (mode.empty()) 
         {
-            messages::propertyValueNotInList(asyncResp->res, *accessMode, "AccessMode");  
+            messages::propertyValueNotInList(asyncResp->res, *accessMode, "Access");  
             return;          
         }
     }
