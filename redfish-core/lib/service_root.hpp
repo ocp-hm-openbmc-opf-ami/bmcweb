@@ -12,15 +12,16 @@
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utils/systemd_utils.hpp"
-
+#include "utils/json_utils.hpp"
 #include <nlohmann/json.hpp>
+#include <utils/json_utils.hpp>
 
 namespace redfish
 {
 
-inline void
-    handleServiceRootHead(App& app, const crow::Request& req,
-                          const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void handleServiceRootHead(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -61,7 +62,9 @@ inline void handleServiceRootGetImpl(
     asyncResp->res.jsonValue["Managers"]["@odata.id"] = "/redfish/v1/Managers";
     asyncResp->res.jsonValue["SessionService"]["@odata.id"] =
         "/redfish/v1/SessionService";
+//#if (!BMCWEB_AMI_PSM_MACRO)
     asyncResp->res.jsonValue["Systems"]["@odata.id"] = "/redfish/v1/Systems";
+//#endif
     asyncResp->res.jsonValue["Registries"]["@odata.id"] =
         "/redfish/v1/Registries";
     asyncResp->res.jsonValue["UpdateService"]["@odata.id"] =
@@ -74,8 +77,10 @@ inline void handleServiceRootGetImpl(
         "/redfish/v1/EventService";
     asyncResp->res.jsonValue["TelemetryService"]["@odata.id"] =
         "/redfish/v1/TelemetryService";
+#if (!BMCWEB_AMI_PSM_MACRO)
     asyncResp->res.jsonValue["Cables"]["@odata.id"] = "/redfish/v1/Cables";
-
+#endif
+#if (!BMCWEB_AMI_RM_MACRO) && (!BMCWEB_AMI_PSM_MACRO)
     asyncResp->res.jsonValue["Oem"]["OpenBmc"]["Pef"]["@odata.id"] =
         "/redfish/v1/#Oem/OpenBmc";
     asyncResp->res.jsonValue["Oem"]["OpenBmc"]["Pef"]["@odata.type"] = json_util::odataType("OemPefServiceRoot", "OpenBmc");
@@ -111,10 +116,12 @@ inline void handleServiceRootGetImpl(
     asyncResp->res.jsonValue["Oem"]["Ami"]["AmdReDebug"]["@odata.id"] =
         "/redfish/v1/Oem/Ami/AmdReDebug";
 #endif
-
+#endif
+#if (!BMCWEB_AMI_PSM_MACRO)
     asyncResp->res.jsonValue["Links"]["ManagerProvidingService"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Managers/{}",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
+#endif                        
 #if BMCWEB_SPDM_URIS_MACRO
     asyncResp->res.jsonValue["ComponentIntegrity"]["@odata.id"] =
 	    "/redfish/v1/ComponentIntegrity";
@@ -127,7 +134,7 @@ inline void handleServiceRootGetImpl(
     protocolFeatures["ExpandQuery"]["ExpandAll"] =
         BMCWEB_INSECURE_ENABLE_REDFISH_QUERY;
     // This is the maximum level defined in ServiceRoot.v1_13_0.json
-    if constexpr (BMCWEB_INSECURE_ENABLE_REDFISH_QUERY)
+    if constexpr (BMCWEB_INSECURE_ENABLE_REDFISH_QUERY || BMCWEB_AMI_PSM_MACRO)
     {
         protocolFeatures["ExpandQuery"]["MaxLevels"] = 6;
     }
@@ -143,9 +150,9 @@ inline void handleServiceRootGetImpl(
     protocolFeatures["DeepOperations"]["DeepPOST"] = false;
     protocolFeatures["DeepOperations"]["DeepPATCH"] = false;
 }
-inline void
-    handleServiceRootGet(App& app, const crow::Request& req,
-                         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void handleServiceRootGet(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {

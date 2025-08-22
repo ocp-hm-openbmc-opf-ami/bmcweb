@@ -242,7 +242,9 @@ inline bool translateUserGroup(const std::vector<std::string>& userGroups,
     }
 
     res.jsonValue["AccountTypes"] = std::move(accountTypes);
+    if(!BMCWEB_AMI_PSM_MACRO){
     res.jsonValue["OEMAccountTypes"] = std::move(oemAccountTypes);
+    }
     return true;
 }
 
@@ -2252,6 +2254,7 @@ inline void handleAccountServiceGet(
     json["Roles"]["@odata.id"] = "/redfish/v1/AccountService/Roles";
     json["AdditionalExternalAccountProviders"]["@odata.id"] =
         "/redfish/v1/AccountService/ExternalAccountProviders";
+    if(!BMCWEB_AMI_PSM_MACRO){
     json["HTTPBasicAuth"] = authMethodsConfig.basic
                                 ? account_service::BasicAuthState::Enabled
                                 : account_service::BasicAuthState::Disabled;
@@ -2260,7 +2263,7 @@ inline void handleAccountServiceGet(
     allowed.emplace_back(account_service::BasicAuthState::Enabled);
     allowed.emplace_back(account_service::BasicAuthState::Disabled);
     json["HTTPBasicAuth@Redfish.AllowableValues"] = std::move(allowed);
-
+    }
     nlohmann::json::object_t clientCertificate;
     clientCertificate["Enabled"] = authMethodsConfig.tls;
     clientCertificate["RespondToUnauthenticatedClients"] =
@@ -2284,8 +2287,9 @@ inline void handleAccountServiceGet(
     certificates["@odata.type"] =
         "#CertificateCollection.CertificateCollection";
     clientCertificate["Certificates"] = std::move(certificates);
+    if(!BMCWEB_AMI_PSM_MACRO){
     json["MultiFactorAuth"]["ClientCertificate"] = std::move(clientCertificate);
-
+    }
     getClientCertificates(
         asyncResp,
         "/MultiFactorAuth/ClientCertificate/Certificates/Members"_json_pointer);
@@ -2365,14 +2369,14 @@ inline void handleAccountServiceGet(
                     *maxLoginAttemptBeforeLockout;
             }
 
-            if (rememberOldPasswordTimes != nullptr)
+            if ((rememberOldPasswordTimes != nullptr) && (!BMCWEB_AMI_PSM_MACRO))
             {
                 asyncResp->res
                     .jsonValue["Oem"]["OpenBMC"]["RememberOldPasswordTimes"] =
                     *rememberOldPasswordTimes;
             }
 
-            if (passwordPolicyComplexity != nullptr)
+            if ((passwordPolicyComplexity != nullptr) && (!BMCWEB_AMI_PSM_MACRO))
             {
                 asyncResp->res
                     .jsonValue["Oem"]["OpenBMC"]["PasswordPolicyComplexity"] =

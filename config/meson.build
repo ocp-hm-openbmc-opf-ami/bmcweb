@@ -64,7 +64,9 @@ feature_options = [
     'sbmr-ext',
     'gpgpu-uris',
     'dot-uris',
-    'cper-uris'
+    'cper-uris',
+    'ami-rm',
+    'ami-psm'
 ]
 
 string_options = [
@@ -136,7 +138,11 @@ foreach option_key : feature_options + string_options + int_options
         ) or option_key.contains(
              'dot-uris',
         ) or option_key.contains(
-             'cper-uris'
+             'cper-uris',
+        ) or option_key.contains(
+             'ami-rm',
+        ) or option_key.contains(
+             'ami-psm',
         )
             feature_options_string += '#define ' + option_macro_config + '  ' + opt.allowed().to_string() + '\n'
         endif

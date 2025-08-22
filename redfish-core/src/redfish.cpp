@@ -76,6 +76,14 @@
 #include "ext/src/rep.hpp"
 #endif
 
+#if BMCWEB_AMI_RM_MACRO
+#include "ext/src/rm.hpp"
+#endif
+
+#if BMCWEB_AMI_PSM_MACRO
+#include "ext/src/psm.hpp"
+#endif
+
 #if BMCWEB_AMI_RAIDBRCM_MACRO
 #include "ext/lib/brcm/storage_brcm.hpp"
 #endif
@@ -390,6 +398,12 @@ RedfishService::RedfishService(App& app)
 #endif
 #if BMCWEB_AMI_NIC_MACRO
     registerNicRoutes(app);
+#endif
+#if BMCWEB_AMI_RM_MACRO
+    redfish::rm::registerRmRoutes(app);
+#endif
+#if BMCWEB_AMI_PSM_MACRO
+    redfish::psm::registerPsmRoutes(app);
 #endif
 
 #if BMCWEB_GPGPU_URIS_MACRO

@@ -415,6 +415,14 @@ if get_option('cper-uris').enabled()
     srcfiles_bmcweb += 'ext/cper/src/cper.cpp'
 endif
 
+if get_option('ami-rm').enabled()
+    srcfiles_bmcweb += 'ext/src/rm.cpp'
+endif
+
+if get_option('ami-psm').enabled()
+    srcfiles_bmcweb += 'ext/src/psm.cpp'
+endif
+
 bmcweblib = static_library(
     'bmcweblib',
     srcfiles_bmcweb,

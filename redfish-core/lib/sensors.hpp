@@ -461,7 +461,7 @@ void getChassis(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             // Get the list of all sensors for this Chassis element
             std::string sensorPath = *chassisPath + "/all_sensors";
             dbus::utility::getAssociationEndPoints(
-		sensorPath, [asyncResp, chassisSubNode, sensorTypes,
+                sensorPath, [asyncResp, chassisSubNode, sensorTypes,
                              callback = std::forward<Callback>(callback)](
                                 const boost::system::error_code& ec2,
                                 const dbus::utility::MapperEndPoints&
@@ -478,7 +478,7 @@ void getChassis(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         culledSensorList =
                             std::make_shared<std::set<std::string>>();
                     reduceSensorList(asyncResp->res, chassisSubNode,
-				     sensorTypes, &nodeSensorList,
+                                     sensorTypes, &nodeSensorList,
                                      culledSensorList);
                     BMCWEB_LOG_DEBUG("Finishing with {}",
                                      culledSensorList->size());
@@ -813,8 +813,8 @@ inline void populateFanRedundancy(
         });
 }
 
-inline void
-    sortJSONResponse(const std::shared_ptr<SensorsAsyncResp>& sensorsAsyncResp)
+inline void sortJSONResponse(
+    const std::shared_ptr<SensorsAsyncResp>& sensorsAsyncResp)
 {
     nlohmann::json& response = sensorsAsyncResp->asyncResp->res.jsonValue;
     std::array<std::string, 2> sensorHeaders{"Temperatures", "Fans"};
@@ -1917,10 +1917,10 @@ void getPowerSupplyAttributes(
  * @param callback Callback to invoke when inventory items have been obtained.
  */
 template <typename Callback>
-inline void
-    getInventoryItems(const std::shared_ptr<SensorsAsyncResp>& sensorsAsyncResp,
-                      const std::shared_ptr<std::set<std::string>>& sensorNames,
-                      Callback&& callback)
+inline void getInventoryItems(
+    const std::shared_ptr<SensorsAsyncResp>& sensorsAsyncResp,
+    const std::shared_ptr<std::set<std::string>>& sensorNames,
+    Callback&& callback)
 {
     BMCWEB_LOG_DEBUG("getInventoryItems enter");
     auto getInventoryItemAssociationsCb =
@@ -2026,14 +2026,14 @@ inline nlohmann::json& getPowerSupply(nlohmann::json& powerSupplyArray,
     powerSupplyArray.push_back({});
     nlohmann::json railValues, inputRanges, efficiencyRatings;
     nlohmann::json& powerSupply = powerSupplyArray.back();
-   
-    #if (BMCWEB_CHALUPA_AMD_MACRO)
+
+#if (BMCWEB_CHALUPA_AMD_MACRO)
     {
-       boost::urls::url url =
-           boost::urls::format("/redfish/v1/Chassis/{}/Power", chassisId);
-      url.set_fragment(("/PowerSupplies"_json_pointer).to_string());
+        boost::urls::url url =
+            boost::urls::format("/redfish/v1/Chassis/{}/Power", chassisId);
+        url.set_fragment(("/PowerSupplies"_json_pointer).to_string());
     }
-    #endif
+#endif
     powerSupply["@odata.id"] =
         "/redfish/v1/Chassis/" + chassisId + "/PowerSubsystem/PowerSupplies/" +
         inventoryItem.name;
@@ -2368,9 +2368,9 @@ inline void getSensorData(
     BMCWEB_LOG_DEBUG("getSensorData exit");
 }
 
-inline void
-    processSensorList(const std::shared_ptr<SensorsAsyncResp>& sensorsAsyncResp,
-                      const std::shared_ptr<std::set<std::string>>& sensorNames)
+inline void processSensorList(
+    const std::shared_ptr<SensorsAsyncResp>& sensorsAsyncResp,
+    const std::shared_ptr<std::set<std::string>>& sensorNames)
 {
     auto getConnectionCb = [sensorsAsyncResp, sensorNames](
                                const std::set<std::string>& connections) {
@@ -2402,8 +2402,8 @@ inline void
  *        chassis.
  * @param SensorsAsyncResp   Pointer to object holding response data
  */
-inline void
-    getChassisData(const std::shared_ptr<SensorsAsyncResp>& sensorsAsyncResp)
+inline void getChassisData(
+    const std::shared_ptr<SensorsAsyncResp>& sensorsAsyncResp)
 {
     BMCWEB_LOG_DEBUG("getChassisData enter");
     auto getChassisCb =
@@ -2491,10 +2491,10 @@ inline void setSensorsOverride(
         }
         for (auto& item : collectionItems.second)
         {
-            if (!json_util::readJsonObject( //
+            if (!json_util::readJsonObject(                //
                     item, sensorAsyncResp->asyncResp->res, //
-                    "MemberId", memberId, //
-                    propertyValueName, value //
+                    "MemberId", memberId,                  //
+                    propertyValueName, value               //
                     ))
             {
                 return;
@@ -2694,11 +2694,11 @@ inline void handleSensorCollectionGet(
             "SensorCollection doGet exit via efficient expand handler");
         return;
     }
-
+#if (!BMCWEB_AMI_PSM_MACRO)
     asyncResp->res.jsonValue["Oem"]["Ami"]["Threshold"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Chassis/{}/Sensors/Oem/Threshold",
                             chassisId);
-
+#endif
     // We get all sensors as hyperlinkes in the chassis (this
     // implies we reply on the default query parameters handler)
     getChassis(asyncResp, chassisId, sensors::sensorsNodeStr, dbus::sensorPaths,
@@ -2787,10 +2787,10 @@ inline void handleSensorThreshCollectionGet(
         interfaces);
 }
 
-inline void
-    getSensorFromDbus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                      const std::string& sensorPath,
-                      const ::dbus::utility::MapperGetObject& mapperResponse)
+inline void getSensorFromDbus(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& sensorPath,
+    const ::dbus::utility::MapperGetObject& mapperResponse)
 {
     if (mapperResponse.size() != 1)
     {
@@ -3166,14 +3166,14 @@ inline void handleSensorThreshPatch(
     std::optional<double> lowerFatal;
     std::string threshold;
 
-    if (!json_util::readJsonPatch( //
-            req, asyncResp->res, //
-            "Thresholds/LowerCaution", lowerCaution, //
+    if (!json_util::readJsonPatch(                     //
+            req, asyncResp->res,                       //
+            "Thresholds/LowerCaution", lowerCaution,   //
             "Thresholds/LowerCritical", lowerCritical, //
-            "Thresholds/UpperCaution", upperCaution, //
+            "Thresholds/UpperCaution", upperCaution,   //
             "Thresholds/UpperCritical", upperCritical, //
-            "Thresholds/UpperFatal", upperFatal, //
-            "Thresholds/LowerFatal", lowerFatal //
+            "Thresholds/UpperFatal", upperFatal,       //
+            "Thresholds/LowerFatal", lowerFatal        //
             ))
     {
         return;
@@ -3314,8 +3314,8 @@ inline bool valideSensorWithConfFile(const std::string& sensorId)
     return false;
 }
 
-void getSensorReading(const std::string& sensorPath,
-                      std::function<void(const std::string&)> callback)
+inline void getSensorReading(const std::string& sensorPath,
+                             std::function<void(const std::string&)> callback)
 {
     constexpr std::array<std::string_view, 3> interfaces = {
         "xyz.openbmc_project.Sensor.Value", "xyz.openbmc_project.Sensor.State",
@@ -3695,8 +3695,8 @@ inline void handleSensorHistorypatch(
             std::optional<uint64_t> interval;
             std::optional<uint64_t> timeFrame;
             if (!json_util::readJsonPatch( //
-                    req, asyncResp->res, //
-                    "Interval", interval, //
+                    req, asyncResp->res,   //
+                    "Interval", interval,  //
                     "TimeFrame", timeFrame //
                     ))
             {

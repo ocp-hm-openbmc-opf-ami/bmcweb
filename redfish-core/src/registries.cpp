@@ -56,11 +56,25 @@ const Message* getMessage(std::string_view messageID)
 const Message* formatMessage(std::string messageID)
 {
     // Find the right registry and check it for the MessageKey
-    const std::string& registryName = "OpenBMC";
-    std::string messageKey = messageID;
-    messageKey.erase(std::remove(messageKey.begin(), messageKey.end(), ' '),
+    size_t pos = messageID.find_last_of('.'); // Find the last comma
+    std::string lastValue = (pos != std::string::npos) ? messageID.substr(pos + 1) : messageID; // Extract last value
+	size_t pos1 = messageID.find(".");	
+	std::string registryName;
+	if (pos != std::string::npos) {
+		registryName = (pos1 != std::string::npos) ? messageID.substr(0, pos1) : messageID;
+        std::string messageKey = lastValue;
+		messageKey.erase(std::remove(messageKey.begin(), messageKey.end(), ' '),
                      messageKey.end());
-    return getMessageFromRegistry(messageKey, getRegistryFromPrefix(registryName));
+		return getMessageFromRegistry(messageKey, getRegistryFromPrefix(registryName));
+	}
+	else
+	{
+        registryName = "OpenBMC";
+        std::string messageKey = messageID;
+        messageKey.erase(std::remove(messageKey.begin(), messageKey.end(), ' '),
+                     messageKey.end());
+        return getMessageFromRegistry(messageKey, getRegistryFromPrefix(registryName));
+    }
 }
 
 } // namespace redfish::registries

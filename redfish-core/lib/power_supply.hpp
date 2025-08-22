@@ -7,6 +7,7 @@
 #include "generated/enums/resource.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
+
 #include "utils/chassis_utils.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/json_utils.hpp"
@@ -51,10 +52,10 @@ inline void updatePowerSupplyList(
     asyncResp->res.jsonValue["Members@odata.count"] = powerSupplyList.size();
 }
 
-inline void
-    doPowerSupplyCollection(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                            const std::string& chassisId,
-                            const std::optional<std::string>& validChassisPath)
+inline void doPowerSupplyCollection(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId,
+    const std::optional<std::string>& validChassisPath)
 {
     if (!validChassisPath)
     {
@@ -219,13 +220,12 @@ inline void getValidPowerSupplyPath(
         });
 }
 
-inline void
-    getPowerSupplyState(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                        const std::string& service, const std::string& path)
+inline void getPowerSupplyState(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& service, const std::string& path)
 {
     dbus::utility::getProperty<bool>(
-        service, path,
-        "xyz.openbmc_project.Inventory.Item", "Present",
+        service, path, "xyz.openbmc_project.Inventory.Item", "Present",
         [asyncResp](const boost::system::error_code& ec, const bool value) {
             if (ec)
             {
@@ -246,13 +246,13 @@ inline void
         });
 }
 
-inline void
-    getPowerSupplyHealth(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                         const std::string& service, const std::string& path)
+inline void getPowerSupplyHealth(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& service, const std::string& path)
 {
     dbus::utility::getProperty<bool>(
-        service, path,
-        "xyz.openbmc_project.State.Decorator.OperationalStatus", "Functional",
+        service, path, "xyz.openbmc_project.State.Decorator.OperationalStatus",
+        "Functional",
         [asyncResp](const boost::system::error_code& ec, const bool value) {
             if (ec)
             {
@@ -273,13 +273,12 @@ inline void
         });
 }
 
-inline void
-    getPowerSupplyAsset(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                        const std::string& service, const std::string& path)
+inline void getPowerSupplyAsset(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& service, const std::string& path)
 {
     dbus::utility::getAllProperties(
-        service, path,
-        "xyz.openbmc_project.Inventory.Decorator.Asset",
+        service, path, "xyz.openbmc_project.Inventory.Decorator.Asset",
         [asyncResp](const boost::system::error_code& ec,
                     const dbus::utility::DBusPropertiesMap& propertiesList) {
             if (ec)
@@ -350,8 +349,7 @@ inline void getPowerSupplyFirmwareVersion(
     const std::string& service, const std::string& path)
 {
     dbus::utility::getProperty<std::string>(
-        service, path,
-        "xyz.openbmc_project.Software.Version", "Version",
+        service, path, "xyz.openbmc_project.Software.Version", "Version",
         [asyncResp](const boost::system::error_code& ec,
                     const std::string& value) {
             if (ec)
@@ -369,13 +367,13 @@ inline void getPowerSupplyFirmwareVersion(
         });
 }
 
-inline void
-    getPowerSupplyLocation(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                           const std::string& service, const std::string& path)
+inline void getPowerSupplyLocation(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& service, const std::string& path)
 {
     dbus::utility::getProperty<std::string>(
-        service, path,
-        "xyz.openbmc_project.Inventory.Decorator.LocationCode", "LocationCode",
+        service, path, "xyz.openbmc_project.Inventory.Decorator.LocationCode",
+        "LocationCode",
         [asyncResp](const boost::system::error_code& ec,
                     const std::string& value) {
             if (ec)
@@ -455,15 +453,15 @@ inline void handlePowerSupplyAttributesSubTreeResponse(
     const auto& [path, serviceMap] = *subtree.begin();
     const auto& [service, interfaces] = *serviceMap.begin();
     dbus::utility::getProperty<uint32_t>(
-        service, path,
-        "xyz.openbmc_project.Control.PowerSupplyAttributes", "DeratingFactor",
+        service, path, "xyz.openbmc_project.Control.PowerSupplyAttributes",
+        "DeratingFactor",
         [asyncResp](const boost::system::error_code& ec1, uint32_t value) {
             handleGetEfficiencyResponse(asyncResp, ec1, value);
         });
 }
 
-inline void
-    getEfficiencyPercent(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void getEfficiencyPercent(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     constexpr std::array<std::string_view, 1> efficiencyIntf = {
         "xyz.openbmc_project.Control.PowerSupplyAttributes"};
