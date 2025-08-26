@@ -4,6 +4,7 @@
 #pragma once
 
 #include "app.hpp"
+#include "log_error.hpp"
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
 #include "generated/enums/log_entry.hpp"
@@ -1489,13 +1490,6 @@ inline void requestRoutesJournalEventLogClear(App& app)
             handleSystemsLogServicesEventLogActionsClearPost, std::ref(app)));
 }
 
-enum class LogParseError
-{
-    success,
-    parseFailed,
-    messageIdNotInRegistry,
-};
-
 std::string timeFormat(std::string timestamp)
 {
     std::size_t dot = timestamp.find_first_of('.');
@@ -1508,7 +1502,7 @@ std::string timeFormat(std::string timestamp)
 }
 
 
-static LogParseError
+inline LogParseError
     fillMessageEntry(const std::string& logEntry, std::string& messageID, std::string& msg)
 {
     // The redfish log format is "<MessageId>,<MessageArgs>"
