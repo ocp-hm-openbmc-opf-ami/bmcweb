@@ -1214,11 +1214,8 @@ inline void handleSNMPUserPatch(
     const std::shared_ptr<bmcweb::AsyncResp> asyncResp, std::string snmpObject,
     std::string propertyName, std::string propertyValue)
 {
-
-    const boost::urls::url objPath = boost::urls::format("{}", snmpObject);
-
     sdbusplus::asio::setProperty(
-        *crow::connections::systemBus, "xyz.openbmc_project.Snmp.Conf", objPath.data(),
+        *crow::connections::systemBus, "xyz.openbmc_project.Snmp.Conf", snmpObject,
         "xyz.openbmc_project.Snmp.UserManager", propertyName, propertyValue,
         [asyncResp](const boost::system::error_code& ec) {
             if (ec)
@@ -3041,47 +3038,46 @@ inline void handleAccountSnmpPatch(const std::shared_ptr<bmcweb::AsyncResp>& asy
                         setSNMPEnableDisable(asyncResp, *hasSNMP, username);
                         return;
                     }
-                }
+                }                
+                
+                // If hasSNMP is true and currentSNMPAccessEnableStatus is true, skip setSNMPEnableDisable
+                bool currentSNMPAccessEnableStatus = false;
+                getSNMPAccessStatus(asyncResp, username, [&currentSNMPAccessEnableStatus](bool status) {
+                    std::cout << "SNMP access is " << (status ? "enabled" : "disabled") << std::endl;
+                    currentSNMPAccessEnableStatus = status;
+                });
 
-                if (hasSNMP && *hasSNMP)
+                if (hasSNMP)
                 {
-                    // If hasSNMP is true and currentSNMPAccessEnableStatus is true, skip setSNMPEnableDisable
-                    bool currentSNMPAccessEnableStatus = false;
-                    getSNMPAccessStatus(asyncResp, username, [&currentSNMPAccessEnableStatus](bool status) {
-                        std::cout << "SNMP access is " << (status ? "enabled" : "disabled") << std::endl;
-                        currentSNMPAccessEnableStatus = status;
-                    });
-
-                    if (hasSNMP && *hasSNMP && currentSNMPAccessEnableStatus == true)
+                    if (*hasSNMP && currentSNMPAccessEnableStatus == true)
                     {
                         BMCWEB_LOG_INFO("SNMP enablement conflict for user {}", username);
-
                     }
                     else
                     {
                         // If SNMPAccessEnableStatus is false, update the SNMP access
                         setSNMPEnableDisable(asyncResp, *hasSNMP, username);
                     }
-
-                    // Handle SNMP user patch for Algorithm, Encryption, and Access Mode
-                    if (algorithm && *algorithm != "default_algorithm")
-                    {
-                        handleSNMPUserPatch(asyncResp, objPath, "Algorithm", *algorithm);
-                    }
-
-                    if (encryption && *encryption != "default_encryption")
-                    {
-                        handleSNMPUserPatch(asyncResp, objPath, "Encryption", *encryption);
-                    }
-
-                    if (accessMode && *accessMode != "read-write")
-                    {
-                        std::string mode = getModeFromAccessMode(*accessMode);
-                        handleSNMPUserPatch(asyncResp, objPath, "ReadWritePermission", mode);
-                    }
-
-                    return;
                 }
+
+                // Handle SNMP user patch for Algorithm, Encryption, and Access Mode
+                if (algorithm && *algorithm != "default_algorithm")
+                {
+                    handleSNMPUserPatch(asyncResp, objPath, "Algorithm", *algorithm);
+                }
+
+                if (encryption && *encryption != "default_encryption")
+                {
+                    handleSNMPUserPatch(asyncResp, objPath, "Encryption", *encryption);
+                }
+
+                if (accessMode && *accessMode != "read-write")
+                {
+                    std::string mode = getModeFromAccessMode(*accessMode);
+                    handleSNMPUserPatch(asyncResp, objPath, "ReadWritePermission", mode);
+                }
+
+                return;                
             }
             else
             {
