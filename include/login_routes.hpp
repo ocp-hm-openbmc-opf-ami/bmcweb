@@ -65,6 +65,35 @@ inline std::string getRolePrivilege(std::string user)
     return "";
 }
 
+inline void eventLogSupport(std::string msg,
+                            std::map<std::string, std::string> additionalData)
+{
+    const std::string eventLogService = "xyz.openbmc_project.Logging";
+    const std::string eventLogObjPath = "/xyz/openbmc_project/logging";
+    const std::string eventLogIface = "xyz.openbmc_project.Logging.Create";
+    const std::string eventlogServerity =
+        "xyz.openbmc_project.Logging.Entry.Level.Informational";
+    try
+    {
+        auto bus = sdbusplus::bus::new_default_system();
+        sdbusplus::message::message m = bus.new_method_call(
+            eventLogService.c_str(), eventLogObjPath.c_str(),
+            eventLogIface.c_str(), "Create");
+        m.append(msg, eventlogServerity.c_str(), additionalData);
+        bus.call(m);
+    }
+    catch (const sdbusplus::exception::SdBusError& e)
+    {
+        std::cerr << "LoginLogoutAuditEntry: D-Bus error: " << e.what()
+                  << std::endl;
+    }
+    catch (const std::exception& e)
+    {
+        std::cerr << "LoginLogoutAuditEntry: Error in Event Addition "
+                  << e.what() << std::endl;
+    }
+}
+
 inline void handleLogin(const crow::Request& req,
                         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
@@ -72,6 +101,7 @@ inline void handleLogin(const crow::Request& req,
     std::string_view contentType = req.getHeaderValue("content-type");
     std::string_view username;
     std::string_view password;
+    std::map<std::string, std::string> additionalData;
 
     // This object needs to be declared at this scope so the strings
     // within it are not destroyed before we can use them
@@ -218,6 +248,8 @@ inline void handleLogin(const crow::Request& req,
                     .generateUserSession(username, req.ipAddress, std::nullopt,
                                          persistent_data::SessionType::Session,
                                          isConfigureSelfOnly, "WebUI");
+            additionalData = {
+                {std::string(username), req.ipAddress.to_string()}};
 
             if (session && session->userRole.empty())
             {
@@ -368,6 +400,7 @@ inline void handleLogin(const crow::Request& req,
             asyncResp->res.jsonValue["TwoFacEnableStatus"] = "N/A";
 #endif
 #endif
+        eventLogSupport("OpenBMC.0.1.HTTPSLOGIN", additionalData);
         }
     }
     else
@@ -385,6 +418,8 @@ inline void handleLogout(const crow::Request& req,
 
     if (session != nullptr)
     {
+        std::map<std::string, std::string> additionalData = {
+            {session->username, req.ipAddress.to_string()}};
         asyncResp->res.jsonValue["data"] =
             "User '" + session->username + "' logged out";
         asyncResp->res.jsonValue["message"] = "200 OK";
@@ -423,6 +458,7 @@ inline void handleLogout(const crow::Request& req,
              sessionType,
              1);
         }
+        eventLogSupport("OpenBMC.0.1.HTTPSLOGOUT", additionalData);
     }
 }
 
