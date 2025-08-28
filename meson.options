@@ -122,6 +122,14 @@ option(
     description: 'Enable the AMI RAID BRCM.'
 )
 
+# BMCWEB_AMI_SL8_MACRO
+option(
+    'ami-sl8',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable the AMI RAID SL8.'
+)
+
 # BMCWEB_AMI_NIC_MACRO
 option(
     'ami-nic',

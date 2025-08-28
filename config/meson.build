@@ -65,6 +65,7 @@ feature_options = [
     'gpgpu-uris',
     'dot-uris',
     'cper-uris',
+    'ami-sl8',
     'ami-rm',
     'ami-psm'
 ]
@@ -139,6 +140,8 @@ foreach option_key : feature_options + string_options + int_options
              'dot-uris',
         ) or option_key.contains(
              'cper-uris',
+        ) or option_key.contains(
+             'ami-sl8',
         ) or option_key.contains(
              'ami-rm',
         ) or option_key.contains(

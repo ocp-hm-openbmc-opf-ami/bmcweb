@@ -92,6 +92,10 @@
 #include "ext/lib/mscc/storage_mscc.hpp"
 #endif
 
+#if BMCWEB_AMI_SL8_MACRO
+#include "ext/lib/brcm/sl8_brcm.hpp"
+#endif
+
 #if BMCWEB_AMI_NVME_MACRO
 #include "ext/lib/nvme/storage_nvme.hpp"
 #endif
@@ -109,11 +113,11 @@
 #endif
 
 #if (BMCWEB_AMI_RAIDBRCM_MACRO) || (BMCWEB_AMI_RAIDMSCC_MACRO) ||              \
-    (BMCWEB_AMI_NVME_MACRO)
+    (BMCWEB_AMI_NVME_MACRO) || (BMCWEB_AMI_SL8_MACRO)
 #include "ext/include/storage_ext.hpp"
 #endif
 
-#if (BMCWEB_AMI_RAIDMSCC_MACRO) || (BMCWEB_AMI_RAIDBRCM_MACRO)
+#if (BMCWEB_AMI_RAIDMSCC_MACRO) || (BMCWEB_AMI_RAIDBRCM_MACRO) || (BMCWEB_AMI_SL8_MACRO)
 #include "ext/include/log_services_ext.hpp"
 #endif
 
@@ -411,7 +415,7 @@ RedfishService::RedfishService(App& app)
 #endif
 
 #if (BMCWEB_AMI_NVME_MACRO) || (BMCWEB_AMI_RAIDMSCC_MACRO) ||                  \
-    (BMCWEB_AMI_RAIDBRCM_MACRO)
+    (BMCWEB_AMI_RAIDBRCM_MACRO) || (BMCWEB_AMI_SL8_MACRO)
     {
         redfish::ext::core::resource::requestStorageCollectionRoutes(app);
         redfish::ext::core::resource::requestRoutesStorage(app);
@@ -423,7 +427,7 @@ RedfishService::RedfishService(App& app)
     }
 #endif
 
-#if (BMCWEB_AMI_RAIDMSCC_MACRO) || (BMCWEB_AMI_RAIDBRCM_MACRO)
+#if (BMCWEB_AMI_RAIDMSCC_MACRO) || (BMCWEB_AMI_RAIDBRCM_MACRO) || (BMCWEB_AMI_SL8_MACRO)
     requestRoutesRaidLog(app);
 #endif
 
@@ -435,6 +439,9 @@ RedfishService::RedfishService(App& app)
 #endif
 #if BMCWEB_AMI_RAIDBRCM_MACRO
     requestRoutesBRCMStorageDevices(app);
+#endif
+#if BMCWEB_AMI_SL8_MACRO
+    requestRoutesSl8StorageDevices(app);
 #endif
 #if BMCWEB_AMI_PCIESW_MACRO
     requestRoutesPcieSwitchCollection(app);
