@@ -90,6 +90,14 @@ option(
     description: 'Enable the cper Uris.'
 )
 
+#BMCWEB_NVIDIA_RESET_URIS_MACRO
+option(
+    'nvidia-reset-uris',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable Nvidia Managers Reset Action'
+)
+
 # BMCWEB_AMI_NVME_MACRO
 option(
     'ami-nvme',

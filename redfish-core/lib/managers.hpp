@@ -6,6 +6,7 @@
 #include "bmcweb_config.h"
 
 #include "app.hpp"
+#include "managers_header.hpp"
 #include "dbus_utility.hpp"
 #include "generated/enums/action_info.hpp"
 #include "generated/enums/manager.hpp"
@@ -71,8 +72,6 @@ constexpr const char* consoleDbusService =
 constexpr const char* consoleDbusObject =
     "/xyz/openbmc_project/console/default";
 constexpr const char* consoleDbusInterface = "xyz.openbmc_project.Console.UART";
-
-inline bool ishandleManagersInstanceGet = false;
 
 using namespace std;
 using managerPropertyValue = std::variant<uint8_t, uint16_t, std::string,
@@ -168,7 +167,7 @@ const managerPropertyValue getProperty(
     return value;
 }
 
-inline void doBMCGracefulRestart(
+void doBMCGracefulRestart(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     const char* processName = "xyz.openbmc_project.State.BMC";
@@ -2436,6 +2435,14 @@ inline void handleManagersInstanceGet(
     nlohmann::json& oem = asyncResp->res.jsonValue["Oem"];
     nlohmann::json& oemOpenbmc = oem["OpenBmc"];
     nlohmann::json& oemIntel = oem["Intel"];
+#if (BMCWEB_NVIDIA_RESET_URIS_MACRO)
+    nlohmann::json& oemResetToDefaults =
+	    asyncResp->res.jsonValue["Actions"]["Oem"]
+	    ["#NvidiaManager.ResetToDefaults"];
+    oemResetToDefaults["target"] =
+	    boost::urls::format("/redfish/v1/Managers/{}/Actions/Oem/NvidiaManager.ResetToDefaults",
+	     BMCWEB_REDFISH_MANAGER_URI_NAME);
+#endif
     oemIntel["@odata.type"] = json_util::odataType("OpenBMCManager", "Intel");
     oemIntel["@odata.id"] = "/redfish/v1/Managers/bmc#/Oem/Intel";
 #if (BMCWEB_AMI_NM_MACRO)
