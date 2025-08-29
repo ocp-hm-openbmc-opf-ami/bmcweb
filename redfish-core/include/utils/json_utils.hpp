@@ -452,6 +452,7 @@ using UnpackVariant = std::variant<
     std::optional<std::vector<int32_t>>*,
     std::optional<std::vector<uint64_t>>*,
     std::optional<std::vector<int64_t>>*,
+    std::vector<std::vector<uint16_t>>*,
     //std::optional<std::vector<bool>>*,
     std::optional<std::vector<double>>*,
     std::optional<std::vector<std::string>>*,
