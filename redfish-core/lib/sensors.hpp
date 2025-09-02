@@ -64,7 +64,7 @@ constexpr auto getSensorPaths(){
         "/xyz/openbmc_project/sensors/altitude",
         "/xyz/openbmc_project/sensors/energy",
         "/xyz/openbmc_project/sensors/utilization",
-	"/xyz/openbmc_project/sensors/cpu",
+	    "/xyz/openbmc_project/sensors/cpu",
         "/xyz/openbmc_project/sensors/bmcfirmwarehealth",
         "/xyz/openbmc_project/sensors/acpidevice",
         "/xyz/openbmc_project/sensors/acpisystem",
@@ -72,7 +72,13 @@ constexpr auto getSensorPaths(){
         "/xyz/openbmc_project/sensors/chassisstate",
         "/xyz/openbmc_project/sensors/os",
         "/xyz/openbmc_project/sensors/watchdog",
-	"/xyz/openbmc_project/sensors/logging",
+	    "/xyz/openbmc_project/sensors/logging",
+        "/xyz/openbmc_project/sensors/flowrate",
+        "/xyz/openbmc_project/sensors/tach",
+        "/xyz/openbmc_project/sensors/pwm",
+        "/xyz/openbmc_project/sensors/hours",
+        "/xyz/openbmc_project/sensors/pressurekpa",
+        "/xyz/openbmc_project/sensors/discrete",
 	"/xyz/openbmc_project/sensors/count/"});
     } else {
       return  std::to_array<std::string_view>({"/xyz/openbmc_project/sensors/power",
@@ -552,7 +558,11 @@ inline void sensorState(uint16_t value, std::string objPath,
         {"acpisystem", "ACPISystem"}, {"powersupply", "Powersupply"},
         {"powerunit", "Powerunit"},   {"os", "OSCritical"},
         {"acpidevice", "ACPIDevice"}, {"battery", "Battery"},
-        {"bmcfirmwarehealth", "BMCFirwareHealth"}, {"chassisstate", "Digital"}};
+        {"bmcfirmwarehealth", "BMCFirwareHealth"}, {"chassisstate", "Digital"},
+        {"discrete", "APISensor"}, {"discrete", "APISensor2"}, {"discrete", "APISensor3"},
+        {"discrete", "APISensor4"}, {"discrete", "APISensor5"}, {"discrete", "APISensor6"},
+        {"discrete", "APISensor7"}, {"discrete", "APISensor8"}, {"discrete", "APISensor9"},
+        {"discrete", "APISensor10"}};
     auto it = type.find(std::string(sensorType));
     if (it != type.end())
     {
@@ -2806,7 +2816,10 @@ inline void getSensorFromDbus(
     path = path.parent_path();
     std::string type = path.filename();
     std::set<std::string> discreteSensorTypes = {
-        "cpu", "watchdog", "acpisystem", "powersupply", "powerunit", "os","acpidevice","battery","bmcfirmwarehealth","chassisstate"};
+        "cpu",          "watchdog",  "acpisystem",
+        "powersupply",  "powerunit", "os",
+        "acpidevice",   "battery",   "bmcfirmwarehealth",
+        "chassisstate", "discrete"};
     ::dbus::utility::getAllProperties(
         connectionName, sensorPath, "",
         [asyncResp, sensorPath, name, type, discreteSensorTypes](

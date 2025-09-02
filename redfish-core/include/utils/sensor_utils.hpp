@@ -186,11 +186,32 @@ inline std::string_view toReadingUnits(std::string_view sensorType)
     }
     if (sensorType == "airflow")
     {
-        return "cft_i/min";
+        //return "cft_i/min";
+        return "cft/min";
     }
     if (sensorType == "energy")
     {
         return "J";
+    }
+    if (sensorType == "pressurekpa")
+    {
+        return "kPa";
+    }
+    if (sensorType == "flowrate")
+    {
+        return "L/min";
+    }
+    if (sensorType == "tach")
+    {
+        return "RPM";
+    }
+    if (sensorType == "pwm")
+        {
+        return "%";
+    }
+    if (sensorType == "hours")
+    {
+        return "hours";
     }
     return "";
 }
@@ -235,6 +256,22 @@ inline sensor::ReadingType toReadingType(std::string_view sensorType)
     if (sensorType == "energy")
     {
         return sensor::ReadingType::EnergyJoules;
+    }
+    if (sensorType == "pwm")
+    {
+        return sensor::ReadingType::Percent;
+    }
+    if (sensorType == "tach")
+    {
+        return sensor::ReadingType::Rotational;
+    }
+    if (sensorType == "flowrate")
+    {
+        return sensor::ReadingType::LiquidFlowLPM;
+    }
+    if (sensorType == "pressurekpa")
+    {
+        return sensor::ReadingType::PressurekPa;
     }
     return sensor::ReadingType::Invalid;
 }
