@@ -1508,10 +1508,10 @@ void handleEventServiceSubscriptionPost(
             "ResourceTypes", resTypes, //
             "SendHeartbeat", sendHeartbeat, //
             "VerifyCertificate", verifyCertificate, //
-            "Oem", oemObj, //
-            "Oem/OpenBmc/CommunityString", oemsnmpcommunitystring //
+            "Oem", oemObj
             ))
     {
+        BMCWEB_LOG_ERROR("bmcweb: JSON Patch reading failed");
         return;
     }
 
@@ -1519,6 +1519,34 @@ void handleEventServiceSubscriptionPost(
     {
         messages::propertyValueEmpty(asyncResp->res, protocol, "Protocol");
         return;
+    }
+
+    if (protocol == "SNMPv1" || protocol == "SNMPv2c" )
+    {
+        std::optional<nlohmann::json> openBmc;
+        if (!oemObj || oemObj.value().empty())
+        {
+            messages::propertyNotWritable(asyncResp->res, "Oem");
+            return;
+        }
+
+        if (!json_util::readJson(*oemObj, asyncResp->res, "OpenBmc", openBmc))
+        {
+            return;
+        }
+
+        if (!openBmc || openBmc->empty())
+        {
+            messages::propertyNotWritable(asyncResp->res, "OpenBmc");
+            return;
+        }
+
+        if (!json_util::readJson(*openBmc, asyncResp->res,
+                             "CommunityString", oemsnmpcommunitystring))
+        {
+            BMCWEB_LOG_ERROR("bmcweb: OpenBmc/CommunityString JSON Patch reading failed");
+            return;
+        }
     }
 
     if (vId)
@@ -1573,11 +1601,6 @@ void handleEventServiceSubscriptionPost(
         {
             destIp = destIp.substr(atPos + 1);
         }
-        if (destIp.front() == '[' && destIp.back() == ']')
-        {
-            destIp =
-                destIp.substr(1, destIp.size() - 2); // Remove brackets for IPv6
-        }
         size_t lastColon = destIp.rfind(':');
         if (lastColon != std::string::npos)
         {
@@ -1587,6 +1610,11 @@ void handleEventServiceSubscriptionPost(
             {
                 destIp = destIp.substr(0, lastColon);
             }
+        }
+        if (destIp.front() == '[' && destIp.back() == ']')
+        {
+            destIp =
+                destIp.substr(1, destIp.size() - 2); // Remove brackets for IPv6
         }
         size_t slashPos = destIp.rfind('/');
         if (slashPos)
@@ -1631,80 +1659,6 @@ void handleEventServiceSubscriptionPost(
                                            "Destination");
         return;
     }
-
-    /* if (protocol == "SNMPv2c")
-     {
-        if (context)
-         {
-             messages::propertyValueConflict(asyncResp->res, "Context",
-                                             "Protocol");
-             return;
-         }
-         if (eventFormatType2)
-         {
-             messages::propertyValueConflict(asyncResp->res,
-                                             "EventFormatType",
-     "Protocol"); return;
-         }
-         if (retryPolicy)
-         {
-             messages::propertyValueConflict(asyncResp->res,
-     "RetryPolicy", "Protocol"); return;
-         }
-         if (sendHeartbeat)
-         {
-            messages::propertyValueConflict(
-                asyncResp->res, "SendHeartbeat", "Protocol");
-            return;
-         }
-         if (hbIntervalMinutes)
-         {
-            messages::propertyValueConflict(
-                asyncResp->res, "HeartbeatIntervalMinutes", "Protocol");
-            return;
-         }
-         if (msgIds)
-         {
-             messages::propertyValueConflict(asyncResp->res,
-     "MessageIds", "Protocol"); return;
-         }
-         if (regPrefixes)
-         {
-             messages::propertyValueConflict(asyncResp->res,
-                                             "RegistryPrefixes",
-     "Protocol"); return;
-         }
-         if (resTypes)
-         {
-             messages::propertyValueConflict(asyncResp->res,
-     "ResourceTypes", "Protocol"); return;
-         }
-         if (headers)
-         {
-             messages::propertyValueConflict(asyncResp->res,
-     "HttpHeaders", "Protocol"); return;
-         }
-         if (mrdJsonArray)
-         {
-             messages::propertyValueConflict(
-                 asyncResp->res, "MetricReportDefinitions", "Protocol");
-             return;
-         }
-         if (url->scheme() != "snmp")
-         {
-             messages::propertyValueConflict(asyncResp->res,
-     "Destination", "Protocol"); return;
-         }
-         if (*subscriptionType == "RedfishEvent")
-         {
-             messages::propertyValueConflict(asyncResp->res,
-                                             "SubscriptionType",
-     "Protocol"); return;
-         }
-         addSnmpTrapClient(asyncResp, url->host_address(),
-                           url->port_number());
-         return;
-     }*/
 
     if (req.session == nullptr || req.session->username.empty())
     {
@@ -1980,15 +1934,12 @@ void handleEventServiceSubscriptionPost(
         auto subId = std::make_shared<std::string>();
         snmpCompletedOperations = 0;
         auto snmpCompletionHandler = [asyncResp, subId, oemsnmpcommunitystring,
-                                      protocol](bool success) {
+                                    protocol](bool success) {
             if (success)
             {
                 snmpCompletedOperations++;
             }
-            // As of now two snmpcompletedoperations for SNMPV1 and SNMPV2 and
-            // one snmpcompletedoperations for SNMPv3. In Future if new dbus
-            // call are added for these protocols please increment the values of
-            // snmpcompletedoperations.
+
             if ((oemsnmpcommunitystring && (snmpCompletedOperations == 2)) ||
                 (protocol == "SNMPv3" && (snmpCompletedOperations == 1)))
             {
@@ -2010,71 +1961,71 @@ void handleEventServiceSubscriptionPost(
             std::string user_name = url->user();
             if (oemsnmpcommunitystring)
             {
-                // validatecommunitystring(asyncResp, *oemsnmpcommunitystring);
                 sdbusplus::message::object_path path(
                     "/xyz/openbmc_project/snmp/CommunityStrManager/" +
                     *oemsnmpcommunitystring);
+
                 dbus::utility::getProperty<std::string>(
                     "xyz.openbmc_project.Snmp.Conf", path,
                     "xyz.openbmc_project.Snmp.CommunityStrManager",
                     "CommunityString",
                     [asyncResp, oemsnmpcommunitystring, hostaddress, portnumber,
-                     protocol, user_name, subValue, subId,
-                     snmpCompletionHandler](const boost::system::error_code& ec,
+                    protocol, user_name, subValue, subId,
+                    snmpCompletionHandler](const boost::system::error_code& ec,
                                             std::string communitystring) {
                         if (ec)
                         {
-                            BMCWEB_LOG_ERROR(
-                                "no communitystring object path avaliable");
-                            messages::propertyValueNotInList(
-                                asyncResp->res, *oemsnmpcommunitystring,
-                                "Oem/OpenBmc/CommunityString");
-                            asyncResp->res.result(
-                                boost::beast::http::status::bad_request);
+                            BMCWEB_LOG_ERROR("Error fetching community string property. Error code: {}", ec.message());
+                            messages::propertyValueNotInList(asyncResp->res,
+                                                            *oemsnmpcommunitystring,
+                                                            "Oem/OpenBmc/CommunityString");
+                            asyncResp->res.result(boost::beast::http::status::bad_request);
                             return;
                         }
                         else if (communitystring.empty())
                         {
-                            messages::propertyValueNotInList(
-                                asyncResp->res, *oemsnmpcommunitystring,
-                                "Oem/OpenBmc/CommunityString");
-                            asyncResp->res.result(
-                                boost::beast::http::status::bad_request);
+                            messages::propertyValueNotInList(asyncResp->res,
+                                                            *oemsnmpcommunitystring,
+                                                            "Oem/OpenBmc/CommunityString");
+                            asyncResp->res.result(boost::beast::http::status::bad_request);
                             return;
                         }
                         else
                         {
+                            // Log the retrieved community string
                             snmpCompletionHandler(true);
-                            addSnmpTrapClient(asyncResp, hostaddress,
-                                              portnumber, protocol, user_name,
-                                              subValue, *oemsnmpcommunitystring,
-                                              subId, snmpCompletionHandler);
+                            addSnmpTrapClient(asyncResp, hostaddress, portnumber, protocol,
+                                            user_name, subValue,
+                                            *oemsnmpcommunitystring, subId,
+                                            snmpCompletionHandler);
                         }
                     });
             }
             else
             {
                 messages::propertyMissing(asyncResp->res,
-                                          "Oem/OpenBmc/CommunityString");
+                                        "Oem/OpenBmc/CommunityString");
                 return;
             }
         }
         else
         {
+            // SNMPv3
             if (protocol == "SNMPv3" && url->has_userinfo() == false)
             {
-                BMCWEB_LOG_DEBUG("Missing UserName in Destination");
                 messages::propertyValueFormatError(asyncResp->res, destUrl,
-                                                   "Destination");
+                                                "Destination");
                 return;
             }
+
             addSnmpTrapClient(asyncResp, url->host_address(),
-                              url->port_number(), protocol, url->user(),
-                              subValue, *oemsnmpcommunitystring, subId,
-                              snmpCompletionHandler);
+                            url->port_number(), protocol, url->user(),
+                            subValue, *oemsnmpcommunitystring, subId,
+                            snmpCompletionHandler);
         }
         return;
     }
+
 
     std::string id;
     EventServiceManager::getInstance().addPushSubscription(subValue, id);

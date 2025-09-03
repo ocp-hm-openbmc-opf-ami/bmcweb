@@ -419,8 +419,16 @@ bool Subscription::sendTestSNMPTrap()
     ss << std::put_time(&timeStruct, "%Y-%m-%d %H:%M:%S");
     std::string timeString = ss.str();
     std::string msg{"Generated test event"};
-    this->sendSNMPTrap(static_cast<uint32_t>(eventSeqNum), timeString, "Ok",
-                       msg);
+
+    try
+    {
+        this->sendSNMPTrap(static_cast<uint32_t>(eventSeqNum), timeString, "Ok", msg);
+    }
+    catch (const std::exception& e)
+    {
+        BMCWEB_LOG_ERROR("bmcweb: Exception in sendSNMPTrap: ");
+        return false;
+    }
     return true;
 }
 
