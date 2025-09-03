@@ -1088,7 +1088,7 @@ class EventServiceManager
     static void startdbusEventLogMonitor()
     {
         std::string matchStr1 =
-            "type='signal',member='InterfacesAdded',path='/xyz/openbmc_project/logging'";
+            "type='signal',member='InterfacesAdded',path_namespace='/xyz/openbmc_project/logging'";
         try
         {
             EventServiceManager::getInstance().matchEventLog =
