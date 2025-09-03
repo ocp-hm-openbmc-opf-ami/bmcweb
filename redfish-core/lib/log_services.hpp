@@ -123,6 +123,10 @@ inline std::string translateSeverityDbusToRedfish(const std::string& s)
     {
         return "Warning";
     }
+    if (s == "xyz.openbmc_project.Logging.Entry.Level.NotApplicable")
+    {
+        return "NotApplicable";
+    }
     return "";
 }
 
@@ -1618,9 +1622,9 @@ inline void fillEventLogLogEntryFromPropertyMap(
     }
     objectToFillOut["EntryType"] = "Event";
     std::string severity = translateSeverityDbusToRedfish(entry.Severity);
-    if (!severity.empty())
+    if ((!severity.empty()) && (severity!="NotApplicable"))
     {
-        objectToFillOut["Severity"] = severity;
+         objectToFillOut["Severity"] = severity;
     }
     objectToFillOut["Created"] = entry.Timestamp;
     objectToFillOut["Modified"] = entry.UpdateTimestamp;
@@ -1719,9 +1723,9 @@ inline void fillSELEntryFromPropertyMap(
     }
     objectToFillOut["EntryType"] = "SEL";
     std::string severity = translateSeverityDbusToRedfish(entry.Severity);
-    if (!severity.empty())
+    if ((!severity.empty()) && (severity!="NotApplicable"))
     {
-        objectToFillOut["Severity"] = severity;
+         objectToFillOut["Severity"] = severity;
     }
     objectToFillOut["Created"] =
         redfish::time_utils::getDateTimeUintMs(entry.Timestamp);
