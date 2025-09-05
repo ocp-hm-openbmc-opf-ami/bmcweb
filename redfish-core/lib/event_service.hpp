@@ -651,42 +651,46 @@ inline void handleSSLCertificateSecondaryUploadAction(
     }
 }
 
-bool validateMsgId(std::string messageId)
+bool validateMsgId(const std::string& messageId)
 {
-    std::string msgPrefix;
-    std::string msgSuffix;
-    std::size_t pos = messageId.find('.');
-    std::size_t posLast = messageId.find_last_of('.');
-    if (pos != std::string::npos && posLast != std::string::npos &&
-        pos != posLast)
-    {
-        msgPrefix = messageId.substr(0, pos);
-        msgSuffix = messageId.substr(posLast + 1);
-        msgSuffix.erase(
-            0, msgSuffix.find_first_not_of(' ')); // Remove leading spaces
-        msgSuffix.erase(
-            msgSuffix.find_last_not_of(' ') + 1); // Remove trailing spaces
-    }
-    else
-    {
-        return false;
-    }
+    std::vector<std::string> fields;
+    bmcweb::split(fields, messageId, '.');
 
-    const std::span<const redfish::registries::MessageEntry> registry =
-        redfish::registries::getRegistryFromPrefix(msgPrefix);
+    if (fields.size() == 4)
+    {
+        // MessageId Format:
+        // <Registry Prefix>.<Major Version>.<Minor Version>.<MessageKey>
 
-    if (std::any_of(registry.begin(), registry.end(),
-                    [&msgSuffix](
-                        const redfish::registries::MessageEntry& messageEntry) {
+        const std::string& msgPrefix = fields[0];
+        const std::string& majorStr = fields[1];
+        const std::string& minorStr = fields[2];
+        const std::string& msgSuffix = fields[3];
+
+        const auto registry = redfish::registries::getRegistryFromPrefix(msgPrefix);
+        const auto* header = redfish::registries::resolveHeader(msgPrefix);
+
+        if (!header)
+        {
+            return false;
+        }
+
+        if (std::to_string(header->versionMajor) == majorStr &&
+            std::to_string(header->versionMinor) == minorStr)
+        {
+            if(std::any_of(registry.begin(), registry.end(),
+                            [&msgSuffix](const redfish::registries::MessageEntry& messageEntry) {
                         BMCWEB_LOG_DEBUG(
                             "msgSuffix : {}, messageEntry.first : {}",
                             msgSuffix, messageEntry.first);
-                        return msgSuffix == messageEntry.first;
-                    }))
-    {
-        return true;
+                                return msgSuffix == messageEntry.first;
+                               }))
+            {
+                return true;
+            }
+            return false;
+        }
     }
-    return false; // No matcing found the Message Entry
+    return false;
 }
 
 inline void handleauthenticationpatch(
@@ -1389,8 +1393,9 @@ inline void requestRoutesSubmitTestEvent(App& app)
                 {
                      if(!validateMsgId(testEvent.messageId.value()))
                     {
-                    messages::propertyValueNotInList(asyncResp->res,*testEvent.messageId, "MessageId");
-                    return;
+                        messages::propertyValueNotInList(asyncResp->res,
+                                            *testEvent.messageId, "MessageId");
+                        return;
                     }
                 }
                 // clang-format on
