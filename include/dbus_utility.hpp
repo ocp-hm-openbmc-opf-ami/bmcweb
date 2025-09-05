@@ -53,6 +53,7 @@ using DbusVariantType = std::variant<
     sdbusplus::message::unix_fd,
     std::vector<uint32_t>,
     std::vector<uint16_t>,
+    std::vector<uint64_t>,
     sdbusplus::message::object_path,
     std::tuple<uint64_t, std::vector<std::tuple<std::string, double, uint64_t>>>,
     std::vector<sdbusplus::message::object_path>,
@@ -66,6 +67,7 @@ using DbusVariantType = std::variant<
     std::vector<std::tuple<std::string, std::string>>,
     std::vector<std::tuple<uint32_t, bool, std::string>>,
     std::vector<std::tuple<uint32_t, std::vector<uint32_t>>>,
+    std::vector<std::tuple<std::string, int32_t>>,
     std::vector<std::tuple<uint32_t, size_t>>,
     std::vector<std::tuple<
       std::vector<std::tuple<sdbusplus::message::object_path, std::string>>,
