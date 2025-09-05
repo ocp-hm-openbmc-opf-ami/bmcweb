@@ -1780,6 +1780,15 @@ inline void requestNBDVirtualMediaRoutes(App& app)
                                                name);
                     return;
                 }
+                // Block POST and DELETE for specific slots
+                if (resName == "Slot_0" || resName == "Slot_1" || resName == "Slot_2" || resName == "Slot_3")
+                {
+                    // Explicitly state allowed methods (none in this case)
+                     asyncResp->res.clearHeader(boost::beast::http::field::allow);
+                    messages::operationNotAllowed(asyncResp->res);
+                    asyncResp->res.result(boost::beast::http::status::method_not_allowed);
+                    return;
+                }
                 dbus::utility::getDbusObject(
                     "/xyz/openbmc_project/VirtualMedia", {},
                     [asyncResp, name, resName](
