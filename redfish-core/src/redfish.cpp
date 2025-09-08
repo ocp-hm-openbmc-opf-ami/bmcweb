@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #include "redfish.hpp"
 
+#include "amiconfig.h"
 #include "bmcweb_config.h"
 
 #include "account_service.hpp"
@@ -387,7 +388,9 @@ RedfishService::RedfishService(App& app)
 #endif
 
     // License Control
+#ifdef ONETREE_LICENSE
     requestRoutesLicenseControl(app);
+#endif
 
     requestRoutesPefService(app);
     requestRoutesSendTrap(app);
