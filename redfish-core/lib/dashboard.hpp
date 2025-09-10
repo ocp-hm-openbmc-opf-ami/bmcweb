@@ -210,7 +210,7 @@ inline void OverviewPage (App& /*app*/, const crow::Request& /*req*/,
 
 inline void requestRoutesDashboard (App& app)
 {
-    BMCWEB_ROUTE(app, "/redfish/v1/Oem/Ami/Dashboard/")
+    BMCWEB_ROUTE(app, "/redfish/v1/Oem/Ami/Dashboard")
         .privileges(redfish::privileges::privilegeSetLogin)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(OverviewPage, std::ref(app)));
