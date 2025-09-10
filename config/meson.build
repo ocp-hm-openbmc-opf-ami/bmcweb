@@ -200,3 +200,4 @@ configure_file(
 
 # Copy pam-webserver to etc/pam.d
 install_data('pam-webserver', install_dir: '/etc/pam.d/', rename: 'webserver')
+install_data('pam-web-silent', install_dir: '/etc/pam.d/', rename: 'web-silent')

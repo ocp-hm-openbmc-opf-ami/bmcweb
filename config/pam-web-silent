@@ -1,0 +1,5 @@
+#%PAM-1.0
+# PAM service for authentication-only logic without faillock
+
+auth       required     pam_unix.so
+account    required     pam_unix.so

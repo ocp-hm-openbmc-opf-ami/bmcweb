@@ -1864,15 +1864,18 @@ inline void afterVerifyUserExists(
     if (params.password)
     {
         accountsTotalOperations++;
-        int retval = pamUpdatePassword(params.username, *params.password);
 
-        if ((retval == PAM_CRED_INSUFFICIENT))
+        int pamrc=pamAuthenticateUser(params.username,*params.password,
+                                    std::nullopt,boost::asio::ip::address(),false);
+        if ((pamrc==PAM_NEW_AUTHTOK_REQD))
         {
             BMCWEB_LOG_ERROR("Need to provide new Password");
             messages::passwordResetFailed(asyncResp->res);
             completionHandler(false);
             return;
         }
+
+        int retval = pamUpdatePassword(params.username, *params.password);
         if (retval == PAM_USER_UNKNOWN)
         {
             messages::resourceNotFound(asyncResp->res, "ManagerAccount",

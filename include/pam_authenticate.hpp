@@ -158,10 +158,14 @@ static bool pamMaxtriescheck(std::string& userName)
  * @returns PAM error code or PAM_SUCCESS for success. */
 inline int pamAuthenticateUser(std::string_view username,
                                std::string_view password,
-                               std::optional<std::string> token, const boost::asio::ip::address &ip = boost::asio::ip::address())
+                               std::optional<std::string> token, 
+                               const boost::asio::ip::address &ip = boost::asio::ip::address(),
+                               bool serviceWebserver = true)
 {
     std::string userStr(username);
     PasswordData data;
+    const std::string serviceType = serviceWebserver ? "webserver" : "web-silent";
+
     if (int ret = data.addPrompt("Password: ", password); ret != PAM_SUCCESS)
     {
         return ret;
@@ -179,7 +183,7 @@ inline int pamAuthenticateUser(std::string_view username,
 
     bool pamMaxerror;
 
-    int retval = pam_start("webserver", userStr.c_str(), &localConversation,
+    int retval = pam_start(serviceType.c_str(), userStr.c_str(), &localConversation,
                            &localAuthHandle);
     if (retval != PAM_SUCCESS)
     {
@@ -190,27 +194,31 @@ inline int pamAuthenticateUser(std::string_view username,
                               PAM_SILENT | PAM_DISALLOW_NULL_AUTHTOK);
     if (retval != PAM_SUCCESS)
     {
-        std::string severity = "xyz.openbmc_project.Logging.Entry.Level.Warning";
-        auto bus = sdbusplus::bus::new_default_system();
-        sdbusplus::message::message m = bus.new_method_call("xyz.openbmc_project.Logging", "/xyz/openbmc_project/logging",
-                  "xyz.openbmc_project.Logging.Create", "Create" );
-        std::string journalMsg = "InvalidLoginAttempted:HTTPS";
- 
-        m.append(journalMsg, severity, std::map<std::string, std::string>());
-        try
+        if (serviceWebserver)
         {
-            bus.call(m);                
-        }
-        catch (const sdbusplus::exception_t& e)
-        {
-            std::cerr << "Failed to create log entry: " << e.what() << std::endl;
-        }
+            std::string severity = "xyz.openbmc_project.Logging.Entry.Level.Warning";
+            auto bus = sdbusplus::bus::new_default_system();
+            sdbusplus::message::message m = bus.new_method_call("xyz.openbmc_project.Logging", "/xyz/openbmc_project/logging",
+                    "xyz.openbmc_project.Logging.Create", "Create" );
+            std::string journalMsg = "InvalidLoginAttempted:HTTPS";
 
-        sd_journal_send("MESSAGE= %s", "Invalid login attempted on HTTPS",
-                        "PRIORITY=%i", LOG_WARNING, "REDFISH_MESSAGE_ID=%s",
-                        "OpenBMC.0.1.InvalidLoginAttempted",
-                        "REDFISH_MESSAGE_ARGS=%s", "HTTPS", NULL);
+            m.append(journalMsg, severity, std::map<std::string, std::string>());
+            try
+            {
+                bus.call(m);
+            }
+            catch (const sdbusplus::exception_t& e)
+            {
+                std::cerr << "Failed to create log entry: " << e.what() << std::endl;
+            }
+
+            sd_journal_send("MESSAGE= %s", "Invalid login attempted on HTTPS",
+                            "PRIORITY=%i", LOG_WARNING, "REDFISH_MESSAGE_ID=%s",
+                            "OpenBMC.0.1.InvalidLoginAttempted",
+                            "REDFISH_MESSAGE_ARGS=%s", "HTTPS", NULL);
+        }
         pam_end(localAuthHandle, PAM_SUCCESS); // ignore retval
+
         pamMaxerror = pamMaxtriescheck(userStr);
         if (pamMaxerror == true)
         {
