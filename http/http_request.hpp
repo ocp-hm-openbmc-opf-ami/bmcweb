@@ -29,6 +29,7 @@ struct Request
   public:
     boost::asio::io_context* ioService = nullptr;
     boost::asio::ip::address ipAddress;
+    boost::asio::ip::address serverIPAddress;
 
     std::shared_ptr<persistent_data::UserSession> session;
     std::unordered_map<std::string, uint8_t>& sessionMap =
@@ -70,6 +71,7 @@ struct Request
         urlBase.clear();
         ioService = nullptr;
         ipAddress = boost::asio::ip::address();
+        serverIPAddress = boost::asio::ip::address();
         session = nullptr;
         userRole = "";
     }

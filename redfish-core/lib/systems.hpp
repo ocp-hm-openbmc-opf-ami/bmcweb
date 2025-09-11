@@ -2989,7 +2989,7 @@ void getVirtualMediaConfig(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
         asyncResp, virtualMediaServiceName,
         nlohmann::json::json_pointer("/VirtualMediaConfig/ServiceEnabled"));
     service_util::getMasked(asyncResp, virtualMediaServiceName,
-                            "VirtualMediaConfig", "Masked");
+                            "VirtualMediaConfig", "Masked", std::nullopt);
 }
 
 /**
@@ -3007,7 +3007,7 @@ void getKvmConfig(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
     asyncResp->res.jsonValue["GraphicalConsole"]["ConnectTypesSupported"] = {
         "KVMIP"};
     service_util::getMasked(asyncResp, kvmServiceName, "GraphicalConsole",
-                            "Masked");
+                            "Masked", std::nullopt);
 }
 
 inline void handleComputerSystemCollectionHead(

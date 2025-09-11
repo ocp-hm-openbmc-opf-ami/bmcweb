@@ -9,6 +9,7 @@
 #include "logging.hpp"
 #include "routing/baserule.hpp"
 #include "utils/dbus_utils.hpp"
+#include "utils/ip_utils.hpp"
 
 #include <boost/url/format.hpp>
 #include <sdbusplus/unpack_properties.hpp>
@@ -107,7 +108,13 @@ inline bool afterGetUserInfoValidate(
     Request& req, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     BaseRule& rule, const dbus::utility::DBusPropertiesMap& userInfoMap)
 {
-    if (req.session == nullptr || !populateUserInfo(*req.session, userInfoMap))
+    if (!populateUserInfo(*req.session, userInfoMap))
+    {
+        BMCWEB_LOG_DEBUG("Failed to populate user information; Insufficient Privilege");
+        redfish::messages::insufficientPrivilege(asyncResp->res);
+        return false;
+    }
+    else if (req.session == nullptr)
     {
         BMCWEB_LOG_ERROR("Failed to populate user information");
         asyncResp->res.result(
@@ -128,16 +135,19 @@ inline bool afterGetUserInfoValidate(
 
 template <typename CallbackFn>
 void requestUserInfo(const std::string& username,
-                     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,  const boost::asio::ip::address& serverIp, 
                      CallbackFn&& callback)
 {
+
+    std::string ipStr = redfish::ip_util::extractIPv4FromMappedIPv6(serverIp);
+    
     crow::connections::systemBus->async_method_call(
-        [asyncResp, callback = std::forward<CallbackFn>(callback)](
+        [asyncResp, callback = std::forward<CallbackFn>(callback), serverIp](
             const boost::system::error_code& ec,
             const dbus::utility::DBusPropertiesMap& userInfoMap) mutable {
         if (ec)
         {
-            BMCWEB_LOG_ERROR("GetUserInfo failed...");
+            BMCWEB_LOG_DEBUG("GetUserInfo Dbus failed...");
             asyncResp->res.result(
                 boost::beast::http::status::internal_server_error);
             return;
@@ -145,7 +155,7 @@ void requestUserInfo(const std::string& username,
         callback(userInfoMap);
         },
         "xyz.openbmc_project.User.Manager", "/xyz/openbmc_project/user",
-        "xyz.openbmc_project.User.Manager", "GetUserInfo", username);
+        "xyz.openbmc_project.User.Manager", "GetUserInfo", username, ipStr);
 }
 
 template <typename CallbackFn>
@@ -159,7 +169,7 @@ void validatePrivilege(const std::shared_ptr<Request>& req,
     }
 
     requestUserInfo(
-        req->session->username, asyncResp,
+        req->session->username, asyncResp, req->serverIPAddress,
         [req, asyncResp, &rule, callback = std::forward<CallbackFn>(callback)](
             const dbus::utility::DBusPropertiesMap& userInfoMap) mutable {
         if (afterGetUserInfoValidate(*req, asyncResp, rule, userInfoMap))
@@ -172,11 +182,11 @@ void validatePrivilege(const std::shared_ptr<Request>& req,
 template <typename CallbackFn>
 void getUserInfo(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                  const std::string& username,
-                 std::shared_ptr<persistent_data::UserSession>& session,
+                 std::shared_ptr<persistent_data::UserSession>& session, const boost::asio::ip::address& serverIp,
                  CallbackFn&& callback)
 {
     requestUserInfo(
-        username, asyncResp,
+        username, asyncResp, serverIp,
         [asyncResp, session, callback = std::forward<CallbackFn>(callback)](
             const dbus::utility::DBusPropertiesMap& userInfoMap) {
         if (!populateUserInfo(*session, userInfoMap))

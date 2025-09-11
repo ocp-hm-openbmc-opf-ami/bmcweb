@@ -260,8 +260,8 @@ inline void
         if (resp.empty())
         {
             asyncResp->res.jsonValue["SNMP"]["CommunityStrings"] = {nullptr};
-            asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SNMP"]["CommunityStrings"] = {nullptr};
-            asyncResp->res.jsonValue["Oem"]["OpenBmc"]["@odata.type"] = json_util::odataType("AMIManagerNetworkProtocol");
+            asyncResp->res.jsonValue["Oem"]["Ami"]["SNMP"]["CommunityStrings"] = {nullptr};
+            asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] = json_util::odataType("AmiManagerNetworkProtocol", "ManagerNetworkProtocol");
         }
         else
         {
@@ -325,8 +325,8 @@ inline void
                 }
             }
             asyncResp->res.jsonValue["SNMP"]["CommunityStrings"] = std::move(CommunityStrings);
-            asyncResp->res.jsonValue["Oem"]["OpenBmc"]["@odata.type"] = json_util::odataType("AMIManagerNetworkProtocol");
-            asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SNMP"]["CommunityStrings"] = std::move(oem_CommunityStrings);
+            asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] = json_util::odataType("AmiManagerNetworkProtocol", "ManagerNetworkProtocol");
+            asyncResp->res.jsonValue["Oem"]["Ami"]["SNMP"]["CommunityStrings"] = std::move(oem_CommunityStrings);
         }
     });
 }
@@ -376,7 +376,7 @@ inline void getNetworkData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         }
         else
         {
-            asyncResp->res.jsonValue["Oem"]["OpenBmc"][nwkProtocol.first]
+            asyncResp->res.jsonValue["Oem"]["Ami"][nwkProtocol.first]
                                     ["ProtocolEnabled"] = false;
         }
 
@@ -450,7 +450,7 @@ inline void getNetworkData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             service_util::getEnabled(
                 asyncResp, serviceName,
                 nlohmann::json::json_pointer(
-                    "/Oem/OpenBmc/" + protocolName + "/ProtocolEnabled"));
+                    "/Oem/Ami/" + protocolName + "/ProtocolEnabled"));
         }
         else
         {
@@ -1113,11 +1113,11 @@ inline void patchsnmpcommunitystring(std::optional<std::vector<std::variant<nloh
 
                             }
                             if (comstr_flag == false){
-                                messages::propertyMissing(asyncResp->res, "Oem/OpenBmc/SNMP/CommunityStrings/" + std::to_string(oem_index) + "/CommunityString");
+                                messages::propertyMissing(asyncResp->res, "Oem/Ami/SNMP/CommunityStrings/" + std::to_string(oem_index) + "/CommunityString");
                                 oem_missing_flag = true;
                             }
                             else if (allowedmibs_flag == false){
-                                messages::propertyMissing(asyncResp->res, "Oem/OpenBmc/SNMP/CommunityStrings/" + std::to_string(oem_index) + "/AllowedMiBs");
+                                messages::propertyMissing(asyncResp->res, "Oem/Ami/SNMP/CommunityStrings/" + std::to_string(oem_index) + "/AllowedMiBs");
                                 oem_missing_flag = true;
                             }
 
@@ -1131,7 +1131,7 @@ inline void patchsnmpcommunitystring(std::optional<std::vector<std::variant<nloh
                             if (lowerCase_OemCommstr != "private" && lowerCase_OemCommstr != "public"){
                                 auto it_4 = std::find(comstr.begin(), comstr.end(), oem_commstr);
                                 if (it_4 == comstr.end()) {
-                                    messages::propertyValueIncorrect(asyncResp->res, "Oem/OpenBmc/SNMP/CommunityStrings/" + std::to_string(oem_index) + "/CommunityString", oem_commstr);
+                                    messages::propertyValueIncorrect(asyncResp->res, "Oem/Ami/SNMP/CommunityStrings/" + std::to_string(oem_index) + "/CommunityString", oem_commstr);
                                     valid_oemcommstr = false;
                                 }
                                 else
@@ -1139,7 +1139,7 @@ inline void patchsnmpcommunitystring(std::optional<std::vector<std::variant<nloh
                                     auto it_9 = std::find(oemcomstr.begin(), oemcomstr.end(), oem_commstr);
                                     if (it_9 != oemcomstr.end()) {
                                         size_t it_index = static_cast<size_t>(std::distance(oemcomstr.begin(), it_9));
-                                        messages::propertyValueConflict(asyncResp->res, "Oem/OpenBmc/SNMP/CommunityStrings/" + std::to_string(oem_index) + "/CommunityString", "Oem/OpenBmc/SNMP/CommunityStrings/" + std::to_string(it_index) + "/CommunityString");
+                                        messages::propertyValueConflict(asyncResp->res, "Oem/Ami/SNMP/CommunityStrings/" + std::to_string(oem_index) + "/CommunityString", "Oem/Ami/SNMP/CommunityStrings/" + std::to_string(it_index) + "/CommunityString");
                                         valid_oemcommstr = false;
                                     }
                                     else
@@ -1149,13 +1149,13 @@ inline void patchsnmpcommunitystring(std::optional<std::vector<std::variant<nloh
                                 }
                             }
                             else{
-                                messages::propertyValueError(asyncResp->res, "Oem/OpenBmc/SNMP/CommunityStrings/" + std::to_string(oem_index) + "/CommunityString");
+                                messages::propertyValueError(asyncResp->res, "Oem/Ami/SNMP/CommunityStrings/" + std::to_string(oem_index) + "/CommunityString");
                                 valid_oemcommstr = false;
                             }
                             std::string allowedmibs = oem_communityStringData["AllowedMiBs"].get<std::string>();
                             auto it_11 = std::find(CommunityProfile_vec.begin(), CommunityProfile_vec.end(), allowedmibs);
                             if (it_11 == CommunityProfile_vec.end()) {
-                                messages::propertyValueNotInList(asyncResp->res, allowedmibs, "Oem/OpenBmc/SNMP/CommunityStrings/" + std::to_string(oem_index) + "/AllowedMiBs");
+                                messages::propertyValueNotInList(asyncResp->res, allowedmibs, "Oem/Ami/SNMP/CommunityStrings/" + std::to_string(oem_index) + "/AllowedMiBs");
                                 valid_allowedmibs = false;
                             }
                             if (valid_oemcommstr == true && valid_allowedmibs == true)
@@ -1360,7 +1360,7 @@ inline void patchsnmpcommunitystring(std::optional<std::vector<std::variant<nloh
         else if (communitystr_jsonArray.size() > oem_communitystr_jsonArray.size())
         {
             for(size_t i = oem_communitystr_jsonArray.size(); i < 5; i++){
-                messages::propertyMissing(asyncResp->res,"Oem/OpenBmc/SNMP/CommunityStrings/" + std::to_string(i));
+                messages::propertyMissing(asyncResp->res,"Oem/Ami/SNMP/CommunityStrings/" + std::to_string(i));
             }
         }
         else
@@ -1431,16 +1431,16 @@ inline void handleManagersNetworkProtocolPatch(
                 "SSH",ssh,
                 "Id", vId,
                 "SNMP",snmp,
-                "Oem/OpenBmc/HTTPS/Masked",bmcwebMasked,
-                "Oem/OpenBmc/IPMB/Masked",ipmbMasked,
-                "Oem/OpenBmc/IPMB/ProtocolEnabled",ipmbEnabled,
-                "Oem/OpenBmc/IPMI/Masked",ipmiMasked,
-                "Oem/OpenBmc/SSH/Masked",sshMasked,
-                "Oem/OpenBmc/IPMI/Running",ipmiRunning,
-                "Oem/OpenBmc/HTTPS/Running",bmcwebRunning,
-                "Oem/OpenBmc/SSH/Running",sshRunning,
-                "Oem/OpenBmc/IPMB/Running",ipmbRunning,
-                "Oem/OpenBmc/SNMP",oem_snmp))
+                "Oem/Ami/HTTPS/Masked",bmcwebMasked,
+                "Oem/Ami/IPMB/Masked",ipmbMasked,
+                "Oem/Ami/IPMB/ProtocolEnabled",ipmbEnabled,
+                "Oem/Ami/IPMI/Masked",ipmiMasked,
+                "Oem/Ami/SSH/Masked",sshMasked,
+                "Oem/Ami/IPMI/Running",ipmiRunning,
+                "Oem/Ami/HTTPS/Running",bmcwebRunning,
+                "Oem/Ami/SSH/Running",sshRunning,
+                "Oem/Ami/IPMB/Running",ipmbRunning,
+                "Oem/Ami/SNMP",oem_snmp))
         {
             return;
         }
@@ -1803,8 +1803,8 @@ inline void getEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
 inline void getIpmiMasked(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    service_util::getMasked(asyncResp, ipmiServiceName, "IPMI", "Masked");
-    service_util::getMasked(asyncResp, ipmiServiceName, "IPMI", "Running");
+    service_util::getMasked(asyncResp, ipmiServiceName, "IPMI", "Masked", "Ami");
+    service_util::getMasked(asyncResp, ipmiServiceName, "IPMI", "Running", "Ami");
 }
 
 inline void getIpmiEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
@@ -1814,19 +1814,59 @@ inline void getIpmiEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 
 inline void getSSHMasked(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    service_util::getMasked(asyncResp, sshServiceName, "SSH", "Masked");
-    service_util::getMasked(asyncResp, sshServiceName, "SSH", "Running");
+    service_util::getMasked(asyncResp, sshServiceName, "SSH", "Masked", "Ami");
+    service_util::getMasked(asyncResp, sshServiceName, "SSH", "Running", "Ami");
 }
 
 inline void getBMCWEBMasked(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    service_util::getMasked(asyncResp, httpsServiceName, "HTTPS", "Masked");
-    service_util::getMasked(asyncResp, httpsServiceName, "HTTPS", "Running");
+    service_util::getMasked(asyncResp, httpsServiceName, "HTTPS", "Masked", "Ami");
+    service_util::getMasked(asyncResp, httpsServiceName, "HTTPS", "Running", "Ami");
 }
 inline void getIpmbMasked(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    service_util::getMasked(asyncResp, ipmbServiceName, "IPMB", "Masked");
-    service_util::getMasked(asyncResp, ipmbServiceName, "IPMB", "Running");
+    service_util::getMasked(asyncResp, ipmbServiceName, "IPMB", "Masked", "Ami");
+    service_util::getMasked(asyncResp, ipmbServiceName, "IPMB", "Running", "Ami");
+}
+
+inline void getOEMAMIChannelInfo(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    crow::connections::systemBus->async_method_call(
+        [asyncResp](const boost::system::error_code& ec,
+                   const std::map<uint8_t, std::string>& channelMap) {
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG("D-Bus Method GetChannelInterfaceMap Response Error: {}", ec);
+                return;
+            }
+            nlohmann::json channelJson = nlohmann::json::array();
+            bool defaultChannel = false;
+
+            for (const auto& [channel, interface] : channelMap)
+            {
+                if (!defaultChannel)
+                {
+                    nlohmann::json entry = {
+                        {"ChannelId", channel},
+                        {"ChannelName", interface}
+                    };
+                    asyncResp->res.jsonValue["Oem"]["Ami"]["DefaultChannel"] = entry;
+                    defaultChannel = true;
+                }
+                
+                channelJson.push_back({
+                    {"ChannelId", channel},
+                    {"ChannelName", interface}
+                });
+            }
+
+            asyncResp->res.jsonValue["Oem"]["Ami"]["AvailableChannelList"] = channelJson;
+        },
+        "xyz.openbmc_project.User.Manager", // Service
+        "/xyz/openbmc_project/user", // Object path
+        "xyz.openbmc_project.User.AccountPolicy", // Interface
+        "GetChannelInterfaceMap" // Method name
+    );
 }
 
 inline void handleManagersNetworkProtocolGet(
@@ -1852,6 +1892,8 @@ inline void handleManagersNetworkProtocolGet(
     getBMCWEBMasked(asyncResp);
     getIpmbMasked(asyncResp);
     getIpmiEnabled(asyncResp);
+    getOEMAMIChannelInfo(asyncResp);
+
 }
 
 inline void requestRoutesNetworkProtocol(App& app)

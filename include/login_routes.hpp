@@ -14,6 +14,7 @@
 #include <boost/container/flat_set.hpp>
 
 #include <random>
+#include <variant>
 
 namespace crow
 {
@@ -33,7 +34,7 @@ std::string getRole(std::string role)
         return "";
 }
 
-inline std::string getRolePrivilege(std::string user)
+inline std::string getRolePrivilege(std::string user, std::string ipAddr)
 {
     using VariantType =
         std::variant<bool, std::string, std::vector<std::string>>;
@@ -42,7 +43,7 @@ inline std::string getRolePrivilege(std::string user)
     auto getuser_info_path = bus.new_method_call(
         "xyz.openbmc_project.User.Manager", "/xyz/openbmc_project/user",
         "xyz.openbmc_project.User.Manager", "GetUserInfo");
-    getuser_info_path.append(user);
+    getuser_info_path.append(user, ipAddr);
 
     auto user_info = bus.call(getuser_info_path);
     std::map<std::string, VariantType> infoDetailes;
@@ -51,47 +52,22 @@ inline std::string getRolePrivilege(std::string user)
     auto it = infoDetailes.find("UserPrivilege");
     if (it != infoDetailes.end())
     {
-        // Use std::get_if to check and get the value if it is a string
-        if (auto value = std::get_if<std::string>(&it->second))
+        const auto& var = it->second;
+        if (std::holds_alternative<std::string>(var))
         {
-            std::string privileage_value = *value;
-            return privileage_value;
+            std::string privilege = std::get<std::string>(var);
+            return privilege;
+        }
+        else
+        {
+            BMCWEB_LOG_DEBUG("UserPrivilege is not a string type.\n");
         }
     }
     else
     {
-        std::cout << "UserPrivilege not found" << std::endl;
+        BMCWEB_LOG_DEBUG("UserPrivilege not found in GetUserInfo Output.\n");
     }
     return "";
-}
-
-inline void eventLogSupport(std::string msg,
-                            std::map<std::string, std::string> additionalData)
-{
-    const std::string eventLogService = "xyz.openbmc_project.Logging";
-    const std::string eventLogObjPath = "/xyz/openbmc_project/logging";
-    const std::string eventLogIface = "xyz.openbmc_project.Logging.Create";
-    const std::string eventlogServerity =
-        "xyz.openbmc_project.Logging.Entry.Level.Informational";
-    try
-    {
-        auto bus = sdbusplus::bus::new_default_system();
-        sdbusplus::message::message m = bus.new_method_call(
-            eventLogService.c_str(), eventLogObjPath.c_str(),
-            eventLogIface.c_str(), "Create");
-        m.append(msg, eventlogServerity.c_str(), additionalData);
-        bus.call(m);
-    }
-    catch (const sdbusplus::exception::SdBusError& e)
-    {
-        std::cerr << "LoginLogoutAuditEntry: D-Bus error: " << e.what()
-                  << std::endl;
-    }
-    catch (const std::exception& e)
-    {
-        std::cerr << "LoginLogoutAuditEntry: Error in Event Addition "
-                  << e.what() << std::endl;
-    }
 }
 
 inline void handleLogin(const crow::Request& req,
@@ -101,7 +77,6 @@ inline void handleLogin(const crow::Request& req,
     std::string_view contentType = req.getHeaderValue("content-type");
     std::string_view username;
     std::string_view password;
-    std::map<std::string, std::string> additionalData;
 
     // This object needs to be declared at this scope so the strings
     // within it are not destroyed before we can use them
@@ -248,8 +223,8 @@ inline void handleLogin(const crow::Request& req,
                     .generateUserSession(username, req.ipAddress, std::nullopt,
                                          persistent_data::SessionType::Session,
                                          isConfigureSelfOnly, "WebUI");
-            additionalData = {
-                {std::string(username), req.ipAddress.to_string()}};
+            std::string username = session->username;
+            std::string ipAddr   =  redfish::ip_util::extractIPv4FromMappedIPv6(req.serverIPAddress);
 
             if (session && session->userRole.empty())
             {
@@ -257,21 +232,48 @@ inline void handleLogin(const crow::Request& req,
                 try
                 {
                     auto bus = sdbusplus::bus::new_default_system();
+
+                    // Prepare the GetUserInfo method call
                     auto method = bus.new_method_call(
-                        "xyz.openbmc_project.User.Manager",
-                        userPath.c_str(),
-                        "org.freedesktop.DBus.Properties",
-                        "Get");
+                        "xyz.openbmc_project.User.Manager",         // Service name
+                        "/xyz/openbmc_project/user",                // Object path
+                        "xyz.openbmc_project.User.Manager",         // Interface
+                        "GetUserInfo");                             // Method
 
-                    method.append("xyz.openbmc_project.User.Attributes", "UserPrivilege");
+                    method.append(username, ipAddr);
 
+                    // Call the method
                     auto reply = bus.call(method);
 
-                    std::variant<std::string> value;
-                    reply.read(value);
-                    session->userRole = std::get<std::string>(value);
+                    // Expected return type: a{sv}
+                    using VariantType = std::variant<bool, std::string, std::vector<std::string>>;
+                    std::map<std::string, VariantType> result;
 
-                    BMCWEB_LOG_INFO("Fetched userRole from D-Bus: {}", session->userRole);
+                    reply.read(result);
+
+                    auto it = result.find("UserPrivilege");
+                    if (it != result.end())
+                    {
+                        const auto& var = it->second;
+                        if (std::holds_alternative<std::string>(var))
+                        {
+                            std::string privilege = std::get<std::string>(var);
+                            session->userRole = privilege;
+                            BMCWEB_LOG_ERROR("Fetched userRole from D-Bus: {}", session->userRole);
+                        }
+                        else
+                        {
+                            BMCWEB_LOG_DEBUG("UserPrivilege is not a string type.\n");
+                            redfish::messages::insufficientPrivilege(asyncResp->res);
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        BMCWEB_LOG_DEBUG("UserPrivilege not found in GetUserInfo Output.\n");
+                        redfish::messages::insufficientPrivilege(asyncResp->res);
+                        return;
+                    }
                 }
                 catch (const sdbusplus::exception::SdBusError& e)
                 {
@@ -375,7 +377,7 @@ inline void handleLogin(const crow::Request& req,
             // For User Privilege 
             std::string roleId;
             std::string user(username);
-            auto value = getRolePrivilege(user);
+            auto value = getRolePrivilege(user, ipAddr);
             roleId = getRole(value);
             asyncResp->res.jsonValue["RoleId"] = roleId;
 
@@ -400,7 +402,6 @@ inline void handleLogin(const crow::Request& req,
             asyncResp->res.jsonValue["TwoFacEnableStatus"] = "N/A";
 #endif
 #endif
-        eventLogSupport("OpenBMC.0.1.HTTPSLOGIN", additionalData);
         }
     }
     else
@@ -418,8 +419,6 @@ inline void handleLogout(const crow::Request& req,
 
     if (session != nullptr)
     {
-        std::map<std::string, std::string> additionalData = {
-            {session->username, req.ipAddress.to_string()}};
         asyncResp->res.jsonValue["data"] =
             "User '" + session->username + "' logged out";
         asyncResp->res.jsonValue["message"] = "200 OK";
@@ -458,7 +457,6 @@ inline void handleLogout(const crow::Request& req,
              sessionType,
              1);
         }
-        eventLogSupport("OpenBMC.0.1.HTTPSLOGOUT", additionalData);
     }
 }
 

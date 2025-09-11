@@ -664,14 +664,15 @@ void arraySizeTooLong(crow::Response& res, std::string_view arg1, uint64_t arg2)
  * See header file for more information
  * @endinternal
  */
-nlohmann::json arraySizeTooShort(std::string_view arg1, std::string_view arg2)
+nlohmann::json arraySizeTooShort(std::string_view arg1, uint64_t arg2)
 {
+    std::string arg2Str = std::to_string(arg2);
     return getLog(redfish::registries::base::Index::arraySizeTooShort,
-                  std::to_array({arg1, arg2}));
+                  std::to_array<std::string_view>({arg1, arg2Str}));
 }
 
 void arraySizeTooShort(crow::Response& res, std::string_view arg1,
-                       std::string_view arg2)
+                       uint64_t arg2)
 {
     res.result(boost::beast::http::status::bad_request);
     addMessageToErrorJson(res.jsonValue, arraySizeTooShort(arg1, arg2));

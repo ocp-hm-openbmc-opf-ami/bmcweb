@@ -277,6 +277,7 @@ class Connection :
         accept = req->getHeaderValue("Accept");
         // Fetch the client IP address
         req->ipAddress = ip;
+        req->serverIPAddress = serverIp;
 
         // Check for HTTP version 1.1.
         if (req->version() == 11)
@@ -444,6 +445,12 @@ class Connection :
                 return;
             }
             ip = endpoint.address();
+            BMCWEB_LOG_DEBUG(
+                "Client IP Address : {}", ip.to_string());
+            boost::asio::ip::tcp::endpoint localEp = boost::beast::get_lowest_layer(adaptor).local_endpoint();
+            serverIp = localEp.address();
+            BMCWEB_LOG_DEBUG(
+                "Server IP Address : {}", serverIp.to_string());
         }
     }
 
@@ -828,6 +835,7 @@ class Connection :
     Handler* handler;
 
     boost::asio::ip::address ip;
+    boost::asio::ip::address serverIp;
 
     // Making this a std::optional allows it to be efficiently destroyed and
     // re-created on Connection reset

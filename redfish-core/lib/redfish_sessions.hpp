@@ -43,7 +43,7 @@ using propertyValue = std::variant<std::vector<sessionInfo>>;
 using privPropertyValue = std::variant<uint8_t, uint16_t, uint64_t, std::string,
                                        std::vector<std::string>, bool>;
 
-inline std::string getRolePrivilege(std::string user)
+inline std::string getRolePrivilege(std::string user, const std::string& ipAdd)
 {
     using VariantType =
         std::variant<bool, std::string, std::vector<std::string>>;
@@ -52,7 +52,7 @@ inline std::string getRolePrivilege(std::string user)
     auto getuser_info_path = bus.new_method_call(
         "xyz.openbmc_project.User.Manager", "/xyz/openbmc_project/user",
         "xyz.openbmc_project.User.Manager", "GetUserInfo");
-    getuser_info_path.append(user);
+    getuser_info_path.append(user, ipAdd);
 
     auto user_info = bus.call(getuser_info_path);
     std::map<std::string, VariantType> infoDetailes;
@@ -61,11 +61,15 @@ inline std::string getRolePrivilege(std::string user)
     auto it = infoDetailes.find("UserPrivilege");
     if (it != infoDetailes.end())
     {
-        // Use std::get_if to check and get the value if it is a string
-        if (auto value = std::get_if<std::string>(&it->second))
+        const auto& var = it->second;
+        if (std::holds_alternative<std::string>(var))
         {
-            std::string privileage_value = *value;
-            return privileage_value;
+            std::string privilege = std::get<std::string>(var);
+            return privilege;
+        }
+        else
+        {
+            BMCWEB_LOG_ERROR("UserPrivilege is not a string type.\n");
         }
     }
     else
@@ -182,14 +186,14 @@ uint16_t getkvmPort()
 }
 
 inline void fillSessionObject(crow::Response& res,
-                              const persistent_data::UserSession& session)
+                              const persistent_data::UserSession& session, const std::string& ipAdd)
 {
     res.jsonValue["Id"] = session.uniqueId;
     res.jsonValue["UserName"] = session.username;
     res.jsonValue["Oem"]["AMI_WebSession"]["UserId"] = session.userId;
     nlohmann::json::array_t roles;
 
-    auto value = getRolePrivilege(session.username);
+    auto value = getRolePrivilege(session.username, ipAdd);
 
     roles.emplace_back(getRole(value));
 
@@ -363,7 +367,8 @@ inline void handleSessionGet(
 
     if (session)
     {
-        fillSessionObject(asyncResp->res, *session);
+        std::string ipStr = redfish::ip_util::extractIPv4FromMappedIPv6(req.serverIPAddress);
+        fillSessionObject(asyncResp->res, *session, ipStr);
         return;
     }
 
@@ -867,8 +872,9 @@ inline void processAfterSessionCreation(
     }
     asyncResp->res.result(boost::beast::http::status::created);
     session->AMIsessionType = "Redfish";
-    crow::getUserInfo(asyncResp, username, session, [asyncResp, session]() {
-        fillSessionObject(asyncResp->res, *session);
+    crow::getUserInfo(asyncResp, username, session, req.serverIPAddress, [asyncResp, session, req]() {
+        std::string ipStr = redfish::ip_util::extractIPv4FromMappedIPv6(req.serverIPAddress);
+        fillSessionObject(asyncResp->res, *session, ipStr);
     });
     
 }

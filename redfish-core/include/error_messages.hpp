@@ -437,10 +437,10 @@ void arraySizeTooLong(crow::Response& res, std::string_view arg1,
  * @param[in] arg2 Parameter of message that will replace %2 in its body.
  *
  * @returns Message ArraySizeTooShort formatted to JSON */
-nlohmann::json arraySizeTooShort(std::string_view arg1, std::string_view arg2);
+nlohmann::json arraySizeTooShort(std::string_view arg1, uint64_t arg2);
 
 void arraySizeTooShort(crow::Response& res, std::string_view arg1,
-                       std::string_view arg2);
+                       uint64_t arg2);
 /**
  * @brief Formats QueryParameterValueTypeError message into JSON
  * Message body: "The value <arg1> for the query parameter <arg2> is not a type
