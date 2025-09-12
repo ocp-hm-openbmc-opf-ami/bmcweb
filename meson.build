@@ -419,6 +419,10 @@ if get_option('nvidia-reset-uris').enabled()
     srcfiles_bmcweb += 'ext/src/reset.cpp'
 endif
 
+if get_option('nvidia-erot-dump').enabled()
+    srcfiles_bmcweb += 'ext/src/erot_dump.cpp'
+endif
+
 bmcweblib = static_library(
     'bmcweblib',
     srcfiles_bmcweb,

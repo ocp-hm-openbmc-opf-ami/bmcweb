@@ -137,6 +137,10 @@
 #include "ext/src/reset.hpp"
 #endif
 
+#if BMCWEB_NVIDIA_EROT_DUMP_MACRO
+#include "ext/src/erot_dump.hpp"
+#endif
+
 namespace redfish
 {
 
@@ -456,6 +460,9 @@ RedfishService::RedfishService(App& app)
 #endif
 #if BMCWEB_NVIDIA_RESET_URIS_MACRO
     registerResetRoutes(app);
+#endif
+#if BMCWEB_NVIDIA_EROT_DUMP_MACRO
+    registerErotDumpRoutes(app);
 #endif
     // Note, this must be the last route registered
     requestRoutesRedfish(app);

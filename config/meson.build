@@ -65,7 +65,8 @@ feature_options = [
     'gpgpu-uris',
     'dot-uris',
     'cper-uris',
-    'nvidia-reset-uris'
+    'nvidia-reset-uris',
+    'nvidia-erot-dump'
 ]
 
 string_options = [
@@ -140,6 +141,8 @@ foreach option_key : feature_options + string_options + int_options
              'cper-uris'
         ) or option_key.contains(
             'nvidia-reset-uris'
+        ) or option_key.contains(
+             'nvidia-erot-dump'
         )
             feature_options_string += '#define ' + option_macro_config + '  ' + opt.allowed().to_string() + '\n'
         endif

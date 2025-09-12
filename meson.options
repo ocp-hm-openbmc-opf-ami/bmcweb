@@ -98,6 +98,14 @@ option(
     description: 'Enable Nvidia Managers Reset Action'
 )
 
+# BMCWEB_NVIDIA_EROT_DUMP_MACRO
+option(
+    'nvidia-erot-dump',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable Nvidia system Erot Dump'
+)
+
 # BMCWEB_AMI_NVME_MACRO
 option(
     'ami-nvme',

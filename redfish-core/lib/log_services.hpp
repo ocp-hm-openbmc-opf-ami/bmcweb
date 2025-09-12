@@ -1034,9 +1034,7 @@ inline void createDumpTaskCallback(
                     nlohmann::json retMessage = messages::success();
                     taskData->messages.emplace_back(retMessage);
 
-                    boost::urls::url url = boost::urls::format(
-                        "/redfish/v1/Managers/{}/LogServices/Dump/Entries/{}",
-                        BMCWEB_REDFISH_MANAGER_URI_NAME, dumpId);
+		    boost::urls::url url = boost::urls::format("{}{}", dumpEntryPath, dumpId);
 
                     std::string headerLoc = "Location: ";
                     headerLoc += url.buffer();
@@ -1063,7 +1061,7 @@ inline void createDumpTaskCallback(
         "org.freedesktop.DBus.Introspectable", "Introspect");
 }
 
-inline void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                        const crow::Request& req, const std::string& dumpType)
 {
     std::string dumpPath = getDumpEntriesPath(dumpType);
@@ -1094,8 +1092,7 @@ inline void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 "DiagnosticDataType & OEMDiagnosticDataType");
             return;
         }
-        if ((*oemDiagnosticDataType != "System") ||
-            (*diagnosticDataType != "OEM"))
+        if (*diagnosticDataType != "OEM")
         {
             BMCWEB_LOG_ERROR("Wrong parameter values passed");
             messages::internalError(asyncResp->res);
