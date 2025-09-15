@@ -17,6 +17,7 @@
 #include "utils/dbus_utils.hpp"
 #include "utils/json_utils.hpp"
 #include "multipart_parser.hpp"
+#include "ext/include/ami_errors.hpp"
 
 #include <boost/url/format.hpp>
 #include <boost/url/url.hpp>

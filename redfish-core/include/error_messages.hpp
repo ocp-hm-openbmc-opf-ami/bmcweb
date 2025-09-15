@@ -1533,30 +1533,6 @@ void differentIpSeries(crow::Response& res, std::string_view arg1,
                        std::string_view arg2);
 
 /**
- * @brief Formats InvalidLicenseKeyFileFormat message into JSON
- * Message body: "The uploaded %1 is not a valid license key file. Acceptable
- * license key formats is .key."
- *
- * @param[in] arg1 Parameter of message that will replace %1 in its body.
- *
- * @returns Message invalidLicenseKeyFileFormat formatted to JSON */
-nlohmann::json invalidLicenseKeyFileFormat(std::string_view arg1);
-
-void invalidLicenseKeyFileFormat(crow::Response& res, std::string_view arg1);
-
-/**
- * @brief Formats InvalidFileContent message into JSON
- * Message body: "The uploaded %1 is not a valid file. Give the valid file
- * content."
- *
- * @param[in] arg1 Parameter of message that will replace %1 in its body.
- *
- * @returns Message invalidFileContent formatted to JSON */
-nlohmann::json invalidFileContent(std::string_view arg1);
-
-void invalidFileContent(crow::Response& res, std::string_view arg1);
-
-/**
  * @brief Formats FactoryDefaultResetActionConflict message into JSON
  * Message body: "The property '<arg1>' could not be written because its value
  * would conflict with the value of the '<arg2>' property."
