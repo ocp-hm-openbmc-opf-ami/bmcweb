@@ -2548,6 +2548,44 @@ void differentIpSeries(crow::Response& res, std::string_view arg1,
 
 /**
  * @internal
+ * @brief Formats InvalidLicenseKeyFileFormat message into JSON
+ *
+ * See header file for more information
+ * @endinternal
+ */
+nlohmann::json invalidLicenseKeyFileFormat(std::string_view arg1)
+{
+    return getLog(redfish::registries::base::Index::invalidLicenseKeyFileFormat,
+                  std::to_array({arg1}));
+}
+
+void invalidLicenseKeyFileFormat(crow::Response& res, std::string_view arg1)
+{
+    res.result(boost::beast::http::status::bad_request);
+    addMessageToErrorJson(res.jsonValue, invalidLicenseKeyFileFormat(arg1));
+}
+
+/**
+ * @internal
+ * @brief Formats InvalidFileContent message into JSON
+ *
+ * See header file for more information
+ * @endinternal
+ */
+nlohmann::json invalidFileContent(std::string_view arg1)
+{
+    return getLog(redfish::registries::base::Index::invalidFileContent,
+                  std::to_array({arg1}));
+}
+
+void invalidFileContent(crow::Response& res, std::string_view arg1)
+{
+    res.result(boost::beast::http::status::bad_request);
+    addMessageToErrorJson(res.jsonValue, invalidFileContent(arg1));
+}
+
+/**
+ * @internal
  * @brief Formats FactoryDefaultResetActionConflict message into JSON
  *
  * See header file for more information
