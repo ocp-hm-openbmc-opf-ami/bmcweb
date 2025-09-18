@@ -1413,7 +1413,7 @@ inline void requestRoutesEventLogService(App& app)
             asyncResp->res.jsonValue["Id"] = "EventLog";
             asyncResp->res.jsonValue["OverWritePolicy"] =
                 log_service::OverWritePolicy::WrapsWhenFull;
-            asyncResp->res.jsonValue["MaxNumberOfRecords"] = 150;
+            asyncResp->res.jsonValue["MaxNumberOfRecords"] = 1250;
 
             std::pair<std::string, std::string> redfishDateTimeOffset =
                 redfish::time_utils::getDateTimeOffsetNow();
@@ -2713,6 +2713,7 @@ inline void
                                BMCWEB_REDFISH_MANAGER_URI_NAME);
         overWritePolicy = log_service::OverWritePolicy::WrapsWhenFull;
         collectDiagnosticDataSupported = true;
+        asyncResp->res.jsonValue["MaxNumberOfRecords"] = 1250;
     }
     else
     {
@@ -2729,7 +2730,7 @@ inline void
     asyncResp->res.jsonValue["Id"] = std::filesystem::path(dumpPath).filename();
     asyncResp->res.jsonValue["OverWritePolicy"] = overWritePolicy;
 
-    if (overWritePolicy == log_service::OverWritePolicy::WrapsWhenFull)
+    if (overWritePolicy == log_service::OverWritePolicy::WrapsWhenFull && dumpType != "SEL")
     {
         asyncResp->res.jsonValue["MaxNumberOfRecords"] = 150;
     }
