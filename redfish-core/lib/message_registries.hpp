@@ -16,6 +16,7 @@
 #include "registries/resource_event_message_registry.hpp"
 #include "registries/task_event_message_registry.hpp"
 #include "registries/telemetry_message_registry.hpp"
+#include "registries/license_message_registry.hpp"
 
 #include <boost/url/format.hpp>
 
@@ -45,7 +46,7 @@ inline void handleMessageRegistryFileCollectionGet(
 
     nlohmann::json& members = asyncResp->res.jsonValue["Members"];
     static constexpr const auto registryFiles = std::to_array(
-        {"Base", "TaskEvent", "NodeManager", "ResourceEvent", "OpenBMC",
+        {"Base", "TaskEvent", "License", "NodeManager", "ResourceEvent", "OpenBMC",
          "Telemetry", "PrivilegeRegistry", "HeartbeatEvent",
          "CertificateService"});
     for (const char* memberName : registryFiles)
@@ -208,6 +209,32 @@ inline void handleMessageRoutesMessageRegistryFileGet(
         {
             for (const registries::MessageEntry& entry :
                  registries::base::registry)
+            {
+                registryEntries.emplace_back(&entry);
+            }
+            registryVal = 1;
+        }
+        else
+        {
+            messages::resourceNotFound(asyncResp->res, "MessageRegistryFile",
+                                       registry);
+            return;
+        }
+    }
+    else if (registry == "License" || registryName == "License")
+    {
+        header = &registries::license::header;
+        Val =  std::format(
+            "{}.{}.{}.{}", header->registryPrefix, header->versionMajor,
+            header->versionMinor, header->versionPatch);
+        if (registry == "License")
+        {
+            registryVal = 0;
+        }
+        else if (registry == Val + ".json")
+        {
+            for (const registries::MessageEntry& entry :
+                 registries::license::registry)
             {
                 registryEntries.emplace_back(&entry);
             }
@@ -546,7 +573,7 @@ inline void requestRoutesMessageRegistryFile(App& app)
     }
     std::string Val;
     static constexpr const auto registryFiles = std::to_array(
-        {"Base", "TaskEvent", "NodeManager", "ResourceEvent", "OpenBMC",
+        {"Base", "TaskEvent", "License", "NodeManager", "ResourceEvent", "OpenBMC",
          "Telemetry", "PrivilegeRegistry", "HeartbeatEvent",
          "CertificateService"}); 
     for (const char* memberName : registryFiles) {

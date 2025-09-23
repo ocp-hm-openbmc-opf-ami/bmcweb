@@ -35,6 +35,11 @@
 
 #include <event_service_manager.hpp>
 
+
+#if BMCWEB_AMI_REP_MACRO
+    #include "ext/include/ami_errors.hpp"
+#endif
+
 namespace redfish
 {
 
@@ -2546,8 +2551,17 @@ inline void readRadiusSSLContext(const std::shared_ptr<bmcweb::AsyncResp>& async
         {
             if (formpart.content.empty())
             {
-                messages::invalidFileContent(asyncResp->res, SSLFileName);
-                return;
+                #if BMCWEB_AMI_REP_MACRO
+                {
+                    messages::invalidFileContent(asyncResp->res, SSLFileName);
+                    return;
+                }
+                #else
+                {
+                    messages::invalidLicense(asyncResp->res);
+                    return;
+                }
+                #endif
             }
             std::string fileName = fieldName + ".pem";
             uploadRadiusSSLFile(asyncResp, formpart.content, fileName);
@@ -2557,8 +2571,17 @@ inline void readRadiusSSLContext(const std::shared_ptr<bmcweb::AsyncResp>& async
 
     if (!fileUploaded)
     {
-        messages::invalidFileContent(asyncResp->res, SSLFileName);
-        return;
+        #if BMCWEB_AMI_REP_MACRO
+        {
+            messages::invalidFileContent(asyncResp->res, SSLFileName);
+            return;
+        }
+        #else
+        {
+            messages::invalidLicense(asyncResp->res);
+            return;
+        }
+        #endif
     }
 }
 

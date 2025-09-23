@@ -1421,30 +1421,6 @@ constexpr std::array registry =
             "Please make sure that the Interface is in Enabled state and resubmit the request.",
         }},
     MessageEntry{
-        "InvalidLicenseKeyFileFormat",
-        {
-            "Indicates that uploaded license key file format is not a valid one.",
-            "The uploaded %1 is not a valid license key file. Acceptable license key formats is .key.",
-            "Warning",
-            1,
-            {
-                "string",
-            },
-            "Resubmit the request with the valid license key.",
-        }},
-    MessageEntry{
-        "InvalidFileContent",
-        {
-            "Indicates that uploaded file content is not a valid one.",
-            "The uploaded %1 is not a valid file. Give the valid file content.",
-            "Warning",
-            1,
-            {
-                "string",
-            },
-            "Resubmit the request with the valid file content.",
-        }},
-    MessageEntry{
         "FactoryDefaultResetActionConflict",
         {
             "Indicates that the requested action could not be completed, because it would conflict with the other action in the resource.",
@@ -1592,9 +1568,7 @@ enum class Index
     passwordResetFailed=116,
     differentIpSeries=117,
     interfaceDisabled=118,
-    invalidLicenseKeyFileFormat=119,
-    invalidFileContent=120,
-    factoryDefaultResetActionConflict = 121,
-    PropertyValueError=122,
+    factoryDefaultResetActionConflict = 119,
+    PropertyValueError=120,
 };
 } // namespace redfish::registries::base
