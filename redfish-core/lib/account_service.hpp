@@ -2706,6 +2706,7 @@ inline void handleAccountRadiusPatch(
     }
 
     RadiusPatchParams radiusObject;
+    bool anyPropertyPatched = false;
 
     // clang-format off
     std::optional<nlohmann::json> oem;
@@ -2724,12 +2725,12 @@ inline void handleAccountRadiusPatch(
         if (oem_size == 0)
         {
             messages::propertyNotWritable(asyncResp->res, "Oem");
-            return;
+            // Do not return here, allow partial patch
         }
 
         if (!json_util::readJson(*oem, asyncResp->res, "Ami", ami))
         {
-            return;
+            // Do not return here, allow partial patch
         }
 
         if(ami)
@@ -2739,12 +2740,12 @@ inline void handleAccountRadiusPatch(
             if (ami_size == 0)
             {
                 messages::propertyNotWritable(asyncResp->res, "Ami");
-                return;
+                // Do not return here, allow partial patch
             }
 
             if (!json_util::readJson(*ami, asyncResp->res, "RADIUS", radius))
             {
-                return;
+                // Do not return here, allow partial patch
             }
 
             if(radius)
@@ -2753,7 +2754,7 @@ inline void handleAccountRadiusPatch(
                 if (radius_size == 0)
                 {
                     messages::propertyNotWritable(asyncResp->res, "RADIUS");
-                    return;
+                    // Do not return here, allow partial patch
                 }
 
                 if (!json_util::readJson(
@@ -2769,7 +2770,7 @@ inline void handleAccountRadiusPatch(
                 "Privilege2", radiusObject.privilege2,
                 "Privilege3", radiusObject.privilege3))
                 {
-                    return;
+                    // Do not return here, allow partial patch
                 }
                 // clang-format on
 
@@ -2785,7 +2786,6 @@ inline void handleAccountRadiusPatch(
                         {
                             messages::invalidip(asyncResp->res,
                                                 "ServiceAddress", ipAddress);
-                            return;
                         }
                         else
                         {
@@ -2793,6 +2793,7 @@ inline void handleAccountRadiusPatch(
                                 asyncResp, radiusConfigObjectPath,
                                 radiusConfigInterface, "IP",
                                 *radiusObject.host);
+                            anyPropertyPatched = true;
                         }
                     }
                     else
@@ -2800,7 +2801,6 @@ inline void handleAccountRadiusPatch(
                         messages::propertyValueEmpty(asyncResp->res,
                                                      *radiusObject.host,
                                                      "ServiceAddress");
-                        return;
                     }
                 }
                 if (radiusObject.password)
@@ -2811,12 +2811,12 @@ inline void handleAccountRadiusPatch(
                             asyncResp, radiusConfigObjectPath,
                             radiusConfigInterface, "Password",
                             *radiusObject.password);
+                        anyPropertyPatched = true;
                     }
                     else
                     {
                         messages::propertyValueEmpty(
                             asyncResp->res, *radiusObject.password, "Secret");
-                        return;
                     }
                 }
                 if (radiusObject.port && *radiusObject.port >= 0 &&
@@ -2837,6 +2837,7 @@ inline void handleAccountRadiusPatch(
                             messages::success(asyncResp->res);
                             BMCWEB_LOG_DEBUG("Patch port Success");
                         });
+                    anyPropertyPatched = true;
                 }
                 if (radiusObject.groupName1)
                 {
@@ -2844,6 +2845,7 @@ inline void handleAccountRadiusPatch(
                         asyncResp, radiusRoleMapObjectPath,
                         radiusRoleMapInterface, "GroupName1",
                         *radiusObject.groupName1);
+                    anyPropertyPatched = true;
                 }
                 if (radiusObject.groupName2)
                 {
@@ -2851,6 +2853,7 @@ inline void handleAccountRadiusPatch(
                         asyncResp, radiusRoleMapObjectPath,
                         radiusRoleMapInterface, "GroupName2",
                         *radiusObject.groupName2);
+                    anyPropertyPatched = true;
                 }
                 if (radiusObject.groupName3)
                 {
@@ -2858,6 +2861,7 @@ inline void handleAccountRadiusPatch(
                         asyncResp, radiusRoleMapObjectPath,
                         radiusRoleMapInterface, "GroupName3",
                         *radiusObject.groupName3);
+                    anyPropertyPatched = true;
                 }
                 if (radiusObject.privilege1)
                 {
@@ -2873,6 +2877,7 @@ inline void handleAccountRadiusPatch(
                             handleRadiusConfigRolemMapPatch(
                                 asyncResp, radiusRoleMapObjectPath,
                                 radiusRoleMapInterface, "Privilege1", roleId);
+                            anyPropertyPatched = true;
                         }
                         else
                         {
@@ -2880,7 +2885,6 @@ inline void handleAccountRadiusPatch(
                             messages::propertyValueNotInList(
                                 asyncResp->res, *radiusObject.privilege1,
                                 "Privilege1");
-                            return;
                         }
                     }
                     else
@@ -2889,7 +2893,6 @@ inline void handleAccountRadiusPatch(
                         messages::propertyValueEmpty(asyncResp->res,
                                                      *radiusObject.privilege1,
                                                      "Privilege1");
-                        return;
                     }
                 }
 
@@ -2907,6 +2910,7 @@ inline void handleAccountRadiusPatch(
                             handleRadiusConfigRolemMapPatch(
                                 asyncResp, radiusRoleMapObjectPath,
                                 radiusRoleMapInterface, "Privilege2", roleId);
+                            anyPropertyPatched = true;
                         }
                         else
                         {
@@ -2914,7 +2918,6 @@ inline void handleAccountRadiusPatch(
                             messages::propertyValueNotInList(
                                 asyncResp->res, *radiusObject.privilege2,
                                 "Privilege2");
-                            return;
                         }
                     }
                     else
@@ -2923,7 +2926,6 @@ inline void handleAccountRadiusPatch(
                         messages::propertyValueEmpty(asyncResp->res,
                                                      *radiusObject.privilege2,
                                                      "Privilege2");
-                        return;
                     }
                 }
                 if (radiusObject.privilege3)
@@ -2940,6 +2942,7 @@ inline void handleAccountRadiusPatch(
                             handleRadiusConfigRolemMapPatch(
                                 asyncResp, radiusRoleMapObjectPath,
                                 radiusRoleMapInterface, "Privilege3", roleId);
+                            anyPropertyPatched = true;
                         }
                         else
                         {
@@ -2947,7 +2950,6 @@ inline void handleAccountRadiusPatch(
                             messages::propertyValueNotInList(
                                 asyncResp->res, *radiusObject.privilege3,
                                 "Privilege3");
-                            return;
                         }
                     }
                     else
@@ -2956,12 +2958,12 @@ inline void handleAccountRadiusPatch(
                         messages::propertyValueEmpty(asyncResp->res,
                                                      *radiusObject.privilege3,
                                                      "Privilege3");
-                        return;
                     }
                 }
                 if(radiusObject.enabledEapTLS.has_value())
                 {
                     setRadiusEnable(asyncResp, "EnableEapTLS", *radiusObject.enabledEapTLS);
+                    anyPropertyPatched = true;
                 }
             }
         }
@@ -2971,10 +2973,22 @@ inline void handleAccountRadiusPatch(
     {
         // Enable or disable the RADIUS service based on the value of "ServiceEnabled"
         setRadiusEnable(asyncResp, "Enable", *radiusObject.enabled);
+        anyPropertyPatched = true;
     }
     else
     {
         BMCWEB_LOG_DEBUG("ServiceEnabled field missing or invalid");
+    }
+
+    // If any property was patched, set response to 200 OK
+    if (anyPropertyPatched)
+    {
+        asyncResp->res.result(boost::beast::http::status::ok);
+    }
+    else
+    {
+        // If nothing was patched, keep the default error handling
+        asyncResp->res.result(boost::beast::http::status::bad_request);
     }
 }
 
