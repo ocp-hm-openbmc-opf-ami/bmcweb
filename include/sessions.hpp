@@ -355,6 +355,16 @@ class SessionStore
         return it.first->second;
     }
 
+    std::shared_ptr<UserSession> SessionLessBasicAuth(std::string user, const boost::asio::ip::address& clientIp, bool isConfigureSelfOnly)
+    {
+        auto tempSession = std::make_shared<persistent_data::UserSession>();
+        tempSession->username = user;
+        tempSession->clientIp = redfish::ip_util::toString(clientIp);
+        tempSession->isConfigureSelfOnly = isConfigureSelfOnly;
+        tempSession->sessionType = persistent_data::SessionType::Basic;
+        return tempSession;
+    }
+
     std::shared_ptr<UserSession> loginSessionByToken(std::string_view token)
     {
         applySessionTimeouts();

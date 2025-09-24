@@ -91,9 +91,8 @@ inline std::shared_ptr<persistent_data::UserSession>
         return session;
     }
 
-    return persistent_data::SessionStore::getInstance().generateUserSession(
-        user, clientIp, std::nullopt, persistent_data::SessionType::Basic,
-        isConfigureSelfOnly);
+    return persistent_data::SessionStore::getInstance().SessionLessBasicAuth(
+        user, clientIp, isConfigureSelfOnly);
 }
 
 inline std::shared_ptr<persistent_data::UserSession>
