@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #include "redfish.hpp"
 
+#include "amiconfig.h"
 #include "bmcweb_config.h"
 
 #include "account_service.hpp"
@@ -143,6 +144,14 @@
 
 #if BMCWEB_DOT_URIS_MACRO
 #include "ext/dot/src/dot.hpp"
+#endif
+
+#if BMCWEB_NVIDIA_RESET_URIS_MACRO
+#include "ext/src/reset.hpp"
+#endif
+
+#if BMCWEB_NVIDIA_EROT_DUMP_MACRO
+#include "ext/src/erot_dump.hpp"
 #endif
 
 namespace redfish
@@ -391,7 +400,9 @@ RedfishService::RedfishService(App& app)
 #endif
 
     // License Control
+#ifdef ONETREE_LICENSE
     requestRoutesLicenseControl(app);
+#endif
 
     requestRoutesPefService(app);
     requestRoutesSendTrap(app);
@@ -464,6 +475,12 @@ RedfishService::RedfishService(App& app)
 #endif
 #if BMCWEB_CPER_URIS_MACRO
     registerCperRoutes(app);
+#endif
+#if BMCWEB_NVIDIA_RESET_URIS_MACRO
+    registerResetRoutes(app);
+#endif
+#if BMCWEB_NVIDIA_EROT_DUMP_MACRO
+    registerErotDumpRoutes(app);
 #endif
     // Note, this must be the last route registered
     requestRoutesRedfish(app);

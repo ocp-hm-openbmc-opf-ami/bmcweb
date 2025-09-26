@@ -161,6 +161,14 @@ int getEventLogParams(const std::string& logEntry, std::string& timestamp,
     return 0;
 }
 
+inline std::string removeSpaces(const std::string& input)
+{
+    std::string output;
+    std::copy_if(input.begin(), input.end(), std::back_inserter(output),
+                 [](char c){ return !std::isspace(c); });
+    return output;
+}
+
 int formatEventLogEntry(
     const std::string& logEntryID, const std::string& messageID,
     const std::span<std::string_view> messageArgs, std::string timestamp,
@@ -215,7 +223,7 @@ int formatEventLogEntry(
 
     logEntryJson["Severity"] = message->messageSeverity;
     logEntryJson["Message"] = std::move(msg);
-    logEntryJson["MessageId"] = registryVersion + "." + messageID;
+    logEntryJson["MessageId"] = registryVersion + "." + removeSpaces(messageID);
     logEntryJson["MessageArgs"] = messageArgs;
     logEntryJson["EventTimestamp"] = std::move(timestamp);
     logEntryJson["Context"] = customText;

@@ -29,7 +29,6 @@ const Header header = {
     "en",
     "This registry defines the license status and error messages.",
     "License",
-    "1.0.3",
     "DMTF",
 };
 constexpr const char* url =

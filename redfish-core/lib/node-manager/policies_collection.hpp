@@ -27,6 +27,9 @@
 #include <string>
 #include <vector>
 
+#include <cctype>
+#include <algorithm>
+
 namespace redfish
 {
 
@@ -114,6 +117,12 @@ inline bool isHwProtectionPolicy(
     return false;
 }
 
+bool isNumber(const std::string& str)
+{
+    return !str.empty() &&
+           std::all_of(str.begin(), str.end(), ::isdigit);
+}
+
 inline void getAttributes(const std::shared_ptr<bmcweb::AsyncResp>& response,
                           const std::string& policyObjectPath)
 {
@@ -135,6 +144,25 @@ inline void getAttributes(const std::shared_ptr<bmcweb::AsyncResp>& response,
         {
             messages::internalError(response->res);
             return;
+        }
+
+        if (isPolicyReadOnly(properties))
+        {
+            response->res.clearHeader(boost::beast::http::field::allow);
+            response->res.addHeader("Allow", "GET");
+        }
+        else 
+        {
+            if (isNumber(*policyName))
+            {
+                response->res.clearHeader(boost::beast::http::field::allow);
+                response->res.addHeader("Allow", "GET,PATCH,DELETE");
+            }
+            else
+            {
+                response->res.clearHeader(boost::beast::http::field::allow);
+                response->res.addHeader("Allow", "GET,PATCH");
+            }
         }
         response->res.jsonValue["@odata.id"] =
             "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Policies/" +
@@ -254,6 +282,8 @@ static void deletePolicy(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 if (static_cast<nmDbus::ErrorCodes>(ec2.value()) ==
                     nmDbus::ErrorCodes::OperationNotPermitted)
                 {
+                    asyncResp->res.clearHeader(boost::beast::http::field::allow);
+                    asyncResp->res.addHeader(boost::beast::http::field::allow, "GET , PATCH");
                     messages::resourceCannotBeDeleted(asyncResp->res);
                 }
                 else
@@ -517,21 +547,6 @@ inline void requestRoutesNodeManagerPolicies(App& app)
                 {
                     return;
                 }
-	
-	    asyncResp->res.clearHeader(boost::beast::http::field::allow);
-        asyncResp->res.addHeader("Allow", "GET, PATCH, DELETE");
-                if (policyName == "DmtfPower_Processor7")
-                {
-                    //remove the delete and patch method from allow header
-                    asyncResp->res.clearHeader(boost::beast::http::field::allow);
-                    asyncResp->res.addHeader(boost::beast::http::field::allow, "GET");
-                }
-                if (policyName == "HwpmPerfPreferenceOverride")
-                {
-                    //remove the delete method from allow header
-                    asyncResp->res.clearHeader(boost::beast::http::field::allow);
-                    asyncResp->res.addHeader(boost::beast::http::field::allow, "GET, PATCH");
-                }
 
         crow::connections::systemBus->async_method_call(
             [asyncResp, policyName](const boost::system::error_code ec,
@@ -621,49 +636,13 @@ inline void requestRoutesNodeManagerPolicies(App& app)
         app, "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Policies/<str>/")
         .privileges(redfish::privileges::privilegeSetConfigureManager)
         .methods(boost::beast::http::verb::delete_)(
-            [](const crow::Request&,
+            [](const crow::Request& req,
                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                const std::string& policyName) {
         if (policyName.empty())
         {
             messages::internalError(asyncResp->res);
             return;
-        }
-        if (policyName == "DmtfPower_Processor7")
-        {
-            //remove the delete and patch method from allow header
-            asyncResp->res.clearHeader(boost::beast::http::field::allow);
-            asyncResp->res.addHeader(boost::beast::http::field::allow, "GET");
-            messages::resourceCannotBeDeleted(asyncResp->res);  //DmtfPower_Processor7 was a ReadOnly Policy
-            return;
-        }
-        if (policyName == "HwpmPerfPreferenceOverride")
-        {
-            //remove the delete method from allow header
-            asyncResp->res.clearHeader(boost::beast::http::field::allow);
-            asyncResp->res.addHeader(boost::beast::http::field::allow, "GET, PATCH");
-        }
-        deletePolicy(asyncResp, policyName);
-        });
-
-    BMCWEB_ROUTE(
-        app, "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Policies/<str>/")
-        .privileges(redfish::privileges::privilegeSetConfigureManager)
-        .methods(boost::beast::http::verb::patch)(
-            [](const crow::Request& req,
-               const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-               const std::string& policyName) {
-        if (policyName == "DmtfPower_Processor7")
-        {
-            //remove the delete and patch method from allow header
-            asyncResp->res.clearHeader(boost::beast::http::field::allow);
-            asyncResp->res.addHeader(boost::beast::http::field::allow, "GET");
-        }
-        if (policyName == "HwpmPerfPreferenceOverride")
-        {
-            //remove the delete method from allow header
-            asyncResp->res.clearHeader(boost::beast::http::field::allow);
-            asyncResp->res.addHeader(boost::beast::http::field::allow, "GET, PATCH");
         }
         getPolicyObjectPath(
             req, asyncResp, policyName,
@@ -688,6 +667,50 @@ inline void requestRoutesNodeManagerPolicies(App& app)
                     BMCWEB_LOG_INFO(
                         "The attempt to modify the object has been denied: {}",
                         policyObjectPath);
+
+                    asyncResp->res.clearHeader(boost::beast::http::field::allow);
+                    asyncResp->res.addHeader(boost::beast::http::field::allow, "GET");
+                    messages::resourceCannotBeDeleted(asyncResp->res);
+                    return;
+                }
+                deletePolicy(asyncResp, policyName);
+                });
+            });
+        });
+
+    BMCWEB_ROUTE(
+        app, "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Policies/<str>/")
+        .privileges(redfish::privileges::privilegeSetConfigureManager)
+        .methods(boost::beast::http::verb::patch)(
+            [](const crow::Request& req,
+               const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+               const std::string& policyName) {
+        
+        getPolicyObjectPath(
+            req, asyncResp, policyName,
+            [req, asyncResp, policyName](const std::string& policyObjectPath) {
+            dbus::utility::getAllProperties(
+                kNodeManagerService,
+                policyObjectPath, kPolicyAttributesInterface,
+                [req, asyncResp, policyObjectPath, policyName](
+                    boost::system::error_code ec,
+                    const std::vector<
+                        std::pair<std::string, dbus::utility::DbusVariantType>>&
+                        properties) {
+                if (ec)
+                {
+                    BMCWEB_LOG_ERROR("Cannot get properties for policy: {}",
+                                     policyObjectPath);
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+                if (isPolicyReadOnly(properties))
+                {
+                    BMCWEB_LOG_INFO(
+                        "The attempt to modify the object has been denied: {}",
+                        policyObjectPath);
+                    asyncResp->res.clearHeader(boost::beast::http::field::allow);
+                    asyncResp->res.addHeader(boost::beast::http::field::allow, "GET");    
                     messages::operationNotAllowed(asyncResp->res);
                     return;
                 }

@@ -3543,6 +3543,48 @@ inline void
                 messages::resourceNotFound(asyncResp->res,"chassisId", chassisId);
                 return;
             }
+
+            // Proceed with sensor retrieval after chassis validation
+            std::pair<std::string, std::string> nameType =
+                redfish::sensor_utils::splitSensorNameAndType(sensorId);
+            std::string sensorPath = "/xyz/openbmc_project/sensors/" +
+                                     nameType.first + '/' + nameType.second;
+            if (nameType.first.empty() || nameType.second.empty())
+            {
+                messages::resourceNotFound(asyncResp->res, sensorId, "Sensor");
+                return;
+            }
+            else
+            {
+                constexpr std::array<std::string_view, 3> interfaces = {
+                    "xyz.openbmc_project.Sensor.Value",
+                    "xyz.openbmc_project.Sensor.State",
+                    "xyz.openbmc_project.Association.Definitions"};
+                ::dbus::utility::getDbusObject(
+                    sensorPath, interfaces,
+                    [asyncResp, sensorId](const boost::system::error_code& ec,
+                                const ::dbus::utility::MapperGetObject& /*subtree*/) {
+                        if (ec == boost::system::errc::io_error)
+                        {
+                            messages::resourceNotFound(asyncResp->res, sensorId,
+                                                    "Sensor");
+                            return;
+                        }
+                        if (ec)
+                        {
+                            BMCWEB_LOG_ERROR(
+                                "Sensor getSensorPaths resp_handler: Dbus error {}",
+                                ec);
+                            messages::internalError(asyncResp->res);
+                            return;
+                        }
+                        else
+                        {
+                            messages::operationNotAllowed(asyncResp->res);
+                            return;
+                        }
+                    });
+            }
         },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",

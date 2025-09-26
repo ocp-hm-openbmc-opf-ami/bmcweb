@@ -57,4 +57,27 @@ inline std::span<const MessageEntry>
     }
     return {openbmc::registry};
 }
+
+inline const Header* resolveHeader(std::string_view registryPrefix)
+{
+    if (registryPrefix == base::header.registryPrefix)
+    {
+        return &base::header;
+    }
+    if (registryPrefix == heartbeat_event::header.registryPrefix)
+    {
+        return &heartbeat_event::header;
+    }
+    if (registryPrefix == openbmc::header.registryPrefix)
+    {
+        return &openbmc::header;
+    }
+    if (registryPrefix == task_event::header.registryPrefix)
+    {
+        return &task_event::header;
+    }
+
+    return nullptr; // Unknown registry
+}
+
 } // namespace redfish::registries

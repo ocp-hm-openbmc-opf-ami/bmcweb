@@ -227,8 +227,17 @@ inline void uploadLicenseKeyFile(
             if (!result)
             {
                 std::cerr << "bef invalidFileContent " << std::endl;
-                messages::invalidFileContent(asyncResp->res, "output.key");
-                return;
+                #if BMCWEB_AMI_REP_MACRO
+                {
+                    messages::invalidFileContent(asyncResp->res, SSLFileName);
+                    return;
+                }
+                #else
+                {
+                    messages::invalidLicense(asyncResp->res);
+                    return;
+                }
+                #endif
             }
             asyncResp->res.result(boost::beast::http::status::no_content);
         },
@@ -279,9 +288,17 @@ inline void
         {
             if (param.first == "filename" && !hasKeyExtension(param.second))
             {
-                messages::invalidLicenseKeyFileFormat(asyncResp->res,
-                                                      param.second);
-                return;
+                #if BMCWEB_AMI_REP_MACRO
+                {
+                    messages::invalidLicenseKeyFileFormat(asyncResp->res, SSLFileName);
+                    return;
+                }
+                #else
+                {
+                    messages::invalidLicense(asyncResp->res);
+                    return;
+                }
+                #endif
             }
 
             if (param.first != "name" || param.second.empty())

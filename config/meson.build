@@ -67,7 +67,9 @@ feature_options = [
     'cper-uris',
     'ami-sl8',
     'ami-rm',
-    'ami-psm'
+    'ami-psm',
+    'nvidia-reset-uris',
+    'nvidia-erot-dump'
 ]
 
 string_options = [
@@ -146,6 +148,10 @@ foreach option_key : feature_options + string_options + int_options
              'ami-rm',
         ) or option_key.contains(
              'ami-psm',
+        ) or option_key.contains(
+            'nvidia-reset-uris',
+        ) or option_key.contains(
+             'nvidia-erot-dump',
         )
             feature_options_string += '#define ' + option_macro_config + '  ' + opt.allowed().to_string() + '\n'
         endif
@@ -206,3 +212,4 @@ configure_file(
 
 # Copy pam-webserver to etc/pam.d
 install_data('pam-webserver', install_dir: '/etc/pam.d/', rename: 'webserver')
+install_data('pam-web-silent', install_dir: '/etc/pam.d/', rename: 'web-silent')

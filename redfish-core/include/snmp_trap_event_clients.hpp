@@ -213,17 +213,49 @@ inline void
 {
     if (protocol == "SNMPv3")
     {
-        crow::connections::systemBus->async_method_call(
-            [asyncResp, host, subValue, subId, snmpCompletionHandler](const boost::system::error_code& ec,
-                                        const sdbusplus::message_t& msg,
-                                        const std::string& dbusSNMPid) {
-            afterSnmpClientCreate(asyncResp, ec, msg, host, dbusSNMPid, subValue, subId);
-            snmpCompletionHandler(true);
-            },
-            "xyz.openbmc_project.Network.SNMP",
-            "/xyz/openbmc_project/network/snmp/manager",
-            "xyz.openbmc_project.Network.Client.Create", "Client", host,
-            snmpTrapPort, getProtocol(protocol), username);
+        sdbusplus::message::object_path path(
+            "/xyz/openbmc_project/snmp/UserManager");
+        dbus::utility::getManagedObjects(
+            "xyz.openbmc_project.Snmp.Conf", path,
+            [asyncResp, host, subValue, subId, username, protocol, snmpTrapPort,
+             snmpCompletionHandler](
+                const boost::system::error_code& ec,
+                const dbus::utility::ManagedObjectType& resp) {
+                if (ec)
+                {
+                    BMCWEB_LOG_ERROR("DBus error in getManagedObjects: {}",
+                                     ec.message());
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+                sdbusplus::message::object_path snmpUserPath(
+                    "/xyz/openbmc_project/snmp/UserManager/" + username);
+                bool hasSNMPuser = std::any_of(
+                    resp.begin(), resp.end(), [&](const auto& objectPath) {
+                        return objectPath.first == snmpUserPath;
+                    });
+                if (!hasSNMPuser)
+                {
+                    BMCWEB_LOG_DEBUG("No SNMP user object found : {}",
+                                     snmpUserPath.str);
+                    messages::accessDenied(asyncResp->res,
+                                           boost::urls::format("SNMP"));
+                    return;
+                }
+                crow::connections::systemBus->async_method_call(
+                    [asyncResp, host, subValue, subId,
+                     snmpCompletionHandler](const boost::system::error_code& ec,
+                                            const sdbusplus::message_t& msg,
+                                            const std::string& dbusSNMPid) {
+                        afterSnmpClientCreate(asyncResp, ec, msg, host,
+                                              dbusSNMPid, subValue, subId);
+                        snmpCompletionHandler(true);
+                    },
+                    "xyz.openbmc_project.Network.SNMP",
+                    "/xyz/openbmc_project/network/snmp/manager",
+                    "xyz.openbmc_project.Network.Client.Create", "Client", host,
+                    snmpTrapPort, getProtocol(protocol), username);
+            });
     }
     else
     {

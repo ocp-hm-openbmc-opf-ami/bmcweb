@@ -17,6 +17,7 @@
 #include "registries/base_message_registry.hpp"
 #include "registries/openbmc_message_registry.hpp"
 #include "registries/certificate_service_message_registry.hpp"
+#include "registries/license_message_registry.hpp"
 
 #include <boost/beast/http/field.hpp>
 #include <boost/beast/http/status.hpp>
@@ -77,6 +78,18 @@ static nlohmann::json getLog(redfish::registries::openbmc::Index name,
     }
     return getLogFromRegistry(redfish::registries::openbmc::header,
                               redfish::registries::openbmc::registry, index, args);
+}
+
+static nlohmann::json getLog(redfish::registries::license::Index name,
+                             std::span<const std::string_view> args)
+{
+    size_t index = static_cast<size_t>(name);
+    if (index >= redfish::registries::license::registry.size())
+    {
+        return {};
+    }
+    return getLogFromRegistry(redfish::registries::license::header,
+                              redfish::registries::license::registry, index, args);
 }
 
 /**
@@ -2549,44 +2562,6 @@ void differentIpSeries(crow::Response& res, std::string_view arg1,
 
 /**
  * @internal
- * @brief Formats InvalidLicenseKeyFileFormat message into JSON
- *
- * See header file for more information
- * @endinternal
- */
-nlohmann::json invalidLicenseKeyFileFormat(std::string_view arg1)
-{
-    return getLog(redfish::registries::base::Index::invalidLicenseKeyFileFormat,
-                  std::to_array({arg1}));
-}
-
-void invalidLicenseKeyFileFormat(crow::Response& res, std::string_view arg1)
-{
-    res.result(boost::beast::http::status::bad_request);
-    addMessageToErrorJson(res.jsonValue, invalidLicenseKeyFileFormat(arg1));
-}
-
-/**
- * @internal
- * @brief Formats InvalidFileContent message into JSON
- *
- * See header file for more information
- * @endinternal
- */
-nlohmann::json invalidFileContent(std::string_view arg1)
-{
-    return getLog(redfish::registries::base::Index::invalidFileContent,
-                  std::to_array({arg1}));
-}
-
-void invalidFileContent(crow::Response& res, std::string_view arg1)
-{
-    res.result(boost::beast::http::status::bad_request);
-    addMessageToErrorJson(res.jsonValue, invalidFileContent(arg1));
-}
-
-/**
- * @internal
  * @brief Formats FactoryDefaultResetActionConflict message into JSON
  *
  * See header file for more information
@@ -2842,6 +2817,25 @@ void configurationConflict(crow::Response& res, const std::string& arg1, const s
 {
     res.result(boost::beast::http::status::bad_request);
     addMessageToErrorJson(res.jsonValue, configurationConflict(arg1, arg2));
+}
+
+
+/**
+ * @internal
+ * @brief Formats InvalidLicense message into JSON
+ *
+ * See header file for more information
+ * @endinternal
+ */
+nlohmann::json invalidLicense(void)
+{
+    return getLog(redfish::registries::license::Index::invalidLicense, {});
+}
+
+void invalidLicense(crow::Response& res)
+{
+    res.result(boost::beast::http::status::bad_request);
+    addMessageToErrorJson(res.jsonValue, invalidLicense());
 }
 
 } // namespace messages

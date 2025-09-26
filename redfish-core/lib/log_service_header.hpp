@@ -1,8 +1,7 @@
-
 #pragma once
 #include "log_error.hpp"
+#include "generated/enums/log_entry.hpp"
 
-//int alphanumComp(std::string_view, std::string_view);
 
 namespace redfish
 {
@@ -16,15 +15,6 @@ namespace redfish
    bool checkSizeLimit(int fd, crow::Response& res);
    std::string timeFormat(std::string timestamp);
    LogParseError fillMessageEntry(const std::string& logEntry, std::string& msgID, std::string& msg);
-
-// A generic template type compatible with std::less that can be used on generic
-// containers (set, map, etc)
-//template <class Type>
-//struct AlphanumLess
-//{
-//    bool operator()(const Type& left, const Type& right) const
-//    {
-//        return alphanumComp(left, right) < 0;
-//    }
-//};
+   void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const crow::Request& req, const std::string& dumpType);
 }

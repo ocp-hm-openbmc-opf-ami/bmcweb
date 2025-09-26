@@ -38,6 +38,11 @@
 
 #include <event_service_manager.hpp>
 
+
+#if BMCWEB_AMI_REP_MACRO
+    #include "ext/include/ami_errors.hpp"
+#endif
+
 namespace redfish
 {
 
@@ -1311,11 +1316,8 @@ inline void handleSNMPUserPatch(
     const std::shared_ptr<bmcweb::AsyncResp> asyncResp, std::string snmpObject,
     std::string propertyName, std::string propertyValue)
 {
-
-    const boost::urls::url objPath = boost::urls::format("{}", snmpObject);
-
     sdbusplus::asio::setProperty(
-        *crow::connections::systemBus, "xyz.openbmc_project.Snmp.Conf", objPath.data(),
+        *crow::connections::systemBus, "xyz.openbmc_project.Snmp.Conf", snmpObject,
         "xyz.openbmc_project.Snmp.UserManager", propertyName, propertyValue,
         [asyncResp](const boost::system::error_code& ec) {
             if (ec)
@@ -2003,15 +2005,18 @@ inline void afterVerifyUserExists(
     if (params.password)
     {
         accountsTotalOperations++;
-        int retval = pamUpdatePassword(params.username, *params.password);
 
-        if ((retval == PAM_CRED_INSUFFICIENT))
+        int pamrc=pamAuthenticateUser(params.username,*params.password,
+                                    std::nullopt,boost::asio::ip::address(),false);
+        if ((pamrc==PAM_NEW_AUTHTOK_REQD))
         {
             BMCWEB_LOG_ERROR("Need to provide new Password");
             messages::passwordResetFailed(asyncResp->res);
             completionHandler(false);
             return;
         }
+
+        int retval = pamUpdatePassword(params.username, *params.password);
         if (retval == PAM_USER_UNKNOWN)
         {
             messages::resourceNotFound(asyncResp->res, "ManagerAccount",
@@ -2675,8 +2680,17 @@ inline void readRadiusSSLContext(const std::shared_ptr<bmcweb::AsyncResp>& async
         {
             if (formpart.content.empty())
             {
-                messages::invalidFileContent(asyncResp->res, SSLFileName);
-                return;
+                #if BMCWEB_AMI_REP_MACRO
+                {
+                    messages::invalidFileContent(asyncResp->res, SSLFileName);
+                    return;
+                }
+                #else
+                {
+                    messages::invalidLicense(asyncResp->res);
+                    return;
+                }
+                #endif
             }
             std::string fileName = fieldName + ".pem";
             uploadRadiusSSLFile(asyncResp, formpart.content, fileName);
@@ -2686,8 +2700,17 @@ inline void readRadiusSSLContext(const std::shared_ptr<bmcweb::AsyncResp>& async
 
     if (!fileUploaded)
     {
-        messages::invalidFileContent(asyncResp->res, SSLFileName);
-        return;
+        #if BMCWEB_AMI_REP_MACRO
+        {
+            messages::invalidFileContent(asyncResp->res, SSLFileName);
+            return;
+        }
+        #else
+        {
+            messages::invalidLicense(asyncResp->res);
+            return;
+        }
+        #endif
     }
 }
 
@@ -3170,47 +3193,46 @@ inline void handleAccountSnmpPatch(const std::shared_ptr<bmcweb::AsyncResp>& asy
                         setSNMPEnableDisable(asyncResp, *hasSNMP, username);
                         return;
                     }
-                }
+                }                
+                
+                // If hasSNMP is true and currentSNMPAccessEnableStatus is true, skip setSNMPEnableDisable
+                bool currentSNMPAccessEnableStatus = false;
+                getSNMPAccessStatus(asyncResp, username, [&currentSNMPAccessEnableStatus](bool status) {
+                    std::cout << "SNMP access is " << (status ? "enabled" : "disabled") << std::endl;
+                    currentSNMPAccessEnableStatus = status;
+                });
 
-                if (hasSNMP && *hasSNMP)
+                if (hasSNMP)
                 {
-                    // If hasSNMP is true and currentSNMPAccessEnableStatus is true, skip setSNMPEnableDisable
-                    bool currentSNMPAccessEnableStatus = false;
-                    getSNMPAccessStatus(asyncResp, username, [&currentSNMPAccessEnableStatus](bool status) {
-                        std::cout << "SNMP access is " << (status ? "enabled" : "disabled") << std::endl;
-                        currentSNMPAccessEnableStatus = status;
-                    });
-
-                    if (hasSNMP && *hasSNMP && currentSNMPAccessEnableStatus == true)
+                    if (*hasSNMP && currentSNMPAccessEnableStatus == true)
                     {
                         BMCWEB_LOG_INFO("SNMP enablement conflict for user {}", username);
-
                     }
                     else
                     {
                         // If SNMPAccessEnableStatus is false, update the SNMP access
                         setSNMPEnableDisable(asyncResp, *hasSNMP, username);
                     }
-
-                    // Handle SNMP user patch for Algorithm, Encryption, and Access Mode
-                    if (algorithm && *algorithm != "default_algorithm")
-                    {
-                        handleSNMPUserPatch(asyncResp, objPath, "Algorithm", *algorithm);
-                    }
-
-                    if (encryption && *encryption != "default_encryption")
-                    {
-                        handleSNMPUserPatch(asyncResp, objPath, "Encryption", *encryption);
-                    }
-
-                    if (accessMode && *accessMode != "read-write")
-                    {
-                        std::string mode = getModeFromAccessMode(*accessMode);
-                        handleSNMPUserPatch(asyncResp, objPath, "ReadWritePermission", mode);
-                    }
-
-                    return;
                 }
+
+                // Handle SNMP user patch for Algorithm, Encryption, and Access Mode
+                if (algorithm && *algorithm != "default_algorithm")
+                {
+                    handleSNMPUserPatch(asyncResp, objPath, "Algorithm", *algorithm);
+                }
+
+                if (encryption && *encryption != "default_encryption")
+                {
+                    handleSNMPUserPatch(asyncResp, objPath, "Encryption", *encryption);
+                }
+
+                if (accessMode && *accessMode != "read-write")
+                {
+                    std::string mode = getModeFromAccessMode(*accessMode);
+                    handleSNMPUserPatch(asyncResp, objPath, "ReadWritePermission", mode);
+                }
+
+                return;                
             }
             else
             {
@@ -4334,7 +4356,7 @@ inline void fetchSnmpUserData(const std::string& accountName, const std::shared_
                 std::string mode = getAccessModeFromMode(*permission);
                 if (mode.empty())
                 {
-                    messages::propertyValueNotInList(asyncResp->res, *permission, "AccessMode");
+                    messages::propertyValueNotInList(asyncResp->res, *permission, "Access");
                     return;
                 }
                 asyncResp->res.jsonValue["Oem"]["Ami"]["SNMP"]["Access"] = mode;
