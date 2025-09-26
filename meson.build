@@ -429,6 +429,7 @@ endif
 
 if get_option('ami-psm').enabled()
     srcfiles_bmcweb += 'ext/src/psm.cpp'
+endif
 
 bmcweblib = static_library(
     'bmcweblib',
