@@ -4164,7 +4164,7 @@ inline void
     asyncResp->res.jsonValue["VirtualMedia"] = {
         {"@odata.id", "/redfish/v1/Managers/bmc/VirtualMedia"}};
 #endif
-
+#if (!BMCWEB_AMI_RM_MACRO)
     getMainChassisId(
         asyncResp, [](const std::string& chassisId,
                       const std::shared_ptr<bmcweb::AsyncResp>& aRsp) {
@@ -4174,7 +4174,7 @@ inline void
                 boost::urls::format("/redfish/v1/Chassis/{}", chassisId);
             aRsp->res.jsonValue["Links"]["Chassis"] = std::move(chassisArray);
         });
-
+#endif
     getSystemLocationIndicatorActive(asyncResp);
     // TODO (Gunnar): Remove IndicatorLED after enough time has passed
     // getIndicatorLedState(asyncResp);
