@@ -9,6 +9,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include "utils/json_utils.hpp"
 
 namespace redfish
 {
@@ -20,7 +21,7 @@ using PropertiesType =
     boost::container::flat_map<std::string, dbus::utility::DbusVariantType>;
 
 /* flag for chassis instance exists */
-bool ischeckChassisInstance = false;
+inline bool ischeckChassisInstance = false;
 
 /* check the existence of the instance and set response */
 inline void setFruCollection(
@@ -348,7 +349,7 @@ inline void setFru(
     }
 }
 
-void postFru(
+inline void postFru(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, const std::string& fruName, const boost::system::error_code& ec,
     const dbus::utility::MapperGetSubTreeResponse& subtree)

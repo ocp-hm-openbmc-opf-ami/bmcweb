@@ -2695,10 +2695,11 @@ inline void handleSensorCollectionGet(
         return;
     }
 
+    #if (!BMCWEB_AMI_PSM_MACRO)
     asyncResp->res.jsonValue["Oem"]["Ami"]["Threshold"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Chassis/{}/Sensors/Oem/Threshold",
                             chassisId);
-
+    #endif
     // We get all sensors as hyperlinkes in the chassis (this
     // implies we reply on the default query parameters handler)
     getChassis(asyncResp, chassisId, sensors::sensorsNodeStr, dbus::sensorPaths,
@@ -3314,7 +3315,7 @@ inline bool valideSensorWithConfFile(const std::string& sensorId)
     return false;
 }
 
-void getSensorReading(const std::string& sensorPath,
+inline void getSensorReading(const std::string& sensorPath,
                       std::function<void(const std::string&)> callback)
 {
     constexpr std::array<std::string_view, 3> interfaces = {

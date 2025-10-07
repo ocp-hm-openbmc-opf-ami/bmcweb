@@ -43,8 +43,8 @@
 namespace redfish
 {
 // params for multiple firmware targets
-std::vector<std::string> httpPushUriTargets;
-bool httpPushUriTargetBusy = false;
+inline std::vector<std::string> httpPushUriTargets;
+inline bool httpPushUriTargetBusy = false;
 // Match signals added on software path
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static std::unique_ptr<sdbusplus::bus::match_t> fwUpdateMatcher;
@@ -68,9 +68,11 @@ static constexpr const char* reqActivationsStandBySpare =
 static constexpr const char* activationsStandBySpare =
     "xyz.openbmc_project.Software.Activation.Activations.StandbySpare";
 
-bool isPldmService = false;
-bool isIntelservice = false;
+inline bool isPldmService = false;
+inline bool isIntelservice = false;
 
+using PropertyValue = std::variant<uint8_t, uint16_t, uint64_t, std::string,
+                                   std::vector<std::string>, bool>;
 // PFR image types (pcType)
 enum pfrImgPCType
 {
@@ -195,7 +197,7 @@ inline const PropertyValue getApplyTimePropertyValue(
     PropertyValue value{};
     auto b = sdbusplus::bus::new_default_system();
     auto method = b.new_method_call(servicePath.c_str(), objectName.c_str(),
-                                    dbusPropertyInterface, "Get");
+                                    "org.freedesktop.DBus.Properties", "Get");
 
     method.append(interface, property_Name);
     auto reply = b.call(method);

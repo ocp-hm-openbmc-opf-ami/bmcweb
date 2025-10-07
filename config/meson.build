@@ -66,7 +66,9 @@ feature_options = [
     'dot-uris',
     'cper-uris',
     'nvidia-reset-uris',
-    'nvidia-erot-dump'
+    'nvidia-erot-dump',
+    'ami-rm',
+    'ami-psm'
 ]
 
 string_options = [
@@ -143,6 +145,10 @@ foreach option_key : feature_options + string_options + int_options
             'nvidia-reset-uris'
         ) or option_key.contains(
              'nvidia-erot-dump'
+        ) or option_key.contains(
+             'ami-rm'
+        ) or option_key.contains(
+             'ami-psm'
         )
             feature_options_string += '#define ' + option_macro_config + '  ' + opt.allowed().to_string() + '\n'
         endif

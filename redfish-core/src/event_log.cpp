@@ -80,16 +80,32 @@ int getDbusEventLogParams(const std::string& logEntry, std::string& messageID,
     else
     {
         messageID = logEntry.substr(0, colonPos);
-        std::string argsStr = logEntry.substr(colonPos + 1);
-        size_t start = 0;
-        size_t end = argsStr.find(',');
-        while (end != std::string::npos)
+	std::string input = logEntry.substr(colonPos + 1);
+        if(input.find('|') != std::string::npos)
         {
-            messageArgs.push_back(argsStr.substr(start, end - start));
-            start = end + 1;
-            end = argsStr.find(',', start);
+	    std::stringstream ss(input);
+            std::string token;
+            while (std::getline(ss, token, '|')) { 
+                messageArgs.push_back(token);
+            }
         }
-        messageArgs.push_back(argsStr.substr(start));
+        else if(input.find(',') != std::string::npos)
+        {
+            std::string argsStr = logEntry.substr(colonPos + 1);
+            size_t start = 0;
+            size_t end = argsStr.find(',');
+            while (end != std::string::npos)
+            {
+                messageArgs.push_back(argsStr.substr(start, end - start));
+                start = end + 1;
+                end = argsStr.find(',', start);
+            }
+            messageArgs.push_back(argsStr.substr(start));
+        }
+        else
+        {
+            messageArgs.push_back(input);
+        }
     }
     return 0;
 }

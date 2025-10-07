@@ -73,5 +73,11 @@ void setIdlePowerSaver(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                        const std::optional<uint64_t> ipsEnterTime,
                        const std::optional<uint8_t> ipsExitUtil,
                        const std::optional<uint64_t> ipsExitTime);
-
+void handleComputerSystemCollectionGet(
+    crow::App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp);
+void handleComputerSystemGet(
+    crow::App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& systemName);
 } // namespace redfish

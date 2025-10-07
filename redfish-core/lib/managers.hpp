@@ -82,7 +82,7 @@ using managerPropertyValue = std::variant<uint8_t, uint16_t, std::string,
  * @param[in] asyncResp - Shared pointer for completing asynchronous call
  * @param[in] payload - Double pointer to get the task Data
  */
-void createTimeOutTask(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+inline void createTimeOutTask(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                        task::Payload&& payload, uint64_t timeDiff)
 {
     BMCWEB_LOG_ERROR("do Task creartion");
@@ -151,7 +151,7 @@ void createTimeOutTask(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
  * @param[in] interface - interface of the Property
  * @param[in] propertyName - propertyName of the Property
  */
-const managerPropertyValue getProperty(
+inline const managerPropertyValue getProperty(
     const std::string& servicePath, const std::string& objectPath,
     const std::string& interface, const std::string& propertyName)
 {
@@ -2410,20 +2410,22 @@ inline void handleManagersInstanceGet(
     asyncResp->res.jsonValue["NetworkProtocol"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Managers/{}/NetworkProtocol",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
+    #if (!BMCWEB_AMI_RM_MACRO) && (!BMCWEB_AMI_PSM_MACRO)
     asyncResp->res.jsonValue["SerialInterfaces"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Managers/{}/SerialInterfaces",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
+    #endif
     asyncResp->res.jsonValue["EthernetInterfaces"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Managers/{}/EthernetInterfaces",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
-    #if (!BMCWEB_CHALUPA_AMD_MACRO && !BMCWEB_ARBEL_NUVOTON_MACRO && !BMCWEB_AST2700_EVB_MACRO)
+    #if (!BMCWEB_CHALUPA_AMD_MACRO && !BMCWEB_ARBEL_NUVOTON_MACRO && !BMCWEB_AST2700_EVB_MACRO && !BMCWEB_AMI_RM_MACRO && !BMCWEB_AMI_PSM_MACRO)
     {
     asyncResp->res.jsonValue["SecurityPolicy"]["@odata.id"] =
        	boost::urls::format("/redfish/v1/Managers/{}/SecurityPolicy",
                	            BMCWEB_REDFISH_MANAGER_URI_NAME);
     }
     #endif
-
+    #if (!BMCWEB_AMI_RM_MACRO && !BMCWEB_AMI_PSM_MACRO)
     if constexpr (BMCWEB_VM_NBDPROXY)
     {
         asyncResp->res.jsonValue["VirtualMedia"]["@odata.id"] =
@@ -2467,7 +2469,7 @@ inline void handleManagersInstanceGet(
         boost::urls::format("/redfish/v1/Managers/{}/Truststore/Certificates",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
     oemOpenbmc["Certificates"] = std::move(certificates);
-
+    #endif
     // Manager.Reset (an action) can be many values, OpenBMC only
     // supports BMC reboot.
     nlohmann::json& managerReset =
@@ -2482,12 +2484,14 @@ inline void handleManagersInstanceGet(
     // ResetToDefaults (Factory Reset) has values like
     // PreserveNetworkAndUsers and PreserveNetwork that aren't supported
     // on OpenBMC
+    #if (!BMCWEB_AMI_RM_MACRO && !BMCWEB_AMI_PSM_MACRO)
     nlohmann::json& resetToDefaults =
         asyncResp->res.jsonValue["Oem"]["Ami"]["FactoryDefault"];
     resetToDefaults["@odata.id"] =
         boost::urls::format("/redfish/v1/Managers/{}/Oem/Ami/ResetToDefaults",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
-
+    #endif
+    #if (!BMCWEB_AMI_PSM_MACRO)
     dbus::utility::getProperty<std::string>(
         "org.freedesktop.timedate1", "/org/freedesktop/timedate1",
         "org.freedesktop.timedate1", "Timezone",
@@ -2504,16 +2508,16 @@ inline void handleManagersInstanceGet(
             asyncResp->res.jsonValue["TimeZoneName"] = property;
             getCurrentDateTimeValue(asyncResp, property);
         });
-
+    #endif
     // TODO (Gunnar): Remove these one day since moved to ComputerSystem
     // Still used by OCP profiles
     // https://github.com/opencomputeproject/OCP-Profiles/issues/23
     // Fill in CommandShell info
+    #if (!BMCWEB_AMI_PSM_MACRO)
     asyncResp->res.jsonValue["CommandShell"]["ServiceEnabled"] = true;
     asyncResp->res.jsonValue["CommandShell"]["MaxConcurrentSessions"] = 1;
     asyncResp->res.jsonValue["CommandShell"]["ConnectTypesSupported"] = {
         "SSH", "IPMI"};
-
     if constexpr (!BMCWEB_EXPERIMENTAL_REDFISH_MULTI_COMPUTER_SYSTEM)
     {
         asyncResp->res.jsonValue["Links"]["ManagerForServers@odata.count"] = 1;
@@ -2527,12 +2531,14 @@ inline void handleManagersInstanceGet(
         asyncResp->res.jsonValue["Links"]["ManagerForServers"] =
             std::move(managerForServers);
     }
-
+    #endif
+    #if (!BMCWEB_AMI_RM_MACRO) && (!BMCWEB_AMI_PSM_MACRO)
     sw_util::populateSoftwareInformation(asyncResp, sw_util::bmcPurpose,
                                          "FirmwareVersion", true);
-
+    #endif
     managerGetLastResetTime(asyncResp);
     getSystemLocationIndicatorActive(asyncResp);
+    #if (!BMCWEB_AMI_RM_MACRO) && (!BMCWEB_AMI_PSM_MACRO)
     // ManagerDiagnosticData is added for all BMCs.
     nlohmann::json& managerDiagnosticData =
         asyncResp->res.jsonValue["ManagerDiagnosticData"];
@@ -2561,7 +2567,7 @@ inline void handleManagersInstanceGet(
             aRsp->res.jsonValue["Links"]["ManagerInChassis"]["@odata.id"] =
                 chassiUrl;
         });
-
+    #endif
     dbus::utility::getProperty<double>(
         "org.freedesktop.systemd1", "/org/freedesktop/systemd1",
         "org.freedesktop.systemd1.Manager", "Progress",
@@ -2851,32 +2857,36 @@ inline void requestRoutesManager(App& app)
            });
 }
 
+inline void
+    handleManagerCollectionGet(
+        App& app, const crow::Request& req,
+        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    // Collections don't include the static data added by SubRoute
+    // because it has a duplicate entry for members
+    asyncResp->res.jsonValue["@odata.id"] = "/redfish/v1/Managers";
+    asyncResp->res.jsonValue["@odata.type"] =
+        "#ManagerCollection.ManagerCollection";
+    asyncResp->res.jsonValue["Name"] = "Manager Collection";
+    asyncResp->res.jsonValue["Description"] = "The collection for Managers";
+    asyncResp->res.jsonValue["Members@odata.count"] = 1;
+    nlohmann::json::array_t members;
+    nlohmann::json& bmc = members.emplace_back();
+    bmc["@odata.id"] = boost::urls::format("/redfish/v1/Managers/{}",
+                                           BMCWEB_REDFISH_MANAGER_URI_NAME);
+    asyncResp->res.jsonValue["Members"] = std::move(members);
+}
+
 inline void requestRoutesManagerCollection(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/")
         .privileges(redfish::privileges::getManagerCollection)
         .methods(boost::beast::http::verb::get)(
-            [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
-                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-                {
-                    return;
-                }
-                // Collections don't include the static data added by SubRoute
-                // because it has a duplicate entry for members
-                asyncResp->res.jsonValue["@odata.id"] = "/redfish/v1/Managers";
-                asyncResp->res.jsonValue["@odata.type"] =
-                    "#ManagerCollection.ManagerCollection";
-                asyncResp->res.jsonValue["Name"] = "Manager Collection";
-                asyncResp->res.jsonValue["Description"] =
-                    "The collection for Managers";
-                asyncResp->res.jsonValue["Members@odata.count"] = 1;
-                nlohmann::json::array_t members;
-                nlohmann::json& bmc = members.emplace_back();
-                bmc["@odata.id"] = boost::urls::format(
-                    "/redfish/v1/Managers/{}", BMCWEB_REDFISH_MANAGER_URI_NAME);
-                asyncResp->res.jsonValue["Members"] = std::move(members);
-            });
+	std::bind_front(handleManagerCollectionGet, std::ref(app)));
 }
 inline void handleManagerSerialInterfaceGet(
     App& app, const crow::Request& req,

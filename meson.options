@@ -146,6 +146,22 @@ option(
     description: 'Enable the AMI NIC.'
 )
 
+# BMCWEB_AMI_RM_MACRO
+option(
+    'ami-rm',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable the AMI RM.'
+)
+
+# BMCWEB_AMI_PSM_MACRO
+option(
+    'ami-psm',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable the AMI PSM.'
+)
+
 # BMCWEB_AMI_PCIESW_MACRO
 option(
     'ami-pciesw',

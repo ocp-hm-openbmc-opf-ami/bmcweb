@@ -44,7 +44,7 @@ constexpr const char* dbusPropertyInterface = "org.freedesktop.DBus.Properties";
 using PropertyValue = std::variant<uint8_t, uint16_t, uint64_t, std::string,
                                    std::vector<std::string>, bool>;
 
-bool checkinvalidURIPatch = true;
+inline bool checkinvalidURIPatch = true;
 
 inline chassis::ChassisType
     translateChassisTypeToRedfish(const std::string_view& chassisType)
@@ -529,24 +529,26 @@ inline void handleDecoratorAssetProperties(
             boost::urls::format("/redfish/v1/Chassis/{}/Power", chassisId);
     }
 #endif
+#if (!BMCWEB_AMI_RM_MACRO) && (!BMCWEB_AMI_PSM_MACRO)
     // FRU Device
     asyncResp->res.jsonValue["Oem"]["AMI"]["FRU"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Chassis/{}/FRU", chassisId);
     asyncResp->res.jsonValue["Oem"]["AMI"]["@odata.type"] = json_util::odataType("OemAMIChassis");
     asyncResp->res.jsonValue["Oem"]["AMI"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Chassis/{}#/Oem/AMI", chassisId);
-
+#endif
     // SensorCollection
     asyncResp->res.jsonValue["Sensors"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Chassis/{}/Sensors", chassisId);
     asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
-
+#if (!BMCWEB_AMI_RM_MACRO) && (!BMCWEB_AMI_PSM_MACRO)
     // SensorThreshold Collection
     asyncResp->res.jsonValue["Oem"]["AMI"]["SensorThreshold"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Chassis/{}/Sensors/Oem/Threshold",
                             chassisId);
     asyncResp->res.jsonValue["Oem"]["AMI"]["SensorThreshold"]["@odata.type"] = json_util::odataType("OemAMISensor");
-
+#endif
+#if (!BMCWEB_AMI_PSM_MACRO)
     nlohmann::json::array_t computerSystems;
     nlohmann::json::object_t system;
     system["@odata.id"] =
@@ -554,12 +556,16 @@ inline void handleDecoratorAssetProperties(
     computerSystems.emplace_back(std::move(system));
     asyncResp->res.jsonValue["Links"]["ComputerSystems"] =
         std::move(computerSystems);
-
+#endif
     nlohmann::json::array_t managedBy;
     nlohmann::json::object_t manager;
     manager["@odata.id"] = boost::urls::format("/redfish/v1/Managers/{}",
                                                BMCWEB_REDFISH_MANAGER_URI_NAME);
     managedBy.emplace_back(std::move(manager));
+#if (BMCWEB_AMI_PSM_MACRO)
+    nlohmann::json::array_t managersInChassis = managedBy;
+    asyncResp->res.jsonValue["Links"]["ManagersInChassis"] = std::move(managersInChassis);
+#endif
     asyncResp->res.jsonValue["Links"]["ManagedBy"] = std::move(managedBy);
     getChassisState(asyncResp);
     getStorageLink(asyncResp, path);
@@ -790,7 +796,7 @@ inline void handleChassisGetSubTree(
                 handleDecoratorAssetProperties(asyncResp, chassisId, path,
                                                propertiesList);
             });
-
+#if (!BMCWEB_AMI_RM_MACRO) && (!BMCWEB_AMI_PSM_MACRO)
         dbus::utility::getAllProperties(
             connectionName, path, "xyz.openbmc_project.Inventory.Item.Chassis",
             [asyncResp](
@@ -798,7 +804,7 @@ inline void handleChassisGetSubTree(
                 const dbus::utility::DBusPropertiesMap& propertiesList) {
                 handleChassisProperties(asyncResp, propertiesList);
             });
-
+#endif
         for (const auto& interface : interfaces2)
         {
             if (interface == "xyz.openbmc_project.Common.UUID")
@@ -819,7 +825,7 @@ inline void handleChassisGetSubTree(
     messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
 }
 
-void handleChassisGet(App& app, const crow::Request& req,
+inline void handleChassisGet(App& app, const crow::Request& req,
                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                       const std::string& chassisId)
 { 
@@ -853,7 +859,7 @@ void handleChassisGet(App& app, const crow::Request& req,
     }
 }
 
-void
+inline void
     handleChassisPatch(App& app, const crow::Request& req,
                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                        const std::string& param)
@@ -1210,7 +1216,7 @@ inline void NoOperation(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
         "Add properties in the JSON object and resubmit the request.";
 }
 
-const PropertyValue getHostState(
+inline const PropertyValue getHostState(
     const std::string& processName, const std::string& objectPath,
     const std::string& interfaceName, const std::string& propertyName)
 {
@@ -1226,7 +1232,7 @@ const PropertyValue getHostState(
     return value;
 }
 
-const PropertyValue getchassisHostTransitionTimeOut(
+inline const PropertyValue getchassisHostTransitionTimeOut(
     const std::string& servicePath, const std::string& objectName,
     const std::string& interface, const std::string& property_Name)
 {
@@ -1248,7 +1254,7 @@ const PropertyValue getchassisHostTransitionTimeOut(
  * @param[in] asyncResp - Shared pointer for completing asynchronous call
  * @param[in] payload - Double pointer to get the task Data
  */
-void createImmediateResetTask(
+inline void createImmediateResetTask(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     task::Payload&& payload, const std::string& resetType)
 {
@@ -1343,7 +1349,7 @@ void createImmediateResetTask(
  * @param[in] asyncResp - Shared pointer for completing asynchronous call
  * @param[in] payload - Double pointer to get the task Data
  */
-void createMaintenanceWindowTask(
+inline void createMaintenanceWindowTask(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     task::Payload&& payload, const std::string& resetType)
 {
