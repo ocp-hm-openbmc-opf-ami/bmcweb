@@ -1,0 +1,157 @@
+{
+    "$id": "/redfish/v1/JsonSchemas/AmiADDCConfiguration/AmiADDCConfiguration.v1_0_0.json",
+    "$ref": "#/definitions/AmiADDCConfiguration",
+    "$schema": "http://redfish.dmtf.org/schemas/v1/redfish-schema-v1.json",
+    "copyright":"Copyright American Megatrends, Inc. (AMI).",
+    "definitions": {
+        "AmiADDCConfiguration": {
+            "additionalProperties": false,
+            "description": "Ami OEM Extension for LogService.",
+            "longDescription": "Ami OEM Extension for LogService providing info about ADDC configuration.",
+            "patternProperties": {
+                "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
+                    "description": "This property shall specify a valid odata or Redfish property.",
+                    "type": [
+                        "array",
+                        "boolean",
+                        "integer",
+                        "number",
+                        "null",
+                        "object",
+                        "string"
+                    ]
+                }
+            },
+            "properties": {
+                "Configuration": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/definitions/ConfigurationData"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "description": "ADDC configuration.",
+                    "longDescription": "Configuration Autonomous debug data collection."
+                }
+            },
+            "type": "object"
+        },
+        "ConfigurationData": {
+            "additionalProperties": false,
+            "description": "ADDC configuration.",
+            "longDescription": "Configuration Autonomous debug data collection.",
+            "patternProperties": {
+                "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
+                    "description": "This property shall specify a valid odata or Redfish property.",
+                    "type": [
+                        "array",
+                        "boolean",
+                        "integer",
+                        "number",
+                        "null",
+                        "object",
+                        "string"
+                    ]
+                }
+            },
+            "properties": {
+                "DramCeccPollingEn": {
+                    "description": "Indicates whether Enable or Disable DramCecc Polloing check.",
+                    "longDescription": "The value of this property shall be a Enable or Disable DramCecc Polloing check.",
+                    "readonly": false,
+                    "type": [
+                        "boolean",
+                        "null"
+                    ]
+                },
+                "DramCeccPollingPeriod": {
+                    "description": "Indicates Set DramCecc Polloing Period time, 0 100 seconds.",
+                    "longDescription": "The value of this property Indicates Set DramCecc Polloing Period time, 0 100 seconds.",
+                    "readonly": false,
+                    "type": [
+                        "number",
+                        "null"
+                    ]
+                },
+                "HarvestPPIN": {
+                    "description": "Indicates Whether to provide PPIN in RAS-CPER when error occurs.",
+                    "longDescription": "The value of this property shall be Indicates Whether to provide PPIN in RAS-CPER when error occurs.",
+                    "readonly": false,
+                    "type": [
+                        "boolean",
+                        "null"
+                    ]
+                },
+                "HarvestUCode": {
+                    "description": "Indicates Whether to provide uCode in RAS-CPER when error occurs.",
+                    "longDescription": "The value of this property shall be indicates Whether to provide uCode in RAS-CPER when error occurs.",
+                    "readonly": false,
+                    "type": [
+                        "boolean",
+                        "null"
+                    ]
+                },
+                "McaPollingEn": {
+                    "description": "Indicates Enable or Disable MCA Polling check.",
+                    "longDescription": "The value of this property shall be a boolean indicating whether Mca polling is Enabled or Disable.",
+                    "readonly": false,
+                    "type": [
+                        "boolean",
+                        "null"
+                    ]
+                },
+                "McaPollingPeriod": {
+                    "description": "Indicates Set Mca Polloing Period time, 0 100 seconds.",
+                    "longDescription": "The value of this property Indicates Set Mca Polloing Period time, 0 100 seconds.",
+                    "readonly": false,
+                    "type": [
+                        "number",
+                        "null"
+                    ]
+                },
+                "PcieAerPollingEn": {
+                    "description": "Indicates Enable or Disable PcieAerPollingEn Polling check.",
+                    "longDescription": "The value of this property Indicates Enable or Disable PcieAerPollingEn Polling check.",
+                    "readonly": false,
+                    "type": [
+                        "boolean",
+                        "null"
+                    ]
+                },
+                "PcieAerPollingPeriod": {
+                    "description": "Indicates Set PcieAer Polling Period time, 0 100 seconds.",
+                    "longDescription": "The value of this property Indicates Set PcieAerPolling Period time, 0 100 seconds.",
+                    "readonly": false,
+                    "type": [
+                        "number",
+                        "null"
+                    ]
+                },
+                "RecoverMode": {
+                    "description": "Indicates Error Recovery mode option.",
+                    "longDescription": "The value of this property Indicates Error Recovery modes.",
+                    "readonly": false,
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
+                "Retry": {
+                    "description": "Indicates Set Retry count.",
+                    "longDescription": "The value of this property Indicates Set Retry count.",
+                    "readonly": false,
+                    "type": [
+                        "number",
+                        "null"
+                    ]
+                }
+            },
+            "type": "object"
+        }
+    },
+    "owningEntity": "Ami",
+    "release": "1.0",
+    "title": "#AmiADDCConfiguration.v1_0_0"
+}
