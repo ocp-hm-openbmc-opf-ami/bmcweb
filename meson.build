@@ -444,6 +444,10 @@ if get_option('ami-psm').enabled()
     srcfiles_bmcweb += 'ext/src/psm.cpp'
 endif
 
+if get_option('ami-raidbrcm').enabled() or get_option('ami-sl8').enabled()
+    srcfiles_bmcweb += 'ext/lib/brcm/raid_brcm.cpp'
+endif
+
 bmcweblib = static_library(
     'bmcweblib',
     srcfiles_bmcweb,
