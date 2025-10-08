@@ -658,40 +658,54 @@ inline void handleNTPServersPatch(
     // Any remaining array elements should be removed
     currentNtpServers.erase(currentNtpServer, currentNtpServers.end());
 
-    constexpr std::array<std::string_view, 1> ethInterfaces = {
-        "xyz.openbmc_project.Network.EthernetInterface"};
-    dbus::utility::getSubTree(
-        "/xyz/openbmc_project", 0, ethInterfaces,
-        [asyncResp, currentNtpServers](
-            const boost::system::error_code& ec,
-            const dbus::utility::MapperGetSubTreeResponse& subtree) {
+    crow::connections::systemBus->async_method_call(
+        [currentNtpServers, asyncResp](const boost::system::error_code ec,
+                                const dbus::utility::ManagedObjectType& objects)
+        {
             if (ec)
             {
-                BMCWEB_LOG_WARNING("D-Bus error: {}, {}", ec, ec.message());
+                BMCWEB_LOG_ERROR("GetManagedObjects failed: {}", ec.message());
                 messages::internalError(asyncResp->res);
                 return;
             }
 
-            for (const auto& [objectPath, serviceMap] : subtree)
+            for (const auto& objpath : objects)
             {
-                for (const auto& [service, interfaces] : serviceMap)
+                for (const auto & ifacePair : objpath.second)
                 {
-                    for (const auto& interface : interfaces)
+                    if (ifacePair.first !=
+                        "xyz.openbmc_project.Network.EthernetInterface")
                     {
-                        if (interface !=
-                            "xyz.openbmc_project.Network.EthernetInterface")
-                        {
-                            continue;
-                        }
+                        continue;
+                    }
 
-                        setDbusProperty(asyncResp, "NTP/NTPServers/", service,
-                                        objectPath, interface,
-                                        "StaticNTPServers", currentNtpServers);
+                    for (const auto& propertyPair : ifacePair.second)
+                    {
+                        if (propertyPair.first == "StaticNTPServers")
+                        {
+                            sdbusplus::asio::setProperty(
+                                    *crow::connections::systemBus, "xyz.openbmc_project.Network",
+                                    objpath.first, ifacePair.first,
+                                    "StaticNTPServers", currentNtpServers,
+                                    [asyncResp](const boost::system::error_code& ec)
+                                    {
+                                        if (ec)
+                                        {
+                                            BMCWEB_LOG_ERROR("D-Bus responses error setting StaticNTPServers: {}", ec);
+                                            messages::internalError(asyncResp->res);
+                                            return;
+                                        }
+                                    });
+                        }
                     }
                 }
             }
-        });
+        },
+        "xyz.openbmc_project.Network", "/xyz/openbmc_project/network",
+        "org.freedesktop.DBus.ObjectManager", "GetManagedObjects");
+
 }
+
 inline void setRunning(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 const bool running)
 {
