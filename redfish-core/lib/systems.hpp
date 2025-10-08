@@ -3799,7 +3799,7 @@ inline void handleComputerSystemResetActionPost(
 
     // Current BMC Timezone
     std::string redfishDateTimeOffset =
-        crow::utility::getDateTimeOffsetNow().first;
+        redfish::time_utils::getDateTimeOffsetNow().first;
 
     auto host_Value = getHostTransitionTimeOut(processName, objectPath,
                                                interfaceName, prop_Name);

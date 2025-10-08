@@ -1542,7 +1542,7 @@ inline void handleChassisResetActionInfoPost(
 
                 // Current BMC Timezone
                 std::string redfishDateTimeOffset =
-                    crow::utility::getDateTimeOffsetNow().first;
+                    redfish::time_utils::getDateTimeOffsetNow().first;
 
                 task::Payload payload(req);
 
