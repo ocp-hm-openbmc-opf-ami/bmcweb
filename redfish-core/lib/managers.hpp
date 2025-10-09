@@ -507,6 +507,72 @@ inline void requestRoutesManagerResetToDefaults(App& app)
      *
      * OpenBMC only supports ResetToDefaultsType "ResetAll".
      */
+
+    BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/ResetToDefaults/")
+        .privileges(redfish::privileges::postManager)
+        .methods(boost::beast::http::verb::post)(
+            [&app](const crow::Request& req,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const std::string& managerId) {
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
+                if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
+                {
+                    messages::resourceNotFound(asyncResp->res, "Manager",
+                                               managerId);
+                    return;
+                }
+                std::string resetType;
+
+                if (!json_util::readJsonAction(
+                    req, asyncResp->res,
+                    "ResetType", resetType
+                    ))
+                {
+                    return;
+                }
+
+                if(resetType != "ResetAll")
+                {
+                    messages::actionParameterNotSupported(asyncResp->res, resetType,
+                                              "ResetType");
+                    return;
+
+                }
+                for (const std::shared_ptr<task::TaskData>& task : task::tasks)
+                {
+                    if (task == nullptr)
+                    {
+                        continue; // shouldn't be possible
+                    }
+                    if (task->state == "Pending")
+                    {
+                        messages::factoryDefaultResetActionConflict(
+                            asyncResp->res, "FactoryDefaultReset",
+                            "FirmwareUpdate");
+                        return;
+                    }
+                }
+                crow::connections::systemBus->async_method_call(
+                    [asyncResp](const boost::system::error_code& ec) {
+                        if (ec)
+                        {
+                            BMCWEB_LOG_DEBUG("Failed to ResetToDefaults: {}",
+                                             ec);
+                            messages::internalError(asyncResp->res);
+                            return;
+                        }
+                        // Factory Reset doesn't actually happen until a reboot
+                        // Can't erase what the BMC is running on
+                        doBMCGracefulRestart(asyncResp);
+                        messages::success(asyncResp->res);
+                    },
+                    "xyz.openbmc_project.Software.BMC.Updater",
+                    "/xyz/openbmc_project/software",
+                    "xyz.openbmc_project.Common.FactoryReset", "Reset");
+            });
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/Oem/Ami/ResetToDefaults/")
         .privileges(redfish::privileges::postManager)
         .methods(boost::beast::http::verb::post)(
@@ -603,6 +669,44 @@ inline void requestRoutesManagerResetActionInfo(App& app)
                 nlohmann::json::array_t allowableValues;
                 allowableValues.emplace_back("GracefulRestart");
                 allowableValues.emplace_back("ForceRestart");
+                parameter["AllowableValues"] = std::move(allowableValues);
+
+                nlohmann::json::array_t parameters;
+                parameters.emplace_back(std::move(parameter));
+
+                asyncResp->res.jsonValue["Parameters"] = std::move(parameters);
+            });
+    BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/ResetToDefaultsActionInfo/")
+        .privileges(redfish::privileges::getActionInfo)
+        .methods(boost::beast::http::verb::get)(
+            [&app](const crow::Request& req,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const std::string& managerId) {
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
+
+                if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
+                {
+                    messages::resourceNotFound(asyncResp->res, "Manager",
+                                               managerId);
+                    return;
+                }
+
+                asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("ActionInfo");
+                asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
+                    "/redfish/v1/Managers/{}/ResetToDefaultsActionInfo",
+                    BMCWEB_REDFISH_MANAGER_URI_NAME);
+                asyncResp->res.jsonValue["Name"] = "ResetToDefaults Action Info";
+                asyncResp->res.jsonValue["Id"] = "ResetToDefaultsActionInfo";
+                nlohmann::json::object_t parameter;
+                parameter["Name"] = "ResetType";
+                parameter["Required"] = true;
+                parameter["DataType"] = action_info::ParameterTypes::String;
+
+                nlohmann::json::array_t allowableValues;
+                allowableValues.emplace_back("ResetAll");
                 parameter["AllowableValues"] = std::move(allowableValues);
 
                 nlohmann::json::array_t parameters;
@@ -2485,13 +2589,17 @@ inline void handleManagersInstanceGet(
     // PreserveNetworkAndUsers and PreserveNetwork that aren't supported
     // on OpenBMC
     #if (!BMCWEB_AMI_RM_MACRO && !BMCWEB_AMI_PSM_MACRO)
-    nlohmann::json& resetToDefaults =
-        asyncResp->res.jsonValue["Oem"]["Ami"]["FactoryDefault"];
-    resetToDefaults["@odata.id"] =
-        boost::urls::format("/redfish/v1/Managers/{}/Oem/Ami/ResetToDefaults",
+    nlohmann::json& ResetToDefaults =
+        asyncResp->res.jsonValue["Actions"]["#Manager.ResetToDefaults"];
+    ResetToDefaults["target"] =
+        boost::urls::format("/redfish/v1/Managers/{}/Actions/Manager.ResetToDefaults",
+                            BMCWEB_REDFISH_MANAGER_URI_NAME);
+    ResetToDefaults["@Redfish.ActionInfo"] =
+        boost::urls::format("/redfish/v1/Managers/{}/ResetActionInfo",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
     #endif
     #if (!BMCWEB_AMI_PSM_MACRO)
+    
     dbus::utility::getProperty<std::string>(
         "org.freedesktop.timedate1", "/org/freedesktop/timedate1",
         "org.freedesktop.timedate1", "Timezone",
