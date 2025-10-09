@@ -2603,7 +2603,6 @@ inline void
     managerReset["@Redfish.ActionInfo"] =
         boost::urls::format("/redfish/v1/Managers/{}/ResetActionInfo",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
-#if (BMCWEB_AMI_NM_MACRO)
     // ResetToDefaults (Factory Reset) has values like
     // PreserveNetworkAndUsers and PreserveNetwork that aren't supported
     // on OpenBMC
