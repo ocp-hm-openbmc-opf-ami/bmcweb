@@ -826,12 +826,47 @@ inline void handleChassisGetSubTree(
     messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
 }
 
-inline void handleChassisGet(
-    App& app, const crow::Request& req,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& chassisId)
+void getMinMaxValues(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    
+    const std::string sensorPath =
+        "/xyz/openbmc_project/sensors/power/Platform_Power_Average_CPU1";
+    sdbusplus::asio::getAllProperties(
+        *crow::connections::systemBus,
+        "xyz.openbmc_project.IntelCPUSensor", // Service
+        sensorPath,
+        "xyz.openbmc_project.Sensor.Value", // Interface
+        [asyncResp](const boost::system::error_code& ec,
+                    const dbus::utility::DBusPropertiesMap& properties) {
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG("DBUS response error: {}",ec);
+                return;
+            }
+            const double* minValue = nullptr;
+            const double* maxValue = nullptr;
+            const bool success = sdbusplus::unpackPropertiesNoThrow(
+                dbus_utils::UnpackErrorPrinter(), properties, "MinValue",
+                minValue, "MaxValue", maxValue);
+            if (!success)
+            {
+                BMCWEB_LOG_DEBUG("Failed to unpack MinValue/MaxValue");
+                return;
+            }
+            if (minValue)
+            {
+                asyncResp->res.jsonValue["MinPowerWatts"] = *minValue;
+            }
+            if (maxValue)
+            {
+                asyncResp->res.jsonValue["MaxPowerWatts"] = *maxValue;
+            }
+        });
+}
+
+inline void handleChassisGet(App& app, const crow::Request& req,
+                      const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                      const std::string& chassisId)
+{ 
     asyncResp->res.clearHeader(boost::beast::http::field::allow);
 
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
@@ -860,12 +895,13 @@ inline void handleChassisGet(
             "/xyz/openbmc_project", 0, interfaces2,
             std::bind_front(handlePhysicalSecurityGetSubTree, asyncResp));
     }
+    getMinMaxValues(asyncResp);
 }
 
-inline void handleChassisPatch(
-    App& app, const crow::Request& req,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& param)
+inline void
+    handleChassisPatch(App& app, const crow::Request& req,
+                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                       const std::string& param)
 {
     asyncResp->res.clearHeader(boost::beast::http::field::allow);
 
@@ -1545,7 +1581,7 @@ inline void handleChassisResetActionInfoPost(
 
                 // Current BMC Timezone
                 std::string redfishDateTimeOffset =
-                    crow::utility::getDateTimeOffsetNow().first;
+                    redfish::time_utils::getDateTimeOffsetNow().first;
 
                 task::Payload payload(req);
 

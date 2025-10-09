@@ -13,4 +13,5 @@ namespace redfish
     void handleManagerCollectionGet(
     	App& app, const crow::Request& req,
     	const std::shared_ptr<bmcweb::AsyncResp>& asyncResp);
-} // namespace redfish
+
+}

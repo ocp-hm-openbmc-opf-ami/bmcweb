@@ -343,7 +343,7 @@ inline bool translateUserGroup(const std::vector<std::string>& userGroups,
 
     res.jsonValue["AccountTypes"] = std::move(accountTypes);
     if(!BMCWEB_AMI_PSM_MACRO){
-    res.jsonValue["OEMAccountTypes"] = std::move(oemAccountTypes);
+        res.jsonValue["OEMAccountTypes"] = std::move(oemAccountTypes);
     }
     return true;
 }
@@ -5552,7 +5552,7 @@ inline void requestAccountServiceRoutes(App& app)
 
     BMCWEB_ROUTE(app,
                  "/redfish/v1/AccountService/ExternalAccountProviders/RADIUS/")
-        .privileges(redfish::privileges::headAccountService)
+        .privileges(redfish::privileges::patchManagerAccountCollection)
         .methods(boost::beast::http::verb::patch)(
             std::bind_front(handleAccountRadiusPatch, std::ref(app)));
     BMCWEB_ROUTE(

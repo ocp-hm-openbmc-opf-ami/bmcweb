@@ -84,9 +84,8 @@ using managerPropertyValue = std::variant<uint8_t, uint16_t, std::string,
  * @param[in] asyncResp - Shared pointer for completing asynchronous call
  * @param[in] payload - Double pointer to get the task Data
  */
-inline void
-    createTimeOutTask(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                      task::Payload&& payload, uint64_t timeDiff)
+inline void createTimeOutTask(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                       task::Payload&& payload, uint64_t timeDiff)
 {
     BMCWEB_LOG_ERROR("do Task creartion");
     sdbusplus::message::object_path objPath;
@@ -154,9 +153,9 @@ inline void
  * @param[in] interface - interface of the Property
  * @param[in] propertyName - propertyName of the Property
  */
-inline const managerPropertyValue
-    getProperty(const std::string& servicePath, const std::string& objectPath,
-                const std::string& interface, const std::string& propertyName)
+inline const managerPropertyValue getProperty(
+    const std::string& servicePath, const std::string& objectPath,
+    const std::string& interface, const std::string& propertyName)
 {
     managerPropertyValue value{};
 
@@ -355,7 +354,7 @@ inline void
 
             // Current BMC Timezone
             std::string redfishDateTimeOffset =
-                crow::utility::getDateTimeOffsetNow().first;
+                redfish::time_utils::getDateTimeOffsetNow().first;
 
             task::Payload payload(req);
 
@@ -513,6 +512,72 @@ inline void
      *
      * OpenBMC only supports ResetToDefaultsType "ResetAll".
      */
+
+    BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/ResetToDefaults/")
+        .privileges(redfish::privileges::postManager)
+        .methods(boost::beast::http::verb::post)(
+            [&app](const crow::Request& req,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const std::string& managerId) {
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
+                if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
+                {
+                    messages::resourceNotFound(asyncResp->res, "Manager",
+                                               managerId);
+                    return;
+                }
+                std::string resetType;
+
+                if (!json_util::readJsonAction(
+                    req, asyncResp->res,
+                    "ResetType", resetType
+                    ))
+                {
+                    return;
+                }
+
+                if(resetType != "ResetAll")
+                {
+                    messages::actionParameterNotSupported(asyncResp->res, resetType,
+                                              "ResetType");
+                    return;
+
+                }
+                for (const std::shared_ptr<task::TaskData>& task : task::tasks)
+                {
+                    if (task == nullptr)
+                    {
+                        continue; // shouldn't be possible
+                    }
+                    if (task->state == "Pending")
+                    {
+                        messages::factoryDefaultResetActionConflict(
+                            asyncResp->res, "FactoryDefaultReset",
+                            "FirmwareUpdate");
+                        return;
+                    }
+                }
+                crow::connections::systemBus->async_method_call(
+                    [asyncResp](const boost::system::error_code& ec) {
+                        if (ec)
+                        {
+                            BMCWEB_LOG_DEBUG("Failed to ResetToDefaults: {}",
+                                             ec);
+                            messages::internalError(asyncResp->res);
+                            return;
+                        }
+                        // Factory Reset doesn't actually happen until a reboot
+                        // Can't erase what the BMC is running on
+                        doBMCGracefulRestart(asyncResp);
+                        messages::success(asyncResp->res);
+                    },
+                    "xyz.openbmc_project.Software.BMC.Updater",
+                    "/xyz/openbmc_project/software",
+                    "xyz.openbmc_project.Common.FactoryReset", "Reset");
+            });
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/Oem/Ami/ResetToDefaults/")
         .privileges(redfish::privileges::postManager)
         .methods(boost::beast::http::verb::post)(
@@ -610,6 +675,44 @@ inline void
                 nlohmann::json::array_t allowableValues;
                 allowableValues.emplace_back("GracefulRestart");
                 allowableValues.emplace_back("ForceRestart");
+                parameter["AllowableValues"] = std::move(allowableValues);
+
+                nlohmann::json::array_t parameters;
+                parameters.emplace_back(std::move(parameter));
+
+                asyncResp->res.jsonValue["Parameters"] = std::move(parameters);
+            });
+    BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/ResetToDefaultsActionInfo/")
+        .privileges(redfish::privileges::getActionInfo)
+        .methods(boost::beast::http::verb::get)(
+            [&app](const crow::Request& req,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const std::string& managerId) {
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
+
+                if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
+                {
+                    messages::resourceNotFound(asyncResp->res, "Manager",
+                                               managerId);
+                    return;
+                }
+
+                asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("ActionInfo");
+                asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
+                    "/redfish/v1/Managers/{}/ResetToDefaultsActionInfo",
+                    BMCWEB_REDFISH_MANAGER_URI_NAME);
+                asyncResp->res.jsonValue["Name"] = "ResetToDefaults Action Info";
+                asyncResp->res.jsonValue["Id"] = "ResetToDefaultsActionInfo";
+                nlohmann::json::object_t parameter;
+                parameter["Name"] = "ResetType";
+                parameter["Required"] = true;
+                parameter["DataType"] = action_info::ParameterTypes::String;
+
+                nlohmann::json::array_t allowableValues;
+                allowableValues.emplace_back("ResetAll");
                 parameter["AllowableValues"] = std::move(allowableValues);
 
                 nlohmann::json::array_t parameters;
@@ -2430,11 +2533,11 @@ inline void
     asyncResp->res.jsonValue["NetworkProtocol"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Managers/{}/NetworkProtocol",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
-#if (!BMCWEB_AMI_RM_MACRO) && (!BMCWEB_AMI_PSM_MACRO)
+    #if (!BMCWEB_AMI_RM_MACRO) && (!BMCWEB_AMI_PSM_MACRO)
     asyncResp->res.jsonValue["SerialInterfaces"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Managers/{}/SerialInterfaces",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
-#endif
+    #endif
     asyncResp->res.jsonValue["EthernetInterfaces"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Managers/{}/EthernetInterfaces",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
@@ -2445,8 +2548,7 @@ inline void
                	            BMCWEB_REDFISH_MANAGER_URI_NAME);
     }
     #endif
-
-#if (!BMCWEB_AMI_RM_MACRO && !BMCWEB_AMI_PSM_MACRO)
+    #if (!BMCWEB_AMI_RM_MACRO && !BMCWEB_AMI_PSM_MACRO)
     if constexpr (BMCWEB_VM_NBDPROXY)
     {
         asyncResp->res.jsonValue["VirtualMedia"]["@odata.id"] =
@@ -2490,7 +2592,7 @@ inline void
         boost::urls::format("/redfish/v1/Managers/{}/Truststore/Certificates",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
     oemOpenbmc["Certificates"] = std::move(certificates);
-#endif
+    #endif
     // Manager.Reset (an action) can be many values, OpenBMC only
     // supports BMC reboot.
     nlohmann::json& managerReset =
@@ -2505,13 +2607,18 @@ inline void
     // ResetToDefaults (Factory Reset) has values like
     // PreserveNetworkAndUsers and PreserveNetwork that aren't supported
     // on OpenBMC
-    nlohmann::json& resetToDefaults =
-        asyncResp->res.jsonValue["Oem"]["Ami"]["FactoryDefault"];
-    resetToDefaults["@odata.id"] =
-        boost::urls::format("/redfish/v1/Managers/{}/Oem/Ami/ResetToDefaults",
+    #if (!BMCWEB_AMI_RM_MACRO && !BMCWEB_AMI_PSM_MACRO)
+    nlohmann::json& ResetToDefaults =
+        asyncResp->res.jsonValue["Actions"]["#Manager.ResetToDefaults"];
+    ResetToDefaults["target"] =
+        boost::urls::format("/redfish/v1/Managers/{}/Actions/Manager.ResetToDefaults",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
-#endif
-#if (!BMCWEB_AMI_PSM_MACRO)
+    ResetToDefaults["@Redfish.ActionInfo"] =
+        boost::urls::format("/redfish/v1/Managers/{}/ResetActionInfo",
+                            BMCWEB_REDFISH_MANAGER_URI_NAME);
+    #endif
+    #if (!BMCWEB_AMI_PSM_MACRO)
+    
     dbus::utility::getProperty<std::string>(
         "org.freedesktop.timedate1", "/org/freedesktop/timedate1",
         "org.freedesktop.timedate1", "Timezone",
@@ -2528,17 +2635,16 @@ inline void
             asyncResp->res.jsonValue["TimeZoneName"] = property;
             getCurrentDateTimeValue(asyncResp, property);
         });
-#endif
+    #endif
     // TODO (Gunnar): Remove these one day since moved to ComputerSystem
     // Still used by OCP profiles
     // https://github.com/opencomputeproject/OCP-Profiles/issues/23
     // Fill in CommandShell info
-#if (!BMCWEB_AMI_PSM_MACRO)
+    #if (!BMCWEB_AMI_PSM_MACRO)
     asyncResp->res.jsonValue["CommandShell"]["ServiceEnabled"] = true;
     asyncResp->res.jsonValue["CommandShell"]["MaxConcurrentSessions"] = 1;
     asyncResp->res.jsonValue["CommandShell"]["ConnectTypesSupported"] = {
         "SSH", "IPMI"};
-
     if constexpr (!BMCWEB_EXPERIMENTAL_REDFISH_MULTI_COMPUTER_SYSTEM)
     {
         asyncResp->res.jsonValue["Links"]["ManagerForServers@odata.count"] = 1;
@@ -2552,14 +2658,14 @@ inline void
         asyncResp->res.jsonValue["Links"]["ManagerForServers"] =
             std::move(managerForServers);
     }
-#endif
-#if (!BMCWEB_AMI_RM_MACRO) && (!BMCWEB_AMI_PSM_MACRO)
+    #endif
+    #if (!BMCWEB_AMI_RM_MACRO) && (!BMCWEB_AMI_PSM_MACRO)
     sw_util::populateSoftwareInformation(asyncResp, sw_util::bmcPurpose,
                                          "FirmwareVersion", true);
-#endif
+    #endif
     managerGetLastResetTime(asyncResp);
     getSystemLocationIndicatorActive(asyncResp);
-#if (!BMCWEB_AMI_RM_MACRO) && (!BMCWEB_AMI_PSM_MACRO)
+    #if (!BMCWEB_AMI_RM_MACRO) && (!BMCWEB_AMI_PSM_MACRO)
     // ManagerDiagnosticData is added for all BMCs.
     nlohmann::json& managerDiagnosticData =
         asyncResp->res.jsonValue["ManagerDiagnosticData"];
@@ -2588,7 +2694,7 @@ inline void
             aRsp->res.jsonValue["Links"]["ManagerInChassis"]["@odata.id"] =
                 chassiUrl;
         });
-#endif
+    #endif
     dbus::utility::getProperty<double>(
         "org.freedesktop.systemd1", "/org/freedesktop/systemd1",
         "org.freedesktop.systemd1.Manager", "Progress",
@@ -2903,13 +3009,12 @@ inline void
     asyncResp->res.jsonValue["Members"] = std::move(members);
 }
 
-inline void
-    requestRoutesManagerCollection(App& app)
+inline void requestRoutesManagerCollection(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/")
         .privileges(redfish::privileges::getManagerCollection)
         .methods(boost::beast::http::verb::get)(
-            std::bind_front(handleManagerCollectionGet, std::ref(app)));
+	std::bind_front(handleManagerCollectionGet, std::ref(app)));
 }
 
 inline void

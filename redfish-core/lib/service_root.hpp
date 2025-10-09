@@ -14,7 +14,7 @@
 #include "utils/systemd_utils.hpp"
 #include "utils/json_utils.hpp"
 #include <nlohmann/json.hpp>
-#include <utils/json_utils.hpp>
+#include "utils/json_utils.hpp"
 
 namespace redfish
 {
@@ -121,7 +121,7 @@ inline void handleServiceRootGetImpl(
     asyncResp->res.jsonValue["Links"]["ManagerProvidingService"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Managers/{}",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
-#endif                        
+#endif
 #if BMCWEB_SPDM_URIS_MACRO
     asyncResp->res.jsonValue["ComponentIntegrity"]["@odata.id"] =
 	    "/redfish/v1/ComponentIntegrity";

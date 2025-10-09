@@ -2813,7 +2813,7 @@ inline void
         dumpPath = std::format("/redfish/v1/Managers/{}/LogServices/SEL",
                                BMCWEB_REDFISH_MANAGER_URI_NAME);
         overWritePolicy = log_service::OverWritePolicy::WrapsWhenFull;
-        collectDiagnosticDataSupported = true;
+        collectDiagnosticDataSupported = false;
         asyncResp->res.jsonValue["MaxNumberOfRecords"] = 1250;
     }
     else
@@ -2915,6 +2915,8 @@ inline void handleLogServicesSELServiceGet(
     }
 
     getDumpServiceInfo(asyncResp, dumpType);
+    asyncResp->res.jsonValue["Actions"]["#LogService.ClearLog"]["target"]
+                = std::format("/redfish/v1/Managers/{}/LogServices/SEL/Actions/LogService.ClearLog", BMCWEB_REDFISH_MANAGER_URI_NAME);
 }
 
 inline void handleLogServicesDumpServiceComputerSystemGet(
@@ -3339,7 +3341,7 @@ inline void handleLogServicesDumpConfigGet(
                 return;
             }
 
-            asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] = json_util::odataType("AMIADDCConfiguration");
+            asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] = json_util::odataType("AmiADDCConfiguration");
 
             if (apmlretries != nullptr)
             {

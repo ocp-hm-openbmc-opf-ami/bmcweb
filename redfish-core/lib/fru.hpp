@@ -10,6 +10,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include "utils/json_utils.hpp"
 
 namespace redfish
 {

@@ -154,6 +154,14 @@
 #include "ext/src/erot_dump.hpp"
 #endif
 
+#if BMCWEB_AMI_RM_MACRO
+#include "ext/src/rm.hpp"
+#endif
+
+#if BMCWEB_AMI_PSM_MACRO
+#include "ext/src/psm.hpp"
+#endif
+
 namespace redfish
 {
 
@@ -481,6 +489,12 @@ RedfishService::RedfishService(App& app)
 #endif
 #if BMCWEB_NVIDIA_EROT_DUMP_MACRO
     registerErotDumpRoutes(app);
+#endif
+#if BMCWEB_AMI_RM_MACRO
+    redfish::rm::registerRmRoutes(app);
+#endif
+#if BMCWEB_AMI_PSM_MACRO
+    redfish::psm::registerPsmRoutes(app);
 #endif
     // Note, this must be the last route registered
     requestRoutesRedfish(app);

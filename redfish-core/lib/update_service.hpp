@@ -70,9 +70,9 @@ static constexpr const char* activationsStandBySpare =
 
 inline bool isPldmService = false;
 inline bool isIntelservice = false;
+
 using PropertyValue = std::variant<uint8_t, uint16_t, uint64_t, std::string,
                                    std::vector<std::string>, bool>;
-
 // PFR image types (pcType)
 enum pfrImgPCType
 {

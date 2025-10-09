@@ -80,10 +80,10 @@ int getDbusEventLogParams(const std::string& logEntry, std::string& messageID,
     else
     {
         messageID = logEntry.substr(0, colonPos);
-        std::string input = logEntry.substr(colonPos + 1);
+	std::string input = logEntry.substr(colonPos + 1);
         if(input.find('|') != std::string::npos)
         {
-            std::stringstream ss(input);
+	    std::stringstream ss(input);
             std::string token;
             while (std::getline(ss, token, '|')) { 
                 messageArgs.push_back(token);
