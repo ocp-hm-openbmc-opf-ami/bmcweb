@@ -415,6 +415,19 @@ if get_option('cper-uris').enabled()
     srcfiles_bmcweb += 'ext/cper/src/cper.cpp'
 endif
 
+if get_option('ami-thermalequipment').enabled()
+    srcfiles_bmcweb += files(
+      'ext/src/thermal_equipment.cpp',
+      #'ext/include/ami_errors.cpp',
+    )
+endif
+
+if get_option('ami-controls').enabled()
+    srcfiles_bmcweb += files(
+      'ext/src/controls/controls.cpp',
+    )
+endif
+
 if get_option('nvidia-reset-uris').enabled()
     srcfiles_bmcweb += 'ext/src/reset.cpp'
 endif

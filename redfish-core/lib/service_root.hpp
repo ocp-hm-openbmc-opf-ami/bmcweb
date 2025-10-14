@@ -116,6 +116,20 @@ inline void handleServiceRootGetImpl(
     asyncResp->res.jsonValue["Oem"]["Ami"]["AmdReDebug"]["@odata.id"] =
         "/redfish/v1/Oem/Ami/AmdReDebug";
 #endif
+
+#if BMCWEB_AMI_CONTROLS_MACRO
+    asyncResp->res.jsonValue["Oem"]["Ami"]["Controls"]["@odata.id"] =
+        "/redfish/v1/Oem/Ami/Controls";
+    asyncResp->res.jsonValue["Oem"]["Ami"]["ControlInputs"]["@odata.id"] =
+        "/redfish/v1/Oem/Ami/ControlInputs";
+    asyncResp->res.jsonValue["Oem"]["Ami"]["ControlOutputs"]["@odata.id"] =
+        "/redfish/v1/Oem/Ami/ControlOutputs";
+#endif
+
+#if BMCWEB_AMI_THERMALEQUIPMENT_MACRO
+    asyncResp->res.jsonValue["ThermalEquipment"]["@odata.id"] = "/redfish/v1/ThermalEquipment";
+#endif
+
 #endif
 #if (!BMCWEB_AMI_PSM_MACRO)
     asyncResp->res.jsonValue["Links"]["ManagerProvidingService"]["@odata.id"] =

@@ -85,6 +85,14 @@
 #include "ext/src/psm.hpp"
 #endif
 
+#if BMCWEB_AMI_THERMALEQUIPMENT_MACRO
+#include "ext/src/thermal_equipment.hpp"
+#endif
+
+#if BMCWEB_AMI_CONTROLS_MACRO
+#include "ext/src/controls/controls.hpp"
+#endif
+
 #if BMCWEB_AMI_RAIDBRCM_MACRO
 #include "ext/lib/brcm/storage_brcm.hpp"
 #endif
@@ -419,6 +427,15 @@ RedfishService::RedfishService(App& app)
 #if BMCWEB_AMI_REP_MACRO
     registerRepRoutes(app);
 #endif
+
+#if BMCWEB_AMI_THERMALEQUIPMENT_MACRO
+    registerThermalEquipmentRoutes(app);
+#endif
+
+#if BMCWEB_AMI_CONTROLS_MACRO
+    registerOemAMIControlsRoutes(app);
+#endif
+
 #if BMCWEB_AMI_NIC_MACRO
     registerNicRoutes(app);
 #endif

@@ -69,7 +69,9 @@ feature_options = [
     'nvidia-erot-dump',
     'ami-rm',
     'ami-psm',
-    'ami-sl8'
+    'ami-sl8',
+    'ami-thermalequipment',
+    'ami-controls'
 ]
 
 string_options = [
@@ -152,7 +154,11 @@ foreach option_key : feature_options + string_options + int_options
              'ami-psm',
         ) or option_key.contains(
              'ami-sl8',
-        ) 
+        ) or option_key.contains(
+             'ami-thermalequipment',
+        ) or option_key.contains(
+              'ami-controls',
+        )
             feature_options_string += '#define ' + option_macro_config + '  ' + opt.allowed().to_string() + '\n'
         endif
         opt = opt.allowed().to_string()

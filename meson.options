@@ -106,6 +106,22 @@ option(
     description: 'Enable Nvidia system Erot Dump'
 )
 
+# BMCWEB_AMI_THERMALEQUIPMENT_MACRO
+option(
+    'ami-thermalequipment',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable the AMI Redfish ThermalEquipment extension pack.'
+)
+
+# BMCWEB_AMI_CONTROLS_MACRO
+option(
+    'ami-controls',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable the AMI Redfish Control extension pack.'
+)
+
 # BMCWEB_AMI_NVME_MACRO
 option(
     'ami-nvme',

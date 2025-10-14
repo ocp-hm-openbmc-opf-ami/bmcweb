@@ -15,7 +15,7 @@
 
 namespace redfish
 {
-    constexpr std::array<std::string_view,165> schemas {
+    constexpr std::array<std::string_view,171> schemas {
         "AMICaCert",
         "AMIBIOSInventoryCRC",
         "AMIInventoryStatus",
@@ -34,6 +34,12 @@ namespace redfish
 	"AMIADDCConfiguration",
 	"AMIChassisFRU",
 	"AMIChassisFRUCollection",
+        "AMIControlCollection",
+        "AMIControlInstance",
+		"AMIControlInputsCollection",
+        "AMIControlInputs",
+		"AMIControlOutputsCollection",
+        "AMIControlOutputs",
 	"AMIEventService",
 	"AMIWebSession",
 	"AMISessionService",
