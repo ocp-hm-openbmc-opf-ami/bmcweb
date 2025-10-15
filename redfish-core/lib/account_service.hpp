@@ -3660,7 +3660,7 @@ inline void processAfterCreateUser(
             *passwordChangeRequired);
     }
 
-    messages::created(asyncResp->res);
+    asyncResp->res.result(boost::beast::http::status::no_content);
     asyncResp->res.addHeader("Location",
                              "/redfish/v1/AccountService/Accounts/" + username);
 
