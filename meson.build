@@ -391,6 +391,11 @@ if get_option('ami-rep').enabled()
     )
 endif
 
+# enabled ami-acd
+if get_option('ami-acd').enabled()
+    srcfiles_bmcweb += 'ext/lib/acd/include/acd_errors.cpp'
+endif
+
 if get_option('sbmr-ext').enabled()
     srcfiles_bmcweb += 'ext/sbmr/src/sbmr.cpp'
 endif
