@@ -138,6 +138,7 @@ namespace redfish
         "PhysicalContext",
         "Port",
         "PortCollection",
+	"PortMetrics",
         "Power",
         "PowerSubsystem",
         "PowerSupply",

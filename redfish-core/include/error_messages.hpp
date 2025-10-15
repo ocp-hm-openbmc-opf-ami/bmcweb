@@ -49,6 +49,20 @@ nlohmann::json generalError();
 void generalError(crow::Response& res);
 
 /**
+ * @brief Formats AsyncCommands Error message into JSON
+ * Message body: "Async Comand failed with error rc <errCode> "
+ *
+ * @param[in] arg1 Parameter of message that will replace %1 in its body.
+ *
+ * @returns Message actionParameterValueError formatted to JSON */
+
+nlohmann::json asyncCommandError(const std::string& errorCode,
+                                 const std::string& resolution);
+void asyncError(crow::Response& res, const std::string& errorCode,
+                const std::string& resolution);
+
+
+/**
  * @brief Formats Created message into JSON
  * Message body: "The resource was created successfully."
  *

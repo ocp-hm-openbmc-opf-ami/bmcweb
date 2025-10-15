@@ -1686,6 +1686,15 @@
             "NumberOfArgs": 2,
             "Resolution": "Please resolve the other Configuration before proceeding with the current operation.",
             "Severity": "Critical"
+        },
+	"AsyncError": {
+            "Description": "Indicates that the SMBPBI Async Command Failed.",
+            "Message": "%1 Respresents Error Code",
+            "MessageSeverity": "Warning",
+            "NumberOfArgs": 2,
+            "ParamTypes": ["string", "string"],
+            "Resolution": "%2",
+            "Severity": "Warning"
         }
     },
     "Name": "OpenBMC Message Registry",
