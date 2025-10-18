@@ -826,7 +826,7 @@ inline void handleChassisGetSubTree(
     messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
 }
 
-void getMinMaxValues(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void getMinMaxValues(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     const std::string sensorPath =
         "/xyz/openbmc_project/sensors/power/Platform_Power_Average_CPU1";
