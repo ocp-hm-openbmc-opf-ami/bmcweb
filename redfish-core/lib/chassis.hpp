@@ -695,6 +695,23 @@ inline void handleChassisGetSubTree(
             .jsonValue["Actions"]["#Chassis.Reset"]["@Redfish.ActionInfo"] =
             boost::urls::format("/redfish/v1/Chassis/{}/ResetActionInfo",
                                 chassisId);
+        
+        #if (BMCWEB_NVIDIA_AUX_RESET_URIS_MACRO)
+            if (chassisId == "BMC_0")
+            {
+                asyncResp->res
+                    .jsonValue["Actions"]["Oem"]["#NvidiaChassis.AuxPowerReset"]
+                                ["target"] =
+                    "/redfish/v1/Chassis/" + chassisId +
+                    "/Actions/Oem/NvidiaChassis.AuxPowerReset";
+                asyncResp->res
+                    .jsonValue["Actions"]["Oem"]["#NvidiaChassis.AuxPowerReset"]
+                                ["@Redfish.ActionInfo"] =
+                    "/redfish/v1/Chassis/" + chassisId +
+                    "/Oem/Nvidia/AuxPowerResetActionInfo";
+            }
+        #endif
+        
         dbus::utility::getAssociationEndPoints(
             path + "/drive",
             [asyncResp, chassisId](const boost::system::error_code& ec3,

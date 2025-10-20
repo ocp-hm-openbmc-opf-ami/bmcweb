@@ -47,6 +47,7 @@ inline bool isStandardSchema(const std::string& input)
         "nmtriggercollection",
         "nodemanager",
 	"nvidiamanager",
+        "nvidiachassis",
         "pefentry",
         "pefservice",
         "provisiondynamicfeature"};

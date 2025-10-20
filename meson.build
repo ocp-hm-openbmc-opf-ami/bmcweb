@@ -436,6 +436,10 @@ if get_option('ami-psm').enabled()
     srcfiles_bmcweb += 'ext/src/psm.cpp'
 endif
 
+if get_option('nvidia-aux-reset-uris').enabled()
+    srcfiles_bmcweb += 'ext/src/auxreset.cpp'
+endif
+
 bmcweblib = static_library(
     'bmcweblib',
     srcfiles_bmcweb,
