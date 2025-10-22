@@ -195,14 +195,13 @@ inline bool translateUserGroup(const std::vector<std::string>& userGroups,
                                crow::Response& res)
 {
     std::vector<std::string> accountTypes;
-    std::vector<std::string> oemAccountTypes;
     for (const auto& userGroup : userGroups)
     {
         if (userGroup == "redfish")
         {
             accountTypes.emplace_back("Redfish");
             accountTypes.emplace_back("WebUI");
-            accountTypes.emplace_back("VirtualMedia");
+            // accountTypes.emplace_back("VirtualMedia");
         }
         else if (userGroup == "ipmi")
         {
@@ -228,8 +227,7 @@ inline bool translateUserGroup(const std::vector<std::string>& userGroups,
         }
         else if (userGroup == "media")
         {
-            accountTypes.emplace_back("OEM");
-            oemAccountTypes.emplace_back(userGroup);
+            accountTypes.emplace_back("VirtualMedia");
         }
         else if (userGroup == "snmp")
         {
@@ -247,9 +245,6 @@ inline bool translateUserGroup(const std::vector<std::string>& userGroups,
     }
 
     res.jsonValue["AccountTypes"] = std::move(accountTypes);
-    if(!BMCWEB_AMI_PSM_MACRO){
-        res.jsonValue["OEMAccountTypes"] = std::move(oemAccountTypes);
-    }
     return true;
 }
 
@@ -257,17 +252,15 @@ inline bool translateUserGroup(const std::vector<std::string>& userGroups,
 changes for PATCH function of accounts instance URI to avoid problems
 during LF sync */
 
-inline std::tuple<bool, std::vector<std::string>, std::vector<std::string>> translateUserGroupGet(const std::vector<std::string>& userGroups)
+inline std::tuple<bool, std::vector<std::string>> translateUserGroupGet(const std::vector<std::string>& userGroups)
 {
     std::vector<std::string> accountTypes;
-    std::vector<std::string> oemAccountTypes;
     for (const auto& userGroup : userGroups)
     {
         if (userGroup == "redfish")
         {
             accountTypes.emplace_back("Redfish");
             accountTypes.emplace_back("WebUI");
-            accountTypes.emplace_back("VirtualMedia");
         }
         else if (userGroup == "ipmi")
         {
@@ -293,8 +286,7 @@ inline std::tuple<bool, std::vector<std::string>, std::vector<std::string>> tran
         }
         else if (userGroup == "media")
         {
-            accountTypes.emplace_back("OEM");
-            oemAccountTypes.emplace_back(userGroup);
+            accountTypes.emplace_back("VirtualMedia");
         }
         else if (userGroup == "snmp")
         {
@@ -303,11 +295,11 @@ inline std::tuple<bool, std::vector<std::string>, std::vector<std::string>> tran
         else
         {
             // Invalid user group name. Caller throws an exception.
-            return std::make_tuple(false, accountTypes, oemAccountTypes);
+            return std::make_tuple(false, accountTypes);
         }
     }
 
-   return std::make_tuple(true, accountTypes, oemAccountTypes);
+   return std::make_tuple(true, accountTypes);
 }
 
 /**
@@ -349,9 +341,9 @@ inline bool getUserGroupFromAccountType(
         {
             userGroups.emplace_back("ssh");
         }
-        else if (accountType == "media")
+        else if (accountType == "VirtualMedia")
         {
-            userGroups.emplace_back("OEM");
+            userGroups.emplace_back("media");
         }
         else if (accountType == "SNMP")
         {
@@ -1826,34 +1818,7 @@ struct UserUpdateParams
     std::shared_ptr<persistent_data::UserSession> session;
     std::string dbusObjectPath;
     std::optional<bool> passwordChangeRequired;
-    std::optional<std::vector<std::string>> oemAccountTypes;
 };
-
-inline void setOEMAccountTypes(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::vector<std::string>& grpList, const std::string& dbusObjectPath,
-    std::function<void(bool)> completionHandler)
-{
-    accountsTotalOperations++;
-    crow::connections::systemBus->async_method_call(
-        [asyncResp, completionHandler](const boost::system::error_code& ec) {
-            if (ec)
-            {
-                BMCWEB_LOG_DEBUG("D-Bus responses error: ", ec);
-                messages::internalError(asyncResp->res);
-                completionHandler(false);
-                return;
-            }
-            completionHandler(true);
-            return;
-        },
-        "xyz.openbmc_project.User.Manager", dbusObjectPath,
-        "org.freedesktop.DBus.Properties", "Set",
-        "xyz.openbmc_project.User.Attributes", "UserGroups",
-        dbus::utility::DbusVariantType{grpList});
-    
-    propertyModified["OemAccountTypes"] = grpList;
-}
 
 inline void afterVerifyUserExists(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -1976,65 +1941,7 @@ inline void afterVerifyUserExists(
         patchAccountTypes(*params.accountTypes, asyncResp,
                           params.dbusObjectPath, params.userSelf, completionHandler);
     }
-    if ((params.username == "root") && params.oemAccountTypes)
-    {
-        BMCWEB_LOG_ERROR("Not able to change oemAccountTypes for root user");
-        const std::string& arg =
-            "redfish/v1/AccountService/Accounts/" + params.username;
-        messages::accessDenied(asyncResp->res, boost::urls::format(arg));
-        completionHandler(false);
-        return;
-    }
-    else if (params.oemAccountTypes)
-    {
-        std::optional<std::vector<std::string>> oemAccountTypes =
-            params.oemAccountTypes;
-        std::string dbusObjectPath = params.dbusObjectPath;
-        dbus::utility::getProperty<std::vector<std::string>>(
-            "xyz.openbmc_project.User.Manager", dbusObjectPath,
-            "xyz.openbmc_project.User.Attributes", "UserGroups",
-            [asyncResp, oemAccountTypes,
-             dbusObjectPath, completionHandler](const boost::system::error_code& ec,
-                             const std::vector<std::string>& list) {
-                if (ec)
-                {
-                    completionHandler(false);
-                    return;
-                }
-                std::vector<std::string> grpList = list;
-                accountsTotalOperations++;
-                if (std::find(oemAccountTypes->begin(), oemAccountTypes->end(),
-                              "media") != oemAccountTypes->end()) // media found
-                {
-                    if (std::find(grpList.begin(), grpList.end(),
-                                  "media") == grpList.end()) // media not found
-                    {
-                        grpList.push_back("media");
-                    }
-                    setOEMAccountTypes(asyncResp, grpList, dbusObjectPath, completionHandler);
-                }
-                else if (oemAccountTypes->empty())
-                {
-                    if (std::find(grpList.begin(), grpList.end(),
-                                  "media") != grpList.end()) // media found
-                    {
-                        auto itr =
-                            std::find(grpList.begin(), grpList.end(), "media");
-                        if (itr != grpList.end())
-                            grpList.erase(itr);
-                    }
-                    setOEMAccountTypes(asyncResp, grpList, dbusObjectPath, completionHandler);
-                }
-                else
-                {
-                    messages::propertyValueNotInList(asyncResp->res, "provided",
-                                                     "OEMAccountTypes");
-                    completionHandler(false);
-                    return;
-                }
-                completionHandler(true);
-            });
-    }
+ 
     if (params.passwordChangeRequired)
     {
         std::optional<bool> passwordChangeRequired =
@@ -2071,7 +1978,6 @@ inline void updateUserProperties(
     const std::optional<std::vector<std::string>>& accountTypes, bool userSelf,
     const std::shared_ptr<persistent_data::UserSession>& session,
     const std::optional<bool>& passwordChangeRequired,
-    const std::optional<std::vector<std::string>>& oemAccountTypes,
     std::function<void(bool)> completionHandler)
 {
     sdbusplus::message::object_path tempObjPath(rootUserDbusPath);
@@ -2084,8 +1990,7 @@ inline void updateUserProperties(
                             enabled,        roleId,
                             locked,         accountTypes,
                             userSelf,       session,
-                            dbusObjectPath, passwordChangeRequired,
-                            oemAccountTypes};
+                            dbusObjectPath, passwordChangeRequired};
 
     dbus::utility::checkDbusPathExists(
         dbusObjectPath,
@@ -3678,7 +3583,6 @@ inline void processAfterGetAllGroups(
     std::optional<std::string> algorithm,
     std::optional<std::string> encryption,
     std::optional<std::string> accessMode,
-    std::optional<std::vector<std::string>> oemAccountTypes,
     std::optional<bool> hasSNMP)
 {
     std::vector<std::string> userGroups;
@@ -3701,29 +3605,11 @@ inline void processAfterGetAllGroups(
             messages::propertyValueNotInList(asyncResp->res, roleId, "RoleId");
             return;
         }
+        else // Media access is determined by role and account types only
+        {
+            media = (priv == "priv-admin");
+        }
         roleId = priv;
-    }
-
-    // Determine media access based on OEM account types or role
-    if (oemAccountTypes)
-    {
-        if (oemAccountTypes->empty())
-        {
-            media = false;
-        }
-        else if (std::find(oemAccountTypes->begin(), oemAccountTypes->end(), "media") != oemAccountTypes->end())
-        {
-            media = true;
-        }
-        else
-        {
-            messages::propertyValueNotInList(asyncResp->res, "provided", "OEMAccountTypes");
-            return;
-        }
-    }
-    else
-    {
-        media = (roleId == "priv-admin");
     }
 
     auto addGroupsToUser = [&](std::vector<std::string>& targetGroups) {
@@ -3854,7 +3740,6 @@ inline void handleAccountCollectionPost(
     std::optional<std::vector<std::string>> accountTypes;
     std::optional<bool> passwordChangeRequired = false;
     std::optional<bool> media;
-    std::optional<std::vector<std::string>> oemAccountTypes;
     std::optional<std::string> algorithm;
     std::optional<std::string> encryption;
     std::optional<std::string> accessMode;
@@ -3869,7 +3754,6 @@ inline void handleAccountCollectionPost(
             "Enabled", enabledJson,
             "AccountTypes", accountTypes,
             "PasswordChangeRequired", passwordChangeRequired,
-            "OEMAccountTypes", oemAccountTypes,
             "Oem", oemObj))
     {
         BMCWEB_LOG_ERROR("Failed to read required fields from JSON");
@@ -3967,7 +3851,7 @@ inline void handleAccountCollectionPost(
         "xyz.openbmc_project.User.Manager", "AllGroups",
         [asyncResp, username, password, roleIdJson, enabled,
          accountTypes, passwordChangeRequired, media, algorithm,
-         encryption, accessMode, oemAccountTypes, hasSNMP]
+         encryption, accessMode, hasSNMP]
         (const boost::system::error_code& ec1, const std::vector<std::string>& allGroupsList) {
             if (ec1)
             {
@@ -3986,7 +3870,7 @@ inline void handleAccountCollectionPost(
                                      enabled, accountTypes, allGroupsList,
                                      passwordChangeRequired, media,
                                      algorithm, encryption, accessMode,
-                                     oemAccountTypes, hasSNMP);
+                                     hasSNMP);
         });
 }
 
@@ -4625,7 +4509,6 @@ inline void handleAccountPatch(App& app, const crow::Request& req,
             std::optional<bool> locked;
             std::optional<std::vector<std::string>> accountTypes;
             std::optional<bool> passwordChangeRequired;
-            std::optional<std::vector<std::string>> oemAccountTypes;
             std::optional<std::string> algorithm;
             std::optional<std::string> encryption;
             std::optional<std::string> accessMode;
@@ -4643,7 +4526,6 @@ inline void handleAccountPatch(App& app, const crow::Request& req,
                         "Locked", locked,
                         "AccountTypes", accountTypes,
                         "PasswordChangeRequired", passwordChangeRequired,
-                        "OEMAccountTypes", oemAccountTypes,
                         "Oem", oemObj
                         ))
                 {
@@ -4744,11 +4626,11 @@ inline void handleAccountPatch(App& app, const crow::Request& req,
                     {
                         BMCWEB_LOG_ERROR("userGroups wasn't a string vector");
                         propertyOriginal["AccountTypes"] = nullptr;
-                        propertyOriginal["OEMAccountTypes"] = nullptr;
+
                     }
                     else
                     {
-                        auto [ret, convertedAccountTypes, convertedOemAccountTypes] = translateUserGroupGet(*userGroups);
+                        auto [ret, convertedAccountTypes] = translateUserGroupGet(*userGroups);
                         if (!ret)
                         {
                             BMCWEB_LOG_ERROR("userGroups mapping failed");
@@ -4758,7 +4640,7 @@ inline void handleAccountPatch(App& app, const crow::Request& req,
                         else
                         {
                             propertyOriginal["AccountTypes"] = std::move(convertedAccountTypes);
-                            propertyOriginal["OEMAccountTypes"] = std::move(convertedOemAccountTypes);
+
                         }
                     }
                 }
@@ -4775,7 +4657,7 @@ inline void handleAccountPatch(App& app, const crow::Request& req,
             {
                 updateUserProperties(asyncResp, username, password, enabled, roleId,
                      locked, accountTypes, userSelf, req.session,
-                     passwordChangeRequired, oemAccountTypes, completionHandler);
+                     passwordChangeRequired, completionHandler);
 
                 if (oemObj) 
                 {
@@ -4820,7 +4702,7 @@ inline void handleAccountPatch(App& app, const crow::Request& req,
                 newUserRaw = *newUserName,
                 locked, userSelf, req,
                 accountTypes(std::move(accountTypes)),
-                passwordChangeRequired, oemAccountTypes, completionHandler,
+                passwordChangeRequired, completionHandler,
                 oemObj,
                 algorithm(std::move(algorithm)),
                 encryption(std::move(encryption)),
@@ -4841,7 +4723,7 @@ inline void handleAccountPatch(App& app, const crow::Request& req,
 
                 updateUserProperties(asyncResp, newUser, password, enabled, roleId,
                                     locked, accountTypes, userSelf, req.session,
-                                    passwordChangeRequired, oemAccountTypes, completionHandler);
+                                    passwordChangeRequired, completionHandler);
 
                 if (asyncResp->res.result() != boost::beast::http::status::ok)
                 {
