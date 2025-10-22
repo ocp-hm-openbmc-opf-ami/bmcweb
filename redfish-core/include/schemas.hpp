@@ -31,7 +31,7 @@ namespace redfish
         "AggregationService",
         "AggregationSource",
         "AggregationSourceCollection",
-	"AMIADDCConfiguration",
+	"AmiADDCConfiguration",
 	"AMIChassisFRU",
 	"AMIChassisFRUCollection",
 	"AMIEventService",
