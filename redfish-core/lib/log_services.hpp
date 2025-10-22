@@ -3240,7 +3240,7 @@ inline void handleLogServicesDumpConfigGet(
                 return;
             }
 
-            asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] = json_util::odataType("AmiADDCConfiguration");
+            asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] = json_util::odataType("AMIADDCConfiguration");
 
             if (apmlretries != nullptr)
             {
