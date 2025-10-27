@@ -369,10 +369,10 @@ inline void getRmediareconnectValues(
                 BMCWEB_LOG_DEBUG("DBUS response error");
                 return;
             }
-            asyncResp->res.jsonValue["Oem"]["OpenBMC"]["RetryCount"] =
+            asyncResp->res.jsonValue["Oem"]["Ami"]["RetryCount"] =
                 std::get<0>(result);
 
-            asyncResp->res.jsonValue["Oem"]["OpenBMC"]["RetryInterval"] =
+            asyncResp->res.jsonValue["Oem"]["Ami"]["RetryInterval"] =
                 std::get<1>(result);
         },
         rmediaServiceName, rmediaObjPath, rmediaInterfaceName, "GetAll");
@@ -472,6 +472,41 @@ inline void
     }
 }
 
+inline void getBackedUpImageUrl(
+    const std::string& resName,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    if (resName == "Slot_2" || resName == "Slot_3")
+    {
+        crow::connections::systemBus->async_method_call(
+            [asyncResp, resName](const boost::system::error_code& ec,
+                                 const std::variant<std::string>& imageUrl) {
+                if (ec)
+                {
+                    BMCWEB_LOG_DEBUG("Failed to get backup image URL");
+                    return;
+                }
+
+                const std::string* urlValue =
+                    std::get_if<std::string>(&imageUrl);
+                if (urlValue != nullptr)
+                {
+                    asyncResp->res.jsonValue["Oem"]["Ami"]["BackupImageURL"] =
+                        *urlValue;
+                }
+                else
+                {
+                    asyncResp->res.jsonValue["Oem"]["Ami"]["BackupImageURL"] =
+                        "";
+                }
+            },
+            "xyz.openbmc_project.VirtualMedia",
+            "/xyz/openbmc_project/VirtualMedia",
+            "org.freedesktop.DBus.Properties", "Get",
+            "xyz.openbmc_project.VirtualMedia.BackupImageURL", resName);
+    }
+}
+
 /**
  * @brief Fill template for Virtual Media Item.
  */
@@ -494,6 +529,10 @@ inline nlohmann::json vmItemTemplate(const std::string& name,
     item["Oem"]["OpenBMC"]["@odata.id"] = boost::urls::format(
         "/redfish/v1/Managers/{}/VirtualMedia/{}#/Oem/OpenBMC", name, resName);
 
+    item["Oem"]["Ami"]["@odata.type"] =
+        json_util::odataType("AmiVirtualMedia");
+    item["Oem"]["Ami"]["@odata.id"] = boost::urls::format(
+        "/redfish/v1/Managers/{}/VirtualMedia/{}#/Oem/Ami", name, resName);
     return item;
 }
 
@@ -551,6 +590,7 @@ inline void
     }
 
     asyncResp->res.jsonValue = vmItemTemplate(name, resName);
+    getBackedUpImageUrl(resName, asyncResp);
 
     // Check if dbus path is Legacy type
     if (mode == VmMode::Legacy)
@@ -1592,21 +1632,21 @@ inline void
                     }
                     if (oem)
                     {
-                        std::optional<nlohmann::json> openBMC;
+                        std::optional<nlohmann::json> amiBmc;
 
                         if (!json_util::readJson(*oem, asyncResp->res,
-                                                 "OpenBMC", openBMC))
+                                                 "Ami", amiBmc))
                         {
                             return;
                         }
-                        if (openBMC)
+                        if (amiBmc)
                         {
                             std::optional<uint32_t> retryCount;
                             std::optional<uint32_t> retryInterval;
                             bool retryFlag = true;
 
                             if (!json_util::readJson(
-                                    *openBMC, asyncResp->res, "RetryCount",
+                                    *amiBmc, asyncResp->res, "RetryCount",
                                     retryCount, "RetryInterval", retryInterval))
                             {
                                 return;
