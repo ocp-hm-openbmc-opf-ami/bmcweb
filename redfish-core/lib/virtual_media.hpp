@@ -524,7 +524,7 @@ inline void getVmResourceList(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
             {
                 nlohmann::json item;
                 std::string path = object.first.filename();
-                if (path.empty())
+                if (path.empty() || path == "Local")
                 {
                     continue;
                 }

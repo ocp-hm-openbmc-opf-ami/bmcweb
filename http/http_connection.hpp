@@ -48,6 +48,8 @@ constexpr uint64_t maxPayloadLimit =
 constexpr uint64_t smallPayloadLimit = 1024UL * 1024UL;
 constexpr uint64_t peciCmdsReqBodyLimit = smallPayloadLimit * 2; // 2 MiB
 constexpr uint64_t telemetryBodyLimit = 1024UL * 128UL;
+constexpr uint64_t localMediaUploadLimit = 1024UL * 1024UL * BMCWEB_LOCAL_MEDIA_UPLOAD_LIMIT;
+constexpr std::string_view localMediaUploadPath = "/redfish/v1/Managers/bmc/Actions/Oem/AMIManager.LocalMediaUpload";
 // clang-format off
 constexpr static auto perRouteReqBodyLimit =
   std::to_array<std::tuple<std::string_view, uint64_t,boost::beast::http::verb>>({
@@ -61,6 +63,7 @@ constexpr static auto perRouteReqBodyLimit =
     {"/redfish/v1/TelemetryService/Triggers", telemetryBodyLimit, boost::beast::http::verb::post},
     {"/redfish/v1/TelemetryService/Triggers", telemetryBodyLimit, boost::beast::http::verb::put},
     {"/redfish/v1/TelemetryService/Triggers", telemetryBodyLimit, boost::beast::http::verb::patch},
+    {"/redfish/v1/Managers/bmc/Actions/Oem/AMIManager.LocalMediaUpload",  localMediaUploadLimit, boost::beast::http::verb::post},
   });
 // clang-format on
 
@@ -465,6 +468,21 @@ class Connection :
             if (target == route && method == verb)
             {
                 maxBodySize = limit;
+
+                if (target == localMediaUploadPath)
+                {
+                    std::error_code ec;    
+                    std::filesystem::space_info spaceInfo = std::filesystem::space("/tmp/lmedia", ec);    
+                    if (ec) {    
+                        BMCWEB_LOG_ERROR("Failed to get space info for /tmp/lmedia: {}", ec.message());
+                    }    
+                
+                    std::uintmax_t availableSpace = spaceInfo.available;   
+                    if (availableSpace < limit) {  
+                        maxBodySize = availableSpace;  
+                    } 
+                }
+
                 break;
             }
         }
@@ -512,7 +530,8 @@ class Connection :
             // and logged out limits They probably just didn't log
             // in
             if (*contentLength > loggedOutPostBodyLimit &&
-                *contentLength < httpReqBodyLimit)
+                *contentLength < httpReqBodyLimit &&
+                parser->get().target() != localMediaUploadPath)
             {
                 BMCWEB_LOG_DEBUG(
                     "{} Content length {} valid, but greater than logged out"

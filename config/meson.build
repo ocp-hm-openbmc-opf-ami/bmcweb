@@ -82,7 +82,7 @@ string_options = [
     'redfish-system-uri-name',
 ]
 
-int_options = ['http-body-limit', 'image-payload-limit','update_timeout']
+int_options = ['http-body-limit', 'image-payload-limit', 'local-media-upload-limit','update_timeout']
 
 feature_options_string = '\n//Feature options\n'
 string_options_string = '\n// String options\n'

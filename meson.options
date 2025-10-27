@@ -541,6 +541,16 @@ option(
     description: 'Specifies the maximum image size limit in MB',
 )
 
+# BMCWEB_LOCAL_MEDIA_UPLOAD_LIMIT  
+option(  
+    'local-media-upload-limit',  
+    type: 'integer',  
+    min: 0,  
+    max: 512,  
+    value: 512,  
+    description: 'Specifies the maximum image size limit in MB',  
+)
+
 # BMCWEB_UPDATE_TIMEOUT
 option(
     'update_timeout',
