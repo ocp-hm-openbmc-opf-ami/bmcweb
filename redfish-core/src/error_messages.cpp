@@ -92,6 +92,26 @@ static nlohmann::json getLog(redfish::registries::license::Index name,
                               redfish::registries::license::registry, index, args);
 }
 
+nlohmann::json asyncCommandError(const std::string& errorCode,
+                                 const std::string& resolution)
+{
+    return nlohmann::json{
+        {"@odata.type", json_util::odataType("Message")},
+        {"MessageId", json_util::odataType("OpenBMC", "AsyncError")},
+        {"Message", "Async command failed with rc:" + errorCode},
+        {"MessageArgs", {errorCode}},
+        {"MessageSeverity", "Warning"},
+        {"Resolution", resolution}};
+}
+
+void asyncError(crow::Response& res, const std::string& errorCode,
+                const std::string& resolution)
+{
+    res.result(boost::beast::http::status::internal_server_error);
+    addMessageToErrorJson(res.jsonValue,
+                          asyncCommandError(errorCode, resolution));
+}
+
 /**
  * @internal
  * @brief Formats Success message into JSON

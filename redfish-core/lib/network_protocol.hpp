@@ -368,21 +368,20 @@ inline void getNetworkData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     // defaults to ensure something is always returned.
     for (const auto& nwkProtocol : networkProtocolToDbus)
     {
-        if (nwkProtocol.first != std::string("IPMB"))
-        {
-            asyncResp->res.jsonValue[nwkProtocol.first]["Port"] = nullptr;
-            asyncResp->res.jsonValue[nwkProtocol.first]["ProtocolEnabled"] =
-                false;
-        }
-        else
-        {
-            asyncResp->res.jsonValue["Oem"]["Ami"][nwkProtocol.first]
-                                    ["ProtocolEnabled"] = false;
-        }
-
         if (nwkProtocol.first == std::string("IPMI"))
         {
             asyncResp->res.jsonValue[nwkProtocol.first]["Port"] = 623;
+            asyncResp->res.jsonValue[nwkProtocol.first]["ProtocolEnabled"] =
+                false;
+        }
+        else if (nwkProtocol.first == std::string("IPMB"))
+        {
+            // IPMB protocol structure under Oem/Ami
+            asyncResp->res.jsonValue["Oem"]["Ami"]["IPMB"]["ProtocolEnabled"] = false;
+        }
+        else
+        {
+            asyncResp->res.jsonValue[nwkProtocol.first]["Port"] = nullptr;
             asyncResp->res.jsonValue[nwkProtocol.first]["ProtocolEnabled"] =
                 false;
         }
@@ -391,6 +390,10 @@ inline void getNetworkData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     std::string hostName = getHostName();
 
     asyncResp->res.jsonValue["HostName"] = hostName;
+
+    // Set up Oem/Ami structure for IPMB and other vendor-specific properties
+    asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] = 
+        json_util::odataType("AmiManagerNetworkProtocol");
 
     getNTPProtocolEnabled(asyncResp);
     getSNMPProtocolEnabled(asyncResp);
@@ -1425,45 +1428,60 @@ inline void handleManagersNetworkProtocolPatch(
     std::optional<nlohmann::json> snmp;
     std::optional<std::string> vId;
     std::optional<bool> bmcwebMasked;
+    std::optional<bool> bmcwebRunning;
     std::optional<bool> ipmbMasked;
     std::optional<bool> ipmbEnabled;
-    std::optional<bool> ipmiMasked;
-    std::optional<bool> sshMasked;
-    std::optional<bool> ipmiRunning;
-    std::optional<bool> bmcwebRunning;
-    std::optional<bool> sshRunning;
     std::optional<bool> ipmbRunning;
+    std::optional<bool> ipmiMasked;
+    std::optional<bool> ipmiRunning;
+    std::optional<bool> sshMasked;
+    std::optional<bool> sshRunning;
     std::optional<nlohmann::json> oem_snmp;
 
-    // clang-format off
-        if (!json_util::readJsonPatch(
-                req, asyncResp->res,
-                "HostName", newHostName,
-                "NTP",ntp,
-                "IPMI",ipmi,
-                "HTTPS", bmcweb,
-                "SSH",ssh,
-                "Id", vId,
-                "SNMP",snmp,
-                "Oem/Ami/HTTPS/Masked",bmcwebMasked,
-                "Oem/Ami/IPMB/Masked",ipmbMasked,
-                "Oem/Ami/IPMB/ProtocolEnabled",ipmbEnabled,
-                "Oem/Ami/IPMI/Masked",ipmiMasked,
-                "Oem/Ami/SSH/Masked",sshMasked,
-                "Oem/Ami/IPMI/Running",ipmiRunning,
-                "Oem/Ami/HTTPS/Running",bmcwebRunning,
-                "Oem/Ami/SSH/Running",sshRunning,
-                "Oem/Ami/IPMB/Running",ipmbRunning,
-                "Oem/Ami/SNMP",oem_snmp))
-        {
-            return;
-        }
-      if(vId)
-        {
-                messages::propertyNotWritable(asyncResp->res, "Id");
-                asyncResp->res.result(boost::beast::http::status::bad_request);
-                return;
-        }
+    // Parse the JSON request body
+    nlohmann::json jsonRequest;
+    if (!nlohmann::json::accept(req.body()))
+    {
+        messages::malformedJSON(asyncResp->res);
+        return;
+    }
+    
+    try
+    {
+        jsonRequest = nlohmann::json::parse(req.body());
+    }
+    catch (const nlohmann::json::exception& e)
+    {
+        BMCWEB_LOG_ERROR("JSON parse error: {}", e.what());
+        messages::malformedJSON(asyncResp->res);
+        return;
+    }
+
+    // Read individual properties using readJson (less strict than readJsonPatch)
+    json_util::readJson(jsonRequest, asyncResp->res, "HostName", newHostName);
+    json_util::readJson(jsonRequest, asyncResp->res, "NTP", ntp);
+    json_util::readJson(jsonRequest, asyncResp->res, "IPMI", ipmi);
+    json_util::readJson(jsonRequest, asyncResp->res, "HTTPS", bmcweb);
+    json_util::readJson(jsonRequest, asyncResp->res, "SSH", ssh);
+    json_util::readJson(jsonRequest, asyncResp->res, "Id", vId);
+    json_util::readJson(jsonRequest, asyncResp->res, "SNMP", snmp);
+    json_util::readJson(jsonRequest, asyncResp->res, "Oem/Ami/HTTPS/Masked", bmcwebMasked);
+    json_util::readJson(jsonRequest, asyncResp->res, "Oem/Ami/HTTPS/Running", bmcwebRunning);
+    json_util::readJson(jsonRequest, asyncResp->res, "Oem/Ami/IPMB/ProtocolEnabled", ipmbEnabled);
+    json_util::readJson(jsonRequest, asyncResp->res, "Oem/Ami/IPMB/Masked", ipmbMasked);
+    json_util::readJson(jsonRequest, asyncResp->res, "Oem/Ami/IPMB/Running", ipmbRunning);
+    json_util::readJson(jsonRequest, asyncResp->res, "Oem/Ami/IPMI/Running", ipmiRunning);
+    json_util::readJson(jsonRequest, asyncResp->res, "Oem/Ami/IPMI/Masked", ipmiMasked);
+    json_util::readJson(jsonRequest, asyncResp->res, "Oem/Ami/SSH/Masked", sshMasked);
+    json_util::readJson(jsonRequest, asyncResp->res, "Oem/Ami/SSH/Running", sshRunning);
+    json_util::readJson(jsonRequest, asyncResp->res, "Oem/Ami/SNMP", oem_snmp);
+
+    if (vId)
+    {
+        messages::propertyNotWritable(asyncResp->res, "Id");
+        asyncResp->res.result(boost::beast::http::status::bad_request);
+        return;
+    }
 
     // clang-format on
 
@@ -1476,7 +1494,6 @@ inline void handleManagersNetworkProtocolPatch(
     if (ntp)
     {
         std::optional<bool> ntpEnabled;
-        // std::optional<std::vector<nlohmann::json>> ntpServerObjects;
         std::optional<std::vector<IpAddress>> ntpServerObjects;
 
         std::size_t ntp_size = ntp.value().size();
@@ -1537,9 +1554,6 @@ inline void handleManagersNetworkProtocolPatch(
         }
         if (ipmiEnabled && !isInValid)
         {
-            /*handleProtocolEnabled(
-                *ipmiEnabled, asyncResp,
-                encodeServiceObjectPath(std::string(ipmiServiceName)));*/
             setEnabled(asyncResp, *ipmiEnabled);
         }
     }
@@ -1690,7 +1704,7 @@ inline void handleManagersNetworkProtocolPatch(
                     if (oem_snmp_size == 0)
                     {
                         messages::propertyValueTypeError(asyncResp->res, oem_snmp.value(),
-                                                    "Oem/OpenBmc/SNMP");
+                                                    "Oem/Ami/SNMP");
                     }
                     if (!json_util::readJson(*oem_snmp, asyncResp->res, "CommunityStrings", oem_communityStrings))
                     {

@@ -122,6 +122,14 @@ option(
     description: 'Enable the AMI Redfish Control extension pack.'
 )
 
+# BMCWEB_NVIDIA_AUX_RESET_URIS_MACRO
+option(
+    'nvidia-aux-reset-uris',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable Nvidia Managers Reset Action'
+)
+
 # BMCWEB_AMI_NVME_MACRO
 option(
     'ami-nvme',

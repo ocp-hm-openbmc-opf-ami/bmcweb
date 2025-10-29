@@ -575,7 +575,7 @@ inline void requestRoutesMessageRegistryFile(App& app)
     static constexpr const auto registryFiles = std::to_array(
         {"Base", "TaskEvent", "License", "NodeManager", "ResourceEvent", "OpenBMC",
          "Telemetry", "PrivilegeRegistry", "HeartbeatEvent",
-         "CertificateService"}); 
+         "CertificateService","Ami"}); 
     for (const char* memberName : registryFiles) {
         if (registry == memberName || registryName == memberName) {
             asyncResp->res.addHeader("Allow", "GET");

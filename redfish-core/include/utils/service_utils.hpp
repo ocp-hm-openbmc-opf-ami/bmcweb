@@ -49,10 +49,10 @@ inline void getSerialConsoleSshMasked(
                 // messages::internalError(asyncResp->res);
                 return;
             }
-            asyncResp->res.jsonValue["Oem"]["OpenBmc"][ObjectName]
+            asyncResp->res.jsonValue["Oem"]["Ami"][ObjectName]
                                     [subObjectName][propertyName] = eventValue;
-            asyncResp->res.jsonValue["Oem"]["OpenBmc"][ObjectName]
-                                    [subObjectName]["@odata.type"] = json_util::odataType("AMIManagerNetworkProtocol");
+            asyncResp->res.jsonValue["Oem"]["Ami"][ObjectName]
+                                    [subObjectName]["@odata.type"] = json_util::odataType("AmiManagerNetworkProtocol");
         });
 }
 
@@ -80,9 +80,11 @@ inline void getMasked(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             else
             {
                 asyncResp->res
-                    .jsonValue["Oem"]["OpenBmc"][ObjectName][propertyName] =
+                    .jsonValue["Oem"]["Ami"][ObjectName][propertyName] =
                     eventValue;
             }
+            asyncResp->res
+                    .jsonValue["Oem"]["Ami"]["@odata.type"] = json_util::odataType("AmiManagerNetworkProtocol");
         });
 }
 

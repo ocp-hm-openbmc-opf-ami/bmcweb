@@ -1281,10 +1281,10 @@ inline std::optional<std::string> processUrl(
     {
         return std::make_optional(std::string(BMCWEB_REDFISH_MANAGER_URI_NAME));
     }
-    if constexpr (!BMCWEB_REDFISH_UPDATESERVICE_USE_DBUS)
-    {
-        return std::nullopt;
-    }
+    //if constexpr (!BMCWEB_REDFISH_UPDATESERVICE_USE_DBUS)
+    //{
+    //    return std::nullopt;
+    //}
     std::string firmwareId;
     if (!crow::utility::readUrlSegments(*url, "redfish", "v1", "UpdateService",
                                         "FirmwareInventory",

@@ -391,6 +391,11 @@ if get_option('ami-rep').enabled()
     )
 endif
 
+# enabled ami-acd
+if get_option('ami-acd').enabled()
+    srcfiles_bmcweb += 'ext/lib/acd/include/acd_errors.cpp'
+endif
+
 if get_option('sbmr-ext').enabled()
     srcfiles_bmcweb += 'ext/sbmr/src/sbmr.cpp'
 endif
@@ -446,6 +451,10 @@ endif
 
 if get_option('ami-raidbrcm').enabled() or get_option('ami-sl8').enabled()
     srcfiles_bmcweb += 'ext/lib/brcm/raid_brcm.cpp'
+endif
+
+if get_option('nvidia-aux-reset-uris').enabled()
+    srcfiles_bmcweb += 'ext/src/auxreset.cpp'
 endif
 
 bmcweblib = static_library(

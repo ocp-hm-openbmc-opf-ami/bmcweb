@@ -290,14 +290,13 @@ inline bool translateUserGroup(const std::vector<std::string>& userGroups,
                                crow::Response& res)
 {
     std::vector<std::string> accountTypes;
-    std::vector<std::string> oemAccountTypes;
     for (const auto& userGroup : userGroups)
     {
         if (userGroup == "redfish")
         {
             accountTypes.emplace_back("Redfish");
             accountTypes.emplace_back("WebUI");
-            accountTypes.emplace_back("VirtualMedia");
+            // accountTypes.emplace_back("VirtualMedia");
         }
         else if (userGroup == "ipmi")
         {
@@ -323,8 +322,7 @@ inline bool translateUserGroup(const std::vector<std::string>& userGroups,
         }
         else if (userGroup == "media")
         {
-            accountTypes.emplace_back("OEM");
-            oemAccountTypes.emplace_back(userGroup);
+            accountTypes.emplace_back("VirtualMedia");
         }
         else if (userGroup == "snmp")
         {
@@ -342,9 +340,6 @@ inline bool translateUserGroup(const std::vector<std::string>& userGroups,
     }
 
     res.jsonValue["AccountTypes"] = std::move(accountTypes);
-    if(!BMCWEB_AMI_PSM_MACRO){
-        res.jsonValue["OEMAccountTypes"] = std::move(oemAccountTypes);
-    }
     return true;
 }
 
@@ -352,17 +347,15 @@ inline bool translateUserGroup(const std::vector<std::string>& userGroups,
 changes for PATCH function of accounts instance URI to avoid problems
 during LF sync */
 
-inline std::tuple<bool, std::vector<std::string>, std::vector<std::string>> translateUserGroupGet(const std::vector<std::string>& userGroups)
+inline std::tuple<bool, std::vector<std::string>> translateUserGroupGet(const std::vector<std::string>& userGroups)
 {
     std::vector<std::string> accountTypes;
-    std::vector<std::string> oemAccountTypes;
     for (const auto& userGroup : userGroups)
     {
         if (userGroup == "redfish")
         {
             accountTypes.emplace_back("Redfish");
             accountTypes.emplace_back("WebUI");
-            accountTypes.emplace_back("VirtualMedia");
         }
         else if (userGroup == "ipmi")
         {
@@ -388,8 +381,7 @@ inline std::tuple<bool, std::vector<std::string>, std::vector<std::string>> tran
         }
         else if (userGroup == "media")
         {
-            accountTypes.emplace_back("OEM");
-            oemAccountTypes.emplace_back(userGroup);
+            accountTypes.emplace_back("VirtualMedia");
         }
         else if (userGroup == "snmp")
         {
@@ -398,11 +390,11 @@ inline std::tuple<bool, std::vector<std::string>, std::vector<std::string>> tran
         else
         {
             // Invalid user group name. Caller throws an exception.
-            return std::make_tuple(false, accountTypes, oemAccountTypes);
+            return std::make_tuple(false, accountTypes);
         }
     }
 
-   return std::make_tuple(true, accountTypes, oemAccountTypes);
+   return std::make_tuple(true, accountTypes);
 }
 
 /**
@@ -444,9 +436,9 @@ inline bool getUserGroupFromAccountType(
         {
             userGroups.emplace_back("ssh");
         }
-        else if (accountType == "media")
+        else if (accountType == "VirtualMedia")
         {
-            userGroups.emplace_back("OEM");
+            userGroups.emplace_back("media");
         }
         else if (accountType == "SNMP")
         {
@@ -1921,7 +1913,6 @@ struct UserUpdateParams
     std::shared_ptr<persistent_data::UserSession> session;
     std::string dbusObjectPath;
     std::optional<bool> passwordChangeRequired;
-    std::optional<std::vector<std::string>> oemAccountTypes;
 };
 
 inline void setErrorMessageId(
@@ -2092,65 +2083,7 @@ inline void afterVerifyUserExists(
         patchAccountTypes(*params.accountTypes, asyncResp,
                           params.dbusObjectPath, params.userSelf, completionHandler);
     }
-    if ((params.username == "root") && params.oemAccountTypes)
-    {
-        BMCWEB_LOG_ERROR("Not able to change oemAccountTypes for root user");
-        const std::string& arg =
-            "redfish/v1/AccountService/Accounts/" + params.username;
-        messages::accessDenied(asyncResp->res, boost::urls::format(arg));
-        completionHandler(false);
-        return;
-    }
-    else if (params.oemAccountTypes)
-    {
-        std::optional<std::vector<std::string>> oemAccountTypes =
-            params.oemAccountTypes;
-        std::string dbusObjectPath = params.dbusObjectPath;
-        dbus::utility::getProperty<std::vector<std::string>>(
-            "xyz.openbmc_project.User.Manager", dbusObjectPath,
-            "xyz.openbmc_project.User.Attributes", "UserGroups",
-            [asyncResp, oemAccountTypes,
-             dbusObjectPath, completionHandler](const boost::system::error_code& ec,
-                             const std::vector<std::string>& list) {
-                if (ec)
-                {
-                    completionHandler(false);
-                    return;
-                }
-                std::vector<std::string> grpList = list;
-                accountsTotalOperations++;
-                if (std::find(oemAccountTypes->begin(), oemAccountTypes->end(),
-                              "media") != oemAccountTypes->end()) // media found
-                {
-                    if (std::find(grpList.begin(), grpList.end(),
-                                  "media") == grpList.end()) // media not found
-                    {
-                        grpList.push_back("media");
-                    }
-                    setOEMAccountTypes(asyncResp, grpList, dbusObjectPath, completionHandler);
-                }
-                else if (oemAccountTypes->empty())
-                {
-                    if (std::find(grpList.begin(), grpList.end(),
-                                  "media") != grpList.end()) // media found
-                    {
-                        auto itr =
-                            std::find(grpList.begin(), grpList.end(), "media");
-                        if (itr != grpList.end())
-                            grpList.erase(itr);
-                    }
-                    setOEMAccountTypes(asyncResp, grpList, dbusObjectPath, completionHandler);
-                }
-                else
-                {
-                    messages::propertyValueNotInList(asyncResp->res, "provided",
-                                                     "OEMAccountTypes");
-                    completionHandler(false);
-                    return;
-                }
-                completionHandler(true);
-            });
-    }
+ 
     if (params.passwordChangeRequired)
     {
         std::optional<bool> passwordChangeRequired =
@@ -2196,7 +2129,6 @@ inline void updateUserProperties(
     const std::optional<std::vector<std::string>>& accountTypes, bool userSelf,
     const std::shared_ptr<persistent_data::UserSession>& session,
     const std::optional<bool>& passwordChangeRequired,
-    const std::optional<std::vector<std::string>>& oemAccountTypes,
     std::function<void(bool)> completionHandler)
 {
     sdbusplus::message::object_path tempObjPath(rootUserDbusPath);
@@ -2209,8 +2141,7 @@ inline void updateUserProperties(
                             enabled,        roleId,
                             locked,         accountTypes,
                             userSelf,       session,
-                            dbusObjectPath, passwordChangeRequired,
-                            oemAccountTypes};
+                            dbusObjectPath, passwordChangeRequired};
 
     dbus::utility::checkDbusPathExists(
         dbusObjectPath,
@@ -2831,6 +2762,7 @@ inline void handleAccountRadiusPatch(
     }
 
     RadiusPatchParams radiusObject;
+    bool anyPropertyPatched = false;
 
     // clang-format off
     std::optional<nlohmann::json> oem;
@@ -2849,12 +2781,12 @@ inline void handleAccountRadiusPatch(
         if (oem_size == 0)
         {
             messages::propertyNotWritable(asyncResp->res, "Oem");
-            return;
+            // Do not return here, allow partial patch
         }
 
         if (!json_util::readJson(*oem, asyncResp->res, "Ami", ami))
         {
-            return;
+            // Do not return here, allow partial patch
         }
 
         if(ami)
@@ -2864,12 +2796,12 @@ inline void handleAccountRadiusPatch(
             if (ami_size == 0)
             {
                 messages::propertyNotWritable(asyncResp->res, "Ami");
-                return;
+                // Do not return here, allow partial patch
             }
 
             if (!json_util::readJson(*ami, asyncResp->res, "RADIUS", radius))
             {
-                return;
+                // Do not return here, allow partial patch
             }
 
             if(radius)
@@ -2878,7 +2810,7 @@ inline void handleAccountRadiusPatch(
                 if (radius_size == 0)
                 {
                     messages::propertyNotWritable(asyncResp->res, "RADIUS");
-                    return;
+                    // Do not return here, allow partial patch
                 }
 
                 if (!json_util::readJson(
@@ -2894,7 +2826,7 @@ inline void handleAccountRadiusPatch(
                 "Privilege2", radiusObject.privilege2,
                 "Privilege3", radiusObject.privilege3))
                 {
-                    return;
+                    // Do not return here, allow partial patch
                 }
                 // clang-format on
 
@@ -2910,7 +2842,6 @@ inline void handleAccountRadiusPatch(
                         {
                             messages::invalidip(asyncResp->res,
                                                 "ServiceAddress", ipAddress);
-                            return;
                         }
                         else
                         {
@@ -2918,6 +2849,7 @@ inline void handleAccountRadiusPatch(
                                 asyncResp, radiusConfigObjectPath,
                                 radiusConfigInterface, "IP",
                                 *radiusObject.host);
+                            anyPropertyPatched = true;
                         }
                     }
                     else
@@ -2925,7 +2857,6 @@ inline void handleAccountRadiusPatch(
                         messages::propertyValueEmpty(asyncResp->res,
                                                      *radiusObject.host,
                                                      "ServiceAddress");
-                        return;
                     }
                 }
                 if (radiusObject.password)
@@ -2936,12 +2867,12 @@ inline void handleAccountRadiusPatch(
                             asyncResp, radiusConfigObjectPath,
                             radiusConfigInterface, "Password",
                             *radiusObject.password);
+                        anyPropertyPatched = true;
                     }
                     else
                     {
                         messages::propertyValueEmpty(
                             asyncResp->res, *radiusObject.password, "Secret");
-                        return;
                     }
                 }
                 if (radiusObject.port && *radiusObject.port >= 0 &&
@@ -2962,6 +2893,7 @@ inline void handleAccountRadiusPatch(
                             messages::success(asyncResp->res);
                             BMCWEB_LOG_DEBUG("Patch port Success");
                         });
+                    anyPropertyPatched = true;
                 }
                 if (radiusObject.groupName1)
                 {
@@ -2969,6 +2901,7 @@ inline void handleAccountRadiusPatch(
                         asyncResp, radiusRoleMapObjectPath,
                         radiusRoleMapInterface, "GroupName1",
                         *radiusObject.groupName1);
+                    anyPropertyPatched = true;
                 }
                 if (radiusObject.groupName2)
                 {
@@ -2976,6 +2909,7 @@ inline void handleAccountRadiusPatch(
                         asyncResp, radiusRoleMapObjectPath,
                         radiusRoleMapInterface, "GroupName2",
                         *radiusObject.groupName2);
+                    anyPropertyPatched = true;
                 }
                 if (radiusObject.groupName3)
                 {
@@ -2983,6 +2917,7 @@ inline void handleAccountRadiusPatch(
                         asyncResp, radiusRoleMapObjectPath,
                         radiusRoleMapInterface, "GroupName3",
                         *radiusObject.groupName3);
+                    anyPropertyPatched = true;
                 }
                 if (radiusObject.privilege1)
                 {
@@ -2998,6 +2933,7 @@ inline void handleAccountRadiusPatch(
                             handleRadiusConfigRolemMapPatch(
                                 asyncResp, radiusRoleMapObjectPath,
                                 radiusRoleMapInterface, "Privilege1", roleId);
+                            anyPropertyPatched = true;
                         }
                         else
                         {
@@ -3005,7 +2941,6 @@ inline void handleAccountRadiusPatch(
                             messages::propertyValueNotInList(
                                 asyncResp->res, *radiusObject.privilege1,
                                 "Privilege1");
-                            return;
                         }
                     }
                     else
@@ -3014,7 +2949,6 @@ inline void handleAccountRadiusPatch(
                         messages::propertyValueEmpty(asyncResp->res,
                                                      *radiusObject.privilege1,
                                                      "Privilege1");
-                        return;
                     }
                 }
 
@@ -3032,6 +2966,7 @@ inline void handleAccountRadiusPatch(
                             handleRadiusConfigRolemMapPatch(
                                 asyncResp, radiusRoleMapObjectPath,
                                 radiusRoleMapInterface, "Privilege2", roleId);
+                            anyPropertyPatched = true;
                         }
                         else
                         {
@@ -3039,7 +2974,6 @@ inline void handleAccountRadiusPatch(
                             messages::propertyValueNotInList(
                                 asyncResp->res, *radiusObject.privilege2,
                                 "Privilege2");
-                            return;
                         }
                     }
                     else
@@ -3048,7 +2982,6 @@ inline void handleAccountRadiusPatch(
                         messages::propertyValueEmpty(asyncResp->res,
                                                      *radiusObject.privilege2,
                                                      "Privilege2");
-                        return;
                     }
                 }
                 if (radiusObject.privilege3)
@@ -3065,6 +2998,7 @@ inline void handleAccountRadiusPatch(
                             handleRadiusConfigRolemMapPatch(
                                 asyncResp, radiusRoleMapObjectPath,
                                 radiusRoleMapInterface, "Privilege3", roleId);
+                            anyPropertyPatched = true;
                         }
                         else
                         {
@@ -3072,7 +3006,6 @@ inline void handleAccountRadiusPatch(
                             messages::propertyValueNotInList(
                                 asyncResp->res, *radiusObject.privilege3,
                                 "Privilege3");
-                            return;
                         }
                     }
                     else
@@ -3081,12 +3014,12 @@ inline void handleAccountRadiusPatch(
                         messages::propertyValueEmpty(asyncResp->res,
                                                      *radiusObject.privilege3,
                                                      "Privilege3");
-                        return;
                     }
                 }
                 if(radiusObject.enabledEapTLS.has_value())
                 {
                     setRadiusEnable(asyncResp, "EnableEapTLS", *radiusObject.enabledEapTLS);
+                    anyPropertyPatched = true;
                 }
             }
         }
@@ -3096,10 +3029,22 @@ inline void handleAccountRadiusPatch(
     {
         // Enable or disable the RADIUS service based on the value of "ServiceEnabled"
         setRadiusEnable(asyncResp, "Enable", *radiusObject.enabled);
+        anyPropertyPatched = true;
     }
     else
     {
         BMCWEB_LOG_DEBUG("ServiceEnabled field missing or invalid");
+    }
+
+    // If any property was patched, set response to 200 OK
+    if (anyPropertyPatched)
+    {
+        asyncResp->res.result(boost::beast::http::status::ok);
+    }
+    else
+    {
+        // If nothing was patched, keep the default error handling
+        asyncResp->res.result(boost::beast::http::status::bad_request);
     }
 }
 
@@ -3809,7 +3754,8 @@ inline void processAfterCreateUser(
             "xyz.openbmc_project.User.Manager", "SetPasswordExpired", username,
             *passwordChangeRequired);
     }
-    messages::created(asyncResp->res);
+
+    asyncResp->res.result(boost::beast::http::status::no_content);
     asyncResp->res.addHeader("Location",
                              "/redfish/v1/AccountService/Accounts/" + username);
     std::string eventLogMessageId = "ResourceAdded:/redfish/v1/AccountService/Accounts/" + username;
@@ -3855,6 +3801,10 @@ inline void processAfterGetAllGroups(
             messages::propertyValueNotInList(asyncResp->res, roleId, "RoleId");
             return;
         }
+        else // Media access is determined by role and account types only
+        {
+            media = (priv == "priv-admin");
+        }
         roleId = priv;
     }
     // Determine media access based on OEM account types or role
@@ -3878,6 +3828,7 @@ inline void processAfterGetAllGroups(
     {
         media = (roleId == "priv-admin");
     }
+
     auto addGroupsToUser = [&](std::vector<std::string>& targetGroups) {
         for (const std::string& group : allGroupsList)
         {
@@ -4187,7 +4138,6 @@ inline void handleAccountCollectionPost(
     std::optional<std::vector<std::string>> accountTypes;
     std::optional<bool> passwordChangeRequired = false;
     std::optional<bool> media;
-    std::optional<std::vector<std::string>> oemAccountTypes;
     std::optional<std::string> algorithm;
     std::optional<std::string> encryption;
     std::optional<std::string> accessMode;
@@ -4202,7 +4152,6 @@ inline void handleAccountCollectionPost(
             "Enabled", enabledJson,
             "AccountTypes", accountTypes,
             "PasswordChangeRequired", passwordChangeRequired,
-            "OEMAccountTypes", oemAccountTypes,
             "Oem", oemObj))
     {
         BMCWEB_LOG_ERROR("Failed to read required fields from JSON");
@@ -4303,6 +4252,33 @@ inline void handleAccountCollectionPost(
             }
         }
     }
+
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.User.Manager", "/xyz/openbmc_project/user",
+        "xyz.openbmc_project.User.Manager", "AllGroups",
+        [asyncResp, username, password, roleIdJson, enabled,
+         accountTypes, passwordChangeRequired, media, algorithm,
+         encryption, accessMode, hasSNMP]
+        (const boost::system::error_code& ec1, const std::vector<std::string>& allGroupsList) {
+            if (ec1)
+            {
+                BMCWEB_LOG_ERROR("D-Bus response error {}", ec1);
+                messages::internalError(asyncResp->res);
+                return;
+            }
+
+            if (allGroupsList.empty())
+            {
+                messages::internalError(asyncResp->res);
+                return;
+            }
+
+            processAfterGetAllGroups(asyncResp, username, password, roleIdJson,
+                                     enabled, accountTypes, allGroupsList,
+                                     passwordChangeRequired, media,
+                                     algorithm, encryption, accessMode,
+                                     hasSNMP);
+        });
 }
 
 inline void fetchSnmpUserData(const std::string& accountName, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
@@ -5160,7 +5136,6 @@ inline void handleAccountPatch(App& app, const crow::Request& req,
             std::optional<bool> locked;
             std::optional<std::vector<std::string>> accountTypes;
             std::optional<bool> passwordChangeRequired;
-            std::optional<std::vector<std::string>> oemAccountTypes;
             std::optional<std::string> algorithm;
             std::optional<std::string> encryption;
             std::optional<std::string> accessMode;
@@ -5179,7 +5154,6 @@ inline void handleAccountPatch(App& app, const crow::Request& req,
                         "Locked", locked,
                         "AccountTypes", accountTypes,
                         "PasswordChangeRequired", passwordChangeRequired,
-                        "OEMAccountTypes", oemAccountTypes,
                         "Oem", oemObj
                         ))
                 {
@@ -5289,11 +5263,11 @@ inline void handleAccountPatch(App& app, const crow::Request& req,
                     {
                         BMCWEB_LOG_ERROR("userGroups wasn't a string vector");
                         propertyOriginal["AccountTypes"] = nullptr;
-                        propertyOriginal["OEMAccountTypes"] = nullptr;
+
                     }
                     else
                     {
-                        auto [ret, convertedAccountTypes, convertedOemAccountTypes] = translateUserGroupGet(*userGroups);
+                        auto [ret, convertedAccountTypes] = translateUserGroupGet(*userGroups);
                         if (!ret)
                         {
                             BMCWEB_LOG_ERROR("userGroups mapping failed");
@@ -5303,7 +5277,7 @@ inline void handleAccountPatch(App& app, const crow::Request& req,
                         else
                         {
                             propertyOriginal["AccountTypes"] = std::move(convertedAccountTypes);
-                            propertyOriginal["OEMAccountTypes"] = std::move(convertedOemAccountTypes);
+
                         }
                     }
                 }
@@ -5338,7 +5312,7 @@ inline void handleAccountPatch(App& app, const crow::Request& req,
             {
                 updateUserProperties(asyncResp, username, password, enabled, roleId,
                      locked, accountTypes, userSelf, req.session,
-                     passwordChangeRequired, oemAccountTypes, completionHandler);
+                     passwordChangeRequired, completionHandler);
 
                 if (oemObj) 
                 {
@@ -5383,7 +5357,7 @@ inline void handleAccountPatch(App& app, const crow::Request& req,
                 newUserRaw = *newUserName,
                 locked, userSelf, req,
                 accountTypes(std::move(accountTypes)),
-                passwordChangeRequired, oemAccountTypes, completionHandler,
+                passwordChangeRequired, completionHandler,
                 oemObj,
                 algorithm(std::move(algorithm)),
                 encryption(std::move(encryption)),
@@ -5404,7 +5378,7 @@ inline void handleAccountPatch(App& app, const crow::Request& req,
 
                 updateUserProperties(asyncResp, newUser, password, enabled, roleId,
                                     locked, accountTypes, userSelf, req.session,
-                                    passwordChangeRequired, oemAccountTypes, completionHandler);
+                                    passwordChangeRequired, completionHandler);
 
                 if (asyncResp->res.result() != boost::beast::http::status::ok)
                 {

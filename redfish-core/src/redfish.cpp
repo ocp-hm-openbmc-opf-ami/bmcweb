@@ -170,6 +170,10 @@
 #include "ext/src/psm.hpp"
 #endif
 
+#if BMCWEB_NVIDIA_AUX_RESET_URIS_MACRO
+#include "ext/src/auxreset.hpp"
+#endif
+
 namespace redfish
 {
 
@@ -512,6 +516,9 @@ RedfishService::RedfishService(App& app)
 #endif
 #if BMCWEB_AMI_PSM_MACRO
     redfish::psm::registerPsmRoutes(app);
+#endif
+#if BMCWEB_NVIDIA_AUX_RESET_URIS_MACRO
+    registerAuxResetRoutes(app);
 #endif
     // Note, this must be the last route registered
     requestRoutesRedfish(app);

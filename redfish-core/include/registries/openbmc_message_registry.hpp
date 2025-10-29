@@ -2712,6 +2712,19 @@ constexpr std::array registry =
             },
             "None.",
         }},
+    MessageEntry{
+        "AsyncError",
+        {
+            "Indicates that the SMBPBI Async Command Failed.",
+            "%1 Respresents Error Code",
+            "Warning",
+            2,
+            {
+                "string",
+                "string",
+            },
+            "%2",
+        }},
 };
 
 enum class Index
@@ -2944,5 +2957,6 @@ enum class Index
     MediaUnmount = 225,
     MediaRedirectionDisabled = 226,
     configurationConflict = 227,
+    asyncError = 228,
 };
 } // namespace redfish::registries::openbmc
