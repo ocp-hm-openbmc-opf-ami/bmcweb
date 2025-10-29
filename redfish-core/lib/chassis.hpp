@@ -647,6 +647,43 @@ inline void handleChassisSubTree(
         return;
 }
 
+void getMinMaxValues(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    const std::string sensorPath =
+        "/xyz/openbmc_project/sensors/power/Platform_Power_Average_CPU1";
+    sdbusplus::asio::getAllProperties(
+        *crow::connections::systemBus,
+        "xyz.openbmc_project.IntelCPUSensor", // Service
+        sensorPath,
+        "xyz.openbmc_project.Sensor.Value", // Interface
+        [asyncResp](const boost::system::error_code& ec,
+                    const dbus::utility::DBusPropertiesMap& properties) {
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG("DBUS response error: {}",ec);
+                return;
+            }
+            const double* minValue = nullptr;
+            const double* maxValue = nullptr;
+            const bool success = sdbusplus::unpackPropertiesNoThrow(
+                dbus_utils::UnpackErrorPrinter(), properties, "MinValue",
+                minValue, "MaxValue", maxValue);
+            if (!success)
+            {
+                BMCWEB_LOG_DEBUG("Failed to unpack MinValue/MaxValue");
+                return;
+            }
+            if (minValue)
+            {
+                asyncResp->res.jsonValue["MinPowerWatts"] = *minValue;
+            }
+            if (maxValue)
+            {
+                asyncResp->res.jsonValue["MaxPowerWatts"] = *maxValue;
+            }
+        });
+}
+
 inline void handleChassisGetSubTree(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, const boost::system::error_code& ec,
@@ -682,8 +719,8 @@ inline void handleChassisGetSubTree(
             continue;
         }
 
-        ishandleChassisGetSubTree = true;
-
+        constexpr std::array<std::string_view, 1> interfaces3 = {
+            "xyz.openbmc_project.Chassis.Intrusion"};
         asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("Chassis");
         asyncResp->res.jsonValue["@odata.id"] =
             boost::urls::format("/redfish/v1/Chassis/{}", chassisId);
@@ -695,7 +732,16 @@ inline void handleChassisGetSubTree(
             .jsonValue["Actions"]["#Chassis.Reset"]["@Redfish.ActionInfo"] =
             boost::urls::format("/redfish/v1/Chassis/{}/ResetActionInfo",
                                 chassisId);
-        
+        dbus::utility::getSubTree(
+            "/xyz/openbmc_project", 0, interfaces3,
+            std::bind_front(handlePhysicalSecurityGetSubTree, asyncResp));
+        getMinMaxValues(asyncResp);
+
+        #if BMCWEB_AMI_REP_MACRO
+            asyncResp->res.jsonValue["PCIeSlots"] = 
+                {{"@odata.id", boost::urls::format("/redfish/v1/Chassis/{}/PCIeSlots",chassisId)}};
+        #endif
+
         #if (BMCWEB_NVIDIA_AUX_RESET_URIS_MACRO)
             if (chassisId == "BMC_0")
             {
@@ -842,43 +888,6 @@ inline void handleChassisGetSubTree(
     messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
 }
 
-void getMinMaxValues(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
-{
-    const std::string sensorPath =
-        "/xyz/openbmc_project/sensors/power/Platform_Power_Average_CPU1";
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus,
-        "xyz.openbmc_project.IntelCPUSensor", // Service
-        sensorPath,
-        "xyz.openbmc_project.Sensor.Value", // Interface
-        [asyncResp](const boost::system::error_code& ec,
-                    const dbus::utility::DBusPropertiesMap& properties) {
-            if (ec)
-            {
-                BMCWEB_LOG_DEBUG("DBUS response error: {}",ec);
-                return;
-            }
-            const double* minValue = nullptr;
-            const double* maxValue = nullptr;
-            const bool success = sdbusplus::unpackPropertiesNoThrow(
-                dbus_utils::UnpackErrorPrinter(), properties, "MinValue",
-                minValue, "MaxValue", maxValue);
-            if (!success)
-            {
-                BMCWEB_LOG_DEBUG("Failed to unpack MinValue/MaxValue");
-                return;
-            }
-            if (minValue)
-            {
-                asyncResp->res.jsonValue["MinPowerWatts"] = *minValue;
-            }
-            if (maxValue)
-            {
-                asyncResp->res.jsonValue["MaxPowerWatts"] = *maxValue;
-            }
-        });
-}
-
 inline void handleChassisGet(App& app, const crow::Request& req,
                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                       const std::string& chassisId)
@@ -901,17 +910,6 @@ inline void handleChassisGet(App& app, const crow::Request& req,
     dbus::utility::getSubTree(
         "/xyz/openbmc_project/inventory", 0, interfaces,
         std::bind_front(handleChassisGetSubTree, asyncResp, chassisId));
-
-    constexpr std::array<std::string_view, 1> interfaces2 = {
-        "xyz.openbmc_project.Chassis.Intrusion"};
-
-    if (ishandleChassisGetSubTree)
-    {
-        dbus::utility::getSubTree(
-            "/xyz/openbmc_project", 0, interfaces2,
-            std::bind_front(handlePhysicalSecurityGetSubTree, asyncResp));
-    }
-    getMinMaxValues(asyncResp);
 }
 
 inline void
