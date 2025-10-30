@@ -4138,6 +4138,7 @@ inline void handleAccountCollectionPost(
     std::optional<std::vector<std::string>> accountTypes;
     std::optional<bool> passwordChangeRequired = false;
     std::optional<bool> media;
+    std::optional<std::vector<std::string>> oemAccountTypes;
     std::optional<std::string> algorithm;
     std::optional<std::string> encryption;
     std::optional<std::string> accessMode;
@@ -4152,6 +4153,7 @@ inline void handleAccountCollectionPost(
             "Enabled", enabledJson,
             "AccountTypes", accountTypes,
             "PasswordChangeRequired", passwordChangeRequired,
+	    "OEMAccountTypes", oemAccountTypes,
             "Oem", oemObj))
     {
         BMCWEB_LOG_ERROR("Failed to read required fields from JSON");
@@ -4253,32 +4255,6 @@ inline void handleAccountCollectionPost(
         }
     }
 
-    dbus::utility::getProperty<std::vector<std::string>>(
-        "xyz.openbmc_project.User.Manager", "/xyz/openbmc_project/user",
-        "xyz.openbmc_project.User.Manager", "AllGroups",
-        [asyncResp, username, password, roleIdJson, enabled,
-         accountTypes, passwordChangeRequired, media, algorithm,
-         encryption, accessMode, hasSNMP]
-        (const boost::system::error_code& ec1, const std::vector<std::string>& allGroupsList) {
-            if (ec1)
-            {
-                BMCWEB_LOG_ERROR("D-Bus response error {}", ec1);
-                messages::internalError(asyncResp->res);
-                return;
-            }
-
-            if (allGroupsList.empty())
-            {
-                messages::internalError(asyncResp->res);
-                return;
-            }
-
-            processAfterGetAllGroups(asyncResp, username, password, roleIdJson,
-                                     enabled, accountTypes, allGroupsList,
-                                     passwordChangeRequired, media,
-                                     algorithm, encryption, accessMode,
-                                     hasSNMP);
-        });
 }
 
 inline void fetchSnmpUserData(const std::string& accountName, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
