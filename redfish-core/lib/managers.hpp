@@ -861,8 +861,31 @@ inline void asyncPopulatePid(
                         nlohmann::json& zone = zones[name];
                         if (name.find("PSU") == std::string::npos)
                         {
-                            zone["Chassis"]["@odata.id"] = boost::urls::format(
-                                "/redfish/v1/Chassis/{}", chassis);
+                            constexpr std::array<std::string_view, 1> interfaces{
+                                "xyz.openbmc_project.Inventory.Item.Board"};
+                            dbus::utility::getSubTreePaths(
+                                "/xyz/openbmc_project/inventory", 0, interfaces,
+                                [asyncResp, name](const boost::system::error_code& ec,  // Capture name instead
+                            const dbus::utility::MapperGetSubTreePathsResponse& chassisList) {
+                            if (ec)
+                            {
+                                BMCWEB_LOG_ERROR("Chassis Name not found - {}", ec);
+                                return;
+                            }
+                            for (const std::string& chassisPath : chassisList)
+                            {
+                                if(chassisPath.find_last_of('/') != std::string::npos)
+                                {
+                                    std::string chassisName = chassisPath.substr(chassisPath.find_last_of('/') + 1);
+                                    if (chassisName != "Cpld")
+                                    {
+                                        asyncResp->res.jsonValue["Oem"]["OpenBmc"]["Fan"]["FanZones"][name]["Chassis"]["@odata.id"] =
+                                            boost::urls::format("/redfish/v1/Chassis/{}", chassisName);
+                                        return;
+                                    }
+                                }
+                            }
+                            });
                         }
                         url.set_fragment(
                             ("/Oem/OpenBmc/Fan/FanZones"_json_pointer / name)
