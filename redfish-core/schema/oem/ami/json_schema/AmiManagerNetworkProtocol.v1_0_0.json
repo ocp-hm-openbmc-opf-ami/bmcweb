@@ -282,6 +282,7 @@
         },
         "PhysicalLED": {
             "additionalProperties": false,
+            "description": "physical leds to display status of server.",
             "patternProperties": {
                 "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
                     "description": "This property shall specify a valid odata or Redfish property.",
@@ -297,13 +298,25 @@
                 }
             },
             "properties": {
-                "led": {
-                    "description": "Indicates led status.",
-                    "longDescription": "Indicates led status like On, Off, Blinking or Unknown.",
-                    "type": [
-                        "string",
-                        "null"
-                    ]
+                "AmberLED": {
+                    "description": "physical leds to display status of server.",
+                    "longDescription": "physical leds to display status of server.",
+                    "type": "string"
+                },
+                "BlueLED": {
+                    "description": "physical leds to display status of server.",
+                    "longDescription": "physical leds to display status of server.",
+                    "type": "string"
+                },
+                "GreenLED": {
+                    "description": "physical leds to display status of server.",
+                    "longDescription": "physical leds to display status of server.",
+                    "type": "string"
+                },
+                "SusackLED": {
+                    "description": "physical leds to display status of server.",
+                    "longDescription": "physical leds to display status of server.",
+                    "type": "string"
                 }
             },
             "type": "object"

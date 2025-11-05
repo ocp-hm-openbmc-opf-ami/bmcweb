@@ -53,6 +53,7 @@ constexpr auto getSensorPaths(){
     if constexpr(BMCWEB_REDFISH_NEW_POWERSUBSYSTEM_THERMALSUBSYSTEM){
     return std::to_array<std::string_view>({
         "/xyz/openbmc_project/sensors/power",
+        "/xyz/openbmc_project/sensors/frequency",
         "/xyz/openbmc_project/sensors/current",
         "/xyz/openbmc_project/sensors/airflow",
 	"/xyz/openbmc_project/sensors/count",

@@ -109,10 +109,25 @@
                     <Annotation Term="OData.LongDescription" String="This property indicates a human-readable or logical name for each channel/interface." />
                 </Property>
             </ComplexType>
-            <ComplexType Name="PhysicalLED">
-                <Property Name="led" Type="Edm.String">
-                    <Annotation Term="OData.Description" String="Indicates led status." />
-                    <Annotation Term="OData.LongDescription" String="Indicates led status like On, Off, Blinking or Unknown." />
+
+	    <ComplexType Name="PhysicalLED">
+                <Annotation Term="OData.AdditionalProperties" Bool="false" />
+                <Annotation Term="OData.Description" String="physical leds to display status of server." />
+                <Property Name="AmberLED" Type="Edm.String" Nullable="false">
+                    <Annotation Term="OData.Description" String="physical leds to display status of server." />
+                    <Annotation Term="OData.LongDescription" String="physical leds to display status of server." />
+                </Property>
+                <Property Name="GreenLED" Type="Edm.String" Nullable="false">
+                    <Annotation Term="OData.Description" String="physical leds to display status of server." />
+                    <Annotation Term="OData.LongDescription" String="physical leds to display status of server." />
+                </Property>
+                <Property Name="SusackLED" Type="Edm.String" Nullable="false">
+                    <Annotation Term="OData.Description" String="physical leds to display status of server." />
+                    <Annotation Term="OData.LongDescription" String="physical leds to display status of server." />
+                </Property>
+                <Property Name="BlueLED" Type="Edm.String" Nullable="false">
+                    <Annotation Term="OData.Description" String="physical leds to display status of server." />
+                    <Annotation Term="OData.LongDescription" String="physical leds to display status of server." />
                 </Property>
             </ComplexType>
 
