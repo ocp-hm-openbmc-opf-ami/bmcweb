@@ -19,6 +19,7 @@
 #include "utils/dbus_utils.hpp"
 #include "utils/json_utils.hpp"
 #include "utils/sw_utils.hpp"
+#include "update_service_header.hpp"
 
 #include <sys/mman.h>
 
