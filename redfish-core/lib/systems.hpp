@@ -4529,28 +4529,20 @@ inline void afterGetAllowedHostTransitions(
     // Supported on all systems currently
     allowableValues.emplace_back(resource::ResetType::ForceOff);
     allowableValues.emplace_back(resource::ResetType::PowerCycle);
+    allowableValues.emplace_back(resource::ResetType::On);
+    allowableValues.emplace_back(resource::ResetType::ForceOn);
+    allowableValues.emplace_back(resource::ResetType::ForceRestart);
+    allowableValues.emplace_back(resource::ResetType::GracefulRestart);
+    allowableValues.emplace_back(resource::ResetType::GracefulShutdown);
     //  allowableValues.emplace_back(resource::ResetType::Nmi);
 
     if (ec)
     {
-        if ((ec.value() ==
-             boost::system::linux_error::bad_request_descriptor) ||
-            (ec.value() == boost::asio::error::basic_errors::host_unreachable))
-        {
-            // Property not implemented so just return defaults
-            BMCWEB_LOG_DEBUG("Property not available {}", ec);
-            allowableValues.emplace_back(resource::ResetType::On);
-            allowableValues.emplace_back(resource::ResetType::ForceOn);
-            allowableValues.emplace_back(resource::ResetType::ForceRestart);
-            allowableValues.emplace_back(resource::ResetType::GracefulRestart);
-            allowableValues.emplace_back(resource::ResetType::GracefulShutdown);
-        }
-        else
-        {
-            BMCWEB_LOG_ERROR("DBUS response error {}", ec);
-            messages::internalError(asyncResp->res);
-            return;
-        }
+        
+        BMCWEB_LOG_ERROR("DBUS response error {}", ec);
+        messages::internalError(asyncResp->res);
+        return;
+
     }
     else
     {
