@@ -85,19 +85,26 @@ inline void setFruCollection(
                 for (const auto& fruobject : fruCollectionSubtree)
                 {
                     std::string fru = fruobject.first;
-                    std::size_t lastPos = fru.rfind("/");
-
-                    if (lastPos == std::string::npos || lastPos + 1 >= fru.size())
+                    if (!fruobject.second.empty())
                     {
-                        BMCWEB_LOG_ERROR("Invalid fru object path:{}", fru);
-                        messages::internalError(asyncResp->res);
-                        return;
-                    }
+                        std::string fruService = fruobject.second.front().first;
+                        if (fruService == "xyz.openbmc_project.FruDevice") // Only process entries from the FruDevice service
+                        {
+                            std::size_t lastPos = fru.rfind("/");
 
-                    std::string fruName = fru.substr(lastPos + 1);
-                    entriesArray.push_back(
-                        {{"@odata.id", "/redfish/v1/Chassis/" + chassisId + "/" +
-                                        "FRU" + "/" + fruName}});
+                            if (lastPos == std::string::npos || lastPos + 1 >= fru.size())
+                            {
+                                BMCWEB_LOG_ERROR("Invalid fru object path:{}", fru);
+                                messages::internalError(asyncResp->res);
+                                return;
+                            }
+
+                            std::string fruName = fru.substr(lastPos + 1);
+                            entriesArray.push_back(
+                                {{"@odata.id", "/redfish/v1/Chassis/" + chassisId + "/" +
+                                                "FRU" + "/" + fruName}});
+                        }
+                    }
 
                 } // object path loop
 
