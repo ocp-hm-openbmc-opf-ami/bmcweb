@@ -1299,6 +1299,7 @@ inline void handleSubmitTestEventActionGet(
         "/redfish/v1/EventService/SubmitTestEventActionInfo");
     asyncResp->res.jsonValue["Name"] = "SubmitTestEvent Action Info";
     asyncResp->res.jsonValue["Id"] = "SubmitTestEventActionInfo";
+    asyncResp->res.jsonValue["Description"] = "This action is used to generate a test event.";
     nlohmann::json::object_t MessageId;
     MessageId["DataType"] = "String";
     MessageId["Name"] = "MessageId";
