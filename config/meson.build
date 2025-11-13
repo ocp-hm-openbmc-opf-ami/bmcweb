@@ -69,6 +69,9 @@ feature_options = [
     'nvidia-erot-dump',
     'ami-rm',
     'ami-psm',
+    'ami-sl8',
+    'ami-thermalequipment',
+    'ami-controls',
     'nvidia-aux-reset-uris'
 ]
 
@@ -80,7 +83,7 @@ string_options = [
     'redfish-system-uri-name',
 ]
 
-int_options = ['http-body-limit', 'image-payload-limit','update_timeout']
+int_options = ['http-body-limit', 'image-payload-limit', 'local-media-upload-limit','update_timeout']
 
 feature_options_string = '\n//Feature options\n'
 string_options_string = '\n// String options\n'
@@ -141,17 +144,23 @@ foreach option_key : feature_options + string_options + int_options
         ) or option_key.contains(
              'dot-uris',
         ) or option_key.contains(
-             'cper-uris'
+             'cper-uris',
         ) or option_key.contains(
-            'nvidia-reset-uris'
+            'nvidia-reset-uris',
         ) or option_key.contains(
-             'nvidia-erot-dump'
+             'nvidia-erot-dump',
         ) or option_key.contains(
-             'ami-rm'
+             'ami-rm',
         ) or option_key.contains(
-             'ami-psm'
+             'ami-psm',
         ) or option_key.contains(
-            'nvidia-aux-reset-uris'
+             'ami-sl8',
+        ) or option_key.contains(
+             'ami-thermalequipment',
+        ) or option_key.contains(
+              'ami-controls',
+        ) or option_key.contains(
+            'nvidia-aux-reset-uris',
         )
             feature_options_string += '#define ' + option_macro_config + '  ' + opt.allowed().to_string() + '\n'
         endif

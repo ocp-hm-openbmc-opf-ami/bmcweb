@@ -254,6 +254,33 @@ inline bool isValidIPv4Address(in_addr* addr, Type type)
     return true;
 }
 
+inline std::string extractIPv4FromMappedIPv6(const boost::asio::ip::address& addr)
+{
+    if (addr.is_v4())
+    {
+        return addr.to_string();  // Already an IPv4 address
+    }
+    else if (addr.is_v6()) 
+    {
+        const auto& ipv6 = addr.to_v6();
+        if (ipv6.is_v4_mapped()) // ::ffff:XX.X.XX.XXX
+        {
+            auto bytes = ipv6.to_bytes();  // 16 bytes
+            std::ostringstream oss;
+            oss << static_cast<int>(bytes[12]) << "."
+                << static_cast<int>(bytes[13]) << "."
+                << static_cast<int>(bytes[14]) << "."
+                << static_cast<int>(bytes[15]);
+            return oss.str();  // XX.X.XX.XXX
+        }
+        else
+        {
+            return addr.to_string();  // Regular IPv6
+        }
+    }
+    return {};
+}
+
 inline bool isValidIPv4Addr(std::string addr, Type type)
 {
     try

@@ -31,24 +31,6 @@
                         "null"
                     ]
                 
-                },
-		        "RetryCount": {
-                    "description": "Indicates RetryCount for Rmedia Reconnect.",
-                    "longDescription": "The value of the property range should be allowed between 3 to 6.",
-                    "readonly": false,
-                    "type": [
-                        "integer",
-                        "null"
-                    ]
-                },
-                "RetryInterval": {
-                    "description": "Indicates RetryInterval for Rmedia reconnect.",
-                    "longDescription": "The value of the property range should be allowed between 15 to 30.",
-                    "readonly": false,
-                    "type": [
-                        "integer",
-                        "null"
-                    ]    
                 }
             },
             "type": "object"

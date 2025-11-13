@@ -248,6 +248,7 @@ struct NbdProxyServer : std::enable_shared_from_this<NbdProxyServer>
             self->connection.close("Failed to mount media");
             return;
         }
+	self->connection.session->vmNbdActive[self->getEndpointIndex()] = true;
     }
 
     static void afterAccept(const std::weak_ptr<NbdProxyServer>& weak,
@@ -285,13 +286,22 @@ struct NbdProxyServer : std::enable_shared_from_this<NbdProxyServer>
             std::bind_front(&NbdProxyServer::afterAccept, weak_from_this()));
 
         redfish::powerSaveMode(POWER_SAVE_MODE_DISABLE);
+        std::string uniqueId = connection.session->uniqueId;
+        std::string sessionId;
+
+        if (connection.sessionMap.find(uniqueId) != connection.sessionMap.end())
+        {
+            sessionId = "session_" +
+                        std::to_string(connection.sessionMap[uniqueId]);
+        }
+	
         crow::connections::systemBus->async_method_call(
             [weak{weak_from_this()}](const boost::system::error_code& ec,
                                      bool isBinary) {
                 afterMount(weak, ec, isBinary);
             },
             "xyz.openbmc_project.VirtualMedia", path,
-            "xyz.openbmc_project.VirtualMedia.Proxy", "Mount");
+            "xyz.openbmc_project.VirtualMedia.Proxy", "Mount",sessionId);
     }
 
     void send(std::string_view buffer, std::function<void()>&& onDone)

@@ -420,6 +420,19 @@ if get_option('cper-uris').enabled()
     srcfiles_bmcweb += 'ext/cper/src/cper.cpp'
 endif
 
+if get_option('ami-thermalequipment').enabled()
+    srcfiles_bmcweb += files(
+      'ext/src/thermal_equipment.cpp',
+      #'ext/include/ami_errors.cpp',
+    )
+endif
+
+if get_option('ami-controls').enabled()
+    srcfiles_bmcweb += files(
+      'ext/src/controls/controls.cpp',
+    )
+endif
+
 if get_option('nvidia-reset-uris').enabled()
     srcfiles_bmcweb += 'ext/src/reset.cpp'
 endif
@@ -434,6 +447,10 @@ endif
 
 if get_option('ami-psm').enabled()
     srcfiles_bmcweb += 'ext/src/psm.cpp'
+endif
+
+if get_option('ami-raidbrcm').enabled() or get_option('ami-sl8').enabled()
+    srcfiles_bmcweb += 'ext/lib/brcm/raid_brcm.cpp'
 endif
 
 if get_option('nvidia-aux-reset-uris').enabled()

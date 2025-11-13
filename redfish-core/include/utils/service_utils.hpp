@@ -57,13 +57,13 @@ inline void getSerialConsoleSshMasked(
 }
 
 inline void getMasked(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-               const std::string& serviceName, const std::string& ObjectName,
-               const std::string& propertyName)
+                const std::string& serviceName, const std::string& ObjectName,
+               const std::string& propertyName, const std::optional<std::string>& vendorName)
 {
     dbus::utility::getProperty<bool>(
         serviceManagerService, serviceManagerPath + serviceName,
         serviceConfigInterface, propertyName,
-        [asyncResp, ObjectName,
+        [asyncResp, vendorName, ObjectName,
          propertyName](const boost::system::error_code& ec, bool eventValue) {
             if (ec)
             {
@@ -71,11 +71,20 @@ inline void getMasked(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                                  ec);
                 return;
             }
+            if (vendorName)
+            {
+                asyncResp->res
+                    .jsonValue["Oem"][*vendorName][ObjectName][propertyName] =
+                    eventValue;
+            }
+            else
+            {
+                asyncResp->res
+                    .jsonValue["Oem"]["Ami"][ObjectName][propertyName] =
+                    eventValue;
+            }
             asyncResp->res
                     .jsonValue["Oem"]["Ami"]["@odata.type"] = json_util::odataType("AmiManagerNetworkProtocol");
-            asyncResp->res
-                .jsonValue["Oem"]["Ami"][ObjectName][propertyName] =
-                eventValue;
         });
 }
 

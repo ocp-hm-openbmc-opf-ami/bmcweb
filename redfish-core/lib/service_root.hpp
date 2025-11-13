@@ -12,16 +12,16 @@
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utils/systemd_utils.hpp"
-
+#include "utils/json_utils.hpp"
 #include <nlohmann/json.hpp>
 #include "utils/json_utils.hpp"
 
 namespace redfish
 {
 
-inline void
-    handleServiceRootHead(App& app, const crow::Request& req,
-                          const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void handleServiceRootHead(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -62,7 +62,9 @@ inline void handleServiceRootGetImpl(
     asyncResp->res.jsonValue["Managers"]["@odata.id"] = "/redfish/v1/Managers";
     asyncResp->res.jsonValue["SessionService"]["@odata.id"] =
         "/redfish/v1/SessionService";
+//#if (!BMCWEB_AMI_PSM_MACRO)
     asyncResp->res.jsonValue["Systems"]["@odata.id"] = "/redfish/v1/Systems";
+//#endif
     asyncResp->res.jsonValue["Registries"]["@odata.id"] =
         "/redfish/v1/Registries";
     asyncResp->res.jsonValue["UpdateService"]["@odata.id"] =
@@ -114,6 +116,20 @@ inline void handleServiceRootGetImpl(
     asyncResp->res.jsonValue["Oem"]["Ami"]["AmdReDebug"]["@odata.id"] =
         "/redfish/v1/Oem/Ami/AmdReDebug";
 #endif
+
+#if BMCWEB_AMI_CONTROLS_MACRO
+    asyncResp->res.jsonValue["Oem"]["Ami"]["Controls"]["@odata.id"] =
+        "/redfish/v1/Oem/Ami/Controls";
+    asyncResp->res.jsonValue["Oem"]["Ami"]["ControlInputs"]["@odata.id"] =
+        "/redfish/v1/Oem/Ami/ControlInputs";
+    asyncResp->res.jsonValue["Oem"]["Ami"]["ControlOutputs"]["@odata.id"] =
+        "/redfish/v1/Oem/Ami/ControlOutputs";
+#endif
+
+#if BMCWEB_AMI_THERMALEQUIPMENT_MACRO
+    asyncResp->res.jsonValue["ThermalEquipment"]["@odata.id"] = "/redfish/v1/ThermalEquipment";
+#endif
+
 #endif
 #if (!BMCWEB_AMI_PSM_MACRO)
     asyncResp->res.jsonValue["Links"]["ManagerProvidingService"]["@odata.id"] =
@@ -148,9 +164,9 @@ inline void handleServiceRootGetImpl(
     protocolFeatures["DeepOperations"]["DeepPOST"] = false;
     protocolFeatures["DeepOperations"]["DeepPATCH"] = false;
 }
-inline void
-    handleServiceRootGet(App& app, const crow::Request& req,
-                         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void handleServiceRootGet(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {

@@ -1,7 +1,7 @@
 {
     "$id": "/redfish/v1/JsonSchemas/AmiManagerNetworkProtocol.v1_0_0.json",
     "$schema": "http://redfish.dmtf.org/schemas/v1/redfish-schema-v1.json",
-    "copyright": "Copyright American Megatrends, Inc. (AMI).",
+    "copyright": "Copyright American Megatrends, Inc. (AMI)",
     "definitions": {
         "AllowedMiBs": {
             "enum": [
@@ -63,10 +63,8 @@
             },
             "type": "object"
         },
-        "AmiManagerNetworkProtocol": {
+        "ChannelList": {
             "additionalProperties": false,
-            "description": "AMI OEM Extension for Web Session",
-            "longDescription": "AMI OEM Extension for Web Session",
             "patternProperties": {
                 "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
                     "description": "This property shall specify a valid odata or Redfish property.",
@@ -82,54 +80,17 @@
                 }
             },
             "properties": {
-                "GraphicalConsole": {
-                    "$ref": "#/definitions/GraphicalConsole",
-                    "description": "The settings for this manager's GraphicalConsole protocol support.",
-                    "longDescription": "Have the details of GraphicalConsole."
+                "ChannelId": {
+                    "description": "Indicates a numeric identifier for each channel/interface. Unique per system and often static, mapping to a physical or logical port.",
+                    "longDescription": "This property indicates a numeric identifier for each channel/interface. Unique per system and often static, mapping to a physical or logical port.",
+                    "readonly": true,
+                    "type": "integer"
                 },
-                "HTTPS": {
-                    "$ref": "#/definitions/CommonProperties",
-                    "description": "The settings for this manager's HTTPS protocol support.",
-                    "longDescription": "This object shall contain the HTTPS/SSL protocol settings for this manager.  The default Port property value should be `443` for compatibility with established client implementations.",
-                    "readonly": true
-                },
-                "IPMB": {
-                    "$ref": "#/definitions/AmiIPMB",
-                    "description": "The settings for this manager's IPMB protocol support.",
-                    "longDescription": "This object shall contain the IPMB protocol settings for this manager.",
-                    "readonly": true
-                },
-                "IPMI": {
-                    "$ref": "#/definitions/CommonProperties",
-                    "description": "The settings for this manager's IPMI protocol support.",
-                    "longDescription": "This object shall contain the IPMI protocol settings for this manager.  The default Port property value should be `443` for compatibility with established client implementations.",
-                    "readonly": true
-                },
-                "PhysicalLED": {
-                    "$ref": "#/definitions/PhysicalLED",
-                    "description": "The settings for this manager's PhysicalLED protocol support.",
-                    "longDescription": "Have the details of PhysicalLED."
-                },
-                "SNMP": {
-                    "$ref": "#/definitions/SNMP",
-                    "description": "The settings for this manager's SNMP protocol support.",
-                    "longDescription": "This object shall contain the SNMP protocol settings for this manager.  The default Port property value should be `443` for compatibility with established client implementations."
-                },
-                "SSH": {
-                    "$ref": "#/definitions/CommonProperties",
-                    "description": "The settings for this manager's SSH protocol support.",
-                    "longDescription": "This object shall contain the SSH protocol settings for this manager.  The default Port property value should be `443` for compatibility with established client implementations.",
-                    "readonly": true
-                },
-                "SerialConsole": {
-                    "$ref": "#/definitions/SerialConsole",
-                    "description": "The settings for this manager's SerialConsole protocol support.",
-                    "longDescription": "Have the details of SerialConsole."
-                },
-                "VirtualMediaConfig": {
-                    "$ref": "#/definitions/VirtualMediaConfig",
-                    "description": "The settings for this manager's VirtualMediaConfig protocol support.",
-                    "longDescription": "Have the details of VirtualMediaConfig."
+                "ChannelName": {
+                    "description": "Indicates a human-readable or logical name for each channel/interface.",
+                    "longDescription": "This property indicates a human-readable or logical name for each channel/interface.",
+                    "readonly": true,
+                    "type": "string"
                 }
             },
             "type": "object"
@@ -231,6 +192,90 @@
                         "boolean",
                         "null"
                     ]
+                }
+            },
+            "type": "object"
+        },
+        "ManagerNetworkProtocol": {
+            "additionalProperties": false,
+            "description": "Ami OEM Extension for Web Session",
+            "longDescription": "Ami OEM Extension for Web Session",
+            "patternProperties": {
+                "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
+                    "description": "This property shall specify a valid odata or Redfish property.",
+                    "type": [
+                        "array",
+                        "boolean",
+                        "integer",
+                        "number",
+                        "null",
+                        "object",
+                        "string"
+                    ]
+                }
+            },
+            "properties": {
+                "AvailableChannelList": {
+                    "description": "Indicates a list of all network channels/interfaces available for configuration. Used to determine which physical or logical interfaces are accessible for services like IPMI, Redfish, or SNMP.",
+                    "items": {
+                        "$ref": "#/definitions/ChannelList"
+                    },
+                    "longDescription": "This property indicates a list of all network channels/interfaces available for configuration. Used to determine which physical or logical interfaces are accessible for services like IPMI, Redfish, or SNMP.",
+                    "type": "array"
+                },
+                "DefaultChannel": {
+                    "$ref": "#/definitions/ChannelList",
+                    "description": "Indicates the primary/preferred channel for each platform. The privilege of the default channel should match the RoleId attribute when a Manager Account is created.",
+                    "longDescription": "This property indicates the primary/preferred channel for each platform. The privilege of the default channel should match the RoleId attribute when a Manager Account is created."
+                },
+                "GraphicalConsole": {
+                    "$ref": "#/definitions/GraphicalConsole",
+                    "description": "The settings for this manager's GraphicalConsole protocol support.",
+                    "longDescription": "Have the details of GraphicalConsole."
+                },
+                "HTTPS": {
+                    "$ref": "#/definitions/CommonProperties",
+                    "description": "The settings for this manager's HTTPS protocol support.",
+                    "longDescription": "This object shall contain the HTTPS/SSL protocol settings for this manager.  The default Port property value should be `443` for compatibility with established client implementations.",
+                    "readonly": true
+                },
+                "IPMB": {
+                    "$ref": "#/definitions/AmiIPMB",
+                    "description": "The settings for this manager's IPMB protocol support.",
+                    "longDescription": "This object shall contain the IPMB protocol settings for this manager.",
+                    "readonly": true
+                },
+                "IPMI": {
+                    "$ref": "#/definitions/CommonProperties",
+                    "description": "The settings for this manager's IPMI protocol support.",
+                    "longDescription": "This object shall contain the IPMI protocol settings for this manager.  The default Port property value should be `443` for compatibility with established client implementations.",
+                    "readonly": true
+                },
+                "PhysicalLED": {
+                    "$ref": "#/definitions/PhysicalLED",
+                    "description": "The settings for this manager's PhysicalLED protocol support.",
+                    "longDescription": "Have the details of PhysicalLED."
+                },
+                "SNMP": {
+                    "$ref": "#/definitions/SNMP",
+                    "description": "The settings for this manager's SNMP protocol support.",
+                    "longDescription": "This object shall contain the SNMP protocol settings for this manager.  The default Port property value should be `443` for compatibility with established client implementations."
+                },
+                "SSH": {
+                    "$ref": "#/definitions/CommonProperties",
+                    "description": "The settings for this manager's SSH protocol support.",
+                    "longDescription": "This object shall contain the SSH protocol settings for this manager.  The default Port property value should be `443` for compatibility with established client implementations.",
+                    "readonly": true
+                },
+                "SerialConsole": {
+                    "$ref": "#/definitions/SerialConsole",
+                    "description": "The settings for this manager's SerialConsole protocol support.",
+                    "longDescription": "Have the details of SerialConsole."
+                },
+                "VirtualMediaConfig": {
+                    "$ref": "#/definitions/VirtualMediaConfig",
+                    "description": "The settings for this manager's VirtualMediaConfig protocol support.",
+                    "longDescription": "Have the details of VirtualMediaConfig."
                 }
             },
             "type": "object"

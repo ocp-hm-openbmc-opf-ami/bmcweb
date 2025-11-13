@@ -126,7 +126,7 @@ inline void doThermalSubsystemCollection(
 
     asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
     asyncResp->res.jsonValue["Status"]["Health"] = resource::Health::OK;
-    if (chassisId != "Cpld")
+    if (chassisId != "Cpld" && chassisId != "CDU")
     {
         getFanRedundancy(asyncResp, chassisId);
     }

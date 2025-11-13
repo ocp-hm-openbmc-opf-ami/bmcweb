@@ -49,6 +49,8 @@ struct Connection : std::enable_shared_from_this<Connection>
     virtual ~Connection() = default;
     virtual boost::urls::url_view url() = 0;
     std::shared_ptr<persistent_data::UserSession> session;
+    std::unordered_map<std::string, uint8_t>& sessionMap =
+	    persistent_data::sessionMap;
 };
 
 template <typename Adaptor>

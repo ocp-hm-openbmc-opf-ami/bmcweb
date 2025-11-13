@@ -46,8 +46,8 @@ using PropertyValue = std::variant<uint8_t, uint16_t, uint64_t, std::string,
 
 inline bool checkinvalidURIPatch = true;
 
-inline chassis::ChassisType
-    translateChassisTypeToRedfish(const std::string_view& chassisType)
+inline chassis::ChassisType translateChassisTypeToRedfish(
+    const std::string_view& chassisType)
 {
     if (chassisType ==
         "xyz.openbmc_project.Inventory.Item.Chassis.ChassisType.Blade")
@@ -561,6 +561,7 @@ inline void handleDecoratorAssetProperties(
     nlohmann::json::object_t manager;
     manager["@odata.id"] = boost::urls::format("/redfish/v1/Managers/{}",
                                                BMCWEB_REDFISH_MANAGER_URI_NAME);
+                                               
     managedBy.emplace_back(std::move(manager));
 #if (BMCWEB_AMI_PSM_MACRO)
     nlohmann::json::array_t managersInChassis = managedBy;
@@ -647,7 +648,7 @@ inline void handleChassisSubTree(
         return;
 }
 
-void getMinMaxValues(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void getMinMaxValues(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     const std::string sensorPath =
         "/xyz/openbmc_project/sensors/power/Platform_Power_Average_CPU1";
@@ -952,11 +953,11 @@ inline void
         return;
     }
 
-    if (!json_util::readJsonPatch( //
-            req, asyncResp->res, //
+    if (!json_util::readJsonPatch(                              //
+            req, asyncResp->res,                                //
             "LocationIndicatorActive", locationIndicatorActive, //
-            "IndicatorLED", indicatorLed, //
-            "Id", vId //
+            "IndicatorLED", indicatorLed,                       //
+            "Id", vId                                           //
             ))
     {
         return;
@@ -1117,9 +1118,9 @@ inline void requestRoutesChassis(App& app)
                 });
 }
 
-inline void
-    setPowerTransitionTimer(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                            const uint64_t chassisHostTransitionTimeOut)
+inline void setPowerTransitionTimer(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const uint64_t chassisHostTransitionTimeOut)
 {
     BMCWEB_LOG_ERROR("setHostTransitionTimer");
     crow::connections::systemBus->async_method_call(
@@ -1196,8 +1197,8 @@ inline void setTaskName(const std::string taskName)
     }
 }
 
-inline void
-    doChassisPowerCycle(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void doChassisPowerCycle(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     constexpr std::array<std::string_view, 1> interfaces = {
         "xyz.openbmc_project.State.Chassis"};

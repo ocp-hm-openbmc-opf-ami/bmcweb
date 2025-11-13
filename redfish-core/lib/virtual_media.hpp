@@ -23,6 +23,7 @@
 #include <array>
 #include <ranges>
 #include <string_view>
+#include "websocket.hpp"
 
 #define POWER_SAVE_MODE_ENABLE 1
 #define POWER_SAVE_MODE_DISABLE 0
@@ -368,10 +369,10 @@ inline void getRmediareconnectValues(
                 BMCWEB_LOG_DEBUG("DBUS response error");
                 return;
             }
-            asyncResp->res.jsonValue["Oem"]["OpenBMC"]["RetryCount"] =
+            asyncResp->res.jsonValue["Oem"]["Ami"]["RetryCount"] =
                 std::get<0>(result);
 
-            asyncResp->res.jsonValue["Oem"]["OpenBMC"]["RetryInterval"] =
+            asyncResp->res.jsonValue["Oem"]["Ami"]["RetryInterval"] =
                 std::get<1>(result);
         },
         rmediaServiceName, rmediaObjPath, rmediaInterfaceName, "GetAll");
@@ -471,6 +472,41 @@ inline void
     }
 }
 
+inline void getBackedUpImageUrl(
+    const std::string& resName,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    if (resName == "Slot_2" || resName == "Slot_3")
+    {
+        crow::connections::systemBus->async_method_call(
+            [asyncResp, resName](const boost::system::error_code& ec,
+                                 const std::variant<std::string>& imageUrl) {
+                if (ec)
+                {
+                    BMCWEB_LOG_DEBUG("Failed to get backup image URL");
+                    return;
+                }
+
+                const std::string* urlValue =
+                    std::get_if<std::string>(&imageUrl);
+                if (urlValue != nullptr)
+                {
+                    asyncResp->res.jsonValue["Oem"]["Ami"]["BackupImageURL"] =
+                        *urlValue;
+                }
+                else
+                {
+                    asyncResp->res.jsonValue["Oem"]["Ami"]["BackupImageURL"] =
+                        "";
+                }
+            },
+            "xyz.openbmc_project.VirtualMedia",
+            "/xyz/openbmc_project/VirtualMedia",
+            "org.freedesktop.DBus.Properties", "Get",
+            "xyz.openbmc_project.VirtualMedia.BackupImageURL", resName);
+    }
+}
+
 /**
  * @brief Fill template for Virtual Media Item.
  */
@@ -493,6 +529,10 @@ inline nlohmann::json vmItemTemplate(const std::string& name,
     item["Oem"]["OpenBMC"]["@odata.id"] = boost::urls::format(
         "/redfish/v1/Managers/{}/VirtualMedia/{}#/Oem/OpenBMC", name, resName);
 
+    item["Oem"]["Ami"]["@odata.type"] =
+        json_util::odataType("AmiVirtualMedia");
+    item["Oem"]["Ami"]["@odata.id"] = boost::urls::format(
+        "/redfish/v1/Managers/{}/VirtualMedia/{}#/Oem/Ami", name, resName);
     return item;
 }
 
@@ -523,7 +563,7 @@ inline void getVmResourceList(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
             {
                 nlohmann::json item;
                 std::string path = object.first.filename();
-                if (path.empty())
+                if (path.empty() || path == "Local")
                 {
                     continue;
                 }
@@ -550,6 +590,7 @@ inline void
     }
 
     asyncResp->res.jsonValue = vmItemTemplate(name, resName);
+    getBackedUpImageUrl(resName, asyncResp);
 
     // Check if dbus path is Legacy type
     if (mode == VmMode::Legacy)
@@ -812,7 +853,7 @@ static inline std::shared_ptr<MatchWrapper> doListenForCompletion(
 inline void doMountVmLegacy(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                             const std::string& service, const std::string& name,
                             const std::string& imageUrl, bool rw,
-                            std::string&& userName, std::string&& password)
+                            std::string&& userName, std::string&& password,const std::string& sessionId)
 {
     int fd = -1;
     dbus::utility::DbusVariantType unixFd = -1;
@@ -862,7 +903,7 @@ inline void doMountVmLegacy(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     path /= name;
     crow::connections::systemBus->async_method_call(
         [asyncResp, secretPipe, name, action, wrapper,
-         objectPath](const boost::system::error_code& ec, bool success) {
+         objectPath,sessionId](const boost::system::error_code& ec, bool success) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("Bad D-Bus request error: {}", ec);
@@ -891,7 +932,7 @@ inline void doMountVmLegacy(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             }
         },
         service, objectPath, "xyz.openbmc_project.VirtualMedia.Legacy", "Mount",
-        imageUrl, rw, unixFd);
+        imageUrl, rw, unixFd,sessionId);
 }
 
 /**
@@ -901,7 +942,8 @@ inline void doMountVmLegacy(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 inline void validateParams(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                            const std::string& service,
                            const std::string& resName,
-                           InsertMediaActionParams& actionParams)
+                           InsertMediaActionParams& actionParams,
+                          const crow::Request& req)
 {
     BMCWEB_LOG_DEBUG("Validation started");
     // required param imageUrl must not be empty
@@ -1071,11 +1113,18 @@ inline void validateParams(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     {
         actionParams.password = "";
     }
+    std::string sessionId;
+    std::string uniqueId = req.session->uniqueId;
+    if (persistent_data::sessionMap.find(uniqueId) !=         
+		    persistent_data::sessionMap.end())
+    {
+       sessionId = "session_" + std::to_string(persistent_data::sessionMap[uniqueId]);
+    }
 
     doMountVmLegacy(asyncResp, service, resName, *actionParams.imageUrl,
                     !(actionParams.writeProtected.value_or(false)),
                     std::move(*actionParams.userName),
-                    std::move(*actionParams.password));
+                    std::move(*actionParams.password),sessionId);
 }
 
 /**
@@ -1190,7 +1239,7 @@ inline void handleManagersVirtualMediaActionInsertPost(
     dbus::utility::getProperty<bool>(
         "xyz.openbmc_project.VirtualMedia", objPath,
         "xyz.openbmc_project.VirtualMedia.Process", "Active",
-        [asyncResp, action, actionParams,
+        [asyncResp, action, actionParams, &req,
                                  resName](const boost::system::error_code& ec1, bool present) {
             BMCWEB_LOG_DEBUG("handleManagersVirtualMediaActionInsertPost ");
             if (ec1) {
@@ -1211,7 +1260,7 @@ inline void handleManagersVirtualMediaActionInsertPost(
 	    {
     		dbus::utility::getDbusObject(
         		"/xyz/openbmc_project/VirtualMedia", {},
-		        [asyncResp, action, actionParams,
+		        [&req,asyncResp, action, actionParams,
 		        resName](const boost::system::error_code& ec,
 	                const dbus::utility::MapperGetObject& getObjectType) mutable {
             		if (ec)
@@ -1228,7 +1277,7 @@ inline void handleManagersVirtualMediaActionInsertPost(
                 		"/xyz/openbmc_project/VirtualMedia");
             		dbus::utility::getManagedObjects(
                 	service, path,
-                	[service, resName, action, actionParams, asyncResp](
+			[&req,service, resName, action, actionParams, asyncResp](
                     		const boost::system::error_code& ec2,
                     		const dbus::utility::ManagedObjectType& subtree) mutable {
                     	if (ec2)
@@ -1248,7 +1297,7 @@ inline void handleManagersVirtualMediaActionInsertPost(
                         	if (mode == VmMode::Legacy)
                         	{
                             	validateParams(asyncResp, service, resName,
-                                	           actionParams);
+					       	actionParams,req);
 
                             	return;
                         	}
@@ -1583,21 +1632,21 @@ inline void
                     }
                     if (oem)
                     {
-                        std::optional<nlohmann::json> openBMC;
+                        std::optional<nlohmann::json> amiBmc;
 
                         if (!json_util::readJson(*oem, asyncResp->res,
-                                                 "OpenBMC", openBMC))
+                                                 "Ami", amiBmc))
                         {
                             return;
                         }
-                        if (openBMC)
+                        if (amiBmc)
                         {
                             std::optional<uint32_t> retryCount;
                             std::optional<uint32_t> retryInterval;
                             bool retryFlag = true;
 
                             if (!json_util::readJson(
-                                    *openBMC, asyncResp->res, "RetryCount",
+                                    *amiBmc, asyncResp->res, "RetryCount",
                                     retryCount, "RetryInterval", retryInterval))
                             {
                                 return;

@@ -261,7 +261,7 @@ inline void
         {
             asyncResp->res.jsonValue["SNMP"]["CommunityStrings"] = {nullptr};
             asyncResp->res.jsonValue["Oem"]["Ami"]["SNMP"]["CommunityStrings"] = {nullptr};
-            asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] = json_util::odataType("AmiManagerNetworkProtocol");
+            asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] = json_util::odataType("AmiManagerNetworkProtocol", "ManagerNetworkProtocol");
         }
         else
         {
@@ -325,7 +325,7 @@ inline void
                 }
             }
             asyncResp->res.jsonValue["SNMP"]["CommunityStrings"] = std::move(CommunityStrings);
-            asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] = json_util::odataType("AmiManagerNetworkProtocol");
+            asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] = json_util::odataType("AmiManagerNetworkProtocol", "ManagerNetworkProtocol");
             asyncResp->res.jsonValue["Oem"]["Ami"]["SNMP"]["CommunityStrings"] = std::move(oem_CommunityStrings);
         }
     });
@@ -483,7 +483,6 @@ inline void afterSetNTP(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         messages::internalError(asyncResp->res);
         return;
     }
-    asyncResp->res.result(boost::beast::http::status::no_content);
 }
 
 inline void handleNTPProtocolEnabled(
@@ -553,8 +552,8 @@ inline void handleNTPServersPatch(
     if (ntpServerObjects.size() > limit)
     {
         BMCWEB_LOG_DEBUG("out of Limit");
-        messages::propertyValueOutOfRange(asyncResp->res, ntpServerJsonObjects,
-                                          "NTP/NTPServers");
+        messages::arraySizeTooLong(asyncResp->res, "NTP/NTPServers", 3);
+        asyncResp->res.result(boost::beast::http::status::bad_request);
         return;
     }
 
@@ -599,7 +598,7 @@ inline void handleNTPServersPatch(
                 messages::propertyValueNotInList(
                     asyncResp->res, "null",
                     "NTP/NTPServers/" + std::to_string(index));
-
+                asyncResp->res.result(boost::beast::http::status::bad_request);
                 return;
             }
             currentNtpServer = currentNtpServers.erase(currentNtpServer);
@@ -615,6 +614,7 @@ inline void handleNTPServersPatch(
                 messages::propertyValueNotInList(
                     asyncResp->res, *ntpServerObject,
                     "NTP/NTPServers/" + std::to_string(index));
+                asyncResp->res.result(boost::beast::http::status::bad_request);
                 return;
             }
             // Can't retain an item that doesn't exist
@@ -623,6 +623,7 @@ inline void handleNTPServersPatch(
                 messages::propertyValueOutOfRange(
                     asyncResp->res, *ntpServerObject,
                     "NTP/NTPServers/" + std::to_string(index));
+                asyncResp->res.result(boost::beast::http::status::bad_request);
 
                 return;
             }
@@ -651,6 +652,7 @@ inline void handleNTPServersPatch(
             BMCWEB_LOG_DEBUG("Invalid character found in NTP server address.");
             messages::propertyValueFormatError(asyncResp->res, *ntpServerStr,
                                                "NTPServers");
+            asyncResp->res.result(boost::beast::http::status::bad_request);
             return;
         }
 
@@ -1457,7 +1459,6 @@ inline void handleManagersNetworkProtocolPatch(
         return;
     }
 
-    // clang-format off
     // Read individual properties using readJson (less strict than readJsonPatch)
     json_util::readJson(jsonRequest, asyncResp->res, "HostName", newHostName);
     json_util::readJson(jsonRequest, asyncResp->res, "NTP", ntp);
@@ -1832,8 +1833,8 @@ inline void getEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
 inline void getIpmiMasked(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    service_util::getMasked(asyncResp, ipmiServiceName, "IPMI", "Masked");
-    service_util::getMasked(asyncResp, ipmiServiceName, "IPMI", "Running");
+    service_util::getMasked(asyncResp, ipmiServiceName, "IPMI", "Masked", "Ami");
+    service_util::getMasked(asyncResp, ipmiServiceName, "IPMI", "Running", "Ami");
 }
 
 inline void getIpmiEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
@@ -1843,19 +1844,59 @@ inline void getIpmiEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 
 inline void getSSHMasked(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    service_util::getMasked(asyncResp, sshServiceName, "SSH", "Masked");
-    service_util::getMasked(asyncResp, sshServiceName, "SSH", "Running");
+    service_util::getMasked(asyncResp, sshServiceName, "SSH", "Masked", "Ami");
+    service_util::getMasked(asyncResp, sshServiceName, "SSH", "Running", "Ami");
 }
 
 inline void getBMCWEBMasked(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    service_util::getMasked(asyncResp, httpsServiceName, "HTTPS", "Masked");
-    service_util::getMasked(asyncResp, httpsServiceName, "HTTPS", "Running");
+    service_util::getMasked(asyncResp, httpsServiceName, "HTTPS", "Masked", "Ami");
+    service_util::getMasked(asyncResp, httpsServiceName, "HTTPS", "Running", "Ami");
 }
 inline void getIpmbMasked(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    service_util::getMasked(asyncResp, ipmbServiceName, "IPMB", "Masked");
-    service_util::getMasked(asyncResp, ipmbServiceName, "IPMB", "Running");
+    service_util::getMasked(asyncResp, ipmbServiceName, "IPMB", "Masked", "Ami");
+    service_util::getMasked(asyncResp, ipmbServiceName, "IPMB", "Running", "Ami");
+}
+
+inline void getOEMAMIChannelInfo(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    crow::connections::systemBus->async_method_call(
+        [asyncResp](const boost::system::error_code& ec,
+                   const std::map<uint8_t, std::string>& channelMap) {
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG("D-Bus Method GetChannelInterfaceMap Response Error: {}", ec);
+                return;
+            }
+            nlohmann::json channelJson = nlohmann::json::array();
+            bool defaultChannel = false;
+
+            for (const auto& [channel, interface] : channelMap)
+            {
+                if (!defaultChannel)
+                {
+                    nlohmann::json entry = {
+                        {"ChannelId", channel},
+                        {"ChannelName", interface}
+                    };
+                    asyncResp->res.jsonValue["Oem"]["Ami"]["DefaultChannel"] = entry;
+                    defaultChannel = true;
+                }
+                
+                channelJson.push_back({
+                    {"ChannelId", channel},
+                    {"ChannelName", interface}
+                });
+            }
+
+            asyncResp->res.jsonValue["Oem"]["Ami"]["AvailableChannelList"] = channelJson;
+        },
+        "xyz.openbmc_project.User.Manager", // Service
+        "/xyz/openbmc_project/user", // Object path
+        "xyz.openbmc_project.User.AccountPolicy", // Interface
+        "GetChannelInterfaceMap" // Method name
+    );
 }
 
 inline void handleManagersNetworkProtocolGet(
@@ -1881,6 +1922,8 @@ inline void handleManagersNetworkProtocolGet(
     getBMCWEBMasked(asyncResp);
     getIpmbMasked(asyncResp);
     getIpmiEnabled(asyncResp);
+    getOEMAMIChannelInfo(asyncResp);
+
 }
 
 inline void requestRoutesNetworkProtocol(App& app)

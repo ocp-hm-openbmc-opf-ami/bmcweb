@@ -77,12 +77,32 @@
 #include "ext/src/rep.hpp"
 #endif
 
+#if BMCWEB_AMI_RM_MACRO
+#include "ext/src/rm.hpp"
+#endif
+
+#if BMCWEB_AMI_PSM_MACRO
+#include "ext/src/psm.hpp"
+#endif
+
+#if BMCWEB_AMI_THERMALEQUIPMENT_MACRO
+#include "ext/src/thermal_equipment.hpp"
+#endif
+
+#if BMCWEB_AMI_CONTROLS_MACRO
+#include "ext/src/controls/controls.hpp"
+#endif
+
 #if BMCWEB_AMI_RAIDBRCM_MACRO
 #include "ext/lib/brcm/storage_brcm.hpp"
 #endif
 
 #if BMCWEB_AMI_RAIDMSCC_MACRO
 #include "ext/lib/mscc/storage_mscc.hpp"
+#endif
+
+#if BMCWEB_AMI_SL8_MACRO
+#include "ext/lib/brcm/sl8_brcm.hpp"
 #endif
 
 #if BMCWEB_AMI_NVME_MACRO
@@ -102,11 +122,11 @@
 #endif
 
 #if (BMCWEB_AMI_RAIDBRCM_MACRO) || (BMCWEB_AMI_RAIDMSCC_MACRO) ||              \
-    (BMCWEB_AMI_NVME_MACRO)
+    (BMCWEB_AMI_NVME_MACRO) || (BMCWEB_AMI_SL8_MACRO)
 #include "ext/include/storage_ext.hpp"
 #endif
 
-#if (BMCWEB_AMI_RAIDMSCC_MACRO) || (BMCWEB_AMI_RAIDBRCM_MACRO)
+#if (BMCWEB_AMI_RAIDMSCC_MACRO) || (BMCWEB_AMI_RAIDBRCM_MACRO) || (BMCWEB_AMI_SL8_MACRO)
 #include "ext/include/log_services_ext.hpp"
 #endif
 
@@ -411,8 +431,23 @@ RedfishService::RedfishService(App& app)
 #if BMCWEB_AMI_REP_MACRO
     registerRepRoutes(app);
 #endif
+
+#if BMCWEB_AMI_THERMALEQUIPMENT_MACRO
+    registerThermalEquipmentRoutes(app);
+#endif
+
+#if BMCWEB_AMI_CONTROLS_MACRO
+    registerOemAMIControlsRoutes(app);
+#endif
+
 #if BMCWEB_AMI_NIC_MACRO
     registerNicRoutes(app);
+#endif
+#if BMCWEB_AMI_RM_MACRO
+    redfish::rm::registerRmRoutes(app);
+#endif
+#if BMCWEB_AMI_PSM_MACRO
+    redfish::psm::registerPsmRoutes(app);
 #endif
 
 #if BMCWEB_GPGPU_URIS_MACRO
@@ -420,7 +455,7 @@ RedfishService::RedfishService(App& app)
 #endif
 
 #if (BMCWEB_AMI_NVME_MACRO) || (BMCWEB_AMI_RAIDMSCC_MACRO) ||                  \
-    (BMCWEB_AMI_RAIDBRCM_MACRO)
+    (BMCWEB_AMI_RAIDBRCM_MACRO) || (BMCWEB_AMI_SL8_MACRO)
     {
         redfish::ext::core::resource::requestStorageCollectionRoutes(app);
         redfish::ext::core::resource::requestRoutesStorage(app);
@@ -432,14 +467,8 @@ RedfishService::RedfishService(App& app)
     }
 #endif
 
-#if (BMCWEB_AMI_RAIDMSCC_MACRO) || (BMCWEB_AMI_RAIDBRCM_MACRO)
-    {
-	    redfish::ext::core::resource::requestRoutesDBusRaidLogServiceActionsClear(app);
-	    redfish::ext::core::resource::requestRoutesDBusRaidEntryCollection(app);
-	    redfish::ext::core::resource::requestRoutesDBusRaidEntry(app);
-	    redfish::ext::core::resource::requestRoutesDBusRaidEntryDownload(app);
-	    redfish::ext::core::resource::requestRoutesRaidService(app);
-    }
+#if (BMCWEB_AMI_RAIDMSCC_MACRO) || (BMCWEB_AMI_RAIDBRCM_MACRO) || (BMCWEB_AMI_SL8_MACRO)
+    requestRoutesRaidLog(app);
 #endif
 
 #if BMCWEB_AMI_NVME_MACRO
@@ -450,6 +479,9 @@ RedfishService::RedfishService(App& app)
 #endif
 #if BMCWEB_AMI_RAIDBRCM_MACRO
     requestRoutesBRCMStorageDevices(app);
+#endif
+#if BMCWEB_AMI_SL8_MACRO
+    requestRoutesSl8StorageDevices(app);
 #endif
 #if BMCWEB_AMI_PCIESW_MACRO
     requestRoutesPcieSwitchCollection(app);

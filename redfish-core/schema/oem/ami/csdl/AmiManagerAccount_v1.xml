@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+    <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
+        <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData" />
+    </edmx:Reference>
+    <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Measures.V1.xml">
+        <edmx:Include Namespace="Org.OData.Measures.V1" Alias="Measures" />
+    </edmx:Reference>
+    <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
+        <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish" />
+    </edmx:Reference>
+    <edmx:DataServices>
+        <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AmiManagerAccount">
+            <Annotation Term="Redfish.OwningEntity" String="Ami" />
+            <ComplexType Name="ManagerAccount" Abstract="true">
+              <Annotation Term="OData.Description" String="This is the schema definition of the Manager extensions to the standard Manager account." />
+              <Annotation Term="OData.LongDescription" String="This is the schema definition of the Manager extensions to the standard Manager account."/>
+              <Annotation Term="Redfish.Uris">
+                <Collection>
+                    <String>/redfish/v1/AccountService/Accounts/{ManagerAccountId}</String>
+                </Collection>
+              </Annotation>
+            </ComplexType>
+            <Action Name="TwoFactorAuthentication" IsBound="true">
+                <Parameter Name="AmiManagerAccount" Type="AmiManagerAccount.v1_0_0.Actions" />
+                <Annotation Term="OData.Description" String="This action is used to perform Enable and Disable TwoFactorAuthentication of the loggedin user." />
+                <Annotation Term="OData.LongDescription" String="This action is used to perform Enable and Disable TwoFactorAuthentication of the loggedin user." />
+            </Action>
+        </Schema>
+        <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AmiManagerAccount.v1_0_0">
+            <Annotation Term="Redfish.OwningEntity" String="Ami" />
+            <ComplexType Name="ManagerAccount" BaseType="AmiManagerAccount.ManagerAccount">
+                <Property Name="SNMP" Type="AmiManagerAccount.v1_0_0.SNMP">
+                    <Annotation Term="OData.Description" String="SNMP configurations for this Manager Account."/>
+                    <Annotation Term="OData.LongDescription" String="This property shall contain the set of SNMP configurations for this Manager Account."/>
+                </Property>
+                <Property Name="RemoteUser" Type="Edm.Boolean" Nullable="false">
+                    <Annotation Term="OData.Description" String="Indicates if the Manager Account is a remote user."/>
+                    <Annotation Term="OData.LongDescription" String="This property shall indicate if the Manager Account is a remote user."/>
+                </Property>
+                <Property Name="TwoFacEnableStatus" Type="Edm.Boolean" Nullable="false">
+                    <Annotation Term="OData.Description" String="Indicates if TwoFacEnableStatus is enabled for this Manager Account."/>
+                    <Annotation Term="OData.LongDescription" String="This property shall indicate if TwoFacEnableStatus is enabled for this Manager Account."/>
+                </Property>
+                <Property Name="ChannelPrivileges" Type="Collection(AmiManagerAccount.v1_0_0.ChannelPrivilege)" Nullable="false">
+                    <Annotation Term="OData.Description" String="Indicates a list that specifies the access permissions and privilege levels a user has on each available communication channel. Controls per-channel access, allowing fine-grained control of user privileges for different interfaces. "/>
+                    <Annotation Term="OData.LongDescription" String="This property indicates a list that specifies the access permissions and privilege levels a user has on each available communication channel. Controls per-channel access, allowing fine-grained control of user privileges for different interfaces."/>
+                </Property>
+                    <Property Name="WebRoleId" Type="AmiManagerAccount.v1_0_0.Privilege" Nullable="false">
+                    <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+                    <Annotation Term="OData.Description" String="Indicates the user's assigned privilege level for a specific channel."/>
+                    <Annotation Term="OData.LongDescription" String="This property indicates the user's assigned privilege level for a specific channel."/>
+                </Property>
+            </ComplexType>
+            <ComplexType Name="ChannelPrivilege" Abstract="true">
+                <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+                <Property Name="ChannelId" Type="Edm.Int64" Nullable="false">
+                    <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite" />
+                    <Annotation Term="OData.Description" String="Indicates a numeric identifier for each channel/interface. Unique per system and often static, mapping to a physical or logical port." />
+                    <Annotation Term="OData.LongDescription" String="This property indicates a numeric identifier for each channel/interface. Unique per system and often static, mapping to a physical or logical port." />
+                </Property>
+                <Property Name="ChannelPrivilege" Type="AmiManagerAccount.v1_0_0.Privilege" Nullable="false">
+                    <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite" />
+                    <Annotation Term="OData.Description" String="Specifies the privilege level assigned to a user for a specific channel." />
+                    <Annotation Term="OData.LongDescription" String="This property specifies the privilege level assigned to a user for a specific channel." />
+                </Property>
+                <Property Name="ChannelAccess" Type="Edm.Boolean" Nullable="false">
+                    <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite" />
+                    <Annotation Term="OData.Description" String="Indicates whether the user is allowed to access the channel at all. A value of true indicates that Access is granted for this channel. A value of false indicates that Access is denied, regardless of assigned privilege." />
+                    <Annotation Term="OData.LongDescription" String="This property indicates whether the user is allowed to access the channel at all. A value of true indicates that Access is granted for this channel. A value of false indicates that Access is denied, regardless of assigned privilege." />
+                </Property>
+            </ComplexType>
+            <ComplexType Name="SNMP">
+                <Property Name="SNMPAccessEnableStatus" Type="Edm.Boolean" Nullable="false">
+                    <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite" />
+                    <Annotation Term="OData.Description" String="Indicates if SNMP User is enabled." />
+                    <Annotation Term="OData.LongDescription" String="This property indicates if SNMP user is enabled." />
+                </Property>
+                <Property Name="Algorithm" Type="Edm.String" Nullable="false">
+                    <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite" />
+                    <Annotation Term="OData.Description" String="The authentication protocol for SNMPv3." />
+                    <Annotation Term="OData.LongDescription" String="This property shall contain the SNMPv3 authentication protocol." />
+                </Property>
+                <Property Name="Encryption" Type="Edm.String" Nullable="false">
+                    <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite" />
+                    <Annotation Term="OData.Description" String="The encryption protocol for SNMPv3." />
+                    <Annotation Term="OData.LongDescription" String="This property shall contain the SNMPv3 encryption protocol." />
+                </Property>
+                <Property Name="Access" Type="Edm.String" Nullable="false">
+                    <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite" />
+                    <Annotation Term="OData.Description" String="Indicates if SNMP User has a Read/Write is enabled." />
+                    <Annotation Term="OData.LongDescription" String="This property indicates if SNMP user has a Read/Write is enabled." />
+                </Property>
+            </ComplexType>
+            <ComplexType Name="Actions">
+                <Annotation Term="OData.AdditionalProperties" Bool="true" />
+                <Annotation Term="OData.Description" String="The available actions for this resource." />
+                <Annotation Term="OData.LongDescription" String="This type shall contain the available actions for this resource." />
+            </ComplexType>
+            <EnumType Name="Privilege">
+                <Member Name="Administrator">
+                    <Annotation Term="OData.Description" String="Full system control, including configuration and firmware updates."/>
+                </Member>
+                <Member Name="Operator">
+                    <Annotation Term="OData.Description" String="Limited control, usually excluding security/config management."/>
+                </Member>
+                <Member Name="ReadOnly">
+                    <Annotation Term="OData.Description" String="View-only access."/>
+                </Member>
+            </EnumType>
+        </Schema>
+    </edmx:DataServices>
+</edmx:Edmx>

@@ -70,15 +70,20 @@ void getMainChassisId(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 return;
             }
 
-            std::size_t idPos = subtree[0].first.rfind('/');
-            if (idPos == std::string::npos ||
-                (idPos + 1) >= subtree[0].first.size())
+            std::string chassisId;
+            for (const auto& [objectPath, serviceMap] : subtree)
             {
-                messages::internalError(asyncResp->res);
-                BMCWEB_LOG_DEBUG("Can't parse chassis ID!");
-                return;
+                if (objectPath.find("Baseboard") != std::string::npos || 
+                    objectPath.find("Chalupa") != std::string::npos)
+                {
+                    std::size_t idPos = objectPath.rfind('/');
+                    if (idPos != std::string::npos && (idPos + 1) < objectPath.size())
+                    {
+                        chassisId = objectPath.substr(idPos + 1);
+                        break;
+                    }
+                }
             }
-            std::string chassisId = subtree[0].first.substr(idPos + 1);
             BMCWEB_LOG_DEBUG("chassisId = {}", chassisId);
             callback(chassisId, asyncResp);
         });

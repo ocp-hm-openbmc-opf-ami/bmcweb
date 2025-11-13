@@ -101,8 +101,6 @@ struct pfrImgBlock0
     uint8_t hash384[48];
 } __attribute__((packed));
 
-
-
 struct MemoryFileDescriptor
 {
     int fd = -1;
@@ -137,11 +135,11 @@ struct MemoryFileDescriptor
         return true;
     }
 };
-#if(BMCWEB_INTEL_PFR_MACRO)
-// Read the PFR image pcType 
+#if (BMCWEB_INTEL_PFR_MACRO)
+// Read the PFR image pcType
 static int readPfrImageType(std::filesystem::path imgPath)
 {
-    uint32_t imgMagic {};
+    uint32_t imgMagic{};
     constexpr size_t readBufferSize = sizeof(pfrImgBlock0);
     std::array<char, readBufferSize> readBuffer = {};
     pfrImgBlock0* block0Data = nullptr;
@@ -154,7 +152,8 @@ static int readPfrImageType(std::filesystem::path imgPath)
 
             if (!imgFile.good())
             {
-                BMCWEB_LOG_ERROR("Image file read failed: {}", imgPath.string());
+                BMCWEB_LOG_ERROR("Image file read failed: {}",
+                                 imgPath.string());
                 return -1;
             }
 
@@ -175,13 +174,13 @@ static int readPfrImageType(std::filesystem::path imgPath)
             return -1;
         }
 
-        return static_cast<int>(block0Data->pcType[0]); // return the pcType byte
+        return static_cast<int>(
+            block0Data->pcType[0]); // return the pcType byte
     }
     BMCWEB_LOG_ERROR("Image file does not exist: {}", imgPath.string());
     return -1;
 }
 #endif
-
 
 inline void cleanUp()
 {
@@ -190,7 +189,8 @@ inline void cleanUp()
     fwUpdateErrorMatcher = nullptr;
 }
 
-#if (BMCWEB_AMI_EGS_MACRO || BMCWEB_AMI_BHS_MACRO || BMCWEB_AST2700_EVB_MACRO || BMCWEB_AST2600_EVB_MACRO)
+#if (BMCWEB_AMI_EGS_MACRO || BMCWEB_AMI_BHS_MACRO ||                           \
+     BMCWEB_AST2700_EVB_MACRO || BMCWEB_AST2600_EVB_MACRO)
 inline const PropertyValue getApplyTimePropertyValue(
     const std::string& servicePath, const std::string& objectName,
     const std::string& interface, const std::string& property_Name)
@@ -212,7 +212,8 @@ inline void activateImage(const std::string& objPath,
                           const std::vector<std::string>& imgUriTargets)
 {
     BMCWEB_LOG_DEBUG("Activate image for {} {}", objPath, service);
-    #if (BMCWEB_AMI_EGS_MACRO || BMCWEB_AMI_BHS_MACRO || BMCWEB_AST2700_EVB_MACRO || BMCWEB_AST2600_EVB_MACRO)
+#if (BMCWEB_AMI_EGS_MACRO || BMCWEB_AMI_BHS_MACRO ||                           \
+     BMCWEB_AST2700_EVB_MACRO || BMCWEB_AST2600_EVB_MACRO)
     // If targets is empty, it will apply to the active.
     if (!imgUriTargets.empty())
     {
@@ -252,7 +253,7 @@ inline void activateImage(const std::string& objPath,
                         }
                         BMCWEB_LOG_DEBUG("Image target matched with object {}",
                                          invObjPath);
-                        #if(BMCWEB_INTEL_PFR_MACRO)                 
+#if (BMCWEB_INTEL_PFR_MACRO)
                         crow::connections::systemBus->async_method_call(
                             [invObjPath, objPath,
                              service](const boost::system::error_code ec2,
@@ -292,48 +293,47 @@ inline void activateImage(const std::string& objPath,
                                     "org.freedesktop.DBus.Properties", "Set",
                                     activationIntf, reqActivationPropName,
                                     std::variant<std::string>(reqActivation));
-                                #else
+#else
+                        crow::connections::systemBus->async_method_call(
+                            [invObjPath,
+                             service](const boost::system::error_code ec2,
+                                      const std::variant<std::string> value) {
+                                if (ec2)
+                                {
+                                    BMCWEB_LOG_DEBUG(
+                                        "Error in querying activation value");
+                                    // not all fwtypes are updateable,
+                                    // this is ok
+                                    return;
+                                }
+                                std::string activationValue =
+                                    std::get<std::string>(value);
+                                BMCWEB_LOG_DEBUG("Activation Value: {}",
+                                                 activationValue);
+                                std::string reqActivation =
+                                    reqActivationsActive;
+                                if (activationValue == activationsStandBySpare)
+                                {
+                                    reqActivation = reqActivationsStandBySpare;
+                                }
+                                BMCWEB_LOG_DEBUG(
+                                    "Setting RequestedActivation value as {} for {} {}",
+                                    reqActivation, service, invObjPath);
                                 crow::connections::systemBus->async_method_call(
-                                    [invObjPath,
-                                     service](const boost::system::error_code ec2,
-                                              const std::variant<std::string> value) {
-                                        if (ec2)
+                                    [](const boost::system::error_code ec3) {
+                                        if (ec3)
                                         {
                                             BMCWEB_LOG_DEBUG(
-                                                "Error in querying activation value");
-                                            // not all fwtypes are updateable,
-                                            // this is ok
-                                            return;
+                                                "RequestedActivation failed: ec = {}",
+                                                ec3);
                                         }
-                                        std::string activationValue =
-                                            std::get<std::string>(value);
-                                        BMCWEB_LOG_DEBUG("Activation Value: {}",
-                                                         activationValue);
-                                        std::string reqActivation =
-                                            reqActivationsActive;
-                                        if (activationValue == activationsStandBySpare)
-                                        {
-                                            reqActivation = reqActivationsStandBySpare;
-                                        }
-                                        BMCWEB_LOG_DEBUG(
-                                            "Setting RequestedActivation value as {} for {} {}",
-                                            reqActivation, service, invObjPath);
-                                        crow::connections::systemBus->async_method_call(
-                                            [](const boost::system::error_code ec3) {
-                                                if (ec3)
-                                                {
-                                                    BMCWEB_LOG_DEBUG(
-                                                        "RequestedActivation failed: ec = {}",
-                                                        ec3);
-                                                }
-                                                return;
-                                            },
-                                            service, invObjPath,
-                                            "org.freedesktop.DBus.Properties", "Set",
-                                            activationIntf, reqActivationPropName,
-                                            std::variant<std::string>(reqActivation));
-                                #endif            
-
+                                        return;
+                                    },
+                                    service, invObjPath,
+                                    "org.freedesktop.DBus.Properties", "Set",
+                                    activationIntf, reqActivationPropName,
+                                    std::variant<std::string>(reqActivation));
+#endif
                             },
                             invDict[0].first,
                             "/xyz/openbmc_project/software/" + imgTarget,
@@ -361,7 +361,7 @@ inline void activateImage(const std::string& objPath,
         activationIntf, reqActivationPropName,
         std::variant<std::string>(reqActivationsActive));
     return;
-    #else
+#else
     if (imgUriTargets.size() == 0)
     {
         crow::connections::systemBus->async_method_call(
@@ -462,7 +462,7 @@ inline void activateImage(const std::string& objPath,
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTree", "/",
         static_cast<int32_t>(0), std::array<const char*, 1>{versionIntf});
-    #endif
+#endif
 }
 
 inline bool handleCreateTask(const boost::system::error_code& ec2,
@@ -508,57 +508,58 @@ inline bool handleCreateTask(const boost::system::error_code& ec2,
             taskData->messages.emplace_back(messages::taskAborted(index));
             return task::completed;
         }
-       
+
         if (state->ends_with("Staged"))
         {
-            #if(BMCWEB_INTEL_PFR_MACRO)
-            // Staged activation is a PFR concept, Therefore, if Activation = "Staged",
-            // we can assume a PFR related update is in progress.
-            // Get staged PFR image type 
-            int imageType = readPfrImageType(std::filesystem::path{"/dev/mtd/image-stg"});
-                                BMCWEB_LOG_DEBUG("Update capsule staged. imageType = {}", imageType);
+#if (BMCWEB_INTEL_PFR_MACRO)
+            // Staged activation is a PFR concept, Therefore, if Activation =
+            // "Staged", we can assume a PFR related update is in progress. Get
+            // staged PFR image type
+            int imageType =
+                readPfrImageType(std::filesystem::path{"/dev/mtd/image-stg"});
+            BMCWEB_LOG_DEBUG("Update capsule staged. imageType = {}",
+                             imageType);
 
-                                // If an error occurred determining staged image type
-                                // perhaps it is not a PFR image (doh).  
-                                // I'm unaware of any use cases for this. 
-                                if (imageType < 0)
-                                {
-                                    BMCWEB_LOG_ERROR("Non-PFR image staged!");
-                                    taskData->state = "Exception";
-                                    taskData->status = "Warning";
-                                    taskData->messages.emplace_back(
-                                    messages::taskAborted(index));
-                                    return task::completed;
+            // If an error occurred determining staged image type
+            // perhaps it is not a PFR image (doh).
+            // I'm unaware of any use cases for this.
+            if (imageType < 0)
+            {
+                BMCWEB_LOG_ERROR("Non-PFR image staged!");
+                taskData->state = "Exception";
+                taskData->status = "Warning";
+                taskData->messages.emplace_back(messages::taskAborted(index));
+                return task::completed;
 
-                                } // If staged image is seamless update capsule 
-                                else if (seamlessPCHUpdateCap == imageType)
-                                {
-                                    // For seamless updates, we will pause task here.
-                                    // However, when the seamless update completes, the  
-                                    // task progress and state will be updated 
-                                    taskData->state = "Stopping";
-                                    taskData->messages.emplace_back(
-                                        messages::taskPaused(index));
-                                    BMCWEB_LOG_DEBUG("Task state = Paused");
+            } // If staged image is seamless update capsule
+            else if (seamlessPCHUpdateCap == imageType)
+            {
+                // For seamless updates, we will pause task here.
+                // However, when the seamless update completes, the
+                // task progress and state will be updated
+                taskData->state = "Stopping";
+                taskData->messages.emplace_back(messages::taskPaused(index));
+                BMCWEB_LOG_DEBUG("Task state = Paused");
 
-                                    // Set long timer to allow seamless update time to complete
-                                    taskData->extendTimer(std::chrono::hours(1));
-                                    return !task::completed;
+                // Set long timer to allow seamless update time to complete
+                taskData->extendTimer(std::chrono::hours(1));
+                return !task::completed;
 
-                                } // Non seamless update.  Image is staged so mark task as complete
-                                else
-                                {
-                                    // If we made it here, it most likely means ApplyTime = OnReset, image is  
-                                    // staged, and BMC is still running. Note: ApplyTime = Immediate causes
-                                    // BMC to be held in reset while CPLD performs update (aka T-1 mode).
-                                    // Therefore, task will never complete and not exist when BMC starts back up.
-                                    BMCWEB_LOG_DEBUG("Task state = Complete");
-                                    taskData->messages.emplace_back(
-                                        messages::taskCompletedOK(index));
-                                    taskData->state = "Completed";
-                                    return task::completed;
-                                }
-            #else
+            } // Non seamless update.  Image is staged so mark task as complete
+            else
+            {
+                // If we made it here, it most likely means ApplyTime = OnReset,
+                // image is staged, and BMC is still running. Note: ApplyTime =
+                // Immediate causes BMC to be held in reset while CPLD performs
+                // update (aka T-1 mode). Therefore, task will never complete
+                // and not exist when BMC starts back up.
+                BMCWEB_LOG_DEBUG("Task state = Complete");
+                taskData->messages.emplace_back(
+                    messages::taskCompletedOK(index));
+                taskData->state = "Completed";
+                return task::completed;
+            }
+#else
             taskData->state = "Pending";
             taskData->messages.emplace_back(messages::taskPaused(index));
 
@@ -569,7 +570,7 @@ inline bool handleCreateTask(const boost::system::error_code& ec2,
             // task will be canceled
             taskData->extendTimer(std::chrono::hours(5));
             return !task::completed;
-            #endif
+#endif
         }
 
         if (state->ends_with("Active"))
@@ -607,7 +608,8 @@ inline bool handleCreateTask(const boost::system::error_code& ec2,
         // still alive, update timer
         taskData->extendTimer(std::chrono::minutes(BMCWEB_UPDATE_TIMEOUT));
     }
-    #if (BMCWEB_AMI_EGS_MACRO || BMCWEB_AMI_BHS_MACRO || BMCWEB_AST2700_EVB_MACRO || BMCWEB_AST2600_EVB_MACRO)
+#if (BMCWEB_AMI_EGS_MACRO || BMCWEB_AMI_BHS_MACRO ||                           \
+     BMCWEB_AST2700_EVB_MACRO || BMCWEB_AST2600_EVB_MACRO)
 
     else if (iface == "xyz.openbmc_project.Common.Task")
     {
@@ -676,7 +678,7 @@ inline bool handleCreateTask(const boost::system::error_code& ec2,
             }
         }
     }
-    #endif
+#endif
     // as firmware update often results in a
     // reboot, the task  may never "complete"
     // unless it is an error
@@ -724,10 +726,10 @@ inline void createTask(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
 // Note that asyncResp can be either a valid pointer or nullptr. If nullptr
 // then no asyncResp updates will occur
-inline void
-    softwareInterfaceAdded(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                           const std::vector<std::string> imgUriTargets,
-                           sdbusplus::message_t& m, task::Payload&& payload)
+inline void softwareInterfaceAdded(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::vector<std::string> imgUriTargets, sdbusplus::message_t& m,
+    task::Payload&& payload)
 {
     dbus::utility::DBusInterfacesMap interfacesProperties;
 
@@ -889,9 +891,9 @@ inline void afterAvailbleTimerAsyncWait(
     }
 }
 
-inline void
-    handleUpdateErrorType(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                          const std::string& url, const std::string& type)
+inline void handleUpdateErrorType(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, const std::string& url,
+    const std::string& type)
 {
     // NOLINTBEGIN(bugprone-branch-clone)
     if (type == "xyz.openbmc_project.Software.Image.Error.UnTarFailure")
@@ -948,9 +950,9 @@ inline void
     fwAvailableTimer = nullptr;
 }
 
-inline void
-    afterUpdateErrorMatcher(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                            const std::string& url, sdbusplus::message_t& m)
+inline void afterUpdateErrorMatcher(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, const std::string& url,
+    sdbusplus::message_t& m)
 {
     dbus::utility::DBusInterfacesMap interfacesProperties;
     sdbusplus::message::object_path objPath;
@@ -1139,10 +1141,10 @@ inline void handleUpdateServiceSimpleUpdateAction(
     // 1) TransferProtocol:TFTP ImageURI:1.1.1.1/myfile.bin
     // 2) ImageURI:tftp://1.1.1.1/myfile.bin
 
-    if (!json_util::readJsonAction( //
-            req, asyncResp->res, //
+    if (!json_util::readJsonAction(               //
+            req, asyncResp->res,                  //
             "TransferProtocol", transferProtocol, //
-            "ImageURI", imageURI //
+            "ImageURI", imageURI                  //
             ))
     {
         BMCWEB_LOG_DEBUG("Missing TransferProtocol or ImageURI parameter");
@@ -1202,7 +1204,8 @@ inline bool convertApplyTime(crow::Response& res, const std::string& applyTime,
         "Immediate", "OnReset", "AtMaintenanceWindowStart",
         "InMaintenanceWindowOnReset"};
 #endif
-#if (BMCWEB_AMI_EGS_MACRO || BMCWEB_AMI_BHS_MACRO || BMCWEB_AST2700_EVB_MACRO || BMCWEB_AST2600_EVB_MACRO)
+#if (BMCWEB_AMI_EGS_MACRO || BMCWEB_AMI_BHS_MACRO ||                           \
+     BMCWEB_AST2700_EVB_MACRO || BMCWEB_AST2600_EVB_MACRO)
 
     auto it = std::find(applyTimeAllowableValues.begin(),
                         applyTimeAllowableValues.end(), applyTime);
@@ -1222,26 +1225,26 @@ inline bool convertApplyTime(crow::Response& res, const std::string& applyTime,
     }
     return true;
 #else
-if (applyTime == "Immediate")
-{
-    applyTimeNewVal =
-        "xyz.openbmc_project.Software.ApplyTime.RequestedApplyTimes.Immediate";
-}
-else if (applyTime == "OnReset")
-{
-    applyTimeNewVal =
-        "xyz.openbmc_project.Software.ApplyTime.RequestedApplyTimes.OnReset";
-}
-else
-{
-    BMCWEB_LOG_WARNING(
-        "ApplyTime value {} is not in the list of acceptable values",
-        applyTime);
-    messages::propertyValueNotInList(res, applyTime, "ApplyTime");
-    return false;
-}
-return true;
-#endif    
+    if (applyTime == "Immediate")
+    {
+        applyTimeNewVal =
+            "xyz.openbmc_project.Software.ApplyTime.RequestedApplyTimes.Immediate";
+    }
+    else if (applyTime == "OnReset")
+    {
+        applyTimeNewVal =
+            "xyz.openbmc_project.Software.ApplyTime.RequestedApplyTimes.OnReset";
+    }
+    else
+    {
+        BMCWEB_LOG_WARNING(
+            "ApplyTime value {} is not in the list of acceptable values",
+            applyTime);
+        messages::propertyValueNotInList(res, applyTime, "ApplyTime");
+        return false;
+    }
+    return true;
+#endif
 }
 
 inline void setApplyTime(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -1267,8 +1270,8 @@ struct MultiPartUpdateParameters
     std::vector<std::string> targets;
 };
 
-inline std::optional<std::string>
-    processUrl(boost::system::result<boost::urls::url_view>& url)
+inline std::optional<std::string> processUrl(
+    boost::system::result<boost::urls::url_view>& url)
 {
     if (!url)
     {
@@ -1344,9 +1347,9 @@ inline std::optional<MultiPartUpdateParameters>
                     return std::nullopt;
                 }
 
-                if (!json_util::readJsonObject( //
-                        *obj, asyncResp->res, //
-                        "Targets", tempTargets, //
+                if (!json_util::readJsonObject(                           //
+                        *obj, asyncResp->res,                             //
+                        "Targets", tempTargets,                           //
                         "@Redfish.OperationApplyTime", multiRet.applyTime //
                         ))
                 {
@@ -1548,9 +1551,9 @@ inline void processUpdateRequest(
     }
 }
 
-inline void
-    updateMultipartContext(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                           const crow::Request& req, MultipartParser&& parser)
+inline void updateMultipartContext(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const crow::Request& req, MultipartParser&& parser)
 {
     std::optional<MultiPartUpdateParameters> multipart =
         extractMultipartUpdateParameters(asyncResp, std::move(parser));
@@ -1588,7 +1591,8 @@ inline void
         uploadImageFile(asyncResp->res, multipart->uploadData);
     }
 }
-#if (BMCWEB_AMI_EGS_MACRO || BMCWEB_AMI_BHS_MACRO || BMCWEB_AST2700_EVB_MACRO || BMCWEB_AST2600_EVB_MACRO)
+#if (BMCWEB_AMI_EGS_MACRO || BMCWEB_AMI_BHS_MACRO ||                           \
+     BMCWEB_AST2700_EVB_MACRO || BMCWEB_AST2600_EVB_MACRO)
 
 inline bool checkApplyTime(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
@@ -1669,24 +1673,24 @@ inline void doHTTPUpdate(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         // Setup callback for when new software detected
         monitorForSoftwareAvailable(asyncResp, req, "/redfish/v1/UpdateService",
                                     httpPushUriTargets);
-        
-        #if (BMCWEB_AMI_EGS_MACRO || BMCWEB_AMI_BHS_MACRO || BMCWEB_AST2700_EVB_MACRO || BMCWEB_AST2600_EVB_MACRO)
+
+#if (BMCWEB_AMI_EGS_MACRO || BMCWEB_AMI_BHS_MACRO ||                           \
+     BMCWEB_AST2700_EVB_MACRO || BMCWEB_AST2600_EVB_MACRO)
         if (checkApplyTime(asyncResp) == false)
         {
             messages::internalError(asyncResp->res);
             return;
         }
-        #endif
+#endif
 
         uploadImageFile(asyncResp->res, req.body());
     }
 }
 
-inline void
-    handleUpdateServicePost(App& app, const crow::Request& req,
-                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void handleUpdateServicePost(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
@@ -1721,13 +1725,14 @@ inline void
     else
     {
         BMCWEB_LOG_DEBUG("Bad content type specified:{}", contentType);
-        asyncResp->res.result(boost::beast::http::status::unsupported_media_type);
+        asyncResp->res.result(
+            boost::beast::http::status::unsupported_media_type);
     }
 }
 
-inline void
-    getpreserveProperties(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                          std::string objectPaths, std::string uri)
+inline void getpreserveProperties(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    std::string objectPaths, std::string uri)
 {
     std::string propertyname;
     size_t lastPosition = objectPaths.find_last_of('/');
@@ -1805,9 +1810,9 @@ inline void getPreserveConfig(
     }
 }
 
-inline void
-    handleUpdateServiceGet(App& app, const crow::Request& req,
-                           const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void handleUpdateServiceGet(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -1931,18 +1936,17 @@ inline void
                         requestedApplyTime->find_last_of('.') + 1);
             }
 
-           #if (BMCWEB_INTEL_PFR_MACRO)
+#if (BMCWEB_INTEL_PFR_MACRO)
             asyncResp->res
                 .jsonValue["HttpPushUriOptions"]["HttpPushUriApplyTime"]
                           ["ApplyTime@Redfish.AllowableValues"] = {
                 "Immediate", "OnReset"};
-            #endif
+#endif
             asyncResp->res
                 .jsonValue["HttpPushUriOptions"]["HttpPushUriApplyTime"]
                           ["ApplyTime@Redfish.AllowableValues"] = {
                 "Immediate", "OnReset", "AtMaintenanceWindowStart",
                 "InMaintenanceWindowOnReset"};
-
 
             if (maintenanceWindowStartTime != nullptr)
             {
@@ -1961,41 +1965,36 @@ inline void
                     *maintenanceWindowDurationInSeconds;
             }
         });
-        #endif
-        // Get the ApplyOptions value
-        crow::connections::systemBus->async_method_call(
-            [asyncResp](const boost::system::error_code ec1,
-                        const std::variant<bool> applyOption) {
-                if (ec1)
-                {
-                    BMCWEB_LOG_DEBUG("DBUS response error {}", ec1);
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
+#endif
+    // Get the ApplyOptions value
+    crow::connections::systemBus->async_method_call(
+        [asyncResp](const boost::system::error_code ec1,
+                    const std::variant<bool> applyOption) {
+            if (ec1)
+            {
+                BMCWEB_LOG_DEBUG("DBUS response error {}", ec1);
+                messages::internalError(asyncResp->res);
+                return;
+            }
 
-                const bool* b = std::get_if<bool>(&applyOption);
+            const bool* b = std::get_if<bool>(&applyOption);
 
-                if (b)
-                {
-                    asyncResp->res
-                        .jsonValue["Oem"]["ApplyOptions"]["@odata.type"] =
-                        "#OemUpdateService.ApplyOptions";
-                    asyncResp->res
-                        .jsonValue["Oem"]["ApplyOptions"]["ClearConfig"] =
-                        *b;
-                }
-            },
-            "xyz.openbmc_project.Software.BMC.Updater",
-            "/xyz/openbmc_project/software",
-            "org.freedesktop.DBus.Properties", "Get",
-            "xyz.openbmc_project.Software.ApplyOptions", "ClearConfig");
-           
-
+            if (b)
+            {
+                asyncResp->res.jsonValue["Oem"]["ApplyOptions"]["@odata.type"] =
+                    "#OemUpdateService.ApplyOptions";
+                asyncResp->res.jsonValue["Oem"]["ApplyOptions"]["ClearConfig"] =
+                    *b;
+            }
+        },
+        "xyz.openbmc_project.Software.BMC.Updater",
+        "/xyz/openbmc_project/software", "org.freedesktop.DBus.Properties",
+        "Get", "xyz.openbmc_project.Software.ApplyOptions", "ClearConfig");
 }
 
-inline void
-    setPreserveConfigEnable(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-                            std::string ObjectPath, bool& property_value)
+inline void setPreserveConfigEnable(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp, std::string ObjectPath,
+    bool& property_value)
 {
     sdbusplus::asio::setProperty(
         *crow::connections::systemBus, "xyz.openbmc_project.EntityManager",
@@ -2025,18 +2024,18 @@ inline void handleUpdateServicePatch(
     std::optional<std::vector<std::string>> imgTargets;
     std::optional<bool> imgTargetBusy;
     std::optional<nlohmann::json> oem;
-    #if (BMCWEB_AMI_EGS_MACRO || BMCWEB_AMI_BHS_MACRO || BMCWEB_AST2700_EVB_MACRO || BMCWEB_AST2600_EVB_MACRO)
+#if (BMCWEB_AMI_EGS_MACRO || BMCWEB_AMI_BHS_MACRO ||                           \
+     BMCWEB_AST2700_EVB_MACRO || BMCWEB_AST2600_EVB_MACRO)
 
-    
     std::optional<std::string> applyTime;
     std::optional<std::string> maintenanceWindowStartTime;
     std::optional<std::uint64_t> maintenanceWindowDurationInSeconds;
 
     if (!json_util::readJsonPatch(
-            req, asyncResp->res, //
-            "HttpPushUriTargets", imgTargets, //
-            "HttpPushUriTargetsBusy", imgTargetBusy, //
-            "Oem", oem, //
+            req, asyncResp->res,                                            //
+            "HttpPushUriTargets", imgTargets,                               //
+            "HttpPushUriTargetsBusy", imgTargetBusy,                        //
+            "Oem", oem,                                                     //
             "HttpPushUriOptions/HttpPushUriApplyTime/ApplyTime", applyTime, //
             "HttpPushUriOptions/HttpPushUriApplyTime/MaintenanceWindowDurationInSeconds",
             maintenanceWindowDurationInSeconds, //
@@ -2149,17 +2148,16 @@ inline void handleUpdateServicePatch(
             }
         }
         setApplyTime(asyncResp, *applyTime);
-          
     }
-    #else
+#else
     if (!json_util::readJsonPatch(req, asyncResp->res, "HttpPushUriTargets",
                                   imgTargets, "HttpPushUriTargetsBusy",
                                   imgTargetBusy, "Oem", oem))
-        {
-            BMCWEB_LOG_DEBUG("UpdateService doPatch: Invalid request body");
-            return;
-        }    
-    #endif 
+    {
+        BMCWEB_LOG_DEBUG("UpdateService doPatch: Invalid request body");
+        return;
+    }
+#endif
 
     if (imgTargetBusy)
     {
@@ -2184,12 +2182,13 @@ inline void handleUpdateServicePatch(
             }
             if ((*imgTargets).size() != 0)
             {
-                // TODO: Now we support max one target becuase
-                // software-manager code support one activation per
-                // object. It will be enhanced to multiple targets for
-                // single image in future. For now, consider first
-                // target alone.
-                #if (BMCWEB_AMI_EGS_MACRO || BMCWEB_AMI_BHS_MACRO || BMCWEB_AST2700_EVB_MACRO || BMCWEB_AST2600_EVB_MACRO)
+// TODO: Now we support max one target becuase
+// software-manager code support one activation per
+// object. It will be enhanced to multiple targets for
+// single image in future. For now, consider first
+// target alone.
+#if (BMCWEB_AMI_EGS_MACRO || BMCWEB_AMI_BHS_MACRO ||                           \
+     BMCWEB_AST2700_EVB_MACRO || BMCWEB_AST2600_EVB_MACRO)
 
                 if ((*imgTargets).size() > 3)
                 {
@@ -2198,7 +2197,7 @@ inline void handleUpdateServicePatch(
                         boost::urls::format("HttpPushUriTargets"));
                     return;
                 }
-                #else
+#else
                 if ((*imgTargets).size() != 1)
                 {
                     messages::invalidObject(
@@ -2206,7 +2205,7 @@ inline void handleUpdateServicePatch(
                         boost::urls::format("HttpPushUriTargets"));
                     return;
                 }
-                #endif
+#endif
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, uriTargets{*imgTargets},
                      targetBusy{*imgTargetBusy}](
@@ -2218,7 +2217,7 @@ inline void handleUpdateServicePatch(
                         }
 
                         bool swInvObjFound = false;
-			size_t uriCount = 0;
+			            size_t uriCount = 0;
                         
                         for (const std::string& path : swInvPaths)
                         {
@@ -2231,7 +2230,8 @@ inline void handleUpdateServicePatch(
                                 return;
                             }
                             std::string swId = path.substr(idPos + 1);
-                            #if (BMCWEB_AMI_EGS_MACRO || BMCWEB_AMI_BHS_MACRO || BMCWEB_AST2700_EVB_MACRO || BMCWEB_AST2600_EVB_MACRO)
+#if (BMCWEB_AMI_EGS_MACRO || BMCWEB_AMI_BHS_MACRO ||                           \
+     BMCWEB_AST2700_EVB_MACRO || BMCWEB_AST2600_EVB_MACRO)
 
                             for (const std::string& target : uriTargets)
                             {
@@ -2245,13 +2245,13 @@ inline void handleUpdateServicePatch(
                                     }
                                 }
                             }
-                            #else
+#else
                             if (swId == uriTargets[0])
                             {
                                 swInvObjFound = true;
                                 break;
                             }
-                            #endif
+#endif
                         }
 			BMCWEB_LOG_DEBUG("HttpPushUri count value {}", uriCount);
                         if (!swInvObjFound)
@@ -2476,119 +2476,91 @@ inline void handleUpdateServicePatch(
                 {
                     return;
                 }
-                std::string preserve_config = "/xyz/openbmc_project/inventory/system/configuration/Preserve_Configuration/";
-                std::string network_config = "/xyz/openbmc_project/inventory/system/configuration/Network_Configuration/";
+                std::string preserve_config =
+                    "/xyz/openbmc_project/inventory/system/configuration/Preserve_Configuration/";
+                std::string network_config =
+                    "/xyz/openbmc_project/inventory/system/configuration/Network_Configuration/";
                 if (authentication)
                 {
-                    setPreserveConfigEnable(
-                        asyncResp,
-                        preserve_config+"AUTHENTICATION",
-                        *authentication);
+                    setPreserveConfigEnable(asyncResp,
+                                            preserve_config + "AUTHENTICATION",
+                                            *authentication);
                 }
                 if (fru)
                 {
-                    setPreserveConfigEnable(
-                        asyncResp,
-                        preserve_config+"FRU",
-                        *fru);
+                    setPreserveConfigEnable(asyncResp, preserve_config + "FRU",
+                                            *fru);
                 }
                 if (kvm)
                 {
-                    setPreserveConfigEnable(
-                        asyncResp,
-                        preserve_config+"KVM",
-                        *kvm);
+                    setPreserveConfigEnable(asyncResp, preserve_config + "KVM",
+                                            *kvm);
                 }
                 if (smtp)
                 {
-                    setPreserveConfigEnable(
-                        asyncResp,
-                        preserve_config+"SMTP",
-                        *smtp);
+                    setPreserveConfigEnable(asyncResp, preserve_config + "SMTP",
+                                            *smtp);
                 }
                 if (network)
                 {
                     setPreserveConfigEnable(
-                        asyncResp,
-                        network_config+"NETWORK",
-                        *network);
+                        asyncResp, network_config + "NETWORK", *network);
                 }
                 if (redfish)
                 {
                     setPreserveConfigEnable(
-                        asyncResp,
-                        preserve_config+"REDFISH",
-                        *redfish);
+                        asyncResp, preserve_config + "REDFISH", *redfish);
                 }
                 if (sdr)
                 {
-                    setPreserveConfigEnable(
-                        asyncResp,
-                        preserve_config+"SDR",
-                        *sdr);
+                    setPreserveConfigEnable(asyncResp, preserve_config + "SDR",
+                                            *sdr);
                 }
                 if (sel)
                 {
-                    setPreserveConfigEnable(
-                        asyncResp,
-                        preserve_config+"SEL",
-                        *sel);
+                    setPreserveConfigEnable(asyncResp, preserve_config + "SEL",
+                                            *sel);
                 }
                 if (snmp)
                 {
-                    setPreserveConfigEnable(
-                        asyncResp,
-                        preserve_config+"SNMP",
-                        *snmp);
+                    setPreserveConfigEnable(asyncResp, preserve_config + "SNMP",
+                                            *snmp);
                 }
                 if (uboot)
                 {
                     setPreserveConfigEnable(
-                        asyncResp,
-                        network_config+"U_BOOT_ENV",
-                        *uboot);
+                        asyncResp, network_config + "U_BOOT_ENV", *uboot);
                 }
                 if (ipmi)
                 {
-                    setPreserveConfigEnable(
-                        asyncResp,
-                        network_config+"IPMI",
-                        *ipmi);
+                    setPreserveConfigEnable(asyncResp, network_config + "IPMI",
+                                            *ipmi);
                 }
                 if (ntp)
                 {
-                    setPreserveConfigEnable(
-                        asyncResp,
-                        network_config+"NTP",
-                        *ntp);
+                    setPreserveConfigEnable(asyncResp, network_config + "NTP",
+                                            *ntp);
                 }
                 if (sol)
                 {
-                    setPreserveConfigEnable(
-                        asyncResp,
-                        network_config+"SOL",
-                        *sol);
+                    setPreserveConfigEnable(asyncResp, network_config + "SOL",
+                                            *sol);
                 }
                 if (syslog)
                 {
-                    setPreserveConfigEnable(
-                        asyncResp,
-                        network_config+"SYSLOG",
-                        *syslog);
+                    setPreserveConfigEnable(asyncResp,
+                                            network_config + "SYSLOG", *syslog);
                 }
                 if (boot_override)
                 {
-                    setPreserveConfigEnable(
-                        asyncResp,
-                        network_config+"Boot_Override",
-                        *boot_override);
+                    setPreserveConfigEnable(asyncResp,
+                                            network_config + "Boot_Override",
+                                            *boot_override);
                 }
                 if (extlog)
                 {
-                    setPreserveConfigEnable(
-                        asyncResp,
-                        network_config+"EXTLOG",
-                        *extlog);
+                    setPreserveConfigEnable(asyncResp,
+                                            network_config + "EXTLOG", *extlog);
                 }
                 if (service_manager)
                 {
@@ -2655,10 +2627,10 @@ inline void getRelatedItems(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     }
 }
 
-inline void
-    getSoftwareVersion(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                       const std::string& service, const std::string& path,
-                       const std::string& swId)
+inline void getSoftwareVersion(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& service, const std::string& path,
+    const std::string& swId)
 {
     dbus::utility::getAllProperties(
         service, path, "xyz.openbmc_project.Software.Version",

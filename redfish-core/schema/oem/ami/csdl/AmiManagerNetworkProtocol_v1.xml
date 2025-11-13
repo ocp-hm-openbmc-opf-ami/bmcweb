@@ -20,7 +20,7 @@
 
         <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AmiManagerNetworkProtocol">
             <Annotation Term="Redfish.OwningEntity" String="Ami" />
-            <ComplexType Name="AmiManagerNetworkProtocol" Abstract="true">
+            <ComplexType Name="ManagerNetworkProtocol" Abstract="true">
                 <Annotation Term="OData.Description" String="This schemas defines the properties and actions which is used in the ManagerNetworkProtocol."/>
                 <Annotation Term="OData.LongDescription" String="This schemas defines the properties and actions which is used in the ManagerNetworkProtocol."/>
                 <Annotation Term="Capabilities.InsertRestrictions">
@@ -44,9 +44,9 @@
         <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AmiManagerNetworkProtocol.v1_0_0">
             <Annotation Term="Redfish.OwningEntity" String="Ami" />
             <Annotation Term="Redfish.Release" String="1.0" />
-            <ComplexType Name="AmiManagerNetworkProtocol" BaseType="AmiManagerNetworkProtocol.AmiManagerNetworkProtocol">
-                <Annotation Term="OData.Description" String="AMI OEM Extension for Web Session" />
-                <Annotation Term="OData.LongDescription" String="AMI OEM Extension for Web Session" />
+            <ComplexType Name="ManagerNetworkProtocol" BaseType="AmiManagerNetworkProtocol.ManagerNetworkProtocol">
+                <Annotation Term="OData.Description" String="Ami OEM Extension for Web Session" />
+                <Annotation Term="OData.LongDescription" String="Ami OEM Extension for Web Session" />
                 <Property Name="HTTPS" Type="AmiManagerNetworkProtocol.v1_0_0.CommonProperties" Nullable="false">
                     <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
                     <Annotation Term="OData.Description" String="The settings for this manager's HTTPS protocol support." />
@@ -86,6 +86,27 @@
                 <Property Name="PhysicalLED" Type="AmiManagerNetworkProtocol.v1_0_0.PhysicalLED" Nullable="false">
                     <Annotation Term="OData.Description" String="The settings for this manager's PhysicalLED protocol support." />
                     <Annotation Term="OData.LongDescription" String="Have the details of PhysicalLED." />
+                </Property>
+                <Property Name="AvailableChannelList" Type="Collection(AmiManagerNetworkProtocol.v1_0_0.ChannelList)" Nullable="false">
+                    <Annotation Term="OData.Description" String="Indicates a list of all network channels/interfaces available for configuration. Used to determine which physical or logical interfaces are accessible for services like IPMI, Redfish, or SNMP."/>
+                    <Annotation Term="OData.LongDescription" String="This property indicates a list of all network channels/interfaces available for configuration. Used to determine which physical or logical interfaces are accessible for services like IPMI, Redfish, or SNMP."/>
+                </Property>
+                <Property Name="DefaultChannel" Type="AmiManagerNetworkProtocol.v1_0_0.ChannelList" Nullable="false">
+                    <Annotation Term="OData.Description" String="Indicates the primary/preferred channel for each platform. The privilege of the default channel should match the RoleId attribute when a Manager Account is created."/>
+                    <Annotation Term="OData.LongDescription" String="This property indicates the primary/preferred channel for each platform. The privilege of the default channel should match the RoleId attribute when a Manager Account is created."/>
+                </Property>
+            </ComplexType>
+            <ComplexType Name="ChannelList" Abstract="true">
+                <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+                <Property Name="ChannelId" Type="Edm.Int64" Nullable="false">
+                    <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read" />
+                    <Annotation Term="OData.Description" String="Indicates a numeric identifier for each channel/interface. Unique per system and often static, mapping to a physical or logical port." />
+                    <Annotation Term="OData.LongDescription" String="This property indicates a numeric identifier for each channel/interface. Unique per system and often static, mapping to a physical or logical port." />
+                </Property>
+                <Property Name="ChannelName" Type="Edm.String" Nullable="false">
+                    <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read" />
+                    <Annotation Term="OData.Description" String="Indicates a human-readable or logical name for each channel/interface." />
+                    <Annotation Term="OData.LongDescription" String="This property indicates a human-readable or logical name for each channel/interface." />
                 </Property>
             </ComplexType>
 

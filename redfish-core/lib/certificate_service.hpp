@@ -1539,8 +1539,8 @@ inline void requestRoutesHTTPSCertificate(App& app)
             }
             BMCWEB_LOG_DEBUG("HTTPS Certificate ID={}", id);
             const boost::urls::url certURL = boost::urls::format(
-                "/redfish/v1/Managers/bmc/NetworkProtocol/HTTPS/Certificates/{}",
-                id);
+                "/redfish/v1/Managers/{}/NetworkProtocol/HTTPS/Certificates/{}",
+                managerId, id);
             std::string objPath =
                 sdbusplus::message::object_path(certs::httpsObjectPath) / id;
             const std::string service = certs::httpsServiceName;
