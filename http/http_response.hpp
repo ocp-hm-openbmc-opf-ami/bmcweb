@@ -72,7 +72,7 @@ struct Response
 
     void addHeader(http::field key, std::string_view value)
     {
-        if(to_string(key) == "OData-Version")
+        if(to_string(key) == "Content-Type" || to_string(key) == "OData-Version")
         {
             fields().set(key, value);
         }
