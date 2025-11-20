@@ -238,7 +238,7 @@ static bool fillPostCodeEntry(
 
         std::string bootIndexStr = std::to_string(bootIndex);
         std::string timeOffsetString = timeOffsetStr.str();
-        std::string hexCodeStr = hexCode.str();
+	std::string hexCodeStr = hexCode.str();
 
         std::array<std::string_view, 3> messageArgs = {
             bootIndexStr, timeOffsetString, hexCodeStr};

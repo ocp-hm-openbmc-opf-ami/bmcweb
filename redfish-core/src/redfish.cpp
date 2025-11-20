@@ -174,6 +174,10 @@
 #include "ext/src/auxreset.hpp"
 #endif
 
+#if BMCWEB_ARM_SBMR_MACRO
+#include "ext/src/arm_redfish.hpp"
+#endif
+
 namespace redfish
 {
 
@@ -519,6 +523,9 @@ RedfishService::RedfishService(App& app)
 #endif
 #if BMCWEB_NVIDIA_AUX_RESET_URIS_MACRO
     registerAuxResetRoutes(app);
+#endif
+#if BMCWEB_ARM_SBMR_MACRO
+    registerSystemExtensionRoutes(app);
 #endif
     // Note, this must be the last route registered
     requestRoutesRedfish(app);

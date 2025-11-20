@@ -384,6 +384,10 @@ srcfiles_bmcweb = files(
     'src/webserver_run.cpp',
 )
 
+if get_option('arm-sbmr').enabled()
+    srcfiles_bmcweb += 'ext/src/arm_redfish.cpp'
+endif
+
 if get_option('ami-rep').enabled()
     srcfiles_bmcweb += files(
         'ext/src/rep.cpp',
