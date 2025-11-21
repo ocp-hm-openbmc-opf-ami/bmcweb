@@ -562,6 +562,28 @@ inline void userErrorMessageHandler(
     }
 }
 
+inline void partialPatchResult(
+    const std::shared_ptr<int>& successCount,
+    const std::shared_ptr<int>& pendingCount,
+    const std::shared_ptr<int>& totalCount,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    --(*pendingCount);
+    if (*pendingCount == 0)
+    {
+        if (*successCount == 0)
+        {
+            // All properties are invalid.
+            asyncResp->res.result(boost::beast::http::status::bad_request);
+        }
+        else if (*successCount < *totalCount)
+        {
+            // Partial patch success.
+            asyncResp->res.result(boost::beast::http::status::ok);
+        }
+    }
+}
+
 inline void parseLDAPConfigData(nlohmann::json& jsonResponse,
                                 const LDAPConfigData& confData,
                                 const std::string& ldapType)
@@ -616,7 +638,10 @@ inline void handleRoleMapPatch(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::vector<std::pair<std::string, LDAPRoleMapData>>& roleMapObjData,
     const std::string& serverType,
-    std::vector<std::variant<nlohmann::json::object_t, std::nullptr_t>>& input)
+    std::vector<std::variant<nlohmann::json::object_t, std::nullptr_t>>& input,
+    const std::shared_ptr<int>& successCount,
+    const std::shared_ptr<int>& pendingCount,
+    const std::shared_ptr<int>& totalCount)
 {
     u_int32_t count = 0;
     for (size_t i = 0; i < input.size(); ++i)
@@ -633,7 +658,8 @@ inline void handleRoleMapPatch(
                     messages::propertyValueConflict(asyncResp->res,
                                                     "RemoteRoleMapping",
                                                     "RemoteGroupRemoteGroup");
-                    return; // Indicating a bad request
+                    partialPatchResult(successCount, pendingCount, totalCount, asyncResp);
+                    return;
                 }
             }
         }
@@ -654,16 +680,20 @@ inline void handleRoleMapPatch(
                     messages::propertyValueConflict(
                         asyncResp->res, "RemoteRoleMapping",
                         "RemoteGroup");
+                    partialPatchResult(successCount, pendingCount, totalCount, asyncResp);
                     return;
                 }
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, roleMapObjData, serverType,
-                     index](const boost::system::error_code& ec) {
+                     index, successCount,
+                     pendingCount, totalCount](const boost::system::error_code& ec) {
                         if (ec)
                         {
                             BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
                             messages::propertyValueFormatError(
                                 asyncResp->res, "Missing", "Invalid");
+
+                            partialPatchResult(successCount, pendingCount, totalCount, asyncResp);
                             return;
                         }
                         asyncResp->res
@@ -679,6 +709,7 @@ inline void handleRoleMapPatch(
                 messages::propertyValueTypeError(
                     asyncResp->res, "null",
                     "RemoteRoleMapping/" + std::to_string(index));
+                partialPatchResult(successCount, pendingCount, totalCount, asyncResp);
                 return;
             }
         }
@@ -729,6 +760,7 @@ inline void handleRoleMapPatch(
                 if (count == input.size())
                 {
                     messages::noOperation(asyncResp->res);
+                    partialPatchResult(successCount, pendingCount, totalCount, asyncResp);
                     return;
                 }
                 else if (allDuplicate)
@@ -745,7 +777,8 @@ inline void handleRoleMapPatch(
                         "xyz.openbmc_project.User.PrivilegeMapperEntry",
                         "GroupName", *remoteGroup,
                         [asyncResp, roleMapObjData, serverType, index,
-                         remoteGroup](const boost::system::error_code& ec,
+                         remoteGroup, successCount,
+                         pendingCount, totalCount](const boost::system::error_code& ec,
                                       const sdbusplus::message_t& msg) {
                             if (ec)
                             {
@@ -760,9 +793,11 @@ inline void handleRoleMapPatch(
                                     messages::propertyValueIncorrect(
                                         asyncResp->res, "RemoteGroup",
                                         *remoteGroup);
+                                    partialPatchResult(successCount, pendingCount, totalCount, asyncResp);
                                     return;
                                 }
                                 messages::internalError(asyncResp->res);
+                                partialPatchResult(successCount, pendingCount, totalCount, asyncResp);
                                 return;
                             }
                             asyncResp->res
@@ -781,6 +816,7 @@ inline void handleRoleMapPatch(
                             asyncResp->res, *localRole,
                             std::format("RemoteRoleMapping/{}/LocalRole",
                                         index));
+                        partialPatchResult(successCount, pendingCount, totalCount, asyncResp);
                         return;
                     }
                     sdbusplus::asio::setProperty(
@@ -789,7 +825,8 @@ inline void handleRoleMapPatch(
                         "xyz.openbmc_project.User.PrivilegeMapperEntry",
                         "Privilege", priv,
                         [asyncResp, roleMapObjData, serverType, index,
-                         localRole](const boost::system::error_code& ec,
+                         localRole, successCount,
+                         pendingCount, totalCount](const boost::system::error_code& ec,
                                     const sdbusplus::message_t& msg) {
                             if (ec)
                             {
@@ -804,9 +841,11 @@ inline void handleRoleMapPatch(
                                     messages::propertyValueIncorrect(
                                         asyncResp->res, "LocalRole",
                                         *localRole);
+                                    partialPatchResult(successCount, pendingCount, totalCount, asyncResp);
                                     return;
                                 }
                                 messages::internalError(asyncResp->res);
+                                partialPatchResult(successCount, pendingCount, totalCount, asyncResp);
                                 return;
                             }
                             asyncResp->res
@@ -851,7 +890,8 @@ inline void handleRoleMapPatch(
 
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, serverType, localRole,
-                     remoteGroup](const boost::system::error_code& ec) {
+                     remoteGroup, successCount,
+                     pendingCount, totalCount](const boost::system::error_code& ec) {
                         if (ec)
                         {
                             BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
@@ -867,15 +907,20 @@ inline void handleRoleMapPatch(
                                                                  "RemoteGroup",
                                                                  *remoteGroup);
                             }
+                            partialPatchResult(successCount, pendingCount, totalCount, asyncResp);
                             return;
                         }
-                        nlohmann::json& remoteRoleJson =
-                            asyncResp->res
-                                .jsonValue[serverType]["RemoteRoleMapping"];
-                        nlohmann::json::object_t roleMapEntry;
-                        roleMapEntry["LocalRole"] = *localRole;
-                        roleMapEntry["RemoteGroup"] = *remoteGroup;
-                        remoteRoleJson.emplace_back(std::move(roleMapEntry));
+                        else
+                        {
+                            nlohmann::json& remoteRoleJson =
+                                asyncResp->res
+                                    .jsonValue[serverType]["RemoteRoleMapping"];
+                            nlohmann::json::object_t roleMapEntry;
+                            roleMapEntry["LocalRole"] = *localRole;
+                            roleMapEntry["RemoteGroup"] = *remoteGroup;
+                            remoteRoleJson.emplace_back(std::move(roleMapEntry));
+                            partialPatchResult(successCount, pendingCount, totalCount, asyncResp);
+                        }
                     },
                     ldapDbusService, dbusObjectPath, ldapPrivMapperInterface,
                     "Create", *remoteGroup,
@@ -883,6 +928,9 @@ inline void handleRoleMapPatch(
             }
         }
     }
+
+    ++(*successCount);
+    partialPatchResult(successCount, pendingCount, totalCount, asyncResp);
 }
 
 /**
@@ -1378,12 +1426,16 @@ inline void handleServiceAddressPatch(
     const std::vector<std::string>& serviceAddressList,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& ldapServerElementName,
-    const std::string& ldapConfigObject)
+    const std::string& ldapConfigObject,
+    const std::shared_ptr<int>& successCount,
+    const std::shared_ptr<int>& pendingCount,
+    const std::shared_ptr<int>& totalCount)
 {
     sdbusplus::asio::setProperty(
         *crow::connections::systemBus, ldapDbusService, ldapConfigObject,
         ldapConfigInterface, "LDAPServerURI", serviceAddressList.front(),
-        [asyncResp, ldapServerElementName, serviceAddressList](
+        [asyncResp, ldapServerElementName, serviceAddressList,
+         successCount, pendingCount, totalCount](
             const boost::system::error_code& ec, sdbusplus::message_t& msg) {
             if (ec)
             {
@@ -1398,23 +1450,33 @@ inline void handleServiceAddressPatch(
                     messages::propertyValueIncorrect(
                         asyncResp->res, "ServiceAddresses",
                         serviceAddressList.front());
-                    return;
                 }
-                messages::internalError(asyncResp->res);
-                return;
+                else
+                {
+                    messages::internalError(asyncResp->res);
+                }
             }
-            std::vector<std::string> modifiedserviceAddressList = {
-                serviceAddressList.front()};
-            asyncResp->res
-                .jsonValue[ldapServerElementName]["ServiceAddresses"] =
-                modifiedserviceAddressList;
-            if ((serviceAddressList).size() > 1)
+            else
             {
-                messages::propertyValueModified(asyncResp->res,
-                                                "ServiceAddresses",
-                                                serviceAddressList.front());
+                std::vector<std::string> modifiedserviceAddressList = {
+                    serviceAddressList.front()};
+                asyncResp->res
+                    .jsonValue[ldapServerElementName]["ServiceAddresses"] =
+                    modifiedserviceAddressList;
+                if ((serviceAddressList).size() > 1)
+                {
+                    messages::propertyValueModified(asyncResp->res,
+                                                    "ServiceAddresses",
+                                                    serviceAddressList.front());
+                }
+                else
+                {
+                    BMCWEB_LOG_DEBUG("Updated the service address");
+                    ++(*successCount);
+                }
             }
-            BMCWEB_LOG_DEBUG("Updated the service address");
+
+            partialPatchResult(successCount, pendingCount, totalCount, asyncResp);
         });
 }
 /**
@@ -1430,22 +1492,30 @@ inline void handleUserNamePatch(
     const std::string& username,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& ldapServerElementName,
-    const std::string& ldapConfigObject)
+    const std::string& ldapConfigObject,
+    const std::shared_ptr<int>& successCount,
+    const std::shared_ptr<int>& pendingCount,
+    const std::shared_ptr<int>& totalCount)
 {
     sdbusplus::asio::setProperty(
         *crow::connections::systemBus, ldapDbusService, ldapConfigObject,
         ldapConfigInterface, "LDAPBindDN", username,
-        [asyncResp, username,
-         ldapServerElementName](const boost::system::error_code& ec) {
+        [asyncResp, username, ldapServerElementName,
+         successCount, pendingCount, totalCount](const boost::system::error_code& ec) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("Error occurred in updating the username");
                 messages::internalError(asyncResp->res);
-                return;
             }
-            asyncResp->res.jsonValue[ldapServerElementName]["Authentication"]
-                                    ["Username"] = username;
-            BMCWEB_LOG_DEBUG("Updated the username");
+            else
+            {
+                asyncResp->res.jsonValue[ldapServerElementName]["Authentication"]
+                                        ["Username"] = username;
+                BMCWEB_LOG_DEBUG("Updated the username");
+                ++(*successCount);
+            }
+
+            partialPatchResult(successCount, pendingCount, totalCount, asyncResp);
         });
     // setDbusProperty(asyncResp,
     //               ldapServerElementName + "/Authentication/Username",
@@ -1465,22 +1535,30 @@ inline void handlePasswordPatch(
     const std::string& password,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& ldapServerElementName,
-    const std::string& ldapConfigObject)
+    const std::string& ldapConfigObject,
+    const std::shared_ptr<int>& successCount,
+    const std::shared_ptr<int>& pendingCount,
+    const std::shared_ptr<int>& totalCount)
 {
     sdbusplus::asio::setProperty(
         *crow::connections::systemBus, ldapDbusService, ldapConfigObject,
         ldapConfigInterface, "LDAPBindDNPassword", password,
-        [asyncResp, password,
-         ldapServerElementName](const boost::system::error_code& ec) {
+        [asyncResp, password, ldapServerElementName,
+         successCount, pendingCount, totalCount](const boost::system::error_code& ec) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("Error occurred in updating the password");
                 messages::internalError(asyncResp->res);
-                return;
             }
-            asyncResp->res.jsonValue[ldapServerElementName]["Authentication"]
-                                    ["Password"] = "";
-            BMCWEB_LOG_DEBUG("Updated the password");
+            else
+            {
+                asyncResp->res.jsonValue[ldapServerElementName]["Authentication"]
+                                        ["Password"] = "";
+                BMCWEB_LOG_DEBUG("Updated the password");
+                ++(*successCount);
+            }
+
+            partialPatchResult(successCount, pendingCount, totalCount, asyncResp);
         });
 }
 
@@ -1497,13 +1575,16 @@ inline void handleBaseDNPatch(
     const std::vector<std::string>& baseDNList,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& ldapServerElementName,
-    const std::string& ldapConfigObject)
+    const std::string& ldapConfigObject,
+    const std::shared_ptr<int>& successCount,
+    const std::shared_ptr<int>& pendingCount,
+    const std::shared_ptr<int>& totalCount)
 {
     sdbusplus::asio::setProperty(
         *crow::connections::systemBus, ldapDbusService, ldapConfigObject,
         ldapConfigInterface, "LDAPBaseDN", baseDNList.front(),
-        [asyncResp, baseDNList,
-         ldapServerElementName](const boost::system::error_code& ec,
+        [asyncResp, baseDNList, ldapServerElementName,
+         successCount, pendingCount, totalCount](const boost::system::error_code& ec,
                                 const sdbusplus::message_t& msg) {
             if (ec)
             {
@@ -1517,24 +1598,34 @@ inline void handleBaseDNPatch(
                     messages::propertyValueIncorrect(asyncResp->res,
                                                      "BaseDistinguishedNames",
                                                      baseDNList.front());
-                    return;
                 }
-                messages::internalError(asyncResp->res);
-                return;
+                else
+                {
+                    messages::internalError(asyncResp->res);
+                }
             }
-            auto& serverTypeJson =
-                asyncResp->res.jsonValue[ldapServerElementName];
-            auto& searchSettingsJson =
-                serverTypeJson["LDAPService"]["SearchSettings"];
-            std::vector<std::string> modifiedBaseDNList = {baseDNList.front()};
-            searchSettingsJson["BaseDistinguishedNames"] = modifiedBaseDNList;
-            if (baseDNList.size() > 1)
+            else
             {
-                messages::propertyValueModified(asyncResp->res,
-                                                "BaseDistinguishedNames",
-                                                baseDNList.front());
+                auto& serverTypeJson =
+                    asyncResp->res.jsonValue[ldapServerElementName];
+                auto& searchSettingsJson =
+                    serverTypeJson["LDAPService"]["SearchSettings"];
+                std::vector<std::string> modifiedBaseDNList = {baseDNList.front()};
+                searchSettingsJson["BaseDistinguishedNames"] = modifiedBaseDNList;
+                if (baseDNList.size() > 1)
+                {
+                    messages::propertyValueModified(asyncResp->res,
+                                                    "BaseDistinguishedNames",
+                                                    baseDNList.front());
+                }
+                else
+                {
+                    BMCWEB_LOG_DEBUG("Updated the base DN");
+                    ++(*successCount);
+                }
             }
-            BMCWEB_LOG_DEBUG("Updated the base DN");
+
+            partialPatchResult(successCount, pendingCount, totalCount, asyncResp);
         });
 }
 /**
@@ -1550,26 +1641,34 @@ inline void handleUserNameAttrPatch(
     const std::string& userNameAttribute,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& ldapServerElementName,
-    const std::string& ldapConfigObject)
+    const std::string& ldapConfigObject,
+    const std::shared_ptr<int>& successCount,
+    const std::shared_ptr<int>& pendingCount,
+    const std::shared_ptr<int>& totalCount)
 {
     sdbusplus::asio::setProperty(
         *crow::connections::systemBus, ldapDbusService, ldapConfigObject,
         ldapConfigInterface, "UserNameAttribute", userNameAttribute,
-        [asyncResp, userNameAttribute,
-         ldapServerElementName](const boost::system::error_code& ec) {
+        [asyncResp, userNameAttribute, ldapServerElementName,
+         successCount, pendingCount, totalCount](const boost::system::error_code& ec) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("Error Occurred in Updating the "
                                  "username attribute");
                 messages::internalError(asyncResp->res);
-                return;
             }
-            auto& serverTypeJson =
-                asyncResp->res.jsonValue[ldapServerElementName];
-            auto& searchSettingsJson =
-                serverTypeJson["LDAPService"]["SearchSettings"];
-            searchSettingsJson["UsernameAttribute"] = userNameAttribute;
-            BMCWEB_LOG_DEBUG("Updated the user name attr.");
+            else
+            {
+                auto& serverTypeJson =
+                    asyncResp->res.jsonValue[ldapServerElementName];
+                auto& searchSettingsJson =
+                    serverTypeJson["LDAPService"]["SearchSettings"];
+                searchSettingsJson["UsernameAttribute"] = userNameAttribute;
+                BMCWEB_LOG_DEBUG("Updated the user name attr.");
+                ++(*successCount);
+            }
+
+            partialPatchResult(successCount, pendingCount, totalCount, asyncResp);
         });
 }
 /**
@@ -1585,26 +1684,34 @@ inline void handleGroupNameAttrPatch(
     const std::string& groupsAttribute,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& ldapServerElementName,
-    const std::string& ldapConfigObject)
+    const std::string& ldapConfigObject,
+    const std::shared_ptr<int>& successCount,
+    const std::shared_ptr<int>& pendingCount,
+    const std::shared_ptr<int>& totalCount)
 {
     sdbusplus::asio::setProperty(
         *crow::connections::systemBus, ldapDbusService, ldapConfigObject,
         ldapConfigInterface, "GroupNameAttribute", groupsAttribute,
-        [asyncResp, groupsAttribute,
-         ldapServerElementName](const boost::system::error_code& ec) {
+        [asyncResp, groupsAttribute, ldapServerElementName,
+         successCount, pendingCount, totalCount](const boost::system::error_code& ec) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("Error Occurred in Updating the "
                                  "groupname attribute");
                 messages::internalError(asyncResp->res);
-                return;
             }
-            auto& serverTypeJson =
-                asyncResp->res.jsonValue[ldapServerElementName];
-            auto& searchSettingsJson =
-                serverTypeJson["LDAPService"]["SearchSettings"];
-            searchSettingsJson["GroupsAttribute"] = groupsAttribute;
-            BMCWEB_LOG_DEBUG("Updated the groupname attr");
+            else
+            {
+                auto& serverTypeJson =
+                    asyncResp->res.jsonValue[ldapServerElementName];
+                auto& searchSettingsJson =
+                    serverTypeJson["LDAPService"]["SearchSettings"];
+                searchSettingsJson["GroupsAttribute"] = groupsAttribute;
+                BMCWEB_LOG_DEBUG("Updated the groupname attr");
+                ++(*successCount);
+            }
+
+            partialPatchResult(successCount, pendingCount, totalCount, asyncResp);
         });
 }
 /**
@@ -1619,24 +1726,33 @@ inline void handleGroupNameAttrPatch(
 inline void handleServiceEnablePatch(
     bool serviceEnabled, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& ldapServerElementName,
-    const std::string& ldapConfigObject)
+    const std::string& ldapConfigObject,
+    const std::shared_ptr<int>& successCount,
+    const std::shared_ptr<int>& pendingCount,
+    const std::shared_ptr<int>& totalCount)
 {
     sdbusplus::asio::setProperty(
         *crow::connections::systemBus, ldapDbusService, ldapConfigObject,
         ldapEnableInterface, "Enabled", serviceEnabled,
         [asyncResp, serviceEnabled,
-         ldapServerElementName](const boost::system::error_code& ec) {
+         ldapServerElementName,
+         successCount, pendingCount, totalCount](const boost::system::error_code& ec) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG(
                     "Error Occurred in Updating the service enable");
                 messages::conflictOnPropertyPatch(asyncResp->res,
                                                   "ServiceEnabled", "true");
-                return;
             }
-           asyncResp->res.jsonValue[ldapServerElementName]["ServiceEnabled"] =
-                serviceEnabled;
-            BMCWEB_LOG_DEBUG("Updated Service enable = {}", serviceEnabled);
+            else
+            {
+                 asyncResp->res.jsonValue[ldapServerElementName]["ServiceEnabled"] =
+                     serviceEnabled;
+                BMCWEB_LOG_DEBUG("Updated Service enable = {}", serviceEnabled);
+                ++(*successCount);
+            }
+
+            partialPatchResult(successCount, pendingCount, totalCount, asyncResp);
         });
 }
 
@@ -1843,43 +1959,66 @@ inline void handleLDAPPatch(LdapPatchParams&& input,
             messages::internalError(asyncResp->res);
             return;
         }
+
+        auto successCount = std::make_shared<int>(0);
+        auto pendingCount = std::make_shared<int>(0);
+        auto totalCount = std::make_shared<int>(0);
+
         parseLDAPConfigData(asyncResp->res.jsonValue, confData, serverT);
         if (confData.serviceEnabled)
         {
             // Disable the service first and update the rest of
             // the properties.
-            handleServiceEnablePatch(false, asyncResp, serverT, dbusObjectPath);
+            ++(*pendingCount);
+            ++(*totalCount);
+            handleServiceEnablePatch(false, asyncResp,
+                                    serverT, dbusObjectPath,
+                                    successCount, pendingCount, totalCount);
         }
 
         if (input.serviceAddressList)
         {
+            ++(*pendingCount);
+            ++(*totalCount);
             handleServiceAddressPatch(*input.serviceAddressList, asyncResp,
-                                      serverT, dbusObjectPath);
+                                      serverT, dbusObjectPath,
+                                      successCount, pendingCount, totalCount);
         }
         if (input.userName)
         {
+            ++(*pendingCount);
+            ++(*totalCount);
             handleUserNamePatch(*input.userName, asyncResp, serverT,
-                                dbusObjectPath);
+                                dbusObjectPath, successCount, pendingCount, totalCount);
         }
         if (input.password)
         {
+            ++(*pendingCount);
+            ++(*totalCount);
             handlePasswordPatch(*input.password, asyncResp, serverT,
-                                dbusObjectPath);
+                                dbusObjectPath, successCount, pendingCount, totalCount);
         }
         if (input.baseDNList)
         {
+            ++(*pendingCount);
+            ++(*totalCount);
             handleBaseDNPatch(*input.baseDNList, asyncResp, serverT,
-                              dbusObjectPath);
+                              dbusObjectPath, successCount, pendingCount, totalCount);
         }
         if (input.userNameAttribute)
         {
+            ++(*pendingCount);
+            ++(*totalCount);
             handleUserNameAttrPatch(*input.userNameAttribute, asyncResp,
-                                    serverT, dbusObjectPath);
+                                    serverT, dbusObjectPath,
+                                    successCount, pendingCount, totalCount);
         }
         if (input.groupsAttribute)
         {
+            ++(*pendingCount);
+            ++(*totalCount);
             handleGroupNameAttrPatch(*input.groupsAttribute, asyncResp, serverT,
-                                     dbusObjectPath);
+                                     dbusObjectPath, successCount, pendingCount, totalCount);
         }
         if (input.serviceEnabled)
         {
@@ -1888,8 +2027,11 @@ inline void handleLDAPPatch(LdapPatchParams&& input,
             // as service is already stopped.
             if (*input.serviceEnabled)
             {
+                ++(*pendingCount);
+                ++(*totalCount);
                 handleServiceEnablePatch(*input.serviceEnabled, asyncResp,
-                                         serverT, dbusObjectPath);
+                                         serverT, dbusObjectPath,
+                                         successCount, pendingCount, totalCount);
             }
         }
         else
@@ -1897,14 +2039,20 @@ inline void handleLDAPPatch(LdapPatchParams&& input,
             // if user has not given the service enabled value
             // then revert it to the same state as it was
             // before.
+            ++(*pendingCount);
+            ++(*totalCount);
             handleServiceEnablePatch(confData.serviceEnabled, asyncResp,
-                                     serverT, dbusObjectPath);
+                                     serverT, dbusObjectPath,
+                                     successCount, pendingCount, totalCount);
         }
 
         if (input.remoteRoleMapData)
         {
+            ++(*pendingCount);
+            ++(*totalCount);
             handleRoleMapPatch(asyncResp, confData.groupRoleList, serverT,
-                               *input.remoteRoleMapData);
+                                *input.remoteRoleMapData, successCount,
+                                pendingCount, totalCount);
         }
     });
 }
