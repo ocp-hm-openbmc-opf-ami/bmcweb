@@ -502,7 +502,7 @@ void getPefServiceInfoId(
 inline void requestRoutesPefService(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/PefService/")
-        .privileges({{"Login"}, {"ConfigureComponents"}})
+        .privileges(redfish::privileges::getPefService)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
                const std::shared_ptr<bmcweb::AsyncResp>& aResp) {
@@ -510,7 +510,7 @@ inline void requestRoutesPefService(App& app)
             });
 
     BMCWEB_ROUTE(app, "/redfish/v1/PefService/")
-        .privileges({{"ConfigureManager"}})
+        .privileges(redfish::privileges::patchPefService)
         .methods(boost::beast::http::verb::patch)(
             [&app](const crow::Request& req,
                const std::shared_ptr<bmcweb::AsyncResp>& aResp) {
@@ -543,7 +543,7 @@ inline void requestRoutesPefService(App& app)
             });
 
     BMCWEB_ROUTE(app, "/redfish/v1/PefService/<str>")
-        .privileges({{"Login"}, {"ConfigureComponents"}})
+        .privileges(redfish::privileges::getPefService)
         .methods(
             boost::beast::http::verb::
                 get)([&app](const crow::Request& req,
@@ -560,7 +560,7 @@ inline void requestRoutesPefService(App& app)
                     });
 
     BMCWEB_ROUTE(app, "/redfish/v1/PefService/<str>")
-        .privileges({{"Login"}, {"ConfigureComponents"}})
+        .privileges(redfish::privileges::patchPefService)
         .methods(boost::beast::http::verb::patch)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -653,7 +653,7 @@ inline void requestRoutesPefService(App& app)
 
 	
 	 BMCWEB_ROUTE(app, "/redfish/v1/PefService/<str>")
-            .privileges({{"Login"}, {"ConfigureComponents"}})
+            .privileges(redfish::privileges::postPefService)
             .methods(
                 boost::beast::http::verb::
                     post,boost::beast::http::verb::delete_)([&app](const crow::Request& req,
@@ -713,7 +713,7 @@ inline void requestRoutesPefService(App& app)
 
     BMCWEB_ROUTE(app,
                  "/redfish/v1/PefService/Actions/PefService.SendAlertMail/")
-        .privileges({{"Login"}, {"ConfigureComponents"}})
+        .privileges(redfish::privileges::postPefService)
         .methods(boost::beast::http::verb::post)(
             [](const crow::Request& req,
                const std::shared_ptr<bmcweb::AsyncResp>& aResp) {
@@ -793,7 +793,7 @@ inline void requestRoutesSendTrap(App& app)
 {
     BMCWEB_ROUTE(app,
                  "/redfish/v1/PefService/Actions/PefService.SendAlertSNMPTrap/")
-        .privileges({{"Login"}, {"ConfigureComponents"}})
+        .privileges(redfish::privileges::postPefService)
         .methods(
             boost::beast::http::verb::
                 post)([&app](const crow::Request& req,

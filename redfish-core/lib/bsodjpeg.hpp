@@ -44,7 +44,7 @@ inline void getBsodjpeg(std::shared_ptr<bmcweb::AsyncResp> asyncResp)
 inline void requestRoutesBsodjpeg(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/bmc/Oem/OpenBmc/Jpeg")
-        .privileges({{"Login"}, {"ConfigureComponents"}})
+        .privileges(redfish::privileges::getJPEG)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
@@ -64,7 +64,7 @@ inline void requestRoutesBsodjpeg(App& app)
 inline void requestRoutesDeleteBsodjpeg(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/bmc/Oem/OpenBmc/Jpeg")
-        .privileges({{"Login"}, {"ConfigureComponents"}})
+        .privileges(redfish::privileges::deleteJPEG)
         .methods(boost::beast::http::verb::delete_)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
@@ -91,7 +91,7 @@ inline void requestRoutesDeleteBsodjpeg(App& app)
 inline void requestRoutesTriggerBsodjpeg(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/bmc/Oem/OpenBmc/Jpeg")
-        .privileges({{"Login"}, {"ConfigureComponents"}})
+        .privileges(redfish::privileges::postJPEG)
         .methods(boost::beast::http::verb::post)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {

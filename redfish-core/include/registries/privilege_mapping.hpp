@@ -45,6 +45,7 @@ std::vector<std::pair<std::string,
                                                 }},
                                                 {"InventoryCRC", {
                                                    {"GET", {"Login"}},
+                                                   {"PATCH", {"ConfigureComponents"}},
 						                           {"POST", {"ConfigureComponents"}},
 						                           {"DELETE", {"ConfigureComponents"}}, 
                                                 }},
