@@ -2055,6 +2055,7 @@ inline nlohmann::json& getPowerSupply(nlohmann::json& powerSupplyArray,
     escaped.resize(inventoryItem.name.size());
     std::ranges::replace_copy(inventoryItem.name, escaped.begin(), '_', ' ');
     powerSupply["Name"] = std::move(escaped);
+    powerSupply["Description"] = "Power Supply Information";
     powerSupply["Manufacturer"] = inventoryItem.manufacturer;
     powerSupply["Model"] = inventoryItem.model;
     powerSupply["PartNumber"] = inventoryItem.partNumber;
@@ -2870,6 +2871,7 @@ inline void getSensorFromDbus(
                                      ' ');
                         asyncResp->res.jsonValue["Name"] = nameSensor;
                         asyncResp->res.jsonValue["Id"] = type + '_' + name;
+                        asyncResp->res.jsonValue["Description"] = "Sensor Information";
                         if (*value != 0)
                         {
                             std::string objPath =

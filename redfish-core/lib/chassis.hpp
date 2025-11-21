@@ -726,6 +726,7 @@ inline void handleChassisGetSubTree(
         asyncResp->res.jsonValue["@odata.id"] =
             boost::urls::format("/redfish/v1/Chassis/{}", chassisId);
         asyncResp->res.jsonValue["Name"] = "Chassis Collection";
+        asyncResp->res.jsonValue["Description"] = "The Collection of Chassis";
         asyncResp->res.jsonValue["Actions"]["#Chassis.Reset"]["target"] =
             boost::urls::format("/redfish/v1/Chassis/{}/Actions/Chassis.Reset",
                                 chassisId);
@@ -1788,6 +1789,7 @@ inline void handleChassisResetActionInfoGet(
     asyncResp->res.jsonValue["Name"] = "Reset Action Info";
 
     asyncResp->res.jsonValue["Id"] = "ResetActionInfo";
+    asyncResp->res.jsonValue["Description"] = "Reset Action Information for Chassis";
     nlohmann::json::array_t parameters;
     nlohmann::json::object_t parameter;
     parameter["Name"] = "ResetType";
