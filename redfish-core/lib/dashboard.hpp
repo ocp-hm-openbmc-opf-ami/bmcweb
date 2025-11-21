@@ -204,7 +204,7 @@ inline void OverviewPage (App& /*app*/, const crow::Request& /*req*/,
     getHostState(asyncResp);
 
     //erase led odataType
-    asyncResp->res.jsonValue["Oem"]["OpenBmc"]["PhysicalLED"].erase("@odata.type");
+    asyncResp->res.jsonValue["Oem"]["Ami"]["PhysicalLED"].erase("@odata.type");
 
 }
 

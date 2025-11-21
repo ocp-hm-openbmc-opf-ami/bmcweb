@@ -28,32 +28,49 @@ static bool matchService(const sdbusplus::message::object_path& objPath,
     // service-config-manager's object path is NOT encoded with sdbusplus, so
     // here we have to use the hardcoded "_40" to match
     std::string fullUnitName = objPath.filename();
-    size_t pos = fullUnitName.find("_40");
-    return fullUnitName.substr(0, pos) == serviceName;
+
+    // If either serviceName or fullUnitName contains "_40", we need to be more careful
+    if (serviceName.find("_40") != std::string::npos ||
+        fullUnitName.find("_40") != std::string::npos)
+    {
+        // If serviceName has "_40", do exact match
+        if (serviceName.find("_40") != std::string::npos)
+        {
+            return fullUnitName == serviceName;
+        }
+        // If only fullUnitName has "_40", compare unit name part
+        else
+        {
+            size_t pos = fullUnitName.find("_40");
+            return fullUnitName.substr(0, pos) == serviceName;
+        }
+    }
+
+    // Neither has "_40", do exact match
+    return fullUnitName == serviceName;
 }
 
 inline void getSerialConsoleSshMasked(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& serviceName, const std::string& ObjectName,
-    const std::string& subObjectName, const std::string& propertyName)
+    const std::string& serviceName,
+    const nlohmann::json::json_pointer& valueJsonPtr)
 {
     dbus::utility::getProperty<bool>(
         serviceManagerService, serviceManagerPath + serviceName,
         serviceConfigInterface, "Masked",
-        [asyncResp, ObjectName, subObjectName,
-         propertyName](const boost::system::error_code& ec, bool eventValue) {
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR("D-BUS response error on EventSeverity Get{}",
-                                 ec);
-                // messages::internalError(asyncResp->res);
-                return;
-            }
-            asyncResp->res.jsonValue["Oem"]["Ami"][ObjectName]
-                                    [subObjectName][propertyName] = eventValue;
-            asyncResp->res.jsonValue["Oem"]["Ami"][ObjectName]
-                                    [subObjectName]["@odata.type"] = json_util::odataType("AmiManagerNetworkProtocol");
-        });
+        [asyncResp, valueJsonPtr](const boost::system::error_code& ec, bool eventValue) {
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR("D-BUS response error on Masked Get: {}", ec);
+            return;
+        }
+
+        // Use JSON pointer to set the value directly
+        asyncResp->res.jsonValue[valueJsonPtr] = eventValue;
+
+        asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] =
+            json_util::odataType("AmiManagerNetworkProtocol");
+    });
 }
 
 inline void getMasked(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -412,6 +429,54 @@ inline void setPortNumber(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 messages::propertyUnknown(asyncResp->res, "Enabled");
                 return;
             }
+        },
+        serviceManagerService, "/xyz/openbmc_project/control/service",
+        "org.freedesktop.DBus.ObjectManager", "GetManagedObjects");
+}
+
+inline void setServiceEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                             const std::string& serviceName, const bool enabled)
+{
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus, serviceManagerService,
+        serviceManagerPath + serviceName, serviceConfigInterface, "Enabled",
+        enabled, [asyncResp](const boost::system::error_code& ec) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("setServiceEnabled D-Bus error for service: {}", ec);
+                messages::internalError(asyncResp->res);
+                return;
+            }
+        });
+}
+
+inline void getAllAvailableTtyServices(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                                     std::function<void(const std::vector<std::string>&)> callback)
+{
+    crow::connections::systemBus->async_method_call(
+        [asyncResp, callback](const boost::system::error_code ec,
+                             const dbus::utility::ManagedObjectType& objects) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("D-Bus error when getting TTY services: {}", ec);
+                messages::internalError(asyncResp->res);
+                callback({});
+                return;
+            }
+
+            std::vector<std::string> availableTtys;
+            // Look for console services matching the pattern obmc_2dconsole_40ttyS*
+            for (const auto& [path, _] : objects)
+            {
+                std::string serviceName = path.filename();
+                if (serviceName.find("obmc_2dconsole_40ttyS") == 0)
+                {
+                    // Extract the ttyS part (e.g., "ttyS0" from "obmc_2dconsole_40ttyS0")
+                    availableTtys.push_back(serviceName.substr(std::string("obmc_2dconsole_40").size()));
+                }
+            }
+
+            callback(availableTtys);
         },
         serviceManagerService, "/xyz/openbmc_project/control/service",
         "org.freedesktop.DBus.ObjectManager", "GetManagedObjects");
