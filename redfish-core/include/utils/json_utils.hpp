@@ -292,7 +292,7 @@ bool unpackValue(nlohmann::json& jsonValue, std::string_view key,
             jsonValue.get_ptr<nlohmann::json::array_t*>();
         if (arr == nullptr)
         {
-            messages::propertyValueTypeError(res, res.jsonValue, key);
+            messages::propertyValueTypeError(res, jsonValue, key);
             return false;
         }
 
