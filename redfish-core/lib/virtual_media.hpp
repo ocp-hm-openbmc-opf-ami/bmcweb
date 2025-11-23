@@ -22,6 +22,7 @@
 
 #include <array>
 #include <ranges>
+#include <regex>
 #include <string_view>
 #include "websocket.hpp"
 
@@ -970,7 +971,52 @@ inline void validateParams(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
         return;
     }
+    // required to check for correct Mediatype format for param imageUrl
+    else if(actionParams.imageUrl)
+    {
+        // Parse the URI
+        boost::system::result<boost::urls::url_view> url =
+            boost::urls::parse_uri(*actionParams.imageUrl); 
+        if (!url)
+        {
+            BMCWEB_LOG_ERROR("Invalid URI format");
+            messages::propertyValueFormatError(asyncResp->res, *actionParams.imageUrl, "Image");
+            return;
+        }
+        // Validate host
+        std::string host = url->host();
+        static const std::regex ipv4Pattern(R"(^(\d{1,3}\.){3}\d{1,3}$)");
+        static const std::regex ipv6Pattern(R"(^\[?[0-9a-fA-F:]+\]?$)");
+        static const std::regex domainPattern(R"(^([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$)");
 
+        if (!std::regex_match(host, ipv4Pattern) &&
+            !std::regex_match(host, ipv6Pattern) &&
+            !std::regex_match(host, domainPattern))
+        {
+            BMCWEB_LOG_ERROR("Invalid host in URI", host);
+            messages::propertyValueFormatError(asyncResp->res, *actionParams.imageUrl, "Image");
+            return;
+        }
+        // Validate path and extension
+        std::string path = url->path();
+        std::string::size_type Index = path.rfind('.');
+        if (Index == std::string::npos)
+        {
+            BMCWEB_LOG_ERROR("No file extension found in path");
+            messages::propertyValueFormatError(asyncResp->res, *actionParams.imageUrl, "Image");
+            return;
+        }
+        std::string MediaType = path.substr(Index);
+        std::transform(MediaType.begin(), MediaType.end(), MediaType.begin(), ::tolower);
+        if ((MediaType != ".iso") && (MediaType != ".ima") &&
+            (MediaType != ".img") && (MediaType != ".nrg") &&
+            (MediaType != ".vhd") && (MediaType != ".vmdk"))
+        {
+            BMCWEB_LOG_ERROR("Invalid Media format", MediaType);
+            messages::propertyValueFormatError(asyncResp->res, *actionParams.imageUrl, "Image");
+            return;
+        }
+    }
     // optional param transferMethod must be stream
     if (actionParams.transferMethod &&
         (*actionParams.transferMethod != "Stream"))
