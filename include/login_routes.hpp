@@ -70,6 +70,42 @@ inline std::string getRolePrivilege(std::string user, std::string ipAddr)
     return "";
 }
 
+inline bool getRemoteUserInfo(std::string user, std::string ipAddr)
+{
+    using VariantType =
+        std::variant<bool, std::string, std::vector<std::string>>;
+
+    auto bus = sdbusplus::bus::new_default();
+    auto getuser_info_path = bus.new_method_call(
+        "xyz.openbmc_project.User.Manager", "/xyz/openbmc_project/user",
+        "xyz.openbmc_project.User.Manager", "GetUserInfo");
+    getuser_info_path.append(user, ipAddr);
+
+    auto user_info = bus.call(getuser_info_path);
+    std::map<std::string, VariantType> infoDetails;
+    user_info.read(infoDetails);
+
+    auto it = infoDetails.find("RemoteUser");
+    if (it != infoDetails.end())
+    {
+        if (auto value = std::get_if<bool>(&it->second))
+        {
+            BMCWEB_LOG_DEBUG("RemoteUser for user {}: {}", user, *value);
+            return *value;
+        }
+        else
+        {
+            BMCWEB_LOG_ERROR("RemoteUser found for user {} but not of type bool.", user);
+        }
+    }
+    else
+    {
+        BMCWEB_LOG_ERROR("RemoteUser not found in user info for user: {}", user);
+    }
+
+    return false; // Default fallback
+}
+
 inline void handleLogin(const crow::Request& req,
                         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
@@ -380,6 +416,10 @@ inline void handleLogin(const crow::Request& req,
             auto value = getRolePrivilege(user, ipAddr);
             roleId = getRole(value);
             asyncResp->res.jsonValue["RoleId"] = roleId;
+
+            // For Remote User
+            bool isRemote = getRemoteUserInfo(user, ipAddr);
+            asyncResp->res.jsonValue["RemoteUser"] = isRemote;
 
 #if (BMCWEB_AMI_2FA_MACRO)
 #if (BMCWEB_AMI_REP_MACRO)
