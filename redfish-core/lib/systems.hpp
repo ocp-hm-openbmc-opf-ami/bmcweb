@@ -4118,7 +4118,7 @@ inline void handleComputerSystemHead(
         "</redfish/v1/JsonSchemas/ComputerSystem/ComputerSystem.json>; rel=describedby");
 }
 
-inline void afterPortRequest(
+void afterPortRequest(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const boost::system::error_code& ec,
     const std::vector<std::tuple<std::string, std::string, bool>>& socketData)
