@@ -161,6 +161,7 @@ inline void setFru(
             "/redfish/v1/Chassis/{}/FRU/{}", chassisId, fruName);
         asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("AMIChassisFRU");
         asyncResp->res.jsonValue["Name"] = fruName;
+        asyncResp->res.jsonValue["Description"] = "FRU Device Information";
         asyncResp->res.jsonValue["Id"] = "FRU Value";
     
         crow::connections::systemBus->async_method_call(

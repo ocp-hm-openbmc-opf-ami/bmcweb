@@ -112,6 +112,8 @@ inline void doThermalSubsystemCollection(
     asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("ThermalSubsystem");
     asyncResp->res.jsonValue["Name"] = "Thermal Subsystem";
     asyncResp->res.jsonValue["Id"] = "ThermalSubsystem";
+    asyncResp->res.jsonValue["Description"] =
+        "The Collection of Thermal Subsystem";
 
     asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
         "/redfish/v1/Chassis/{}/ThermalSubsystem", chassisId);

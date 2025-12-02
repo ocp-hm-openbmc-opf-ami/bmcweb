@@ -223,19 +223,6 @@ inline bool handleIfMatch(crow::App& app, const crow::Request& req,
     setUpRedfishRoute(crow::App& app, const crow::Request& req,
                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {    
-    if ((req.target().find("/redfish/v1") != std::string::npos) &&
-        (req.methodString() == "GET"))
-        {
-            if (!req.body().empty())
-            {
-                BMCWEB_LOG_ERROR("Failed incoming Redfish request {}"
-                                " as request body not allowed for GET method.",
-                                req.target());
-                redfish::messages::requestBodyNotAllowed(asyncResp->res);
-                return false;
-            }
-        }
-
     query_param::Query delegated;
     return setUpRedfishRouteWithDelegation(app, req, asyncResp, delegated,
                                            query_param::QueryCapabilities{});

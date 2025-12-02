@@ -1365,6 +1365,11 @@ inline void handleIPv6DefaultGateway(
             messages::propertyMissing(asyncResp->res, pathString + "/Address");
             return;
         }
+        if (!(ip_util::validateIPv6address(*addr,ip_util::Type::IP6_ADDRESS)))
+        {
+            messages::invalidip(asyncResp->res, pathString + "/Address", *addr);
+            return;
+        }
         std::string normalizedGW = ip_util::normalizeIPv6(*addr);
 
         // Check for matching addresses between already configured IPv6StaticAddresses and the addresses in the IPv6StaticDefaultGateways patch body
@@ -2810,8 +2815,6 @@ inline bool
                     "PrefixLength", prefixLength //
                     ))
             {
-                messages::propertyValueFormatError(asyncResp->res, thisJsonCopy,
-                    pathString);
                 return false;
             }
             if (prefixLength && prefixLength == 0)
@@ -2844,13 +2847,13 @@ inline bool
             if (address)
             {
                 const std::string& ipAddress = *address;
-                std::string normalizedIP = ip_util::normalizeIPv6(ipAddress);
                 if (!(ip_util::validateIPv6address(ipAddress,
                                                 ip_util::Type::IP6_ADDRESS)))
                 {
                     messages::invalidip(asyncResp->res, "Address", ipAddress);
                     return false;
                 }
+                std::string normalizedIP = ip_util::normalizeIPv6(ipAddress);
 
                 // Check for duplicate addresses within the IPv6StaticAddresses patch body
                 if (patchAddresses.find(ipAddress)  != patchAddresses.end())
@@ -2879,20 +2882,22 @@ inline bool
                 }
             }
         }
-        else
+        else if (nicIpEntry == ipv6Data.end())
         {
-            if (nicIpEntry == ipv6Data.end())
+            if (obj == nullptr)
             {
-                if (obj == nullptr)
-                {
-                    messages::resourceCannotBeDeleted(asyncResp->res);
-                    asyncResp->res.result(boost::beast::http::status::bad_request);
-                    return false;
-                }
-                messages::propertyValueFormatError(asyncResp->res, *obj,
-                                                   pathString);
+                messages::resourceCannotBeDeleted(asyncResp->res);
+                asyncResp->res.result(boost::beast::http::status::bad_request);
                 return false;
             }
+            messages::propertyValueFormatError(asyncResp->res, *obj,
+                                                pathString);
+            return false;
+        }
+        else
+        {
+            messages::propertyValueFormatError(asyncResp->res, *obj,pathString);
+            return false;
         }
         nicIpEntry = getNextStaticIpEntry(++nicIpEntry, ipv6Data.cend());
 

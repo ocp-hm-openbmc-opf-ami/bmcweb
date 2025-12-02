@@ -72,7 +72,8 @@ feature_options = [
     'ami-sl8',
     'ami-thermalequipment',
     'ami-controls',
-    'nvidia-aux-reset-uris'
+    'nvidia-aux-reset-uris',
+    'arm-sbmr'
 ]
 
 string_options = [
@@ -161,6 +162,8 @@ foreach option_key : feature_options + string_options + int_options
               'ami-controls',
         ) or option_key.contains(
             'nvidia-aux-reset-uris',
+        ) or option_key.contains(
+             'arm-sbmr'
         )
             feature_options_string += '#define ' + option_macro_config + '  ' + opt.allowed().to_string() + '\n'
         endif

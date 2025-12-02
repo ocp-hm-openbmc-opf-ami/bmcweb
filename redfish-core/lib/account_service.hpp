@@ -184,6 +184,23 @@ inline std::string getAccessModeFromMode(std::string mode)
     return "";
 }
 
+inline void setSMTPMailId(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,const std::string& username,
+                        const std::string& SMTPMailId)
+{
+    std::cerr<<"SMTPMailId value in setSMTPMailId function: " << SMTPMailId << std::endl;
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus,"xyz.openbmc_project.User.Manager", 
+        "/xyz/openbmc_project/user/" + username,
+        "xyz.openbmc_project.User.Attributes", "SMTPMailID" , SMTPMailId,
+        [asyncResp](const boost::system::error_code& ec){
+        if (ec)
+        {
+            BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
+            return;
+        }
+    });
+}
+
 inline void populateOEMAMIChannelInfo(std::vector<std::string> userPrivileges, std::vector<uint8_t> userChannelAccess, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, const crow::Request& req)
 {
 
@@ -197,7 +214,7 @@ inline void populateOEMAMIChannelInfo(std::vector<std::string> userPrivileges, s
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code ec1,
             const std::map<std::string, dbus::utility::DbusVariantType>& userInfo) {
-                   
+
                 if (ec1)
                 {
                     messages::internalError(asyncResp->res);
@@ -220,7 +237,7 @@ inline void populateOEMAMIChannelInfo(std::vector<std::string> userPrivileges, s
                     messages::internalError(asyncResp->res);
                     return;
                 }
-                    
+
             },
             "xyz.openbmc_project.User.Manager",
             "/xyz/openbmc_project/user",
@@ -235,7 +252,7 @@ inline void populateOEMAMIChannelInfo(std::vector<std::string> userPrivileges, s
                 BMCWEB_LOG_DEBUG("D-Bus Method GetChannelInterfaceMap Response Error: {}", ec);
                 return;
             }
-            
+
             if (userPrivileges.size() != channelMap.size() ||
                 userChannelAccess.size() != channelMap.size())
             {
@@ -244,7 +261,7 @@ inline void populateOEMAMIChannelInfo(std::vector<std::string> userPrivileges, s
                 return;
             }
 
-            try 
+            try
             {
                 nlohmann::json channelPrivileges = nlohmann::json::array();
                 size_t i = 0;
@@ -260,14 +277,14 @@ inline void populateOEMAMIChannelInfo(std::vector<std::string> userPrivileges, s
                 }
 
                 asyncResp->res.jsonValue["Oem"]["Ami"]["ChannelPrivileges"] = std::move(channelPrivileges);
-            } 
-            catch (const std::exception& e) 
+            }
+            catch (const std::exception& e)
             {
                 BMCWEB_LOG_ERROR("Exception in populateOEMAMIChannelInfo: {}", e.what());
                 messages::internalError(asyncResp->res);
                 return;
             }
-            
+
         },
         "xyz.openbmc_project.User.Manager", // Service
         "/xyz/openbmc_project/user", // Object path
@@ -562,6 +579,28 @@ inline void userErrorMessageHandler(
     }
 }
 
+inline void partialPatchResult(
+    const std::shared_ptr<int>& successCount,
+    const std::shared_ptr<int>& pendingCount,
+    const std::shared_ptr<int>& totalCount,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    --(*pendingCount);
+    if (*pendingCount == 0)
+    {
+        if (*successCount == 0)
+        {
+            // All properties are invalid.
+            asyncResp->res.result(boost::beast::http::status::bad_request);
+        }
+        else if (*successCount < *totalCount)
+        {
+            // Partial patch success.
+            asyncResp->res.result(boost::beast::http::status::ok);
+        }
+    }
+}
+
 inline void parseLDAPConfigData(nlohmann::json& jsonResponse,
                                 const LDAPConfigData& confData,
                                 const std::string& ldapType)
@@ -616,7 +655,10 @@ inline void handleRoleMapPatch(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::vector<std::pair<std::string, LDAPRoleMapData>>& roleMapObjData,
     const std::string& serverType,
-    std::vector<std::variant<nlohmann::json::object_t, std::nullptr_t>>& input)
+    std::vector<std::variant<nlohmann::json::object_t, std::nullptr_t>>& input,
+    const std::shared_ptr<int>& successCount,
+    const std::shared_ptr<int>& pendingCount,
+    const std::shared_ptr<int>& totalCount)
 {
     u_int32_t count = 0;
     for (size_t i = 0; i < input.size(); ++i)
@@ -633,7 +675,8 @@ inline void handleRoleMapPatch(
                     messages::propertyValueConflict(asyncResp->res,
                                                     "RemoteRoleMapping",
                                                     "RemoteGroupRemoteGroup");
-                    return; // Indicating a bad request
+                    partialPatchResult(successCount, pendingCount, totalCount, asyncResp);
+                    return;
                 }
             }
         }
@@ -654,16 +697,20 @@ inline void handleRoleMapPatch(
                     messages::propertyValueConflict(
                         asyncResp->res, "RemoteRoleMapping",
                         "RemoteGroup");
+                    partialPatchResult(successCount, pendingCount, totalCount, asyncResp);
                     return;
                 }
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, roleMapObjData, serverType,
-                     index](const boost::system::error_code& ec) {
+                     index, successCount,
+                     pendingCount, totalCount](const boost::system::error_code& ec) {
                         if (ec)
                         {
                             BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
                             messages::propertyValueFormatError(
                                 asyncResp->res, "Missing", "Invalid");
+
+                            partialPatchResult(successCount, pendingCount, totalCount, asyncResp);
                             return;
                         }
                         asyncResp->res
@@ -679,6 +726,7 @@ inline void handleRoleMapPatch(
                 messages::propertyValueTypeError(
                     asyncResp->res, "null",
                     "RemoteRoleMapping/" + std::to_string(index));
+                partialPatchResult(successCount, pendingCount, totalCount, asyncResp);
                 return;
             }
         }
@@ -712,15 +760,24 @@ inline void handleRoleMapPatch(
                 {
                     if (remoteGroup && *remoteGroup == data.groupName)
                     {
-                        BMCWEB_LOG_DEBUG("Duplicate RemoteGroup: {} found",
+                        std::string currentLocalRole = getRoleIdFromPrivilege(data.privilege);
+                        if (localRole && *localRole == currentLocalRole)
+                        {
+                            BMCWEB_LOG_DEBUG("Duplicate RemoteGroup: {} found",
                                          *remoteGroup);
-                        count++;
-                        allDuplicate = true;
+                            count++;
+                            allDuplicate = true;
+                        }
+                        else
+                        {
+                            allDuplicate = false;
+                        }
                     }
                 }
                 if (count == input.size())
                 {
                     messages::noOperation(asyncResp->res);
+                    partialPatchResult(successCount, pendingCount, totalCount, asyncResp);
                     return;
                 }
                 else if (allDuplicate)
@@ -737,7 +794,8 @@ inline void handleRoleMapPatch(
                         "xyz.openbmc_project.User.PrivilegeMapperEntry",
                         "GroupName", *remoteGroup,
                         [asyncResp, roleMapObjData, serverType, index,
-                         remoteGroup](const boost::system::error_code& ec,
+                         remoteGroup, successCount,
+                         pendingCount, totalCount](const boost::system::error_code& ec,
                                       const sdbusplus::message_t& msg) {
                             if (ec)
                             {
@@ -752,9 +810,11 @@ inline void handleRoleMapPatch(
                                     messages::propertyValueIncorrect(
                                         asyncResp->res, "RemoteGroup",
                                         *remoteGroup);
+                                    partialPatchResult(successCount, pendingCount, totalCount, asyncResp);
                                     return;
                                 }
                                 messages::internalError(asyncResp->res);
+                                partialPatchResult(successCount, pendingCount, totalCount, asyncResp);
                                 return;
                             }
                             asyncResp->res
@@ -773,6 +833,7 @@ inline void handleRoleMapPatch(
                             asyncResp->res, *localRole,
                             std::format("RemoteRoleMapping/{}/LocalRole",
                                         index));
+                        partialPatchResult(successCount, pendingCount, totalCount, asyncResp);
                         return;
                     }
                     sdbusplus::asio::setProperty(
@@ -781,7 +842,8 @@ inline void handleRoleMapPatch(
                         "xyz.openbmc_project.User.PrivilegeMapperEntry",
                         "Privilege", priv,
                         [asyncResp, roleMapObjData, serverType, index,
-                         localRole](const boost::system::error_code& ec,
+                         localRole, successCount,
+                         pendingCount, totalCount](const boost::system::error_code& ec,
                                     const sdbusplus::message_t& msg) {
                             if (ec)
                             {
@@ -796,9 +858,11 @@ inline void handleRoleMapPatch(
                                     messages::propertyValueIncorrect(
                                         asyncResp->res, "LocalRole",
                                         *localRole);
+                                    partialPatchResult(successCount, pendingCount, totalCount, asyncResp);
                                     return;
                                 }
                                 messages::internalError(asyncResp->res);
+                                partialPatchResult(successCount, pendingCount, totalCount, asyncResp);
                                 return;
                             }
                             asyncResp->res
@@ -843,7 +907,8 @@ inline void handleRoleMapPatch(
 
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, serverType, localRole,
-                     remoteGroup](const boost::system::error_code& ec) {
+                     remoteGroup, successCount,
+                     pendingCount, totalCount](const boost::system::error_code& ec) {
                         if (ec)
                         {
                             BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
@@ -859,15 +924,20 @@ inline void handleRoleMapPatch(
                                                                  "RemoteGroup",
                                                                  *remoteGroup);
                             }
+                            partialPatchResult(successCount, pendingCount, totalCount, asyncResp);
                             return;
                         }
-                        nlohmann::json& remoteRoleJson =
-                            asyncResp->res
-                                .jsonValue[serverType]["RemoteRoleMapping"];
-                        nlohmann::json::object_t roleMapEntry;
-                        roleMapEntry["LocalRole"] = *localRole;
-                        roleMapEntry["RemoteGroup"] = *remoteGroup;
-                        remoteRoleJson.emplace_back(std::move(roleMapEntry));
+                        else
+                        {
+                            nlohmann::json& remoteRoleJson =
+                                asyncResp->res
+                                    .jsonValue[serverType]["RemoteRoleMapping"];
+                            nlohmann::json::object_t roleMapEntry;
+                            roleMapEntry["LocalRole"] = *localRole;
+                            roleMapEntry["RemoteGroup"] = *remoteGroup;
+                            remoteRoleJson.emplace_back(std::move(roleMapEntry));
+                            partialPatchResult(successCount, pendingCount, totalCount, asyncResp);
+                        }
                     },
                     ldapDbusService, dbusObjectPath, ldapPrivMapperInterface,
                     "Create", *remoteGroup,
@@ -875,6 +945,9 @@ inline void handleRoleMapPatch(
             }
         }
     }
+
+    ++(*successCount);
+    partialPatchResult(successCount, pendingCount, totalCount, asyncResp);
 }
 
 /**
@@ -1188,7 +1261,7 @@ inline void getRADIUSConfigData(
             // Modified dates
             std::string caModifiedDate = modifiedDateTime(caCertFile);
             std::string clientModifiedDate = modifiedDateTime(clientCertFile);
-            std::string keyModifiedDate = modifiedDateTime(privateKeyFile);        
+            std::string keyModifiedDate = modifiedDateTime(privateKeyFile);
 
             if (caModifiedDate != "FileNotFound" && caModifiedDate != "Error")
             {
@@ -1285,7 +1358,7 @@ inline void getRADIUSRoleMap(
 
 inline void setSNMPEnableDisable(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const bool& propertyValue, const std::string& userName)
-{   
+{
     sdbusplus::message::object_path tempObjPath(rootUserDbusPath);
     tempObjPath /= userName;
     const std::string userPath(tempObjPath);
@@ -1370,12 +1443,16 @@ inline void handleServiceAddressPatch(
     const std::vector<std::string>& serviceAddressList,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& ldapServerElementName,
-    const std::string& ldapConfigObject)
+    const std::string& ldapConfigObject,
+    const std::shared_ptr<int>& successCount,
+    const std::shared_ptr<int>& pendingCount,
+    const std::shared_ptr<int>& totalCount)
 {
     sdbusplus::asio::setProperty(
         *crow::connections::systemBus, ldapDbusService, ldapConfigObject,
         ldapConfigInterface, "LDAPServerURI", serviceAddressList.front(),
-        [asyncResp, ldapServerElementName, serviceAddressList](
+        [asyncResp, ldapServerElementName, serviceAddressList,
+         successCount, pendingCount, totalCount](
             const boost::system::error_code& ec, sdbusplus::message_t& msg) {
             if (ec)
             {
@@ -1390,23 +1467,33 @@ inline void handleServiceAddressPatch(
                     messages::propertyValueIncorrect(
                         asyncResp->res, "ServiceAddresses",
                         serviceAddressList.front());
-                    return;
                 }
-                messages::internalError(asyncResp->res);
-                return;
+                else
+                {
+                    messages::internalError(asyncResp->res);
+                }
             }
-            std::vector<std::string> modifiedserviceAddressList = {
-                serviceAddressList.front()};
-            asyncResp->res
-                .jsonValue[ldapServerElementName]["ServiceAddresses"] =
-                modifiedserviceAddressList;
-            if ((serviceAddressList).size() > 1)
+            else
             {
-                messages::propertyValueModified(asyncResp->res,
-                                                "ServiceAddresses",
-                                                serviceAddressList.front());
+                std::vector<std::string> modifiedserviceAddressList = {
+                    serviceAddressList.front()};
+                asyncResp->res
+                    .jsonValue[ldapServerElementName]["ServiceAddresses"] =
+                    modifiedserviceAddressList;
+                if ((serviceAddressList).size() > 1)
+                {
+                    messages::propertyValueModified(asyncResp->res,
+                                                    "ServiceAddresses",
+                                                    serviceAddressList.front());
+                }
+                else
+                {
+                    BMCWEB_LOG_DEBUG("Updated the service address");
+                    ++(*successCount);
+                }
             }
-            BMCWEB_LOG_DEBUG("Updated the service address");
+
+            partialPatchResult(successCount, pendingCount, totalCount, asyncResp);
         });
 }
 /**
@@ -1422,22 +1509,30 @@ inline void handleUserNamePatch(
     const std::string& username,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& ldapServerElementName,
-    const std::string& ldapConfigObject)
+    const std::string& ldapConfigObject,
+    const std::shared_ptr<int>& successCount,
+    const std::shared_ptr<int>& pendingCount,
+    const std::shared_ptr<int>& totalCount)
 {
     sdbusplus::asio::setProperty(
         *crow::connections::systemBus, ldapDbusService, ldapConfigObject,
         ldapConfigInterface, "LDAPBindDN", username,
-        [asyncResp, username,
-         ldapServerElementName](const boost::system::error_code& ec) {
+        [asyncResp, username, ldapServerElementName,
+         successCount, pendingCount, totalCount](const boost::system::error_code& ec) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("Error occurred in updating the username");
                 messages::internalError(asyncResp->res);
-                return;
             }
-            asyncResp->res.jsonValue[ldapServerElementName]["Authentication"]
-                                    ["Username"] = username;
-            BMCWEB_LOG_DEBUG("Updated the username");
+            else
+            {
+                asyncResp->res.jsonValue[ldapServerElementName]["Authentication"]
+                                        ["Username"] = username;
+                BMCWEB_LOG_DEBUG("Updated the username");
+                ++(*successCount);
+            }
+
+            partialPatchResult(successCount, pendingCount, totalCount, asyncResp);
         });
     // setDbusProperty(asyncResp,
     //               ldapServerElementName + "/Authentication/Username",
@@ -1457,22 +1552,30 @@ inline void handlePasswordPatch(
     const std::string& password,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& ldapServerElementName,
-    const std::string& ldapConfigObject)
+    const std::string& ldapConfigObject,
+    const std::shared_ptr<int>& successCount,
+    const std::shared_ptr<int>& pendingCount,
+    const std::shared_ptr<int>& totalCount)
 {
     sdbusplus::asio::setProperty(
         *crow::connections::systemBus, ldapDbusService, ldapConfigObject,
         ldapConfigInterface, "LDAPBindDNPassword", password,
-        [asyncResp, password,
-         ldapServerElementName](const boost::system::error_code& ec) {
+        [asyncResp, password, ldapServerElementName,
+         successCount, pendingCount, totalCount](const boost::system::error_code& ec) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("Error occurred in updating the password");
                 messages::internalError(asyncResp->res);
-                return;
             }
-            asyncResp->res.jsonValue[ldapServerElementName]["Authentication"]
-                                    ["Password"] = "";
-            BMCWEB_LOG_DEBUG("Updated the password");
+            else
+            {
+                asyncResp->res.jsonValue[ldapServerElementName]["Authentication"]
+                                        ["Password"] = "";
+                BMCWEB_LOG_DEBUG("Updated the password");
+                ++(*successCount);
+            }
+
+            partialPatchResult(successCount, pendingCount, totalCount, asyncResp);
         });
 }
 
@@ -1489,13 +1592,16 @@ inline void handleBaseDNPatch(
     const std::vector<std::string>& baseDNList,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& ldapServerElementName,
-    const std::string& ldapConfigObject)
+    const std::string& ldapConfigObject,
+    const std::shared_ptr<int>& successCount,
+    const std::shared_ptr<int>& pendingCount,
+    const std::shared_ptr<int>& totalCount)
 {
     sdbusplus::asio::setProperty(
         *crow::connections::systemBus, ldapDbusService, ldapConfigObject,
         ldapConfigInterface, "LDAPBaseDN", baseDNList.front(),
-        [asyncResp, baseDNList,
-         ldapServerElementName](const boost::system::error_code& ec,
+        [asyncResp, baseDNList, ldapServerElementName,
+         successCount, pendingCount, totalCount](const boost::system::error_code& ec,
                                 const sdbusplus::message_t& msg) {
             if (ec)
             {
@@ -1509,24 +1615,34 @@ inline void handleBaseDNPatch(
                     messages::propertyValueIncorrect(asyncResp->res,
                                                      "BaseDistinguishedNames",
                                                      baseDNList.front());
-                    return;
                 }
-                messages::internalError(asyncResp->res);
-                return;
+                else
+                {
+                    messages::internalError(asyncResp->res);
+                }
             }
-            auto& serverTypeJson =
-                asyncResp->res.jsonValue[ldapServerElementName];
-            auto& searchSettingsJson =
-                serverTypeJson["LDAPService"]["SearchSettings"];
-            std::vector<std::string> modifiedBaseDNList = {baseDNList.front()};
-            searchSettingsJson["BaseDistinguishedNames"] = modifiedBaseDNList;
-            if (baseDNList.size() > 1)
+            else
             {
-                messages::propertyValueModified(asyncResp->res,
-                                                "BaseDistinguishedNames",
-                                                baseDNList.front());
+                auto& serverTypeJson =
+                    asyncResp->res.jsonValue[ldapServerElementName];
+                auto& searchSettingsJson =
+                    serverTypeJson["LDAPService"]["SearchSettings"];
+                std::vector<std::string> modifiedBaseDNList = {baseDNList.front()};
+                searchSettingsJson["BaseDistinguishedNames"] = modifiedBaseDNList;
+                if (baseDNList.size() > 1)
+                {
+                    messages::propertyValueModified(asyncResp->res,
+                                                    "BaseDistinguishedNames",
+                                                    baseDNList.front());
+                }
+                else
+                {
+                    BMCWEB_LOG_DEBUG("Updated the base DN");
+                    ++(*successCount);
+                }
             }
-            BMCWEB_LOG_DEBUG("Updated the base DN");
+
+            partialPatchResult(successCount, pendingCount, totalCount, asyncResp);
         });
 }
 /**
@@ -1542,26 +1658,34 @@ inline void handleUserNameAttrPatch(
     const std::string& userNameAttribute,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& ldapServerElementName,
-    const std::string& ldapConfigObject)
+    const std::string& ldapConfigObject,
+    const std::shared_ptr<int>& successCount,
+    const std::shared_ptr<int>& pendingCount,
+    const std::shared_ptr<int>& totalCount)
 {
     sdbusplus::asio::setProperty(
         *crow::connections::systemBus, ldapDbusService, ldapConfigObject,
         ldapConfigInterface, "UserNameAttribute", userNameAttribute,
-        [asyncResp, userNameAttribute,
-         ldapServerElementName](const boost::system::error_code& ec) {
+        [asyncResp, userNameAttribute, ldapServerElementName,
+         successCount, pendingCount, totalCount](const boost::system::error_code& ec) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("Error Occurred in Updating the "
                                  "username attribute");
                 messages::internalError(asyncResp->res);
-                return;
             }
-            auto& serverTypeJson =
-                asyncResp->res.jsonValue[ldapServerElementName];
-            auto& searchSettingsJson =
-                serverTypeJson["LDAPService"]["SearchSettings"];
-            searchSettingsJson["UsernameAttribute"] = userNameAttribute;
-            BMCWEB_LOG_DEBUG("Updated the user name attr.");
+            else
+            {
+                auto& serverTypeJson =
+                    asyncResp->res.jsonValue[ldapServerElementName];
+                auto& searchSettingsJson =
+                    serverTypeJson["LDAPService"]["SearchSettings"];
+                searchSettingsJson["UsernameAttribute"] = userNameAttribute;
+                BMCWEB_LOG_DEBUG("Updated the user name attr.");
+                ++(*successCount);
+            }
+
+            partialPatchResult(successCount, pendingCount, totalCount, asyncResp);
         });
 }
 /**
@@ -1577,26 +1701,34 @@ inline void handleGroupNameAttrPatch(
     const std::string& groupsAttribute,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& ldapServerElementName,
-    const std::string& ldapConfigObject)
+    const std::string& ldapConfigObject,
+    const std::shared_ptr<int>& successCount,
+    const std::shared_ptr<int>& pendingCount,
+    const std::shared_ptr<int>& totalCount)
 {
     sdbusplus::asio::setProperty(
         *crow::connections::systemBus, ldapDbusService, ldapConfigObject,
         ldapConfigInterface, "GroupNameAttribute", groupsAttribute,
-        [asyncResp, groupsAttribute,
-         ldapServerElementName](const boost::system::error_code& ec) {
+        [asyncResp, groupsAttribute, ldapServerElementName,
+         successCount, pendingCount, totalCount](const boost::system::error_code& ec) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("Error Occurred in Updating the "
                                  "groupname attribute");
                 messages::internalError(asyncResp->res);
-                return;
             }
-            auto& serverTypeJson =
-                asyncResp->res.jsonValue[ldapServerElementName];
-            auto& searchSettingsJson =
-                serverTypeJson["LDAPService"]["SearchSettings"];
-            searchSettingsJson["GroupsAttribute"] = groupsAttribute;
-            BMCWEB_LOG_DEBUG("Updated the groupname attr");
+            else
+            {
+                auto& serverTypeJson =
+                    asyncResp->res.jsonValue[ldapServerElementName];
+                auto& searchSettingsJson =
+                    serverTypeJson["LDAPService"]["SearchSettings"];
+                searchSettingsJson["GroupsAttribute"] = groupsAttribute;
+                BMCWEB_LOG_DEBUG("Updated the groupname attr");
+                ++(*successCount);
+            }
+
+            partialPatchResult(successCount, pendingCount, totalCount, asyncResp);
         });
 }
 /**
@@ -1611,24 +1743,33 @@ inline void handleGroupNameAttrPatch(
 inline void handleServiceEnablePatch(
     bool serviceEnabled, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& ldapServerElementName,
-    const std::string& ldapConfigObject)
+    const std::string& ldapConfigObject,
+    const std::shared_ptr<int>& successCount,
+    const std::shared_ptr<int>& pendingCount,
+    const std::shared_ptr<int>& totalCount)
 {
     sdbusplus::asio::setProperty(
         *crow::connections::systemBus, ldapDbusService, ldapConfigObject,
         ldapEnableInterface, "Enabled", serviceEnabled,
         [asyncResp, serviceEnabled,
-         ldapServerElementName](const boost::system::error_code& ec) {
+         ldapServerElementName,
+         successCount, pendingCount, totalCount](const boost::system::error_code& ec) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG(
                     "Error Occurred in Updating the service enable");
                 messages::conflictOnPropertyPatch(asyncResp->res,
                                                   "ServiceEnabled", "true");
-                return;
             }
-           asyncResp->res.jsonValue[ldapServerElementName]["ServiceEnabled"] =
-                serviceEnabled; 
-            BMCWEB_LOG_DEBUG("Updated Service enable = {}", serviceEnabled);
+            else
+            {
+                 asyncResp->res.jsonValue[ldapServerElementName]["ServiceEnabled"] =
+                     serviceEnabled;
+                BMCWEB_LOG_DEBUG("Updated Service enable = {}", serviceEnabled);
+                ++(*successCount);
+            }
+
+            partialPatchResult(successCount, pendingCount, totalCount, asyncResp);
         });
 }
 
@@ -1835,43 +1976,66 @@ inline void handleLDAPPatch(LdapPatchParams&& input,
             messages::internalError(asyncResp->res);
             return;
         }
+
+        auto successCount = std::make_shared<int>(0);
+        auto pendingCount = std::make_shared<int>(0);
+        auto totalCount = std::make_shared<int>(0);
+
         parseLDAPConfigData(asyncResp->res.jsonValue, confData, serverT);
         if (confData.serviceEnabled)
         {
             // Disable the service first and update the rest of
             // the properties.
-            handleServiceEnablePatch(false, asyncResp, serverT, dbusObjectPath);
+            ++(*pendingCount);
+            ++(*totalCount);
+            handleServiceEnablePatch(false, asyncResp,
+                                    serverT, dbusObjectPath,
+                                    successCount, pendingCount, totalCount);
         }
 
         if (input.serviceAddressList)
         {
+            ++(*pendingCount);
+            ++(*totalCount);
             handleServiceAddressPatch(*input.serviceAddressList, asyncResp,
-                                      serverT, dbusObjectPath);
+                                      serverT, dbusObjectPath,
+                                      successCount, pendingCount, totalCount);
         }
         if (input.userName)
         {
+            ++(*pendingCount);
+            ++(*totalCount);
             handleUserNamePatch(*input.userName, asyncResp, serverT,
-                                dbusObjectPath);
+                                dbusObjectPath, successCount, pendingCount, totalCount);
         }
         if (input.password)
         {
+            ++(*pendingCount);
+            ++(*totalCount);
             handlePasswordPatch(*input.password, asyncResp, serverT,
-                                dbusObjectPath);
+                                dbusObjectPath, successCount, pendingCount, totalCount);
         }
         if (input.baseDNList)
         {
+            ++(*pendingCount);
+            ++(*totalCount);
             handleBaseDNPatch(*input.baseDNList, asyncResp, serverT,
-                              dbusObjectPath);
+                              dbusObjectPath, successCount, pendingCount, totalCount);
         }
         if (input.userNameAttribute)
         {
+            ++(*pendingCount);
+            ++(*totalCount);
             handleUserNameAttrPatch(*input.userNameAttribute, asyncResp,
-                                    serverT, dbusObjectPath);
+                                    serverT, dbusObjectPath,
+                                    successCount, pendingCount, totalCount);
         }
         if (input.groupsAttribute)
         {
+            ++(*pendingCount);
+            ++(*totalCount);
             handleGroupNameAttrPatch(*input.groupsAttribute, asyncResp, serverT,
-                                     dbusObjectPath);
+                                     dbusObjectPath, successCount, pendingCount, totalCount);
         }
         if (input.serviceEnabled)
         {
@@ -1880,8 +2044,11 @@ inline void handleLDAPPatch(LdapPatchParams&& input,
             // as service is already stopped.
             if (*input.serviceEnabled)
             {
+                ++(*pendingCount);
+                ++(*totalCount);
                 handleServiceEnablePatch(*input.serviceEnabled, asyncResp,
-                                         serverT, dbusObjectPath);
+                                         serverT, dbusObjectPath,
+                                         successCount, pendingCount, totalCount);
             }
         }
         else
@@ -1889,14 +2056,20 @@ inline void handleLDAPPatch(LdapPatchParams&& input,
             // if user has not given the service enabled value
             // then revert it to the same state as it was
             // before.
+            ++(*pendingCount);
+            ++(*totalCount);
             handleServiceEnablePatch(confData.serviceEnabled, asyncResp,
-                                     serverT, dbusObjectPath);
+                                     serverT, dbusObjectPath,
+                                     successCount, pendingCount, totalCount);
         }
 
         if (input.remoteRoleMapData)
         {
+            ++(*pendingCount);
+            ++(*totalCount);
             handleRoleMapPatch(asyncResp, confData.groupRoleList, serverT,
-                               *input.remoteRoleMapData);
+                                *input.remoteRoleMapData, successCount,
+                                pendingCount, totalCount);
         }
     });
 }
@@ -1976,7 +2149,7 @@ inline void setOEMAccountTypes(
         "org.freedesktop.DBus.Properties", "Set",
         "xyz.openbmc_project.User.Attributes", "UserGroups",
         dbus::utility::DbusVariantType{grpList});
-    
+
     propertyModified["OemAccountTypes"] = grpList;
 }
 
@@ -2083,7 +2256,7 @@ inline void afterVerifyUserExists(
         patchAccountTypes(*params.accountTypes, asyncResp,
                           params.dbusObjectPath, params.userSelf, completionHandler);
     }
- 
+
     if (params.passwordChangeRequired)
     {
         std::optional<bool> passwordChangeRequired =
@@ -2552,7 +2725,7 @@ inline void uploadRadiusSSLFile(const std::shared_ptr<bmcweb::AsyncResp>& asyncR
     }
 
     out.write(reinterpret_cast<const char*>(body.data()),
-              static_cast<std::streamsize>(body.size()));              
+              static_cast<std::streamsize>(body.size()));
     out.close();
 
     if (out.bad())
@@ -2717,7 +2890,7 @@ inline void handleRadiusSSLCertificateUploadAction(
                         // Proceed with reading SSL context if both Enable and EnableEapTLS are true
                         readRadiusSSLContext(asyncResp, parser);
                     });
-            });                       
+            });
     }
 }
 
@@ -2745,10 +2918,10 @@ inline void
     json["Oem"]["Ami"]["@odata.type"] = json_util::odataType("AMIExternalAccountProvider", "Ami");
     json["Id"] = "RADIUS";
     json["Name"] = "RADIUS Settings";
-    json["Description"] = "RADIUS server settings";          
+    json["Description"] = "RADIUS server settings";
     json["Oem"]["Ami"]["Actions"]["#AMIExternalAccountProvider.v1_0_0.Ami"] = {
         {"target", "/redfish/v1/AccountService/ExternalAccountProviders/Actions/Oem/Ami/RADIUS.SSLCertificateUpload"}};
-    
+
     getRADIUSConfigData(asyncResp);
     getRADIUSRoleMap(asyncResp);
 }
@@ -3056,7 +3229,7 @@ inline void getSNMPAccessStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncR
     tempObjPath /= username;
 
     const std::string userPath(tempObjPath);
-    
+
     sdbusplus::asio::getProperty<bool>(
         *crow::connections::systemBus,
         "xyz.openbmc_project.User.Manager",
@@ -3090,7 +3263,7 @@ inline void handleAccountSnmpPatch(const std::shared_ptr<bmcweb::AsyncResp>& asy
 
     sdbusplus::message::object_path tempUserObjPath(rootUserDbusPath);
     tempUserObjPath /= username;
-    const std::string userPath(tempUserObjPath);    
+    const std::string userPath(tempUserObjPath);
 
     boost::urls::url objUserPath = boost::urls::format("{}", userPath);
 
@@ -3125,9 +3298,9 @@ inline void handleAccountSnmpPatch(const std::shared_ptr<bmcweb::AsyncResp>& asy
                 // If SNMP is disabled
                 if (hasSNMP && !*hasSNMP)
                 {
-                    if ((algorithm && *algorithm != "default_algorithm") || 
-                        (encryption && *encryption != "default_encryption") || 
-                        (accessMode && *accessMode != "read-write")) 
+                    if ((algorithm && *algorithm != "default_algorithm") ||
+                        (encryption && *encryption != "default_encryption") ||
+                        (accessMode && *accessMode != "read-write"))
                     {
                         nlohmann::json hasSNMPJson = nlohmann::json(*hasSNMP);
                         messages::propertyValueExternalConflict(asyncResp->res, "SNMPAccessEnableStatus", hasSNMPJson);
@@ -3138,8 +3311,8 @@ inline void handleAccountSnmpPatch(const std::shared_ptr<bmcweb::AsyncResp>& asy
                         setSNMPEnableDisable(asyncResp, *hasSNMP, username);
                         return;
                     }
-                }                
-                
+                }
+
                 // If hasSNMP is true and currentSNMPAccessEnableStatus is true, skip setSNMPEnableDisable
                 bool currentSNMPAccessEnableStatus = false;
                 getSNMPAccessStatus(asyncResp, username, [&currentSNMPAccessEnableStatus](bool status) {
@@ -3177,15 +3350,15 @@ inline void handleAccountSnmpPatch(const std::shared_ptr<bmcweb::AsyncResp>& asy
                     handleSNMPUserPatch(asyncResp, objPath, "ReadWritePermission", mode);
                 }
 
-                return;                
+                return;
             }
             else
             {
                 if (hasSNMP && !*hasSNMP)
                 {
-                    if ((algorithm && !algorithm->empty() && *algorithm != "default_algorithm") || 
-                        (encryption && !encryption->empty() && *encryption != "default_encryption") || 
-                        (accessMode && !accessMode->empty() && *accessMode != "read-write")) 
+                    if ((algorithm && !algorithm->empty() && *algorithm != "default_algorithm") ||
+                        (encryption && !encryption->empty() && *encryption != "default_encryption") ||
+                        (accessMode && !accessMode->empty() && *accessMode != "read-write"))
                     {
                         nlohmann::json hasSNMPJson = nlohmann::json(*hasSNMP);
                         messages::propertyValueExternalConflict(asyncResp->res, "SNMPAccessEnableStatus", hasSNMPJson);
@@ -3196,7 +3369,7 @@ inline void handleAccountSnmpPatch(const std::shared_ptr<bmcweb::AsyncResp>& asy
                         setSNMPEnableDisable(asyncResp, *hasSNMP, username);
                         return;
                     }
-                }        
+                }
 
                 if (hasSNMP && *hasSNMP)
                 {
@@ -3709,7 +3882,7 @@ inline void processAfterCreateUser(
     const std::string& username, const std::string& password,
     const boost::system::error_code& ec, sdbusplus::message_t& m,
     std::optional<bool> passwordChangeRequired)
-{    
+{
     if (ec)
     {
         userErrorMessageHandler(m.get_error(), asyncResp, username, "");
@@ -3773,7 +3946,8 @@ inline void processAfterGetAllGroups(
     std::optional<std::string> encryption,
     std::optional<std::string> accessMode,
     std::optional<std::vector<std::string>> oemAccountTypes,
-    std::optional<bool> hasSNMP, std::vector<std::string> dbusChannelPrivileges, std::vector<uint8_t> dbusChannelAccess)
+    std::optional<bool> hasSNMP, std::vector<std::string> dbusChannelPrivileges, 
+    std::vector<uint8_t> dbusChannelAccess, std::optional<std::string> smtpMailId)
 {
     std::vector<std::string> userGroups;
     std::vector<std::string> accountTypeUserGroups;
@@ -3934,6 +4108,12 @@ inline void processAfterGetAllGroups(
             "xyz.openbmc_project.User.Manager", "CreateUser",
             username, userGroups, dbusChannelPrivileges, dbusChannelAccess, enabled);
     }
+
+    //setting SMTPMailID if provided during user creation
+    if (smtpMailId.has_value())
+    {
+        setSMTPMailId(asyncResp, username, *smtpMailId);
+    }
 }
 
 inline void validateChannelPrivilegesCreateUser(
@@ -3944,11 +4124,12 @@ inline void validateChannelPrivilegesCreateUser(
     std::optional<bool> passwordChangeRequired, std::optional<bool> media,
     std::optional<std::string> algorithm, std::optional<std::string> encryption,
     std::optional<std::string> accessMode, std::optional<std::vector<std::string>> oemAccountTypes,
-    std::optional<bool> hasSNMP, nlohmann::json userChannelPrivileges)
+    std::optional<bool> hasSNMP, nlohmann::json userChannelPrivileges,
+    std::optional<std::string> smtpMailId)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, username, password, roleIdJson, enabled,
-            accountTypes, passwordChangeRequired, media, algorithm, encryption, accessMode, oemAccountTypes, hasSNMP, userChannelPrivileges](const boost::system::error_code& ec, const std::map<uint8_t, std::string>& channelMap) {
+            accountTypes, passwordChangeRequired, media, algorithm, encryption, accessMode, oemAccountTypes, hasSNMP, userChannelPrivileges, smtpMailId](const boost::system::error_code& ec, const std::map<uint8_t, std::string>& channelMap) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("D-Bus Method GetChannelInterfaceMap Response Error: {}", ec);
@@ -3973,7 +4154,7 @@ inline void validateChannelPrivilegesCreateUser(
                     defaultChannelId = channel;
                     defaultChannelFlag = true;
                 }
-                
+
                 channelIds.push_back(channel);
             }
             if (!userChannelPrivileges.is_array())
@@ -3996,7 +4177,7 @@ inline void validateChannelPrivilegesCreateUser(
                 else
                 {
                     std::unordered_set<int> uniqueChannelIds;
-                    for (std::size_t i = 0; i < userChannelPrivileges.size(); ++i) 
+                    for (std::size_t i = 0; i < userChannelPrivileges.size(); ++i)
                     {
                         const auto& entry = userChannelPrivileges[i];
 
@@ -4048,9 +4229,9 @@ inline void validateChannelPrivilegesCreateUser(
                             messages::propertyValueError(asyncResp->res, "#/Oem/Ami/ChannelPrivileges/" + std::to_string(i) + "/ChannelAccess");
                             validChannelPrivFlag = false;
                         }
-                        if (entry.contains("ChannelId") && entry["ChannelId"] == defaultChannelId) 
+                        if (entry.contains("ChannelId") && entry["ChannelId"] == defaultChannelId)
                         {
-                            if (entry.contains("ChannelPrivilege") && entry["ChannelPrivilege"] != roleIdJson) 
+                            if (entry.contains("ChannelPrivilege") && entry["ChannelPrivilege"] != roleIdJson)
                             {
                                 messages::propertyValueConflict(asyncResp->res, "RoleId", "#/Oem/Ami/ChannelPrivileges/" + std::to_string(i) + "/ChannelPrivilege");
                                 validChannelPrivFlag = false;
@@ -4093,7 +4274,7 @@ inline void validateChannelPrivilegesCreateUser(
                             "xyz.openbmc_project.User.Manager", "/xyz/openbmc_project/user",
                             "xyz.openbmc_project.User.Manager", "AllGroups",
                             [asyncResp, username, password, roleIdJson, enabled,
-                            accountTypes, passwordChangeRequired, media, algorithm, encryption, accessMode, oemAccountTypes, hasSNMP, dbusChannelPrivileges, dbusChannelAccess]
+                            accountTypes, passwordChangeRequired, media, algorithm, encryption, accessMode, oemAccountTypes, hasSNMP, dbusChannelPrivileges, dbusChannelAccess, smtpMailId]
                             (const boost::system::error_code& ec1, const std::vector<std::string>& allGroupsList) {
                                 if (ec1) {
                                     BMCWEB_LOG_DEBUG("D-Bus response error {}", ec1);
@@ -4108,7 +4289,7 @@ inline void validateChannelPrivilegesCreateUser(
                                 processAfterGetAllGroups(asyncResp, username, password, roleIdJson,
                                     enabled, accountTypes, allGroupsList,
                                     passwordChangeRequired, media,
-                                    algorithm, encryption, accessMode, oemAccountTypes, hasSNMP, dbusChannelPrivileges, dbusChannelAccess);
+                                    algorithm, encryption, accessMode, oemAccountTypes, hasSNMP, dbusChannelPrivileges, dbusChannelAccess, smtpMailId);
                             }
                         );
                     }
@@ -4142,6 +4323,7 @@ inline void handleAccountCollectionPost(
     std::optional<std::string> algorithm;
     std::optional<std::string> encryption;
     std::optional<std::string> accessMode;
+    std::optional<std::string> smtpMailId;
     nlohmann::json oemObj;
     std::optional<bool> hasSNMP;
 
@@ -4179,6 +4361,7 @@ inline void handleAccountCollectionPost(
         {
             std::optional<nlohmann::json> snmp;
             nlohmann::json userChannelPrivileges;
+            std::optional<nlohmann::json> smtp;
 
             std::size_t ami_size = ami.size();
             if (ami_size == 0)
@@ -4186,11 +4369,11 @@ inline void handleAccountCollectionPost(
                 messages::propertyNotWritable(asyncResp->res, "Ami");
                 return;
             }
-            if (!json_util::readJson(ami, asyncResp->res, "ChannelPrivileges", userChannelPrivileges, "SNMP", snmp))
+            if (!json_util::readJson(ami, asyncResp->res, "ChannelPrivileges", userChannelPrivileges, "SNMP", snmp, "SMTP", smtp))
             {
-                BMCWEB_LOG_DEBUG("ChannelPrivileges/SNMP attribute is missing in Oem -> Ami attribute. \n");
+                BMCWEB_LOG_DEBUG("ChannelPrivileges/SNMP/SMTP attribute is missing in Oem -> Ami attribute. \n");
             }
-            
+
             if (snmp)
             {
                 if (snmp->empty())
@@ -4246,11 +4429,29 @@ inline void handleAccountCollectionPost(
                     return;
                 }
             }
+            if(smtp)
+            {
+                if (smtp->empty())
+                {
+                    messages::propertyNotWritable(asyncResp->res, "SMTP");
+                    return;
+                }
+                if (!json_util::readJson(*smtp, asyncResp->res,
+                                         "SMTPMailId", smtpMailId))
+                {
+                    return;
+                }
+                if (!smtpMailId.has_value())
+                {
+                    messages::propertyMissing(asyncResp->res, "SMTPMailId");
+                    return;
+                }
+            }
             if (userChannelPrivileges.is_array() && !userChannelPrivileges.empty())
             {
                 validateChannelPrivilegesCreateUser(asyncResp, username, password, roleIdJson,
                     enabled, accountTypes, passwordChangeRequired, media,
-                    algorithm, encryption, accessMode, oemAccountTypes, hasSNMP, userChannelPrivileges);
+                    algorithm, encryption, accessMode, oemAccountTypes, hasSNMP, userChannelPrivileges, smtpMailId);
             }
         }
     }
@@ -4437,13 +4638,15 @@ inline void handleAccountGet(
                     std::vector<std::string> userPrivileges;
                     std::vector<uint8_t> userChannelAccess;
                     const bool* snmpAccessEnableStatus = nullptr;
+                    const std::string* smtpMailId = nullptr;
                     const bool success = sdbusplus::unpackPropertiesNoThrow(
                         dbus_utils::UnpackErrorPrinter(), interface.second,
                         "UserEnabled", userEnabled, "UserChannelAccess", userChannelAccess,
                         "UserLockedForFailedAttempt", userLocked,
                         "UserPrivilege", userPrivileges, "UserPasswordExpired",
                         userPasswordExpired, "UserGroups", userGroups, 
-                        "SNMPAccessEnableStatus", snmpAccessEnableStatus);
+                        "SNMPAccessEnableStatus", snmpAccessEnableStatus,
+                        "SMTPMailID" , smtpMailId);
                     if (!success)
                     {
                         messages::internalError(asyncResp->res);
@@ -4473,7 +4676,7 @@ inline void handleAccountGet(
                     allowed.emplace_back("false");
                     asyncResp->res.jsonValue["Locked@Redfish.AllowableValues"] =
                         std::move(allowed);
-                    
+
                     if (!userPrivileges.empty())
                     {
                         std::string_view defaultUserPrivilege = userPrivileges.front();
@@ -4486,7 +4689,7 @@ inline void handleAccountGet(
                     }
                     else // handle empty case
                     {
-                        
+
                         BMCWEB_LOG_DEBUG("UserPrivilege wasn't a vector of strings");
                         messages::internalError(asyncResp->res);
                         return;
@@ -4530,6 +4733,15 @@ inline void handleAccountGet(
                     if (*snmpAccessEnableStatus) {
                         fetchSnmpUserData(accountName, asyncResp);
                     }
+
+                    if (smtpMailId == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("SMTPMailId wasn't a string");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    asyncResp->res.jsonValue["Oem"]["Ami"]["SMTP"]["SMTPMailId"] = *smtpMailId;
+                        
                 }
             }
 
@@ -4668,7 +4880,7 @@ inline void validateChannelPrivilegesUpdateUser(
                     defaultChannelId = channel;
                     defaultChannelFlag = true;
                 }
-                
+
                 channelIds.push_back(channel);
             }
             if (!userChannelPrivileges.is_array())
@@ -4691,7 +4903,7 @@ inline void validateChannelPrivilegesUpdateUser(
                 else
                 {
                     std::unordered_set<int> uniqueChannelIds;
-                    for (std::size_t i = 0; i < userChannelPrivileges.size(); ++i) 
+                    for (std::size_t i = 0; i < userChannelPrivileges.size(); ++i)
                     {
                         const auto& entry = userChannelPrivileges[i];
 
@@ -4741,7 +4953,7 @@ inline void validateChannelPrivilegesUpdateUser(
                             messages::propertyValueError(asyncResp->res, "#/Oem/Ami/ChannelPrivileges/" + std::to_string(i) + "/ChannelAccess");
                             validChannelPrivFlag = false;
                         }
-                        if (entry.contains("ChannelId") && entry["ChannelId"] == defaultChannelId) 
+                        if (entry.contains("ChannelId") && entry["ChannelId"] == defaultChannelId)
                         {
                             if (entry.contains("ChannelPrivilege") && ((modifiedRoleId && entry["ChannelPrivilege"] != *modifiedRoleId) || (!modifiedRoleId && entry["ChannelPrivilege"] != originalRoleId))) // If the default Channel Privilege doesn't match the Current RoleId or the Desired RoleId, we need to throw error.
                             {
@@ -4750,7 +4962,7 @@ inline void validateChannelPrivilegesUpdateUser(
                             }
                         }
                     }
-                    
+
                     if(validChannelPrivFlag)
                     {
                         BMCWEB_LOG_DEBUG("Going to populate dbusChannelPrivileges & dbusChannelAccess");
@@ -4791,7 +5003,7 @@ inline void validateChannelPrivilegesUpdateUser(
                             *crow::connections::systemBus, "xyz.openbmc_project.User.Manager",
                             userPath, "xyz.openbmc_project.User.Attributes", "UserPrivilege",
                             dbusChannelPrivileges,
-                            [asyncResp, userName, userPath, dbusChannelAccess](const boost::system::error_code& ec1) 
+                            [asyncResp, userName, userPath, dbusChannelAccess](const boost::system::error_code& ec1)
                             {
                                 if (ec1)
                                 {
@@ -4803,7 +5015,7 @@ inline void validateChannelPrivilegesUpdateUser(
                                     *crow::connections::systemBus, "xyz.openbmc_project.User.Manager",
                                     userPath, "xyz.openbmc_project.User.Attributes", "UserChannelAccess",
                                     dbusChannelAccess,
-                                    [asyncResp, userName](const boost::system::error_code& ec2) 
+                                    [asyncResp, userName](const boost::system::error_code& ec2)
                                     {
                                         if (ec2)
                                         {
@@ -4815,7 +5027,7 @@ inline void validateChannelPrivilegesUpdateUser(
                             }
                         );
                     }
-                }      
+                }
             }
         },
         "xyz.openbmc_project.User.Manager", // Service
@@ -4831,7 +5043,8 @@ inline void handleSNMPOEMProperties(const std::shared_ptr<bmcweb::AsyncResp>& as
                                     std::optional<std::string> algorithm,
                                     std::optional<std::string> encryption,
                                     std::optional<std::string> accessMode,
-                                    std::optional<bool>& hasSNMP, 
+                                    std::optional<std::string> smtpMailId,
+                                    std::optional<bool>& hasSNMP,
                                     const std::string& username,
                                     std::optional<std::string> password)
 {
@@ -4855,26 +5068,11 @@ inline void handleSNMPOEMProperties(const std::shared_ptr<bmcweb::AsyncResp>& as
 
     std::optional<nlohmann::json> snmp;
     std::optional<nlohmann::json> channelPrivileges;
-    nlohmann::json oemAmiCopy = *ami;
-    // Remove SNMP from Oem -> Ami once read, to avoid Base.1.19.PropertyUnknown error in the below readJson function
-    if (oemAmiCopy.contains("SNMP"))
+    std::optional<nlohmann::json> smtp;
+   
+    if (!json_util::readJson( *ami, asyncResp->res, "ChannelPrivileges" , channelPrivileges, "SNMP", snmp, "SMTP", smtp))
     {
-        oemAmiCopy.erase("SNMP");
-    }
-    if (!json_util::readJson(oemAmiCopy, asyncResp->res, "ChannelPrivileges", channelPrivileges))
-    {
-        BMCWEB_LOG_DEBUG("ChannelPrivileges attribute is missing in Oem -> Ami attribute. \n");
-    }
-
-    // Remove ChannelPrivileges from Oem -> Ami once read, to avoid Base.1.19.PropertyUnknown error in the below readJson function
-    if (ami && ami->contains("ChannelPrivileges"))
-    {
-        ami->erase("ChannelPrivileges");
-    }
-
-    if (!json_util::readJson(*ami, asyncResp->res, "SNMP", snmp))
-    {
-        BMCWEB_LOG_DEBUG("SNMP attribute is missing in Oem -> Ami attribute. \n");
+        return;
     }
     if(channelPrivileges)
     {
@@ -4913,39 +5111,39 @@ inline void handleSNMPOEMProperties(const std::shared_ptr<bmcweb::AsyncResp>& as
         std::string defaultAccessMode = "read-write";
         std::string updatedPassword = "dummy_password";
 
-        if (!algorithm) 
+        if (!algorithm)
         {
             std::cerr << "[bmcweb] Algorithm not passed. Using default: " << defaultAlgorithm << std::endl;
             algorithm = defaultAlgorithm;
         }
         else if (algorithm && !algorithm->empty() && *algorithm != "SHA-224" && *algorithm != "SHA-256" &&
-            *algorithm != "SHA-512" && *algorithm != "SHA-384") 
+            *algorithm != "SHA-512" && *algorithm != "SHA-384")
         {
             messages::propertyValueNotInList(asyncResp->res, *algorithm, "Algorithm");
             return;
         }
 
-        if (!encryption) 
+        if (!encryption)
         {
             encryption = defaultEncryption;
         }
-        else if (encryption && !encryption->empty() && *encryption != "AES" && *encryption != "DES") 
+        else if (encryption && !encryption->empty() && *encryption != "AES" && *encryption != "DES")
         {
             messages::propertyValueNotInList(asyncResp->res, *encryption, "Encryption");
-            return;        
+            return;
         }
 
-        if (!accessMode) 
+        if (!accessMode)
         {
             accessMode = defaultAccessMode;
         }
         else if (accessMode && !accessMode->empty())
         {
             std::string mode = getModeFromAccessMode(*accessMode);
-            if (mode.empty()) 
+            if (mode.empty())
             {
-                messages::propertyValueNotInList(asyncResp->res, *accessMode, "AccessMode");  
-                return;          
+                messages::propertyValueNotInList(asyncResp->res, *accessMode, "AccessMode");
+                return;
             }
         }
 
@@ -4976,6 +5174,22 @@ inline void handleSNMPOEMProperties(const std::shared_ptr<bmcweb::AsyncResp>& as
 
             handleAccountSnmpPatch(asyncResp, username, hasSNMP, algorithm, encryption, accessMode, password);
         });
+    }
+    if(smtp && smtp->is_object() && !smtp->empty())
+    {
+        if (!json_util::readJson(*smtp, asyncResp->res,
+                                "SMTPMailId", smtpMailId))
+        {
+            BMCWEB_LOG_DEBUG("Failed to read SMTP properties from SMTP JSON");
+            return;
+        }
+        if (!smtpMailId.has_value())
+        {
+            messages::propertyMissing(asyncResp->res, "SMTPMailId");
+            return;
+        }
+        BMCWEB_LOG_DEBUG("handleSNMPOEMProperties: SMTPMailId parsed: {}", *smtpMailId);
+        setSMTPMailId(asyncResp, username, *smtpMailId);
     }
 }
 
@@ -5063,18 +5277,18 @@ inline void handleAccountPatch(App& app, const crow::Request& req,
                             }
                             else if(std::find(userGroups->begin(),userGroups->end(),"redfish-hostiface")!=userGroups->end())
                             {
-                                
+
                                 asyncResp->res.clearHeader(boost::beast::http::field::allow);
                                 asyncResp->res.addHeader("Allow", "GET, DELETE");
                                 messages::operationNotAllowed(asyncResp->res);
                                 return;
-                            } 
-                        } 
-                    }              
+                            }
+                        }
+                    }
 
-                } 
-                
-            }  
+                }
+
+            }
 
             auto hasError = std::make_shared<bool>(false);
 
@@ -5096,7 +5310,7 @@ inline void handleAccountPatch(App& app, const crow::Request& req,
                     EventServiceManager::getInstance().propertyModifiedEventLog(propertyModified, propertyOriginal, "/redfish/v1/AccountService/Accounts/" + username);
                 }
             };
-            
+
             bool userSelf = (username == req.session->username);
 
             Privileges effectiveUserPrivileges =
@@ -5104,7 +5318,7 @@ inline void handleAccountPatch(App& app, const crow::Request& req,
             Privileges configureUsers = {"ConfigureUsers"};
             bool userHasConfigureUsers =
                 effectiveUserPrivileges.isSupersetOf(configureUsers);
-            
+
             std::optional<std::string> newUserName;
             std::optional<std::string> password;
             std::optional<bool> enabled;
@@ -5118,6 +5332,7 @@ inline void handleAccountPatch(App& app, const crow::Request& req,
             std::optional<bool> hasSNMP;
             std::optional<nlohmann::json> oemObj;
             std::string originalRoleId;
+            std::optional<std::string> smtpMailId;
             
             if (userHasConfigureUsers)
             {
@@ -5151,7 +5366,7 @@ inline void handleAccountPatch(App& app, const crow::Request& req,
             }
 
             const std::string& password_ref = password ? *password : "";
-    
+
             for (const auto& interface : userIt->second)
             {
                 if (interface.first == "xyz.openbmc_project.User.Attributes")
@@ -5169,7 +5384,7 @@ inline void handleAccountPatch(App& app, const crow::Request& req,
                         "UserEnabled", userEnabled,
                         "UserLockedForFailedAttempt", userLocked,
                         "UserPrivilege", userPrivileges, "UserChannelAccess", userChannelAccess,
-                        "UserPasswordExpired", userPasswordExpired, 
+                        "UserPasswordExpired", userPasswordExpired,
                         "UserGroups", userGroups);
                     if (!success)
                     {
@@ -5180,8 +5395,8 @@ inline void handleAccountPatch(App& app, const crow::Request& req,
                     if (userEnabled == nullptr)
                     {
                         BMCWEB_LOG_ERROR("UserEnabled wasn't a bool");
-                        propertyOriginal["Enabled"] = nullptr; 
-                        
+                        propertyOriginal["Enabled"] = nullptr;
+
                     }
                     else
                     {
@@ -5219,7 +5434,7 @@ inline void handleAccountPatch(App& app, const crow::Request& req,
                     }
                     else // handle empty case
                     {
-                        
+
                         BMCWEB_LOG_DEBUG("UserPrivilege wasn't a vector of strings");
                         propertyOriginal["RoleId"] = nullptr;
                     }
@@ -5270,7 +5485,7 @@ inline void handleAccountPatch(App& app, const crow::Request& req,
                     messages::propertyValueNotInList(asyncResp->res, roleId ? nlohmann::json(*roleId) : nlohmann::json(nullptr), "RoleId");
                     return;
                 }
-                
+
                 // Check if Oem → Ami → ChannelPrivileges is missing
                 if (!body.contains("Oem") || !body["Oem"].contains("Ami") || !body["Oem"]["Ami"].contains("ChannelPrivileges"))
                 {
@@ -5293,19 +5508,19 @@ inline void handleAccountPatch(App& app, const crow::Request& req,
                 if (oemObj) 
                 {
                     std::string mutableUser = username;
-                    
+
                     // Handle SNMP properties, ensure errors are propagated if any
-                    handleSNMPOEMProperties(asyncResp, originalRoleId, roleId, oemObj, algorithm, encryption, accessMode, hasSNMP, mutableUser, password);
+                    handleSNMPOEMProperties(asyncResp, originalRoleId, roleId, oemObj, algorithm, encryption, accessMode, smtpMailId, hasSNMP, mutableUser, password);
                     
                     // If there was any error handling SNMP properties, return early
-                    if (asyncResp->res.result() != boost::beast::http::status::ok) 
+                    if (asyncResp->res.result() != boost::beast::http::status::ok)
                     {
                         return;
                     }
                 }
 
                 // Check if there were validation issues or any earlier failure
-                if (asyncResp->res.result() != boost::beast::http::status::ok) 
+                if (asyncResp->res.result() != boost::beast::http::status::ok)
                 {
                     return;
                 }
@@ -5324,7 +5539,7 @@ inline void handleAccountPatch(App& app, const crow::Request& req,
                                                     "Password");
                     return;
                 }
-            }         
+            }
 
             crow::connections::systemBus->async_method_call(
                 [asyncResp, username,
@@ -5337,13 +5552,14 @@ inline void handleAccountPatch(App& app, const crow::Request& req,
                 oemObj,
                 algorithm(std::move(algorithm)),
                 encryption(std::move(encryption)),
-                accessMode(std::move(accessMode)),                
+                accessMode(std::move(accessMode)),
+                smtpMailId(std::move(smtpMailId)),                
                 hasSNMP](
                     const boost::system::error_code& ec,
                     sdbusplus::message_t& m)
             {
                 std::string newUser = newUserRaw;
-                
+
                 if (ec)
                 {
                     userErrorMessageHandler(m.get_error(), asyncResp, newUser, username);
@@ -5366,7 +5582,7 @@ inline void handleAccountPatch(App& app, const crow::Request& req,
                     std::optional<bool> hasSNMPCopy = hasSNMP;
 
                     handleSNMPOEMProperties(asyncResp, originalRoleId, roleId, oemObj, algorithm, encryption,
-                                            accessMode, hasSNMPCopy, newUser, password);
+                                            accessMode, smtpMailId, hasSNMPCopy, newUser, password);
 
                     if (asyncResp->res.result() != boost::beast::http::status::ok)
                     {
@@ -5374,7 +5590,7 @@ inline void handleAccountPatch(App& app, const crow::Request& req,
                     }
                 }
 
-                if (asyncResp->res.result() != boost::beast::http::status::ok) 
+                if (asyncResp->res.result() != boost::beast::http::status::ok)
                 {
                     return;
                 }
@@ -5382,7 +5598,7 @@ inline void handleAccountPatch(App& app, const crow::Request& req,
                 return;
             },
             "xyz.openbmc_project.User.Manager", "/xyz/openbmc_project/user",
-            "xyz.openbmc_project.User.Manager", "RenameUser", username, *newUserName);        
+            "xyz.openbmc_project.User.Manager", "RenameUser", username, *newUserName);
         });
 }
 

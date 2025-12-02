@@ -2963,17 +2963,113 @@ inline void setIdlePowerSaver(
 void getSerialConsoleSshStatus(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    service_util::getEnabled(
-        asyncResp, serialConsoleSshServiceName,
-        nlohmann::json::json_pointer("/SerialConsole/SSH/ServiceEnabled"));
-    service_util::getSerialConsoleSshMasked(
-        asyncResp, serialConsoleSshServiceName, "SerialConsole", "SSH",
-        "Masked");
-    service_util::getPortNumber(
-        asyncResp, serialConsoleSshServiceName,
-        nlohmann::json::json_pointer("/SerialConsole/SSH/Port"));
-    asyncResp->res.jsonValue["SerialConsole"]["SSH"]["HotKeySequenceDisplay"] =
-        "Press ~. to exit console";
+    constexpr std::array<std::string_view, 1> interfaces = {
+        "xyz.openbmc_project.Control.Service.Attributes"};
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/control/service", 0, interfaces,
+        [asyncResp](const boost::system::error_code& ec,
+                    const dbus::utility::MapperGetSubTreeResponse& subtree) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR(
+                    "DBUS response error in getSerialConsoleSshStatus: {}", ec);
+                messages::internalError(asyncResp->res);
+                return;
+            }
+
+            if (subtree.empty())
+            {
+                BMCWEB_LOG_DEBUG("No subtree found");
+                return;
+            }
+
+            std::string sshService;
+            std::vector<std::string> ttySServices;
+
+            // Parse all services in a single pass
+            for (const auto& [path, interfaces] : subtree)
+            {
+                const size_t lastSlash = path.rfind('/');
+                if (lastSlash == std::string::npos)
+                {
+                    continue;
+                }
+
+                const std::string objName = path.substr(lastSlash + 1);
+
+                // Check for standard SSH service
+                if (objName == "obmc_2dconsole_2dssh")
+                {
+                    sshService = objName;
+                    break;
+                }
+
+                // Collect Multi SOL SSH services (only if standard SSH not found yet)
+                if (objName.starts_with("obmc_2dconsole_40ttyS"))
+                {
+                    ttySServices.emplace_back(std::move(objName));
+                }
+            }
+
+            // Handle standard SSH service
+            if (!sshService.empty())
+            {
+                service_util::getEnabled(
+                    asyncResp, sshService,
+                    nlohmann::json::json_pointer(
+                        "/SerialConsole/SSH/ServiceEnabled"));
+                service_util::getSerialConsoleSshMasked(
+                    asyncResp, sshService,
+                    nlohmann::json::json_pointer(
+                        "/Oem/Ami/SerialConsole/SSH/Masked"));
+                service_util::getRunning(
+                    asyncResp, sshService,
+                    nlohmann::json::json_pointer(
+                        "/Oem/Ami/SerialConsole/SSH/Running"));
+                service_util::getPortNumber(
+                    asyncResp, sshService,
+                    nlohmann::json::json_pointer("/SerialConsole/SSH/Port"));
+                service_util::getSerialConsoleSshMasked(
+                    asyncResp, sshService,
+                    nlohmann::json::json_pointer(
+                        "/Oem/Ami/SerialConsole/IPMI/Masked"));
+                asyncResp->res.jsonValue["SerialConsole"]["SSH"]
+                                        ["HotKeySequenceDisplay"] =
+                    "Press ~. to exit console";
+            }
+
+            // Handle Multi SOL SSH services
+            if (!ttySServices.empty())
+            {
+                nlohmann::json solArray = nlohmann::json::array();
+
+                for (size_t i = 0; i < ttySServices.size(); ++i)
+                {
+                    nlohmann::json solObj;
+
+                    solObj["Id"] = ttySServices[i].substr(std::string("obmc_2dconsole_40").size());
+
+                    const std::string indexStr = std::to_string(i);
+                    service_util::getEnabled(
+                        asyncResp, ttySServices[i],
+                        nlohmann::json::json_pointer(
+                            "/Oem/Ami/SerialConsole/SSH/SOLSSH/" + indexStr + "/ServiceEnabled"));
+                    service_util::getSerialConsoleSshMasked(
+                        asyncResp, ttySServices[i],
+                        nlohmann::json::json_pointer(
+                            "/Oem/Ami/SerialConsole/SSH/SOLSSH/" + indexStr + "/Masked"));
+                    service_util::getRunning(
+                        asyncResp, ttySServices[i],
+                        nlohmann::json::json_pointer(
+                            "/Oem/Ami/SerialConsole/SSH/SOLSSH/" + indexStr + "/Running"));
+
+                    solArray.emplace_back(std::move(solObj));
+                }
+
+                asyncResp->res.jsonValue["Oem"]["Ami"]["SerialConsole"]["SSH"]["SOLSSH"] =
+                    std::move(solArray);
+            }
+        });
 }
 
 /**
@@ -2989,7 +3085,7 @@ void getVirtualMediaConfig(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
         asyncResp, virtualMediaServiceName,
         nlohmann::json::json_pointer("/VirtualMediaConfig/ServiceEnabled"));
     service_util::getMasked(asyncResp, virtualMediaServiceName,
-                            "VirtualMediaConfig", "Masked", std::nullopt);
+                            "VirtualMediaConfig", "Masked", "Ami");
 }
 
 /**
@@ -3007,7 +3103,7 @@ void getKvmConfig(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
     asyncResp->res.jsonValue["GraphicalConsole"]["ConnectTypesSupported"] = {
         "KVMIP"};
     service_util::getMasked(asyncResp, kvmServiceName, "GraphicalConsole",
-                            "Masked", std::nullopt);
+                            "Masked", "Ami");
 }
 
 inline void handleComputerSystemCollectionHead(
@@ -4022,7 +4118,7 @@ inline void handleComputerSystemHead(
         "</redfish/v1/JsonSchemas/ComputerSystem/ComputerSystem.json>; rel=describedby");
 }
 
-inline void afterPortRequest(
+void afterPortRequest(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const boost::system::error_code& ec,
     const std::vector<std::tuple<std::string, std::string, bool>>& socketData)
@@ -4154,11 +4250,12 @@ inline void
     asyncResp->res.jsonValue["SerialConsole"]["MaxConcurrentSessions"] = 1;
     asyncResp->res.jsonValue["SerialConsole"]["IPMI"]["ServiceEnabled"] = true;
 
-    service_util::getSerialConsoleSshMasked(
-        asyncResp, serialConsoleSshServiceName, "SerialConsole", "IPMI",
-        "Masked");
-    getPortStatusAndPath(std::span{protocolToDBusForSystems},
-                         std::bind_front(afterPortRequest, asyncResp));
+    // SSH and IPMI service management now uses the D-Bus service
+    // "xyz.openbmc_project.Control.Service.Manager" for direct service control,
+    // replacing previous systemd socket unit via "org.freedesktop.systemd1"
+    // service.
+    // getPortStatusAndPath(std::span{protocolToDBusForSystems},
+    //                      std::bind_front(afterPortRequest, asyncResp));
 
 #ifdef BMCWEB_VM_NBDPROXY
     asyncResp->res.jsonValue["VirtualMedia"] = {
@@ -4258,9 +4355,7 @@ inline void handleComputerSystemPatch(
     std::optional<nlohmann::json> virtualMediaConfig;
     std::optional<nlohmann::json> kvmConfig;
     std::optional<std::string> vId;
-    std::optional<bool> kvmServiceMasked;
-    std::optional<bool> sshServiceMasked;
-    std::optional<bool> vmServiceMasked;
+    std::optional<nlohmann::json> oem;
 
     // clang-format off
     if (!json_util::readJsonPatch(
@@ -4288,9 +4383,7 @@ inline void handleComputerSystemPatch(
             "VirtualMediaConfig", virtualMediaConfig, //
             "GraphicalConsole", kvmConfig, //
             "Id", vId, //
-	        "Oem/OpenBmc/GraphicalConsole/Masked",kvmServiceMasked, //
-            "Oem/OpenBmc/SerialConsole/SSH/Masked",sshServiceMasked, //
-            "Oem/OpenBmc/VirtualMediaConfig/Masked",vmServiceMasked //
+            "Oem", oem //
             ))
 
     {
@@ -4304,7 +4397,6 @@ inline void handleComputerSystemPatch(
         return;
     }
     // clang-format on
-    asyncResp->res.result(boost::beast::http::status::no_content);
 
     if (assetTag)
     {
@@ -4447,22 +4539,196 @@ inline void handleComputerSystemPatch(
         }
     }
 
-    if (kvmServiceMasked)
+     if (oem)
     {
-        service_util::setMasked(asyncResp, kvmServiceName, *kvmServiceMasked);
+        if (oem->empty())
+        {
+            messages::propertyNotWritable(asyncResp->res, "Oem");
+            return;
+        }
+
+        std::optional<nlohmann::json> ami;
+
+        if (!json_util::readJson(
+                *oem, asyncResp->res,
+                "Ami", ami
+                ))
+        {
+            return;
+        }
+
+        if (ami)
+        {
+            if (ami->empty())
+            {
+                messages::propertyNotWritable(asyncResp->res, "Ami");
+                return;
+            }
+
+            std::optional<nlohmann::json> serialConsoleOem;
+            std::optional<nlohmann::json> graphicalConsole;
+            std::optional<nlohmann::json> virtualMediaConfigOem;
+
+            if (!json_util::readJson(
+                    *ami, asyncResp->res,
+                    "SerialConsole", serialConsoleOem,
+                    "GraphicalConsole", graphicalConsole,
+                    "VirtualMediaConfig", virtualMediaConfigOem
+                    ))
+            {
+                return;
+            }
+
+            // Handle SerialConsole
+            if (serialConsoleOem)
+            {
+                if (serialConsoleOem->empty())
+                {
+                    messages::propertyNotWritable(asyncResp->res,
+                                                  "SerialConsole");
+                    return;
+                }
+
+                std::optional<nlohmann::json> sshOem;
+                if (!json_util::readJson(
+                        *serialConsoleOem, asyncResp->res,
+                        "SSH", sshOem
+                        ))
+                {
+                    return;
+                }
+
+                if (sshOem)
+                {
+                    if (sshOem->empty())
+                    {
+                        messages::propertyNotWritable(asyncResp->res, "SSH");
+                        return;
+                    }
+
+                    std::optional<bool> sshMaskedOem;
+                    std::optional<nlohmann::json> solsshList;
+
+                    if (!json_util::readJson(
+                            *sshOem, asyncResp->res,
+                            "Masked", sshMaskedOem,
+                            "SOLSSH", solsshList
+                            ))
+                    {
+                        return;
+                    }
+
+                    // Handle single SOL Masked property
+                    if (sshMaskedOem)
+                    {
+                        service_util::setMasked(asyncResp,
+                                                serialConsoleSshServiceName,
+                                                *sshMaskedOem);
+                        return;
+                    }
+                    // Handle SOLSSH array property
+                    if (solsshList)
+                    {
+                        service_util::getAllAvailableTtyServices(
+                            asyncResp,
+                            [asyncResp, solsshList, sshMaskedOem](
+                                const std::vector<std::string>& availableTtys) mutable {
+                                if (availableTtys.empty())
+                                {
+                                    return;
+                                }
+
+                                // Now process each SOLSSH item
+                                for (nlohmann::json& solsshItem : *solsshList)
+                                {
+                                    if (!solsshItem.is_null() &&
+                                        !solsshItem.empty())
+                                    {
+                                        std::string id;
+                                        std::optional<bool> serviceEnabled;
+                                        std::optional<bool> masked;
+
+                                        if (!json_util::readJson(
+                                                solsshItem,
+                                                asyncResp->res,
+                                                "Id", id,
+                                                "ServiceEnabled",
+                                                serviceEnabled,
+                                                "Masked", masked))
+                                        {
+                                            return;
+                                        }
+
+                                            if (!id.starts_with("ttyS"))
+                                            {
+                                                messages::propertyValueFormatError(
+                                                    asyncResp->res, id, "Id");
+                                                return;
+                                            }
+                                            // Check if the TTY service exists
+                                            bool ttyExists = std::find(
+                                                                  availableTtys.begin(),
+                                                                  availableTtys.end(), id) !=
+                                                              availableTtys.end();
+                                            if (!ttyExists)
+                                            {
+                                                messages::propertyValueNotInList(
+                                                    asyncResp->res, id, "Id");
+                                                continue;
+                                            }
+                                            if (serviceEnabled)
+                                            {
+                                                service_util::setServiceEnabled(
+                                                    asyncResp, "obmc_2dconsole_40" + id, *serviceEnabled);
+                                            }
+                                            if (masked)
+                                            {
+                                                service_util::setMasked(asyncResp, "obmc_2dconsole_40" + id, *masked);
+                                            }
+                                    }
+                                }
+                            });
+                    }
+                }
+            }
+
+            // Handle GraphicalConsole/Masked
+            if (graphicalConsole)
+            {
+                std::optional<bool> masked;
+                if (!json_util::readJson(*graphicalConsole, asyncResp->res,
+                                         "Masked", masked))
+                {
+                    return;
+                }
+
+                if (masked)
+                {
+                    service_util::setMasked(asyncResp, kvmServiceName, *masked);
+                }
+            }
+
+            // Handle VirtualMediaConfig/Masked
+            if (virtualMediaConfigOem)
+            {
+                std::optional<bool> masked;
+                if (!json_util::readJson(*virtualMediaConfigOem, asyncResp->res,
+                                         "Masked", masked))
+                {
+                    return;
+                }
+
+                if (masked)
+                {
+                    service_util::setMasked(asyncResp, virtualMediaServiceName,
+                                            *masked);
+                }
+            }
+        }
     }
 
-    if (sshServiceMasked)
-    {
-        service_util::setMasked(asyncResp, serialConsoleSshServiceName,
-                                *sshServiceMasked);
-    }
-
-    if (vmServiceMasked)
-    {
-        service_util::setMasked(asyncResp, virtualMediaServiceName,
-                                *vmServiceMasked);
-    }
+    // Set success status only if no errors occurred above
+    asyncResp->res.result(boost::beast::http::status::no_content);
 }
 
 inline void handleSystemCollectionResetActionHead(

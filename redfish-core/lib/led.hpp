@@ -236,26 +236,26 @@ inline void setPhysicalLedState(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
 {
     if (!state.compare("On"))
     {
-        aResp->res.jsonValue["Oem"]["OpenBmc"]["PhysicalLED"][led] = "On";
+        aResp->res.jsonValue["Oem"]["Ami"]["PhysicalLED"][led] = "On";
     }
     else if (!state.compare("Blink"))
     {
-        aResp->res.jsonValue["Oem"]["OpenBmc"]["PhysicalLED"][led] = "Blinking";
+        aResp->res.jsonValue["Oem"]["Ami"]["PhysicalLED"][led] = "Blinking";
     }
     else if (!state.compare("Off"))
     {
-        aResp->res.jsonValue["Oem"]["OpenBmc"]["PhysicalLED"][led] = "Off";
+        aResp->res.jsonValue["Oem"]["Ami"]["PhysicalLED"][led] = "Off";
     }
     else
     {
-        aResp->res.jsonValue["Oem"]["OpenBmc"]["PhysicalLED"][led] = "Unknown";
+        aResp->res.jsonValue["Oem"]["Ami"]["PhysicalLED"][led] = "Unknown";
     }
 }
 
 inline void getPhysicalLedState(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
 {
     BMCWEB_LOG_DEBUG("Get Physical Led");
-    aResp->res.jsonValue["Oem"]["OpenBmc"]["PhysicalLED"]["@odata.type"] = json_util::odataType("OpenBMCComputerSystem", "PhysicalLED");
+    aResp->res.jsonValue["Oem"]["Ami"]["PhysicalLED"]["@odata.type"] = json_util::odataType("OpenBMCComputerSystem", "PhysicalLED");
 
     dbus::utility::getProperty<bool>(
         "xyz.openbmc_project.LED.GroupManager",

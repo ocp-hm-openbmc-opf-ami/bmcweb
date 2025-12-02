@@ -18,6 +18,10 @@
 #include "registries/telemetry_message_registry.hpp"
 #include "registries/license_message_registry.hpp"
 
+#if (BMCWEB_AMI_REP_MACRO)
+#include "ext/include/registries/ami_certificate_service_message_registry.hpp"
+#endif
+
 #include <boost/url/format.hpp>
 
 #include <array>
@@ -444,6 +448,13 @@ inline void handleMessageRoutesMessageRegistryFileGet(
             {
                 registryEntries.emplace_back(&entry);
             }
+            #if (BMCWEB_AMI_REP_MACRO)
+                header = &registries::ami::certificate::header;
+                for (const registries::MessageEntry& entry : registries::ami::certificate::registry)
+                {
+                    registryEntries.emplace_back(&entry);
+                }
+            #endif
             registryVal = 1;
         }
         else

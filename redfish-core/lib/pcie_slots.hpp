@@ -176,6 +176,7 @@ inline void onMapperSubtreeDone(
 
     asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("PCIeSlots");
     asyncResp->res.jsonValue["Name"] = "PCIe Slot Information";
+    asyncResp->res.jsonValue["Description"] = "PCIe Slot Information for Chassis";
     asyncResp->res.jsonValue["@odata.id"] =
         boost::urls::format("/redfish/v1/Chassis/{}/PCIeSlots", chassisID);
     asyncResp->res.jsonValue["Id"] = "1";

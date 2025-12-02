@@ -31,6 +31,8 @@ inline void doFanCollection(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
         "/redfish/v1/Chassis/{}/ThermalSubsystem/Fans", chassisId);
     asyncResp->res.jsonValue["Name"] = "Fans Collection";
+    asyncResp->res.jsonValue["Description"] =
+        "The collection of Fan resource instances " + chassisId;
     asyncResp->res.jsonValue["Members"] = nlohmann::json::array();
     asyncResp->res.jsonValue["Members@odata.count"] = 0;
 
@@ -232,6 +234,7 @@ inline void doFanGet(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                                 const std::vector<std::string>& interfaces) {
         asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("Fan");
         asyncResp->res.jsonValue["Name"] = fanId;
+        asyncResp->res.jsonValue["Description"] = "Fan " + fanId + " Information";
         asyncResp->res.jsonValue["Id"] = fanId;
         asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
             "/redfish/v1/Chassis/{}/ThermalSubsystem/Fans/{}", chassisId,

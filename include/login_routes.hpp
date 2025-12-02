@@ -70,6 +70,42 @@ inline std::string getRolePrivilege(std::string user, std::string ipAddr)
     return "";
 }
 
+inline bool getRemoteUserInfo(std::string user, std::string ipAddr)
+{
+    using VariantType =
+        std::variant<bool, std::string, std::vector<std::string>>;
+
+    auto bus = sdbusplus::bus::new_default();
+    auto getuser_info_path = bus.new_method_call(
+        "xyz.openbmc_project.User.Manager", "/xyz/openbmc_project/user",
+        "xyz.openbmc_project.User.Manager", "GetUserInfo");
+    getuser_info_path.append(user, ipAddr);
+
+    auto user_info = bus.call(getuser_info_path);
+    std::map<std::string, VariantType> infoDetails;
+    user_info.read(infoDetails);
+
+    auto it = infoDetails.find("RemoteUser");
+    if (it != infoDetails.end())
+    {
+        if (auto value = std::get_if<bool>(&it->second))
+        {
+            BMCWEB_LOG_DEBUG("RemoteUser for user {}: {}", user, *value);
+            return *value;
+        }
+        else
+        {
+            BMCWEB_LOG_ERROR("RemoteUser found for user {} but not of type bool.", user);
+        }
+    }
+    else
+    {
+        BMCWEB_LOG_ERROR("RemoteUser not found in user info for user: {}", user);
+    }
+
+    return false; // Default fallback
+}
+
 inline void handleLogin(const crow::Request& req,
                         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
@@ -381,6 +417,10 @@ inline void handleLogin(const crow::Request& req,
             roleId = getRole(value);
             asyncResp->res.jsonValue["RoleId"] = roleId;
 
+            // For Remote User
+            bool isRemote = getRemoteUserInfo(user, ipAddr);
+            asyncResp->res.jsonValue["RemoteUser"] = isRemote;
+
 #if (BMCWEB_AMI_2FA_MACRO)
 #if (BMCWEB_AMI_REP_MACRO)
             dbus::utility::getProperty<bool>(
@@ -459,7 +499,259 @@ inline void handleLogout(const crow::Request& req,
         }
     }
 }
+void generateOTP (const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                     const std::string& username)
+{
+    crow::connections::systemBus->async_method_call(
+        [asyncResp](const boost::system::error_code& ec, bool response) {
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
+                return;
+            }
+            if (!response)
+            {
 
+                asyncResp->res.jsonValue["error"] = "Failed to generate OTP code";
+                asyncResp->res.result(boost::beast::http::status::bad_request);
+            }
+        },
+        "xyz.openbmc_project.User.Manager",
+        "/xyz/openbmc_project/user",
+        "xyz.openbmc_project.User.Manager",
+        "OTPGeneration", username);
+}
+
+void checkSMTPMailId(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                     std::string username, bool smtpDisabled = false)
+{
+    dbus::utility::getProperty<std::string>(
+        "xyz.openbmc_project.User.Manager", "/xyz/openbmc_project/user/" + username,
+        "xyz.openbmc_project.User.Attributes", "SMTPMailID",
+        [asyncResp, username, smtpDisabled](const boost::system::error_code& ec,
+                        const std::string& SMTPMailId) {
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
+                return;
+            }
+            if (SMTPMailId.empty() && smtpDisabled)
+            {
+                asyncResp->res.jsonValue["error"] =
+                    "The user does not have an SMTP mail ID and SMTP server configured";
+                asyncResp->res.result(boost::beast::http::status::bad_request);
+                return;
+            }
+            else if (SMTPMailId.empty() && !smtpDisabled)
+            {
+                asyncResp->res.jsonValue["error"] =
+                    "SMTP Mail ID is not configured for user";
+                asyncResp->res.result(boost::beast::http::status::bad_request);
+                return;
+            }
+            else if (!SMTPMailId.empty() && smtpDisabled)
+            {
+                asyncResp->res.jsonValue["error"] =
+                    "SMTP Server is not configured";
+                asyncResp->res.result(boost::beast::http::status::bad_request);
+                return;
+            }
+            generateOTP(asyncResp, username);
+        });
+}
+
+inline void handleGenerateOTP(const crow::Request& req,
+                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    std::string_view contentType = req.getHeaderValue("content-type");
+    std::string username;
+    nlohmann::json loginCredentials;
+
+    if (contentType.starts_with("application/json"))
+    {
+        loginCredentials = nlohmann::json::parse(req.body(), nullptr, false);
+        if (loginCredentials.is_discarded())
+        {
+            BMCWEB_LOG_DEBUG("Bad json in request");
+            asyncResp->res.result(boost::beast::http::status::bad_request);
+            return;
+        }
+        nlohmann::json::iterator userIt = loginCredentials.find("username");
+
+        if (userIt != loginCredentials.end())
+        {
+            const std::string* userStr = userIt->get_ptr<const std::string*>();
+   
+            if (userStr != nullptr)
+            {
+                username = *userStr;
+            }
+        }
+    }
+    else
+    {
+        // check if auth was provided as a headers
+        username = req.getHeaderValue("username");
+    }
+
+    if (!username.empty())
+    {
+        sdbusplus::message::object_path path("/xyz/openbmc_project/user");
+        dbus::utility::getManagedObjects(
+            "xyz.openbmc_project.User.Manager", path,
+            [asyncResp, username,
+             &req](const boost::system::error_code& ec,
+                   const dbus::utility::ManagedObjectType& users) {
+                if (ec)
+                {
+                    BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
+                    return;
+                }
+                const auto userIt = std::ranges::find_if(
+                    users,
+                    [username](
+                        const std::pair<sdbusplus::message::object_path,
+                                        dbus::utility::DBusInterfacesMap>&
+                            user) {
+                        return username == user.first.filename();
+                    });
+                if (userIt == users.end())
+                {
+                    std::ostringstream oss;
+                    oss << "Username " << username << " Not Found";
+                    asyncResp->res.jsonValue["error"] = oss.str();
+                    asyncResp->res.result(
+                        boost::beast::http::status::not_found);
+                    return;
+                }
+                else
+                {
+                    dbus::utility::getProperty<bool>(
+                    "xyz.openbmc_project.mail", "/xyz/openbmc_project/mail/alert",
+                    "xyz.openbmc_project.mail.alert.primary", "Enable",
+                    [asyncResp,username](const boost::system::error_code& ec,
+                                    const bool primarySMTPEnable) {
+                        if (ec)
+                        {
+                            BMCWEB_LOG_ERROR("DBUS response error {}", ec);
+                            return;
+                        }
+                        if (primarySMTPEnable)
+                        {
+                            checkSMTPMailId(asyncResp, username);
+                        }   
+                        else
+                        {
+                            dbus::utility::getProperty<bool>(
+                            "xyz.openbmc_project.mail", "/xyz/openbmc_project/mail/alert",
+                            "xyz.openbmc_project.mail.alert.secondary", "Enable",
+                            [asyncResp, username](const boost::system::error_code& ec,
+                                            const bool secondarySMTPEnable) {
+                                if (ec)
+                                {
+                                    BMCWEB_LOG_ERROR("DBUS response error {}", ec);
+                                    return;
+                                }
+                                if (!secondarySMTPEnable)
+                                {
+                                    BMCWEB_LOG_ERROR("SMTP servers disabled, checking mail configuration");
+                                    checkSMTPMailId(asyncResp, username, true);
+                                }
+                                else
+                                {
+                                    checkSMTPMailId(asyncResp, username);
+                                }
+                                
+                            });
+
+                        } 
+                    });
+                }
+            });
+    }
+    else
+    {
+        asyncResp->res.jsonValue["error"] = "Couldn't interpret UserName";
+        asyncResp->res.result(boost::beast::http::status::bad_request);
+    }
+}
+
+inline void handleValidateOTP(const crow::Request& req,
+                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+        std::string_view contentType = req.getHeaderValue("content-type");
+        std::string username;
+        std::string verificationcode;
+        std::string password;
+
+        nlohmann::json loginCredentials;
+       
+        if (contentType.starts_with("application/json"))
+        {
+            loginCredentials = nlohmann::json::parse(req.body(), nullptr, false);
+            if (loginCredentials.is_discarded())
+            {
+                BMCWEB_LOG_DEBUG("Bad json in request");
+                asyncResp->res.result(boost::beast::http::status::bad_request);
+                return;
+            }
+
+            nlohmann::json::iterator userIt = loginCredentials.find("username");
+            nlohmann::json::iterator verificationcodeIt =
+                loginCredentials.find("verificationcode");
+            nlohmann::json::iterator passwordIt =
+                loginCredentials.find("password");
+    
+            if (userIt != loginCredentials.end() &&
+                verificationcodeIt != loginCredentials.end() && passwordIt != loginCredentials.end())
+            {
+                const std::string* userStr = userIt->get_ptr<const std::string*>();
+                const std::string* verificationcodeStr =
+                    verificationcodeIt->get_ptr<const std::string*>();
+                const std::string* passwordStr =
+                    passwordIt->get_ptr<const std::string*>();
+    
+                if (userStr != nullptr && verificationcodeStr != nullptr && passwordStr != nullptr)
+                {
+                    username = *userStr;
+                    verificationcode = *verificationcodeStr;
+                    password = *passwordStr;
+                }
+            }
+        }
+        else
+        {
+            username = req.getHeaderValue("username");
+            verificationcode = req.getHeaderValue("verificationcode");
+            password = req.getHeaderValue("password");
+        }
+    
+        if (!username.empty() && !verificationcode.empty() && !password.empty())
+        {
+              crow::connections::systemBus->async_method_call(
+                [asyncResp](const boost::system::error_code& ec, bool response) {
+                    if (ec)
+                    {
+                        BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
+                        return;
+                    }
+                    if (!response)
+                    {
+                        asyncResp->res.jsonValue["error"] = "Failed to validate OTP code";
+                        asyncResp->res.result(boost::beast::http::status::bad_request);
+                    }
+                },
+                "xyz.openbmc_project.User.Manager",
+                "/xyz/openbmc_project/user",
+                "xyz.openbmc_project.User.Manager",
+                "OTPValidationPasswordUpdate", username , verificationcode ,password); 
+        }
+        else
+        {
+            asyncResp->res.jsonValue["error"] = "Required properties are missing from the request";
+            asyncResp->res.result(boost::beast::http::status::bad_request);
+        }
+}
 inline void requestRoutes(App& app)
 {
     BMCWEB_ROUTE(app, "/login")
@@ -467,6 +759,12 @@ inline void requestRoutes(App& app)
 
     BMCWEB_ROUTE(app, "/logout")
         .methods(boost::beast::http::verb::post)(handleLogout);
+
+    BMCWEB_ROUTE(app, "/generate_otp")
+        .methods(boost::beast::http::verb::post)(handleGenerateOTP);
+        
+    BMCWEB_ROUTE(app, "/validate_otp")
+        .methods(boost::beast::http::verb::post)(handleValidateOTP);
 }
 } // namespace login_routes
 } // namespace crow

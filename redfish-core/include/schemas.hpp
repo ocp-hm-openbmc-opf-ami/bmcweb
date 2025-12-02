@@ -17,7 +17,7 @@ namespace redfish
 {
     constexpr std::array<std::string_view,172> schemas {
         "AMICaCert",
-        "AMIBIOSInventoryCRC",
+        "AmiBIOSInventoryCRC",
         "AMIInventoryStatus",
         "AMIServiceRoot",
         "InventoryCRC",

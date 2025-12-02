@@ -98,6 +98,18 @@
                     "longDescription": "This property shall indicate if the Manager Account is a remote user.",
                     "type": "boolean"
                 },
+                "SMTP": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/definitions/SMTP"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "description": "SMTP configurations for this Manager Account.",
+                    "longDescription": "This property shall contain the set of SMTP configurations for this Manager Account."
+                },
                 "SNMP": {
                     "anyOf": [
                         {
@@ -136,6 +148,32 @@
                 "ReadOnly": "View-only access."
             },
             "type": "string"
+        },
+        "SMTP": {
+            "additionalProperties": false,
+            "patternProperties": {
+                "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
+                    "description": "This property shall specify a valid odata or Redfish property.",
+                    "type": [
+                        "array",
+                        "boolean",
+                        "integer",
+                        "number",
+                        "null",
+                        "object",
+                        "string"
+                    ]
+                }
+            },
+            "properties": {
+                "SMTPMailId": {
+                    "description": "Indicates if SMTP Mail Id is enabled for User.",
+                    "longDescription": "This property indicates if SMTP Mail Id is enabled for User.",
+                    "readonly": false,
+                    "type": "string"
+                }
+            },
+            "type": "object"
         },
         "SNMP": {
             "additionalProperties": false,

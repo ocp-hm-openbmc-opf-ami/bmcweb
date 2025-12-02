@@ -229,6 +229,7 @@ inline void addFanCommonProperties(crow::Response& resp,
                    "</redfish/v1/JsonSchemas/Fan/Fan.json>; rel=describedby");
     resp.jsonValue["@odata.type"] = json_util::odataType("Fan");
     resp.jsonValue["Name"] = "Fan";
+    resp.jsonValue["Description"] = "Fan " + fanId + " Information";
     resp.jsonValue["Id"] = fanId;
     resp.jsonValue["@odata.id"] = boost::urls::format(
         "/redfish/v1/Chassis/{}/ThermalSubsystem/Fans/{}", chassisId, fanId);

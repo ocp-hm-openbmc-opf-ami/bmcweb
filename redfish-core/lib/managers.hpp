@@ -513,7 +513,7 @@ inline void
      * OpenBMC only supports ResetToDefaultsType "ResetAll".
      */
 
-    BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/ResetToDefaults/")
+    BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/Actions/Manager.ResetToDefaults/")
         .privileges(redfish::privileges::postManager)
         .methods(boost::beast::http::verb::post)(
             [&app](const crow::Request& req,

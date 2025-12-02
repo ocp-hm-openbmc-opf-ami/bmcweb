@@ -256,9 +256,8 @@ const static auto& deleteCableCollection = privilegeSetConfigureComponents;
 const static auto& postCableCollection = privilegeSetConfigureComponents;
 
 // Certificate
-//const static auto& getCertificate = privilegeSetConfigureManager;
-const static auto& getCertificate = privilegeSetLogin; 
 const static auto& headCertificate = privilegeSetConfigureManager;
+const static auto& getCertificate = privilegeSetConfigureManager;
 const static auto& patchCertificate = privilegeSetConfigureManager;
 const static auto& putCertificate = privilegeSetConfigureManager;
 const static auto& deleteCertificate = privilegeSetConfigureManager;
@@ -603,7 +602,7 @@ const static auto& deleteEthernetInterfaceCollection = privilegeSetConfigureComp
 // SubOverManagerEthernetInterfaceCollection
 const static auto& getSubOverManagerEthernetInterfaceCollection = privilegeSetLogin;
 const static auto& headSubOverManagerEthernetInterfaceCollection = privilegeSetLogin;
-const static auto& patchSubOverManagerEthernetInterfaceCollection = privilegeSetConfigureComponents;
+const static auto& patchSubOverManagerEthernetInterfaceCollection = privilegeSetConfigureManager;
 const static auto& postSubOverManagerEthernetInterfaceCollection = privilegeSetConfigureManager;
 const static auto& putSubOverManagerEthernetInterfaceCollection = privilegeSetConfigureManager;
 const static auto& deleteSubOverManagerEthernetInterfaceCollection = privilegeSetConfigureManager;
@@ -2025,6 +2024,16 @@ const static auto& patchFIPS = privilegeSetConfigureManager;
 const static auto& getLicenseControl = privilegeSetLogin;
 const static auto& patchLicenseControl = privilegeSetConfigureComponents;
 const static auto& postLicenseControl = privilegeSetConfigureComponents;
+
+//PefService
+const static auto& getPefService = privilegeSetLogin;
+const static auto& patchPefService = privilegeSetConfigureComponents;
+const static auto& postPefService = privilegeSetConfigureComponents;
+
+//JPEG
+const static auto& getJPEG = privilegeSetLogin;
+const static auto& deleteJPEG = privilegeSetConfigureComponents;
+const static auto& postJPEG = privilegeSetConfigureComponents;
 
 } // namespace redfish::privileges
 // clang-format on

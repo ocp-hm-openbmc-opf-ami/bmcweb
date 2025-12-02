@@ -23,6 +23,14 @@ option(
     description: 'Enable the SBMR extension pack.'
 )
 
+# BMCWEB_ARM_SBMR_MACRO
+option(
+    'arm-sbmr',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable the ARM SBMR POST code enrichment feature.'
+)
+
 # BMCWEB_DOT_URIS_MACRO
 option(
     'dot-uris',

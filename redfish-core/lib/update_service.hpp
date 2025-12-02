@@ -887,7 +887,11 @@ inline void afterAvailbleTimerAsyncWait(
     }
     if (asyncResp)
     {
-        redfish::messages::internalError(asyncResp->res);
+        #if BMCWEB_AMI_REP_MACRO
+        messages::firmwareUpdateFailed(asyncResp->res);
+        #else
+        messages::operationTimeout(asyncResp->res);
+        #endif
     }
 }
 
@@ -1654,6 +1658,14 @@ inline bool checkApplyTime(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 inline void doHTTPUpdate(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                          const crow::Request& req)
 {
+    //  Check for empty body
+    if (req.body().empty())
+    {
+        BMCWEB_LOG_DEBUG("Upload body is empty");
+        messages::propertyMissing(asyncResp->res, "FirmwareImage");
+        return;
+    }
+
     if constexpr (BMCWEB_REDFISH_UPDATESERVICE_USE_DBUS)
     {
         task::Payload payload(req);
