@@ -218,10 +218,6 @@ inline bool isOnAllowlist(std::string_view url, boost::beast::http::verb method)
     }*/
     if (boost::beast::http::verb::get == method)
     {
-        // if ((url == "/redfish") ||          //
-        //     (url == "/redfish/v1") ||       //
-        //     (url == "/redfish/v1/odata") || //
-        //     (url == "/redfish/v1/$metadata"))
         if (url == "/redfish/v1" || url == "/redfish/v1/" ||
             url == "/redfish" || url == "/redfish/" ||
             url == "/redfish/v1/odata" || url == "/redfish/v1/odata/" ||
@@ -244,7 +240,8 @@ inline bool isOnAllowlist(std::string_view url, boost::beast::http::verb method)
             (url == "/redfish/v1/SessionService/Sessions/") ||
             (url == "/redfish/v1/SessionService/Sessions/Members") ||
             (url == "/redfish/v1/SessionService/Sessions/Members/") ||
-            (url == "/login"))
+            (url == "/login") || (url == "/generate_otp") ||
+            (url == "/validate_otp"))
         {
             return true;
         }

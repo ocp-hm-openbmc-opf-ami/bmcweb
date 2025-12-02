@@ -184,6 +184,23 @@ inline std::string getAccessModeFromMode(std::string mode)
     return "";
 }
 
+inline void setSMTPMailId(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,const std::string& username,
+                        const std::string& SMTPMailId)
+{
+    std::cerr<<"SMTPMailId value in setSMTPMailId function: " << SMTPMailId << std::endl;
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus,"xyz.openbmc_project.User.Manager", 
+        "/xyz/openbmc_project/user/" + username,
+        "xyz.openbmc_project.User.Attributes", "SMTPMailID" , SMTPMailId,
+        [asyncResp](const boost::system::error_code& ec){
+        if (ec)
+        {
+            BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
+            return;
+        }
+    });
+}
+
 inline void populateOEMAMIChannelInfo(std::vector<std::string> userPrivileges, std::vector<uint8_t> userChannelAccess, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, const crow::Request& req)
 {
 
@@ -3929,7 +3946,8 @@ inline void processAfterGetAllGroups(
     std::optional<std::string> encryption,
     std::optional<std::string> accessMode,
     std::optional<std::vector<std::string>> oemAccountTypes,
-    std::optional<bool> hasSNMP, std::vector<std::string> dbusChannelPrivileges, std::vector<uint8_t> dbusChannelAccess)
+    std::optional<bool> hasSNMP, std::vector<std::string> dbusChannelPrivileges, 
+    std::vector<uint8_t> dbusChannelAccess, std::optional<std::string> smtpMailId)
 {
     std::vector<std::string> userGroups;
     std::vector<std::string> accountTypeUserGroups;
@@ -4090,6 +4108,12 @@ inline void processAfterGetAllGroups(
             "xyz.openbmc_project.User.Manager", "CreateUser",
             username, userGroups, dbusChannelPrivileges, dbusChannelAccess, enabled);
     }
+
+    //setting SMTPMailID if provided during user creation
+    if (smtpMailId.has_value())
+    {
+        setSMTPMailId(asyncResp, username, *smtpMailId);
+    }
 }
 
 inline void validateChannelPrivilegesCreateUser(
@@ -4100,11 +4124,12 @@ inline void validateChannelPrivilegesCreateUser(
     std::optional<bool> passwordChangeRequired, std::optional<bool> media,
     std::optional<std::string> algorithm, std::optional<std::string> encryption,
     std::optional<std::string> accessMode, std::optional<std::vector<std::string>> oemAccountTypes,
-    std::optional<bool> hasSNMP, nlohmann::json userChannelPrivileges)
+    std::optional<bool> hasSNMP, nlohmann::json userChannelPrivileges,
+    std::optional<std::string> smtpMailId)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, username, password, roleIdJson, enabled,
-            accountTypes, passwordChangeRequired, media, algorithm, encryption, accessMode, oemAccountTypes, hasSNMP, userChannelPrivileges](const boost::system::error_code& ec, const std::map<uint8_t, std::string>& channelMap) {
+            accountTypes, passwordChangeRequired, media, algorithm, encryption, accessMode, oemAccountTypes, hasSNMP, userChannelPrivileges, smtpMailId](const boost::system::error_code& ec, const std::map<uint8_t, std::string>& channelMap) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("D-Bus Method GetChannelInterfaceMap Response Error: {}", ec);
@@ -4249,7 +4274,7 @@ inline void validateChannelPrivilegesCreateUser(
                             "xyz.openbmc_project.User.Manager", "/xyz/openbmc_project/user",
                             "xyz.openbmc_project.User.Manager", "AllGroups",
                             [asyncResp, username, password, roleIdJson, enabled,
-                            accountTypes, passwordChangeRequired, media, algorithm, encryption, accessMode, oemAccountTypes, hasSNMP, dbusChannelPrivileges, dbusChannelAccess]
+                            accountTypes, passwordChangeRequired, media, algorithm, encryption, accessMode, oemAccountTypes, hasSNMP, dbusChannelPrivileges, dbusChannelAccess, smtpMailId]
                             (const boost::system::error_code& ec1, const std::vector<std::string>& allGroupsList) {
                                 if (ec1) {
                                     BMCWEB_LOG_DEBUG("D-Bus response error {}", ec1);
@@ -4264,7 +4289,7 @@ inline void validateChannelPrivilegesCreateUser(
                                 processAfterGetAllGroups(asyncResp, username, password, roleIdJson,
                                     enabled, accountTypes, allGroupsList,
                                     passwordChangeRequired, media,
-                                    algorithm, encryption, accessMode, oemAccountTypes, hasSNMP, dbusChannelPrivileges, dbusChannelAccess);
+                                    algorithm, encryption, accessMode, oemAccountTypes, hasSNMP, dbusChannelPrivileges, dbusChannelAccess, smtpMailId);
                             }
                         );
                     }
@@ -4298,6 +4323,7 @@ inline void handleAccountCollectionPost(
     std::optional<std::string> algorithm;
     std::optional<std::string> encryption;
     std::optional<std::string> accessMode;
+    std::optional<std::string> smtpMailId;
     nlohmann::json oemObj;
     std::optional<bool> hasSNMP;
 
@@ -4335,6 +4361,7 @@ inline void handleAccountCollectionPost(
         {
             std::optional<nlohmann::json> snmp;
             nlohmann::json userChannelPrivileges;
+            std::optional<nlohmann::json> smtp;
 
             std::size_t ami_size = ami.size();
             if (ami_size == 0)
@@ -4342,9 +4369,9 @@ inline void handleAccountCollectionPost(
                 messages::propertyNotWritable(asyncResp->res, "Ami");
                 return;
             }
-            if (!json_util::readJson(ami, asyncResp->res, "ChannelPrivileges", userChannelPrivileges, "SNMP", snmp))
+            if (!json_util::readJson(ami, asyncResp->res, "ChannelPrivileges", userChannelPrivileges, "SNMP", snmp, "SMTP", smtp))
             {
-                BMCWEB_LOG_DEBUG("ChannelPrivileges/SNMP attribute is missing in Oem -> Ami attribute. \n");
+                BMCWEB_LOG_DEBUG("ChannelPrivileges/SNMP/SMTP attribute is missing in Oem -> Ami attribute. \n");
             }
 
             if (snmp)
@@ -4402,11 +4429,29 @@ inline void handleAccountCollectionPost(
                     return;
                 }
             }
+            if(smtp)
+            {
+                if (smtp->empty())
+                {
+                    messages::propertyNotWritable(asyncResp->res, "SMTP");
+                    return;
+                }
+                if (!json_util::readJson(*smtp, asyncResp->res,
+                                         "SMTPMailId", smtpMailId))
+                {
+                    return;
+                }
+                if (!smtpMailId.has_value())
+                {
+                    messages::propertyMissing(asyncResp->res, "SMTPMailId");
+                    return;
+                }
+            }
             if (userChannelPrivileges.is_array() && !userChannelPrivileges.empty())
             {
                 validateChannelPrivilegesCreateUser(asyncResp, username, password, roleIdJson,
                     enabled, accountTypes, passwordChangeRequired, media,
-                    algorithm, encryption, accessMode, oemAccountTypes, hasSNMP, userChannelPrivileges);
+                    algorithm, encryption, accessMode, oemAccountTypes, hasSNMP, userChannelPrivileges, smtpMailId);
             }
         }
     }
@@ -4593,13 +4638,15 @@ inline void handleAccountGet(
                     std::vector<std::string> userPrivileges;
                     std::vector<uint8_t> userChannelAccess;
                     const bool* snmpAccessEnableStatus = nullptr;
+                    const std::string* smtpMailId = nullptr;
                     const bool success = sdbusplus::unpackPropertiesNoThrow(
                         dbus_utils::UnpackErrorPrinter(), interface.second,
                         "UserEnabled", userEnabled, "UserChannelAccess", userChannelAccess,
                         "UserLockedForFailedAttempt", userLocked,
                         "UserPrivilege", userPrivileges, "UserPasswordExpired",
-                        userPasswordExpired, "UserGroups", userGroups,
-                        "SNMPAccessEnableStatus", snmpAccessEnableStatus);
+                        userPasswordExpired, "UserGroups", userGroups, 
+                        "SNMPAccessEnableStatus", snmpAccessEnableStatus,
+                        "SMTPMailID" , smtpMailId);
                     if (!success)
                     {
                         messages::internalError(asyncResp->res);
@@ -4686,6 +4733,15 @@ inline void handleAccountGet(
                     if (*snmpAccessEnableStatus) {
                         fetchSnmpUserData(accountName, asyncResp);
                     }
+
+                    if (smtpMailId == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("SMTPMailId wasn't a string");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    asyncResp->res.jsonValue["Oem"]["Ami"]["SMTP"]["SMTPMailId"] = *smtpMailId;
+                        
                 }
             }
 
@@ -4987,6 +5043,7 @@ inline void handleSNMPOEMProperties(const std::shared_ptr<bmcweb::AsyncResp>& as
                                     std::optional<std::string> algorithm,
                                     std::optional<std::string> encryption,
                                     std::optional<std::string> accessMode,
+                                    std::optional<std::string> smtpMailId,
                                     std::optional<bool>& hasSNMP,
                                     const std::string& username,
                                     std::optional<std::string> password)
@@ -5011,26 +5068,11 @@ inline void handleSNMPOEMProperties(const std::shared_ptr<bmcweb::AsyncResp>& as
 
     std::optional<nlohmann::json> snmp;
     std::optional<nlohmann::json> channelPrivileges;
-    nlohmann::json oemAmiCopy = *ami;
-    // Remove SNMP from Oem -> Ami once read, to avoid Base.1.19.PropertyUnknown error in the below readJson function
-    if (oemAmiCopy.contains("SNMP"))
+    std::optional<nlohmann::json> smtp;
+   
+    if (!json_util::readJson( *ami, asyncResp->res, "ChannelPrivileges" , channelPrivileges, "SNMP", snmp, "SMTP", smtp))
     {
-        oemAmiCopy.erase("SNMP");
-    }
-    if (!json_util::readJson(oemAmiCopy, asyncResp->res, "ChannelPrivileges", channelPrivileges))
-    {
-        BMCWEB_LOG_DEBUG("ChannelPrivileges attribute is missing in Oem -> Ami attribute. \n");
-    }
-
-    // Remove ChannelPrivileges from Oem -> Ami once read, to avoid Base.1.19.PropertyUnknown error in the below readJson function
-    if (ami && ami->contains("ChannelPrivileges"))
-    {
-        ami->erase("ChannelPrivileges");
-    }
-
-    if (!json_util::readJson(*ami, asyncResp->res, "SNMP", snmp))
-    {
-        BMCWEB_LOG_DEBUG("SNMP attribute is missing in Oem -> Ami attribute. \n");
+        return;
     }
     if(channelPrivileges)
     {
@@ -5132,6 +5174,22 @@ inline void handleSNMPOEMProperties(const std::shared_ptr<bmcweb::AsyncResp>& as
 
             handleAccountSnmpPatch(asyncResp, username, hasSNMP, algorithm, encryption, accessMode, password);
         });
+    }
+    if(smtp && smtp->is_object() && !smtp->empty())
+    {
+        if (!json_util::readJson(*smtp, asyncResp->res,
+                                "SMTPMailId", smtpMailId))
+        {
+            BMCWEB_LOG_DEBUG("Failed to read SMTP properties from SMTP JSON");
+            return;
+        }
+        if (!smtpMailId.has_value())
+        {
+            messages::propertyMissing(asyncResp->res, "SMTPMailId");
+            return;
+        }
+        BMCWEB_LOG_DEBUG("handleSNMPOEMProperties: SMTPMailId parsed: {}", *smtpMailId);
+        setSMTPMailId(asyncResp, username, *smtpMailId);
     }
 }
 
@@ -5274,7 +5332,8 @@ inline void handleAccountPatch(App& app, const crow::Request& req,
             std::optional<bool> hasSNMP;
             std::optional<nlohmann::json> oemObj;
             std::string originalRoleId;
-
+            std::optional<std::string> smtpMailId;
+            
             if (userHasConfigureUsers)
             {
                 if (!json_util::readJsonPatch(
@@ -5446,13 +5505,13 @@ inline void handleAccountPatch(App& app, const crow::Request& req,
                      locked, accountTypes, userSelf, req.session,
                      passwordChangeRequired, completionHandler);
 
-                if (oemObj)
+                if (oemObj) 
                 {
                     std::string mutableUser = username;
 
                     // Handle SNMP properties, ensure errors are propagated if any
-                    handleSNMPOEMProperties(asyncResp, originalRoleId, roleId, oemObj, algorithm, encryption, accessMode, hasSNMP, mutableUser, password);
-
+                    handleSNMPOEMProperties(asyncResp, originalRoleId, roleId, oemObj, algorithm, encryption, accessMode, smtpMailId, hasSNMP, mutableUser, password);
+                    
                     // If there was any error handling SNMP properties, return early
                     if (asyncResp->res.result() != boost::beast::http::status::ok)
                     {
@@ -5494,6 +5553,7 @@ inline void handleAccountPatch(App& app, const crow::Request& req,
                 algorithm(std::move(algorithm)),
                 encryption(std::move(encryption)),
                 accessMode(std::move(accessMode)),
+                smtpMailId(std::move(smtpMailId)),                
                 hasSNMP](
                     const boost::system::error_code& ec,
                     sdbusplus::message_t& m)
@@ -5522,7 +5582,7 @@ inline void handleAccountPatch(App& app, const crow::Request& req,
                     std::optional<bool> hasSNMPCopy = hasSNMP;
 
                     handleSNMPOEMProperties(asyncResp, originalRoleId, roleId, oemObj, algorithm, encryption,
-                                            accessMode, hasSNMPCopy, newUser, password);
+                                            accessMode, smtpMailId, hasSNMPCopy, newUser, password);
 
                     if (asyncResp->res.result() != boost::beast::http::status::ok)
                     {
