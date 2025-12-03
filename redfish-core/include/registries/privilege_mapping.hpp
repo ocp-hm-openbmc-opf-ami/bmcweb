@@ -2097,7 +2097,21 @@ std::vector<std::pair<std::string,
                                             }},
                                         };
 
+// PropertyOverrides structure for entities
+struct PropertyOverride {
+    std::vector<std::string> targets;
+    std::map<std::string, std::vector<std::string>> operationMap;
+};
 
+// PropertyOverrides for specific entities
+static const std::map<std::string, std::vector<PropertyOverride>> propertyOverrides = {
+    {"ManagerAccount", {
+        PropertyOverride{
+            {"Password"},  // targets
+            {{"PATCH", {"ConfigureUsers", "ConfigureSelf"}}}  // operationMap
+        }
+    }}
+};
 
 } // namespace redfish::registries::PrivilegeRegistry
 

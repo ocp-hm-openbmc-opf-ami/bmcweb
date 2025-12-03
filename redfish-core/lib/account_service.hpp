@@ -5353,14 +5353,19 @@ inline void handleAccountPatch(App& app, const crow::Request& req,
             }
             else
             {
+                // ConfigureSelf accounts can only modify their own account
                 if (!userSelf)
                 {
                     messages::insufficientPrivilege(asyncResp->res);
                     return;
                 }
 
+                // ConfigureSelf accounts can only modify their password
                 if (!json_util::readJsonPatch(req, asyncResp->res, "Password", password))
                 {
+                    BMCWEB_LOG_DEBUG("User with ConfigureSelf attempting to modify restricted properties.");
+                    asyncResp->res.clear();  //clear unknown properties response
+                    messages::insufficientPrivilege(asyncResp->res);
                     return;
                 }
             }
