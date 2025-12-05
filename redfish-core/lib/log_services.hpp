@@ -3733,7 +3733,11 @@ inline void requestRoutesCrashdumpService(App& app)
             asyncResp->res.jsonValue["Id"] = "Crashdump";
             asyncResp->res.jsonValue["OverWritePolicy"] =
                 log_service::OverWritePolicy::WrapsWhenFull;
+#if (BMCWEB_AMI_BHS_MACRO)
+	    asyncResp->res.jsonValue["MaxNumberOfRecords"] = 1;
+#else
             asyncResp->res.jsonValue["MaxNumberOfRecords"] = 150;
+#endif
 
             std::pair<std::string, std::string> redfishDateTimeOffset =
                 redfish::time_utils::getDateTimeOffsetNow();
