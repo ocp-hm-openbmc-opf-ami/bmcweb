@@ -141,6 +141,31 @@ inline void
             }
         }
 
+        // Check for PropertyOverrides for this entity
+        const auto propertyOverrideIt = registries::PrivilegeRegistry::propertyOverrides.find(entityName);
+        if (propertyOverrideIt != registries::PrivilegeRegistry::propertyOverrides.end())
+        {
+            mappingObj["PropertyOverrides"] = nlohmann::json::array();
+            for (const auto& propOverride : propertyOverrideIt->second)
+            {
+                nlohmann::json propOverrideObj = nlohmann::json::object();
+                propOverrideObj["Targets"] = propOverride.targets;
+                propOverrideObj["OperationMap"] = nlohmann::json::object();
+                for (const auto& op : propOverride.operationMap)
+                {
+                    const std::string& opMethod = op.first;
+                    const auto& privileges = op.second;
+                    propOverrideObj["OperationMap"][opMethod] = nlohmann::json::array();
+                    for (const auto& privilege : privileges)
+                    {
+                        propOverrideObj["OperationMap"][opMethod].push_back(
+                            {{"Privilege", nlohmann::json::array({privilege})}});
+                    }
+                }
+                mappingObj["PropertyOverrides"].push_back(propOverrideObj);
+            }
+        }
+
         mappings.push_back(mappingObj);
     }
 

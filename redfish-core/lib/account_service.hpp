@@ -313,7 +313,6 @@ inline bool translateUserGroup(const std::vector<std::string>& userGroups,
         {
             accountTypes.emplace_back("Redfish");
             accountTypes.emplace_back("WebUI");
-            // accountTypes.emplace_back("VirtualMedia");
         }
         else if (userGroup == "ipmi")
         {
@@ -660,7 +659,6 @@ inline void handleRoleMapPatch(
     const std::shared_ptr<int>& pendingCount,
     const std::shared_ptr<int>& totalCount)
 {
-    u_int32_t count = 0;
     for (size_t i = 0; i < input.size(); ++i)
     {
         for (size_t j = i + 1; j < input.size(); ++j)
@@ -765,7 +763,6 @@ inline void handleRoleMapPatch(
                         {
                             BMCWEB_LOG_DEBUG("Duplicate RemoteGroup: {} found",
                                          *remoteGroup);
-                            count++;
                             allDuplicate = true;
                         }
                         else
@@ -774,13 +771,7 @@ inline void handleRoleMapPatch(
                         }
                     }
                 }
-                if (count == input.size())
-                {
-                    messages::noOperation(asyncResp->res);
-                    partialPatchResult(successCount, pendingCount, totalCount, asyncResp);
-                    return;
-                }
-                else if (allDuplicate)
+                if (allDuplicate)
                 {
                     continue;
                 }
@@ -2127,32 +2118,6 @@ inline void setErrorMessageId(
     }
 }
 
-inline void setOEMAccountTypes(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::vector<std::string>& grpList, const std::string& dbusObjectPath,
-    std::function<void(bool)> completionHandler)
-{
-    accountsTotalOperations++;
-    crow::connections::systemBus->async_method_call(
-        [asyncResp, completionHandler](const boost::system::error_code& ec) {
-            if (ec)
-            {
-                BMCWEB_LOG_DEBUG("D-Bus responses error: ", ec);
-                messages::internalError(asyncResp->res);
-                completionHandler(false);
-                return;
-            }
-            completionHandler(true);
-            return;
-        },
-        "xyz.openbmc_project.User.Manager", dbusObjectPath,
-        "org.freedesktop.DBus.Properties", "Set",
-        "xyz.openbmc_project.User.Attributes", "UserGroups",
-        dbus::utility::DbusVariantType{grpList});
-
-    propertyModified["OemAccountTypes"] = grpList;
-}
-
 inline void afterVerifyUserExists(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const UserUpdateParams& params,
@@ -2251,11 +2216,86 @@ inline void afterVerifyUserExists(
         completionHandler(true);
     }
 
-    if (params.accountTypes)
-    {
-        patchAccountTypes(*params.accountTypes, asyncResp,
-                          params.dbusObjectPath, params.userSelf, completionHandler);
-    }
+    // Need to fetch current user's RoleId to determine validation logic
+    sdbusplus::asio::getProperty<std::vector<std::string>>(
+        *crow::connections::systemBus,
+        "xyz.openbmc_project.User.Manager",
+        params.dbusObjectPath,
+        "xyz.openbmc_project.User.Attributes",
+        "UserPrivilege",
+        [asyncResp, params, completionHandler](const boost::system::error_code& ec,
+                                                    const std::vector<std::string>& userPrivileges) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("Failed to get UserPrivilege: {}", ec.message());
+                messages::internalError(asyncResp->res);
+                completionHandler(false);
+                return;
+            }
+
+            if (userPrivileges.empty())
+            {
+                BMCWEB_LOG_ERROR("UserPrivilege is empty");
+                messages::internalError(asyncResp->res);
+                completionHandler(false);
+                return;
+            }
+
+            if (params.accountTypes && !params.roleId)
+            {
+                std::string_view currentPrivilege = userPrivileges.front();
+                std::string currentRoleId = getRoleIdFromPrivilege(currentPrivilege);
+
+                // If user is Administrator, allow any AccountTypes
+                if (currentRoleId == "Administrator")
+                {
+                    patchAccountTypes(*params.accountTypes, asyncResp,
+                                    params.dbusObjectPath, params.userSelf, completionHandler);
+                }
+                else
+                {
+                    // For non-admin users, AccountTypes must NOT contain HostConsole or ManagerConsole
+                    if (std::find(params.accountTypes->begin(), params.accountTypes->end(), "HostConsole") != params.accountTypes->end() ||
+                        std::find(params.accountTypes->begin(), params.accountTypes->end(), "ManagerConsole") != params.accountTypes->end())
+                    {
+                        messages::propertyValueConflict(asyncResp->res, currentRoleId, "AccountTypes");
+                        completionHandler(false);
+                        return;
+                    }
+                    else
+                    {
+                        patchAccountTypes(*params.accountTypes, asyncResp,
+                                    params.dbusObjectPath, params.userSelf, completionHandler);
+                    }
+                }
+            }
+            else if (params.accountTypes && params.roleId == "Administrator")
+            {
+                // If RoleId is Administrator, allow any AccountTypes
+                BMCWEB_LOG_ERROR("RoleId is Administrator, allowing any AccountTypes");
+                patchAccountTypes(*params.accountTypes, asyncResp,
+                                params.dbusObjectPath, params.userSelf, completionHandler);
+            }
+            else if (params.accountTypes && params.roleId != "Administrator")
+            {
+                BMCWEB_LOG_ERROR("RoleId is not Administrator, validating AccountTypes");
+                // For non-admin users, AccountTypes must NOT contain HostConsole or ManagerConsole
+                if (std::find(params.accountTypes->begin(), params.accountTypes->end(), "HostConsole") != params.accountTypes->end() ||
+                    std::find(params.accountTypes->begin(), params.accountTypes->end(), "ManagerConsole") != params.accountTypes->end())
+                {
+                    BMCWEB_LOG_ERROR("RoleId is not Administrator, AccountTypes validation failed");
+                    messages::propertyValueConflict(asyncResp->res, params.roleId.value_or(""), "AccountTypes");
+                    completionHandler(false);
+                    return;
+                }
+                else
+                {
+                    BMCWEB_LOG_ERROR("RoleId is not Administrator, AccountTypes validation passed");
+                    patchAccountTypes(*params.accountTypes, asyncResp,
+                                params.dbusObjectPath, params.userSelf, completionHandler);
+                }
+            }
+        });
 
     if (params.passwordChangeRequired)
     {
@@ -3941,11 +3981,10 @@ inline void processAfterGetAllGroups(
     std::optional<std::string> roleIdJson, bool enabled,
     std::optional<std::vector<std::string>> accountTypes,
     const std::vector<std::string>& allGroupsList,
-    std::optional<bool> passwordChangeRequired, std::optional<bool> media,
+    std::optional<bool> passwordChangeRequired,
     std::optional<std::string> algorithm,
     std::optional<std::string> encryption,
     std::optional<std::string> accessMode,
-    std::optional<std::vector<std::string>> oemAccountTypes,
     std::optional<bool> hasSNMP, std::vector<std::string> dbusChannelPrivileges, 
     std::vector<uint8_t> dbusChannelAccess, std::optional<std::string> smtpMailId)
 {
@@ -3975,32 +4014,7 @@ inline void processAfterGetAllGroups(
             messages::propertyValueNotInList(asyncResp->res, roleId, "RoleId");
             return;
         }
-        else // Media access is determined by role and account types only
-        {
-            media = (priv == "priv-admin");
-        }
         roleId = priv;
-    }
-    // Determine media access based on OEM account types or role
-    if (oemAccountTypes)
-    {
-        if (oemAccountTypes->empty())
-        {
-            media = false;
-        }
-        else if (std::find(oemAccountTypes->begin(), oemAccountTypes->end(), "media") != oemAccountTypes->end())
-        {
-            media = true;
-        }
-        else
-        {
-            messages::propertyValueNotInList(asyncResp->res, "provided", "OEMAccountTypes");
-            return;
-        }
-    }
-    else
-    {
-        media = (roleId == "priv-admin");
     }
 
     auto addGroupsToUser = [&](std::vector<std::string>& targetGroups) {
@@ -4013,20 +4027,20 @@ inline void processAfterGetAllGroups(
                 continue;
             }
 
-            // Only admin can have hostconsole access
-            if (group == "hostconsole" && roleId != "priv-admin")
+            // Only admin can have hostconsole & managerconsole access
+            if ((group == "hostconsole" || group == "ssh") && roleId != "priv-admin")
             {
                 if (!accountTypeUserGroups.empty())
                 {
-                    BMCWEB_LOG_ERROR("Only administrator can get HostConsole access");
-                    asyncResp->res.result(boost::beast::http::status::bad_request);
+                    std::string_view accountTypeName = (group == "hostconsole") ? "HostConsole" : "ManagerConsole";
+                    BMCWEB_LOG_ERROR("Only administrator can get {} access", accountTypeName);
+                    messages::propertyValueConflict(asyncResp->res, accountTypeName,
+                                                    "Administrator privilege required for this Account Type.");
                     return false;
                 }
                 continue;
             }
-
-            // Media access
-            if (group != "media" || media.value_or(false))
+            else
             {
                 targetGroups.emplace_back(group);
             }
@@ -4121,15 +4135,15 @@ inline void validateChannelPrivilegesCreateUser(
     const std::string& username, const std::string& password,
     std::optional<std::string> roleIdJson, bool enabled,
     std::optional<std::vector<std::string>> accountTypes,
-    std::optional<bool> passwordChangeRequired, std::optional<bool> media,
+    std::optional<bool> passwordChangeRequired,
     std::optional<std::string> algorithm, std::optional<std::string> encryption,
-    std::optional<std::string> accessMode, std::optional<std::vector<std::string>> oemAccountTypes,
+    std::optional<std::string> accessMode,
     std::optional<bool> hasSNMP, nlohmann::json userChannelPrivileges,
     std::optional<std::string> smtpMailId)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, username, password, roleIdJson, enabled,
-            accountTypes, passwordChangeRequired, media, algorithm, encryption, accessMode, oemAccountTypes, hasSNMP, userChannelPrivileges, smtpMailId](const boost::system::error_code& ec, const std::map<uint8_t, std::string>& channelMap) {
+            accountTypes, passwordChangeRequired, algorithm, encryption, accessMode, hasSNMP, userChannelPrivileges, smtpMailId](const boost::system::error_code& ec, const std::map<uint8_t, std::string>& channelMap) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("D-Bus Method GetChannelInterfaceMap Response Error: {}", ec);
@@ -4274,7 +4288,7 @@ inline void validateChannelPrivilegesCreateUser(
                             "xyz.openbmc_project.User.Manager", "/xyz/openbmc_project/user",
                             "xyz.openbmc_project.User.Manager", "AllGroups",
                             [asyncResp, username, password, roleIdJson, enabled,
-                            accountTypes, passwordChangeRequired, media, algorithm, encryption, accessMode, oemAccountTypes, hasSNMP, dbusChannelPrivileges, dbusChannelAccess, smtpMailId]
+                            accountTypes, passwordChangeRequired, algorithm, encryption, accessMode, hasSNMP, dbusChannelPrivileges, dbusChannelAccess, smtpMailId]
                             (const boost::system::error_code& ec1, const std::vector<std::string>& allGroupsList) {
                                 if (ec1) {
                                     BMCWEB_LOG_DEBUG("D-Bus response error {}", ec1);
@@ -4288,8 +4302,8 @@ inline void validateChannelPrivilegesCreateUser(
 
                                 processAfterGetAllGroups(asyncResp, username, password, roleIdJson,
                                     enabled, accountTypes, allGroupsList,
-                                    passwordChangeRequired, media,
-                                    algorithm, encryption, accessMode, oemAccountTypes, hasSNMP, dbusChannelPrivileges, dbusChannelAccess, smtpMailId);
+                                    passwordChangeRequired,
+                                    algorithm, encryption, accessMode, hasSNMP, dbusChannelPrivileges, dbusChannelAccess, smtpMailId);
                             }
                         );
                     }
@@ -4318,8 +4332,6 @@ inline void handleAccountCollectionPost(
     std::optional<bool> enabledJson;
     std::optional<std::vector<std::string>> accountTypes;
     std::optional<bool> passwordChangeRequired = false;
-    std::optional<bool> media;
-    std::optional<std::vector<std::string>> oemAccountTypes;
     std::optional<std::string> algorithm;
     std::optional<std::string> encryption;
     std::optional<std::string> accessMode;
@@ -4335,7 +4347,6 @@ inline void handleAccountCollectionPost(
             "Enabled", enabledJson,
             "AccountTypes", accountTypes,
             "PasswordChangeRequired", passwordChangeRequired,
-	    "OEMAccountTypes", oemAccountTypes,
             "Oem", oemObj))
     {
         BMCWEB_LOG_ERROR("Failed to read required fields from JSON");
@@ -4450,8 +4461,8 @@ inline void handleAccountCollectionPost(
             if (userChannelPrivileges.is_array() && !userChannelPrivileges.empty())
             {
                 validateChannelPrivilegesCreateUser(asyncResp, username, password, roleIdJson,
-                    enabled, accountTypes, passwordChangeRequired, media,
-                    algorithm, encryption, accessMode, oemAccountTypes, hasSNMP, userChannelPrivileges, smtpMailId);
+                    enabled, accountTypes, passwordChangeRequired,
+                    algorithm, encryption, accessMode, hasSNMP, userChannelPrivileges, smtpMailId);
             }
         }
     }
@@ -4852,15 +4863,30 @@ inline void handleAccountDelete(App& app, const crow::Request& req,
 
 inline void validateChannelPrivilegesUpdateUser(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, const std::string& userName,
-    const std::string& originalRoleId, std::optional<const std::string> modifiedRoleId, nlohmann::json userChannelPrivileges)
+    const std::string& originalRoleId, std::optional<const std::string> modifiedRoleId, nlohmann::json userChannelPrivileges,
+    std::optional<std::vector<std::string>> accountTypes)
 {
     crow::connections::systemBus->async_method_call(
-        [asyncResp, userName, originalRoleId, modifiedRoleId, userChannelPrivileges](const boost::system::error_code& ec, const std::map<uint8_t, std::string>& channelMap) {
+        [asyncResp, userName, originalRoleId, modifiedRoleId, userChannelPrivileges,accountTypes](const boost::system::error_code& ec, const std::map<uint8_t, std::string>& channelMap) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("D-Bus Method GetChannelInterfaceMap Response Error: {}", ec);
                 return;
             }
+            sdbusplus::message::object_path tempObjPath(rootUserDbusPath);
+            tempObjPath /= userName;
+            const std::string userPath(tempObjPath);
+            sdbusplus::asio::getProperty<std::vector<std::string>>(
+            *crow::connections::systemBus,
+            "xyz.openbmc_project.User.Manager",
+            userPath,
+            "xyz.openbmc_project.User.Attributes", "UserGroups",
+            [asyncResp, userName, originalRoleId, modifiedRoleId, userChannelPrivileges, channelMap, accountTypes](const boost::system::error_code& ec1, const std::vector<std::string>& userGroups) {
+                if (ec1)
+                {
+                    BMCWEB_LOG_DEBUG("D-Bus response error {}", ec1);
+                    return;
+                }
 
             bool validChannelPrivFlag = true;
             std::vector<std::string> dbusChannelPrivileges;
@@ -4961,6 +4987,61 @@ inline void validateChannelPrivilegesUpdateUser(
                                 validChannelPrivFlag = false;
                             }
                         }
+
+                        if (accountTypes)
+                        {
+                            std::string roleToValidate;
+                            if (modifiedRoleId)
+                            {
+                                roleToValidate = *modifiedRoleId;
+                            }
+                            else
+                            {
+                                roleToValidate = originalRoleId;
+                            }
+
+                            if (roleToValidate != "Administrator")
+                            {
+                                // For non-admin users, AccountTypes must NOT contain
+                                // HostConsole or ManagerConsole.
+                                const auto& types = *accountTypes;
+                                bool hasHostConsole = (std::find(types.begin(), types.end(), "HostConsole") != types.end());
+                                bool hasManagerConsole = (std::find(types.begin(), types.end(), "ManagerConsole") != types.end());
+                                if (hasHostConsole || hasManagerConsole)
+                                {
+                                    messages::propertyValueConflict(asyncResp->res, roleToValidate, "AccountTypes");
+                                    return;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            BMCWEB_LOG_ERROR("AccountTypes not provided for validation.");
+                            BMCWEB_LOG_ERROR("Validating AccountTypes for non-admin user based on UserGroups");
+                            for (const auto& groups : userGroups)
+                            {
+                                if ((groups == "hostconsole") || (groups == "ssh"))
+                                {
+                                    // For non-admin users, presence of these account types is forbidden.
+                                    std::string roleToValidate;
+                                    if (modifiedRoleId)
+                                    {
+                                        roleToValidate = *modifiedRoleId;
+                                    }
+                                    else
+                                    {
+                                        roleToValidate = originalRoleId;
+                                    }
+
+                                    if (roleToValidate != "Administrator")
+                                    {
+                                        messages::propertyValueConflict(asyncResp->res, roleToValidate, "AccountTypes");
+                                        return;
+                                    }
+                                }
+                            }
+                        }
+
                     }
 
                     if(validChannelPrivFlag)
@@ -5029,6 +5110,7 @@ inline void validateChannelPrivilegesUpdateUser(
                     }
                 }
             }
+        });
         },
         "xyz.openbmc_project.User.Manager", // Service
         "/xyz/openbmc_project/user", // Object path
@@ -5046,7 +5128,8 @@ inline void handleSNMPOEMProperties(const std::shared_ptr<bmcweb::AsyncResp>& as
                                     std::optional<std::string> smtpMailId,
                                     std::optional<bool>& hasSNMP,
                                     const std::string& username,
-                                    std::optional<std::string> password)
+                                    std::optional<std::string> password,
+                                    std::optional<std::vector<std::string>> accountTypes)
 {
     std::optional<nlohmann::json> ami;
 
@@ -5086,7 +5169,7 @@ inline void handleSNMPOEMProperties(const std::shared_ptr<bmcweb::AsyncResp>& as
         }
 
         nlohmann::json userChannelPrivileges = *channelPrivileges;
-        validateChannelPrivilegesUpdateUser(asyncResp, username, originalRoleId, modifiedRoleId, userChannelPrivileges);
+        validateChannelPrivilegesUpdateUser(asyncResp, username, originalRoleId, modifiedRoleId, userChannelPrivileges, accountTypes);
     }
     if (snmp && snmp->is_object() && snmp->empty())
     {
@@ -5353,14 +5436,19 @@ inline void handleAccountPatch(App& app, const crow::Request& req,
             }
             else
             {
+                // ConfigureSelf accounts can only modify their own account
                 if (!userSelf)
                 {
                     messages::insufficientPrivilege(asyncResp->res);
                     return;
                 }
 
+                // ConfigureSelf accounts can only modify their password
                 if (!json_util::readJsonPatch(req, asyncResp->res, "Password", password))
                 {
+                    BMCWEB_LOG_DEBUG("User with ConfigureSelf attempting to modify restricted properties.");
+                    asyncResp->res.clear();  //clear unknown properties response
+                    messages::insufficientPrivilege(asyncResp->res);
                     return;
                 }
             }
@@ -5510,7 +5598,8 @@ inline void handleAccountPatch(App& app, const crow::Request& req,
                     std::string mutableUser = username;
 
                     // Handle SNMP properties, ensure errors are propagated if any
-                    handleSNMPOEMProperties(asyncResp, originalRoleId, roleId, oemObj, algorithm, encryption, accessMode, smtpMailId, hasSNMP, mutableUser, password);
+                    handleSNMPOEMProperties(asyncResp, originalRoleId, roleId, oemObj, algorithm, encryption, accessMode, 
+                                                    smtpMailId, hasSNMP, mutableUser, password, accountTypes);
                     
                     // If there was any error handling SNMP properties, return early
                     if (asyncResp->res.result() != boost::beast::http::status::ok)
@@ -5582,7 +5671,7 @@ inline void handleAccountPatch(App& app, const crow::Request& req,
                     std::optional<bool> hasSNMPCopy = hasSNMP;
 
                     handleSNMPOEMProperties(asyncResp, originalRoleId, roleId, oemObj, algorithm, encryption,
-                                            accessMode, smtpMailId, hasSNMPCopy, newUser, password);
+                                            accessMode, smtpMailId, hasSNMPCopy, newUser, password, accountTypes);
 
                     if (asyncResp->res.result() != boost::beast::http::status::ok)
                     {
