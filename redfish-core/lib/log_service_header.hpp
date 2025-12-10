@@ -17,4 +17,8 @@ namespace redfish
    LogParseError fillMessageEntry(const std::string& logEntry, std::string& msgID, std::string& msg);
    void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const crow::Request& req, const std::string& dumpType);
+   void afterLogEntriesGetManagedObjects(
+         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+         const boost::system::error_code& ec,
+         const dbus::utility::ManagedObjectType& resp);
 }
