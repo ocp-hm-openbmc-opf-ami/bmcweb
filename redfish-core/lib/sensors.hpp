@@ -3840,7 +3840,7 @@ inline void requestRoutesSensorThresh(App& app)
     BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/Sensors/Oem/Threshold/<str>/")
         .methods(boost::beast::http::verb::post, boost::beast::http::verb::put,
                  boost::beast::http::verb::delete_)(
-            [](const crow::Request& /* req */,
+            [](const crow::Request& req,
                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                const std::string& /* chassisName */,
                const std::string& sensorId) {
@@ -3850,6 +3850,11 @@ inline void requestRoutesSensorThresh(App& app)
                     return;
                 }
                 asyncResp->res.addHeader("Allow", "GET, PATCH");
+                if (req.method() == boost::beast::http::verb::delete_)
+                {
+                    messages::resourceCannotBeDeleted(asyncResp->res);
+                    return;
+                }
                 messages::operationNotAllowed(asyncResp->res);
             });
 }
