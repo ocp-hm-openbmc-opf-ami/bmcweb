@@ -1659,6 +1659,7 @@ static LogParseError fillEventLogEntryJson(
         "/redfish/v1/Systems/{}/LogServices/EventLog/Entries/{}",
         BMCWEB_REDFISH_SYSTEM_URI_NAME, logEntryID);
     logEntryJson["Name"] = "System Event Log Entry";
+    logEntryJson["Description"] = "EventLog " + logEntryID;
     logEntryJson["Id"] = logEntryID;
     logEntryJson["Message"] = std::move(msg);
     logEntryJson["MessageId"] = std::move(messageID);
@@ -1690,6 +1691,7 @@ inline void fillEventLogLogEntryFromPropertyMap(
         BMCWEB_REDFISH_SYSTEM_URI_NAME, Id);
     objectToFillOut["Name"] = "System Event Log Entry";
     objectToFillOut["Id"] = Id;
+    objectToFillOut["Description"] = "EventLog " + Id;
     std::string msgID, msgForm;
     LogParseError status = fillMessageEntry(entry.Message, msgID, msgForm);
     if (status != LogParseError::success)

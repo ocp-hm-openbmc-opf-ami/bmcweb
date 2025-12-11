@@ -272,6 +272,7 @@ static bool fillPostCodeEntry(
             BMCWEB_REDFISH_SYSTEM_URI_NAME, postcodeEntryID);
         bmcLogEntry["Name"] = "POST Code Log Entry";
         bmcLogEntry["Id"] = postcodeEntryID;
+        bmcLogEntry["Description"] = "PostCode " + postcodeEntryID;
         bmcLogEntry["Message"] = std::move(msg);
         bmcLogEntry["MessageId"] = "OpenBMC.0.2.BIOSPOSTCode";
         bmcLogEntry["MessageArgs"] = messageArgs;

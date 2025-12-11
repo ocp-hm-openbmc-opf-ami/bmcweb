@@ -4745,50 +4745,9 @@ inline void handleSystemCollectionResetActionHead(
         "</redfish/v1/JsonSchemas/ActionInfo/ActionInfo.json>; rel=describedby");
 }
 
-/**
- * @brief Translates allowed host transitions to redfish string
- *
- * @param[in]  dbusAllowedHostTran The allowed host transition on dbus
- * @param[out] allowableValues     The translated host transition(s)
- *
- * @return Emplaces corresponding Redfish translated value(s) in
- * allowableValues. If translation not possible, does nothing to
- * allowableValues.
- */
-inline void
-    dbusToRfAllowedHostTransitions(const std::string& dbusAllowedHostTran,
-                                   nlohmann::json::array_t& allowableValues)
-{
-    if (dbusAllowedHostTran == "xyz.openbmc_project.State.Host.Transition.On")
-    {
-        allowableValues.emplace_back(resource::ResetType::On);
-        allowableValues.emplace_back(resource::ResetType::ForceOn);
-    }
-    else if (dbusAllowedHostTran ==
-             "xyz.openbmc_project.State.Host.Transition.Off")
-    {
-        allowableValues.emplace_back(resource::ResetType::GracefulShutdown);
-    }
-    else if (dbusAllowedHostTran ==
-             "xyz.openbmc_project.State.Host.Transition.GracefulWarmReboot")
-    {
-        allowableValues.emplace_back(resource::ResetType::GracefulRestart);
-    }
-    else if (dbusAllowedHostTran ==
-             "xyz.openbmc_project.State.Host.Transition.ForceWarmReboot")
-    {
-        allowableValues.emplace_back(resource::ResetType::ForceRestart);
-    }
-    else
-    {
-        BMCWEB_LOG_WARNING("Unsupported host tran {}", dbusAllowedHostTran);
-    }
-}
 
 inline void afterGetAllowedHostTransitions(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const boost::system::error_code& ec,
-    const std::vector<std::string>& allowedHostTransitions)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     nlohmann::json::array_t allowableValues;
 
@@ -4802,23 +4761,7 @@ inline void afterGetAllowedHostTransitions(
     allowableValues.emplace_back(resource::ResetType::GracefulShutdown);
     //  allowableValues.emplace_back(resource::ResetType::Nmi);
 
-    if (ec)
-    {
-        
-        BMCWEB_LOG_ERROR("DBUS response error {}", ec);
-        messages::internalError(asyncResp->res);
-        return;
-
-    }
-    else
-    {
-        for (const std::string& transition : allowedHostTransitions)
-        {
-            BMCWEB_LOG_DEBUG("Found allowed host tran {}", transition);
-            dbusToRfAllowedHostTransitions(transition, allowableValues);
-        }
-    }
-
+   
     nlohmann::json::object_t parameter;
     parameter["Name"] = "ResetType";
     parameter["Required"] = true;
@@ -4872,16 +4815,12 @@ inline void handleSystemCollectionResetActionGet(
     asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("ActionInfo");
     asyncResp->res.jsonValue["Name"] = "Reset Action Info";
     asyncResp->res.jsonValue["Id"] = "ResetActionInfo";
+    asyncResp->res.jsonValue["Description"] = "This action is used to reset the Systems";
 
     // Look to see if system defines AllowedHostTransitions
-    dbus::utility::getProperty<std::vector<std::string>>(
-        "xyz.openbmc_project.State.Host", "/xyz/openbmc_project/state/host0",
-        "xyz.openbmc_project.State.Host", "AllowedHostTransitions",
-        [asyncResp](const boost::system::error_code& ec,
-                    const std::vector<std::string>& allowedHostTransitions) {
-            afterGetAllowedHostTransitions(asyncResp, ec,
-                                           allowedHostTransitions);
-        });
+   
+    afterGetAllowedHostTransitions(asyncResp);
+   
 }
 /**
  * SystemResetActionInfo derived class for delivering Computer Systems
