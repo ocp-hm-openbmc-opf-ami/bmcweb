@@ -1301,12 +1301,61 @@ inline std::optional<std::string> processUrl(
     return std::make_optional(firmwareId);
 }
 
-inline std::optional<MultiPartUpdateParameters>
+void isValidTarget(const std::string& fwId,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   std::function<void(bool)> callback)
+{
+    constexpr std::array<std::string_view, 1> interfaces = {"xyz.openbmc_project.Software.Version"};
+
+    dbus::utility::getSubTreePaths(
+        "/xyz/openbmc_project/software/", 0, interfaces,
+        [asyncResp, fwId, callback](const boost::system::error_code& ec,
+                                   const dbus::utility::MapperGetSubTreePathsResponse& paths) mutable
+        {
+            BMCWEB_LOG_DEBUG("doGetPaths callback...");
+            if (ec)
+            {
+                messages::internalError(asyncResp->res);
+                callback(false);
+                return;
+            }
+
+            bool found = false;
+            for (const auto& path : paths)
+            {
+                if (path.ends_with(fwId))
+                {
+                    found = true;
+                    break;
+                }
+            }
+
+            if (!found)
+            {
+                messages::resourceNotFound(asyncResp->res, "FirmwareInventory", fwId);
+            }
+
+            callback(found);
+        });
+}
+
+inline void
     extractMultipartUpdateParameters(
         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-        MultipartParser parser)
+        MultipartParser parser,
+        std::function<void(std::optional<MultiPartUpdateParameters>)> callback)
 {
+    // Check if another firmware update is already in progress
+    if (httpPushUriTargetBusy)
+    {
+        BMCWEB_LOG_DEBUG(
+            "Other client has reserved the HttpPushUriTargets property for firmware updates.");
+        messages::resourceInUse(asyncResp->res);
+        callback(std::nullopt);
+        return;
+    }
     MultiPartUpdateParameters multiRet;
+    std::string fwId;
     for (FormPart& formpart : parser.mime_fields)
     {
         boost::beast::http::fields::const_iterator it =
@@ -1314,7 +1363,8 @@ inline std::optional<MultiPartUpdateParameters>
         if (it == formpart.fields.end())
         {
             BMCWEB_LOG_ERROR("Couldn't find Content-Disposition");
-            return std::nullopt;
+            callback(std::nullopt);
+            return;
         }
         BMCWEB_LOG_INFO("Parsing value {}", it->value());
 
@@ -1340,7 +1390,8 @@ inline std::optional<MultiPartUpdateParameters>
                     nlohmann::json::parse(formpart.content, nullptr, false);
                 if (content.is_discarded())
                 {
-                    return std::nullopt;
+                    callback(std::nullopt);
+                    return;
                 }
                 nlohmann::json::object_t* obj =
                     content.get_ptr<nlohmann::json::object_t*>();
@@ -1348,7 +1399,8 @@ inline std::optional<MultiPartUpdateParameters>
                 {
                     messages::propertyValueTypeError(
                         asyncResp->res, formpart.content, "UpdateParameters");
-                    return std::nullopt;
+                    callback(std::nullopt);
+                    return;
                 }
 
                 if (!json_util::readJsonObject(                           //
@@ -1357,7 +1409,8 @@ inline std::optional<MultiPartUpdateParameters>
                         "@Redfish.OperationApplyTime", multiRet.applyTime //
                         ))
                 {
-                    return std::nullopt;
+                    callback(std::nullopt);
+                    return;
                 }
 
                 for (size_t urlIndex = 0; urlIndex < tempTargets.size();
@@ -1372,15 +1425,18 @@ inline std::optional<MultiPartUpdateParameters>
                         messages::propertyValueFormatError(
                             asyncResp->res, target,
                             std::format("Targets/{}", urlIndex));
-                        return std::nullopt;
+                       callback(std::nullopt);
+                       return;
                     }
+                    fwId = res.value();
                     multiRet.targets.emplace_back(res.value());
                 }
                 if (multiRet.targets.size() != 1)
                 {
                     messages::propertyValueFormatError(
                         asyncResp->res, multiRet.targets, "Targets");
-                    return std::nullopt;
+                    callback(std::nullopt);
+                    return;
                 }
             }
             else if (param.second == "UpdateFile")
@@ -1394,14 +1450,84 @@ inline std::optional<MultiPartUpdateParameters>
     {
         BMCWEB_LOG_ERROR("Upload data is NULL");
         messages::propertyMissing(asyncResp->res, "UpdateFile");
-        return std::nullopt;
+        callback(std::nullopt);
+        return;
     }
     if (multiRet.targets.empty())
     {
         messages::propertyMissing(asyncResp->res, "Targets");
-        return std::nullopt;
+       callback(std::nullopt);
+        return;
     }
-    return multiRet;
+    const std::string fwIdToCheck = multiRet.targets[0];
+
+    // Move multiRet into a heap object so it can be captured by the async
+    // callback safely.
+    auto multiRetPtr = std::make_shared<MultiPartUpdateParameters>(std::move(multiRet));
+
+    isValidTarget(fwIdToCheck, asyncResp,
+                  [callback, asyncResp, multiRetPtr](bool valid) mutable {
+                    if (!valid)
+                    {
+                        callback(std::nullopt);
+                        return;
+                    }
+                    if (multiRetPtr->uploadData.empty())
+                    {
+                        BMCWEB_LOG_ERROR("Upload data is NULL");
+                        messages::propertyMissing(asyncResp->res, "UpdateFile");
+                        callback(std::nullopt);
+                        return;
+                    }
+                    // Valid target found - set HttpPushUriTargets property in DBus
+                    sdbusplus::asio::setProperty(
+                        *crow::connections::systemBus,
+                        "xyz.openbmc_project.Software.BMC.Updater",
+                        "/xyz/openbmc_project/software",
+                        "xyz.openbmc_project.Software.FirmwareUpdateTarget",
+                        "HttpPushUriTargets", multiRetPtr->targets,
+                        [callback, asyncResp, multiRetPtr](const boost::system::error_code& ec) {
+                            if (ec)
+                            {
+                                BMCWEB_LOG_ERROR(
+                                    "HttpPushUriTargets D-Bus responses error: {}", ec);
+                                messages::internalError(asyncResp->res);
+                                callback(std::nullopt);
+                                return;
+                            }
+                            
+                            BMCWEB_LOG_DEBUG("HttpPushUriTargets property set successfully");
+                            httpPushUriTargets = multiRetPtr->targets;
+                            
+                             // Now set HttpPushUriTargetsBusy to true
+                            sdbusplus::asio::setProperty(
+                                *crow::connections::systemBus,
+                                "xyz.openbmc_project.Software.BMC.Updater",
+                                "/xyz/openbmc_project/software",
+                                "xyz.openbmc_project.Software.FirmwareUpdateTarget",
+                                "HttpPushUriTargetsBusy", true,
+                                [callback, asyncResp, multiRetPtr](const boost::system::error_code& ec2) {
+                                    if (ec2)
+                                    {
+                                        BMCWEB_LOG_ERROR(
+                                            "HttpPushUriTargetsBusy D-Bus set error: {}", ec2);
+                                        messages::internalError(asyncResp->res);
+                                        
+                                        callback(std::nullopt);
+                                        return;
+                                    }
+                                    httpPushUriTargetBusy = true;
+                                    
+                                    BMCWEB_LOG_DEBUG("HttpPushUriTargetsBusy set to true successfully");
+                                   
+                                    // Valid target and has upload data — return the parsed parameters.
+                                    callback(std::make_optional<MultiPartUpdateParameters>(
+                                        std::move(*multiRetPtr)));
+                                });
+                        });
+                  });
+    return;
+   
 }
 
 inline void handleStartUpdate(
@@ -1559,41 +1685,48 @@ inline void updateMultipartContext(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const crow::Request& req, MultipartParser&& parser)
 {
-    std::optional<MultiPartUpdateParameters> multipart =
-        extractMultipartUpdateParameters(asyncResp, std::move(parser));
-    if (!multipart)
-    {
-        return;
-    }
-    if (!multipart->applyTime)
-    {
-        multipart->applyTime = "OnReset";
-    }
+     extractMultipartUpdateParameters(
+        asyncResp, std::move(parser),
+        [asyncResp, &req](std::optional<MultiPartUpdateParameters> multipart) {
+            if (!multipart)
+            {
+                return;
+            }
 
-    if constexpr (BMCWEB_REDFISH_UPDATESERVICE_USE_DBUS)
-    {
-        std::string applyTimeNewVal;
-        if (!convertApplyTime(asyncResp->res, *multipart->applyTime,
-                              applyTimeNewVal))
-        {
-            return;
-        }
-        task::Payload payload(req);
+            // Ensure applyTime defaults
+            if (!multipart->applyTime)
+            {
+                multipart->applyTime = "OnReset";
+            }
 
-        processUpdateRequest(asyncResp, std::move(payload),
-                             multipart->uploadData, applyTimeNewVal,
-                             multipart->targets);
-    }
-    else
-    {
-        setApplyTime(asyncResp, *multipart->applyTime);
+            // For DBus flow create a payload and continue; extractor already
+            // validated the target.
+            if constexpr (BMCWEB_REDFISH_UPDATESERVICE_USE_DBUS)
+            {
+                std::string applyTimeNewVal;
+                if (!convertApplyTime(asyncResp->res, *multipart->applyTime,
+                                      applyTimeNewVal))
+                {
+                    return;
+                }
+                task::Payload payload(req);
 
-        // Setup callback for when new software detected
-        monitorForSoftwareAvailable(asyncResp, req, "/redfish/v1/UpdateService",
-                                    httpPushUriTargets);
+                processUpdateRequest(asyncResp, std::move(payload),
+                                     multipart->uploadData, applyTimeNewVal,
+                                     multipart->targets);
+            }
+            else
+            {
+                setApplyTime(asyncResp, *multipart->applyTime);
 
-        uploadImageFile(asyncResp->res, multipart->uploadData);
-    }
+                // Setup callback for when new software detected
+                monitorForSoftwareAvailable(asyncResp, req,
+                                            "/redfish/v1/UpdateService",
+                                            httpPushUriTargets);
+
+                uploadImageFile(asyncResp->res, multipart->uploadData);
+            }
+        });
 }
 #if (BMCWEB_AMI_EGS_MACRO || BMCWEB_AMI_BHS_MACRO ||                           \
      BMCWEB_AST2700_EVB_MACRO || BMCWEB_AST2600_EVB_MACRO)
