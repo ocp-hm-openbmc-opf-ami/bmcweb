@@ -29,7 +29,7 @@ std::string getRole(std::string role)
     else if (role == "priv-operator")
         return "Operator";
     else if (role == "priv-user")
-        return "Readonly";
+        return "ReadOnly";
     else
         return "";
 }
