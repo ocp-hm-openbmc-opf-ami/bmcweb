@@ -1301,7 +1301,7 @@ inline std::optional<std::string> processUrl(
     return std::make_optional(firmwareId);
 }
 
-void isValidTarget(const std::string& fwId,
+inline void isValidTarget(const std::string& fwId,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    std::function<void(bool)> callback)
 {
