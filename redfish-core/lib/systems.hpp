@@ -2671,15 +2671,69 @@ inline void
                         wdtTimeOutActStr);
     }
 
-    if (wdtEnable)
-    {
-        setDbusProperty(asyncResp, "HostWatchdogTimer/FunctionEnabled",
-                        "xyz.openbmc_project.Watchdog",
-                        sdbusplus::message::object_path(
-                            "/xyz/openbmc_project/watchdog/host0"),
-                        "xyz.openbmc_project.State.Watchdog", "Enabled",
-                        *wdtEnable);
-    }
+    //check and set the default Interval value if needed, then set wdtEnable
+    dbus::utility::getProperty<uint64_t>(
+        "xyz.openbmc_project.Watchdog",
+        "/xyz/openbmc_project/watchdog/host0",
+        "xyz.openbmc_project.State.Watchdog", "Interval",
+        [asyncResp, wdtEnable](const boost::system::error_code& ec,
+                       const uint64_t& interval) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR(
+                    "DBUS response error on Watchdog Interval Get: {}",
+                    ec);
+                return;
+            }
+
+            // If Interval is 0, set to default value of 600000 milliseconds
+            // and set wdtEnable after the interval is successfully set
+            if (interval == 0)
+            {
+                BMCWEB_LOG_DEBUG(
+                    "Watchdog Interval is 0, setting to default of 600s");
+                crow::connections::systemBus->async_method_call(
+                    [asyncResp, wdtEnable](const boost::system::error_code& ec2) {
+                        if (ec2)
+                        {
+                            BMCWEB_LOG_ERROR(
+                                "DBUS response error on Watchdog Interval Set: {}",
+                                ec2);
+                            messages::internalError(asyncResp->res);
+                            return;
+                        }
+                        // Now set wdtEnable after interval has been set
+                        if (wdtEnable)
+                        {
+                            setDbusProperty(asyncResp, "HostWatchdogTimer/FunctionEnabled",
+                                            "xyz.openbmc_project.Watchdog",
+                                            sdbusplus::message::object_path(
+                                                "/xyz/openbmc_project/watchdog/host0"),
+                                            "xyz.openbmc_project.State.Watchdog", "Enabled",
+                                            *wdtEnable);
+                        }
+                    },
+                    "xyz.openbmc_project.Watchdog",
+                    "/xyz/openbmc_project/watchdog/host0",
+                    "org.freedesktop.DBus.Properties", "Set",
+                    "xyz.openbmc_project.State.Watchdog", "Interval",
+                    dbus::utility::DbusVariantType(static_cast<uint64_t>(600000)));
+            }
+            else
+            {
+                // Interval is not 0, set wdtEnable immediately
+                if (wdtEnable)
+                {
+                    setDbusProperty(asyncResp, "HostWatchdogTimer/FunctionEnabled",
+                                    "xyz.openbmc_project.Watchdog",
+                                    sdbusplus::message::object_path(
+                                        "/xyz/openbmc_project/watchdog/host0"),
+                                    "xyz.openbmc_project.State.Watchdog", "Enabled",
+                                    *wdtEnable);
+                }
+            }
+        }
+    );
 }
 
 /**
