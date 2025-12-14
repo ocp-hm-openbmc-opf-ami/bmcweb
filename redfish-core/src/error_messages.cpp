@@ -1672,7 +1672,7 @@ nlohmann::json passwordChangeRequired(const boost::urls::url_view_base& arg1)
 void passwordChangeRequired(crow::Response& res,
                             const boost::urls::url_view_base& arg1)
 {
-    addMessageToJsonRoot(res.jsonValue, passwordChangeRequired(arg1));
+    addMessageToErrorJson(res.jsonValue, passwordChangeRequired(arg1));
 }
 
 /**
@@ -2813,7 +2813,7 @@ nlohmann::json requestBodyNotAllowed()
 }
 
 void requestBodyNotAllowed(crow::Response& res)
-{    
+{
     res.result(boost::beast::http::status::bad_request);
     addMessageToErrorJson(res.jsonValue, requestBodyNotAllowed());
 }

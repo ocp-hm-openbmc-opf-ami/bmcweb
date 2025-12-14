@@ -125,8 +125,13 @@ inline bool afterGetUserInfoValidate(
     if (!isUserPrivileged(req, asyncResp, rule))
     {
         // User is not privileged
-        BMCWEB_LOG_ERROR("Insufficient Privilege");
-        redfish::messages::insufficientPrivilege(asyncResp->res);
+        // Only add insufficientPrivilege error when it's not ConfigureSelfOnly
+        if (req.session && !req.session->isConfigureSelfOnly)
+        {
+            BMCWEB_LOG_ERROR("Insufficient Privilege");
+            redfish::messages::insufficientPrivilege(asyncResp->res);
+        }
+
         return false;
     }
 
@@ -135,12 +140,12 @@ inline bool afterGetUserInfoValidate(
 
 template <typename CallbackFn>
 void requestUserInfo(const std::string& username,
-                     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,  const boost::asio::ip::address& serverIp, 
+                     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,  const boost::asio::ip::address& serverIp,
                      CallbackFn&& callback)
 {
 
     std::string ipStr = redfish::ip_util::extractIPv4FromMappedIPv6(serverIp);
-    
+
     crow::connections::systemBus->async_method_call(
         [asyncResp, callback = std::forward<CallbackFn>(callback), serverIp](
             const boost::system::error_code& ec,
