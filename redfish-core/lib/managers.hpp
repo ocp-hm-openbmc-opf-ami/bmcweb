@@ -140,7 +140,7 @@ inline void createTimeOutTask(const std::shared_ptr<bmcweb::AsyncResp>& asyncRes
         "type='signal',interface='org.freedesktop.DBus.Properties',"
         "member='PropertiesChanged', path='/xyz/openbmc_project/state/bmc0'");
     task->startTimer(std::chrono::minutes(timeDiff));
-            
+
     task->populateResp(asyncResp->res);
     task->payload.emplace(std::move(payload));
 }
@@ -2640,7 +2640,7 @@ inline void
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
     #endif
     #if (!BMCWEB_AMI_PSM_MACRO)
-    
+
     dbus::utility::getProperty<std::string>(
         "org.freedesktop.timedate1", "/org/freedesktop/timedate1",
         "org.freedesktop.timedate1", "Timezone",
@@ -2865,7 +2865,7 @@ inline void
                            const crow::Request& req,
                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                            const std::string& managerId) {
-	    
+
 	        asyncResp->res.clearHeader(boost::beast::http::field::allow);
 
             if (!redfish::setUpRedfishRoute(app, req, asyncResp))
@@ -3147,8 +3147,11 @@ inline void
                 }
                 std::optional<std::string> bitRate;
                 std::optional<std::string> vId;
+                std::optional<std::string> name;
+                std::optional<std::string> description;
                 if (!json_util::readJsonPatch(req, asyncResp->res, "BitRate",
-                                              bitRate, "Id", vId))
+                                              bitRate, "Id", vId, "Name", name,
+                                              "Description", description))
                 {
                     return;
                 }
@@ -3157,7 +3160,18 @@ inline void
                     messages::propertyNotWritable(asyncResp->res, "Id");
                     asyncResp->res.result(
                         boost::beast::http::status::bad_request);
-                    return;
+                }
+                if (name)
+                {
+                    messages::propertyNotWritable(asyncResp->res, "Name");
+                    asyncResp->res.result(
+                        boost::beast::http::status::bad_request);
+                }
+                if (description)
+                {
+                    messages::propertyNotWritable(asyncResp->res, "Description");
+                    asyncResp->res.result(
+                        boost::beast::http::status::bad_request);
                 }
                 if (bitRate)
                 {
