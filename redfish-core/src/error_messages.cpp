@@ -329,7 +329,7 @@ nlohmann::json propertyValueError(std::string_view arg1)
 void propertyValueError(crow::Response& res, std::string_view arg1)
 {
     res.result(boost::beast::http::status::bad_request);
-    addMessageToJson(res.jsonValue, propertyValueError(arg1), arg1);
+    addMessageToErrorJson(res.jsonValue, propertyValueError(arg1));
 }
 
 /**
