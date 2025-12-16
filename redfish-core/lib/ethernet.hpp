@@ -2817,10 +2817,10 @@ inline bool
             {
                 return false;
             }
-            if (prefixLength && prefixLength == 0)
+            if (prefixLength && (*prefixLength < 1 || *prefixLength > 128))
             {
-                messages::propertyValueFormatError(
-                    asyncResp->res, "0", pathString + "/PrefixLength");
+                messages::propertyValueOutOfRange(
+                    asyncResp->res, *prefixLength, pathString + "/PrefixLength");
                 return false;
             }
             if (!address)
