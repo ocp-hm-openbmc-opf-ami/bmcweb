@@ -801,7 +801,7 @@ static inline std::shared_ptr<MatchWrapper> doListenForCompletion(
                     break;
                 case 22:
                     BMCWEB_LOG_ERROR("Signal received: {}", errorCode);
-                    messages::actionNotSupported(asyncResp->res, name);
+                    messages::invalidImageSize(asyncResp->res);
                     break;
                 case 111:
                     messages::actionParameterValueError(

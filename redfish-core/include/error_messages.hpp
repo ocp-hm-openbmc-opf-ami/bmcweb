@@ -590,6 +590,17 @@ nlohmann::json resourceCannotBeDeleted();
 void resourceCannotBeDeleted(crow::Response& res);
 
 /**
+ * @internal
+ * @brief Formats InvalidImageSize message into JSON
+ *
+ * See header file for more information
+ * @endinternal
+ */
+nlohmann::json invalidImageSize();
+
+void invalidImageSize(crow::Response& res);
+
+/**
  * @brief Formats ResourceInUse message into JSON
  * Message body: "The change to the requested resource failed because the
  * resource is in use or in transition."

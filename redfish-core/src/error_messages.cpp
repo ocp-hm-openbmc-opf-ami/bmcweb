@@ -15,6 +15,7 @@
 #include "logging.hpp"
 #include "registries.hpp"
 #include "registries/base_message_registry.hpp"
+#include "registries/ami_message_registry.hpp"
 #include "registries/openbmc_message_registry.hpp"
 #include "registries/certificate_service_message_registry.hpp"
 #include "registries/license_message_registry.hpp"
@@ -90,6 +91,18 @@ static nlohmann::json getLog(redfish::registries::license::Index name,
     }
     return getLogFromRegistry(redfish::registries::license::header,
                               redfish::registries::license::registry, index, args);
+}
+
+static nlohmann::json getLog(redfish::registries::ami::Index name,
+                             std::span<const std::string_view> args)
+{
+    size_t index = static_cast<size_t>(name);
+    if (index >= redfish::registries::ami::registry.size())
+    {
+        return {};
+    }
+    return getLogFromRegistry(redfish::registries::ami::header,
+                              redfish::registries::ami::registry, index, args);
 }
 
 nlohmann::json asyncCommandError(const std::string& errorCode,
@@ -950,6 +963,24 @@ void resourceCannotBeDeleted(crow::Response& res)
 {
     res.result(boost::beast::http::status::method_not_allowed);
     addMessageToErrorJson(res.jsonValue, resourceCannotBeDeleted());
+}
+
+/**
+ * @internal
+ * @brief Formats InvalidImageSize message into JSON
+ *
+ * See header file for more information
+ * @endinternal
+ */
+nlohmann::json invalidImageSize()
+{
+    return getLog(redfish::registries::ami::Index::invalidImageSize, {});
+}
+
+void invalidImageSize(crow::Response& res)
+{
+    res.result(boost::beast::http::status::bad_request);
+    addMessageToErrorJson(res.jsonValue, invalidImageSize());
 }
 
 /**
