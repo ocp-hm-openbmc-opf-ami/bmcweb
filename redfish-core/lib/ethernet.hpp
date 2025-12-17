@@ -1314,12 +1314,90 @@ inline void handleIPv6DefaultGateway(
 }
  */
 
+ inline bool validateIPv6DefaultGatewayJson(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    std::vector<std::variant<nlohmann::json::object_t, std::nullptr_t>>& input,
+    const std::vector<StaticGatewayData>& staticGatewayData,
+    const std::vector<IPv6AddressData>& ipv6Data)
+{
+
+    size_t entryIdx = 1;
+    std::vector<StaticGatewayData>::const_iterator staticGatewayEntry =
+        staticGatewayData.begin();
+
+    for (std::variant<nlohmann::json::object_t, std::nullptr_t>& thisJson :
+         input)
+    {
+        std::string pathString =
+            "IPv6StaticDefaultGateways/" + std::to_string(entryIdx);
+        nlohmann::json::object_t* obj =
+            std::get_if<nlohmann::json::object_t>(&thisJson);
+        
+        if (obj->empty())
+        {
+            // Do nothing, but make sure the entry exists.
+            if (staticGatewayEntry == staticGatewayData.end())
+            {
+                messages::propertyValueFormatError(asyncResp->res, *obj,
+                                                   pathString);
+                return false;
+            }
+            continue;
+        }
+        
+        auto it = obj->find("Address");
+        const std::string* addr = nullptr;
+        std::string addressValue;
+        
+        if (it != obj->end() && it->second.is_string())
+        {
+            addressValue = it->second.get<std::string>();
+            addr = &addressValue;
+        }
+        else if (staticGatewayEntry != staticGatewayData.end())
+        {
+            addr = &(staticGatewayEntry->gateway);
+        }
+        else
+        {
+            messages::propertyMissing(asyncResp->res, pathString + "/Address");
+            return false;
+        }
+        
+        if (!(ip_util::validateIPv6address(*addr, ip_util::Type::IP6_ADDRESS)))
+        {
+            messages::invalidip(asyncResp->res, pathString + "/Address", *addr);
+            return false;
+        }
+        
+        std::string normalizedGW = ip_util::normalizeIPv6(*addr);
+
+        // Check for matching addresses between already configured IPv6StaticAddresses 
+        // and the addresses in the IPv6StaticDefaultGateways patch body
+        auto existingAddress = std::find_if(ipv6Data.begin(), ipv6Data.end(),
+            [&normalizedGW](const IPv6AddressData& data) {
+                return ip_util::normalizeIPv6(data.address) == normalizedGW;
+            });
+        
+        if (existingAddress != ipv6Data.end())
+        {
+            messages::propertyValueConflict(asyncResp->res, 
+                "IPv6StaticDefaultGateways", "IPv6StaticAddresses");
+            return false;
+        }
+
+        staticGatewayEntry++;
+        entryIdx++;
+    }
+    
+    return true;
+}
+
 inline void handleIPv6DefaultGateway(
     const std::string& ifaceId,
     std::vector<std::variant<nlohmann::json::object_t, std::nullptr_t>>& input,
     const std::vector<StaticGatewayData>& staticGatewayData,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::vector<IPv6AddressData>& ipv6Data)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     size_t entryIdx = 1;
     std::vector<StaticGatewayData>::const_iterator staticGatewayEntry =
@@ -1363,24 +1441,6 @@ inline void handleIPv6DefaultGateway(
         else
         {
             messages::propertyMissing(asyncResp->res, pathString + "/Address");
-            return;
-        }
-        if (!(ip_util::validateIPv6address(*addr,ip_util::Type::IP6_ADDRESS)))
-        {
-            messages::invalidip(asyncResp->res, pathString + "/Address", *addr);
-            return;
-        }
-        std::string normalizedGW = ip_util::normalizeIPv6(*addr);
-
-        // Check for matching addresses between already configured IPv6StaticAddresses and the addresses in the IPv6StaticDefaultGateways patch body
-        auto existingAddress = std::find_if(ipv6Data.begin(), ipv6Data.end(),
-        [&normalizedGW](const IPv6AddressData& data) {
-            return ip_util::normalizeIPv6(data.address) == normalizedGW;
-        });
-        if (existingAddress != ipv6Data.end())
-        {
-            messages::propertyValueConflict(asyncResp->res, "IPv6StaticDefaultGateways",
-                                                    "IPv6StaticAddresses");
             return;
         }
 
@@ -2399,7 +2459,7 @@ inline void handleStaticNameServersPatch(
 inline void handleIPv6StaticAddressesPatch(
     const std::string& ifaceId,
     std::vector<std::variant<nlohmann::json::object_t, std::nullptr_t>>& input,
-    const std::vector<IPv6AddressData>& ipv6Data, bool /*ipv6AcceptRA*/,
+    const std::vector<IPv6AddressData>& ipv6Data,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     std::vector<IPv6AddressData>::const_iterator nicIpv6Entry =
@@ -3578,8 +3638,10 @@ inline void requestEthernetInterfacesRoutes(App& app)
                         }
                     }
                     bool ipv6AddressValid = true;
-                    if (ipv6StaticAddresses) // IPv6StaticAddresses attribute is
-                                             // present
+                    bool ipv6GatewayValid = true;
+
+                    // Validate IPv6 static addresses if present
+                    if (ipv6StaticAddresses)                    
                     {
                         //IPv6Static = convertToJSONArray(*ipv6StaticAddresses);
                         if (!(validateipv6AddressJson(asyncResp, *ipv6StaticAddresses,ipv6Data, ipv6StaticDefaultGateway.value_or(
@@ -3590,15 +3652,17 @@ inline void requestEthernetInterfacesRoutes(App& app)
                             ipv6AddressValid = false;
                         }
                     }
-
-                    bool ipv6AcceptRA;
-                    if (ipv6AutoConfigEnabled.has_value())
+                    // Validate IPv6 static default gateway if present
+                    if (ipv6StaticDefaultGateway)
                     {
-                        ipv6AcceptRA = ipv6AutoConfigEnabled.value();
-                    }
-                    else
-                    {
-                        ipv6AcceptRA = ethData.ipv6AcceptRa;
+                        // Validate IPv6 static default gateway
+                        if (!validateIPv6DefaultGatewayJson(asyncResp, 
+                                                           *ipv6StaticDefaultGateway,
+                                                           ipv6GatewayData, 
+                                                           ipv6Data))
+                        {
+                            ipv6GatewayValid = false;
+                        }
                     }
 
                     bool staticAddrSetFlag = true;
@@ -3693,14 +3757,13 @@ inline void requestEthernetInterfacesRoutes(App& app)
                             staticAddrSetFlag = false;
                             if (ipv6AddressValid && ipv4AddressValid)
                             {
-                                ipv6AcceptRA = false;
+                                handleIPv6StaticAddressesPatch(
+                                    ifaceId, *ipv6StaticAddresses, ipv6Data, asyncResp);
+
+                                handleIPv4StaticPatch(ifaceId, *ipv4StaticAddresses, ipv4Data,
+                                        asyncResp);
                             }
 
-                            handleIPv6StaticAddressesPatch(
-                                ifaceId, *ipv6StaticAddresses, ipv6Data, ipv6AcceptRA, asyncResp);
-
-                            handleIPv4StaticPatch(ifaceId, *ipv4StaticAddresses, ipv4Data,
-                                    asyncResp);
                         }
 
                         if (ipv4StaticAddresses && ipv4AddressValid)
@@ -3712,12 +3775,12 @@ inline void requestEthernetInterfacesRoutes(App& app)
                             }
                         }
 
-                        if (ipv6StaticAddresses && ipv6AddressValid)
+                        if (ipv6StaticAddresses && ipv6AddressValid && ipv6GatewayValid )
                         {
                             if (staticAddrSetFlag)
                             {
                                 handleIPv6StaticAddressesPatch(
-                                    ifaceId, *ipv6StaticAddresses, ipv6Data, ipv6AcceptRA, asyncResp);
+                                    ifaceId, *ipv6StaticAddresses, ipv6Data, asyncResp);
                             }
                         }
                     }
@@ -3898,11 +3961,12 @@ inline void requestEthernetInterfacesRoutes(App& app)
                                                       "IPv6DefaultGateway");
                     }
 
-                    if (ipv6StaticDefaultGateway)
+                    // Only proceed with IPv6 gateway D-Bus call if both IPv6 address and gateway validations passed
+                    if (ipv6StaticDefaultGateway && ipv6AddressValid && ipv6GatewayValid)
                     {
                         handleIPv6DefaultGateway(ifaceId,
                                                  *ipv6StaticDefaultGateway,
-                                                 ipv6GatewayData, asyncResp, ipv6Data);
+                                                 ipv6GatewayData, asyncResp);
                     }
 
                     if (id)
