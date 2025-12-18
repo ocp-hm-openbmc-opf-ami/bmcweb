@@ -1935,8 +1935,17 @@ void handleEventServiceSubscriptionPost(
     // be set to "Disabled" state.
     subValue->userSub->state = "Enabled";
 
+    // Get normalized URL for duplicate checking and subscription creation
+    std::string normalizedUrl = url->buffer();
+
     if (protocol == "SNMPv2c" || protocol == "SNMPv3" || protocol == "SNMPv1")
     {
+        // Check for duplicate destination before creating SNMP subscription
+        if (EventServiceManager::getInstance().isDuplicateDestination(normalizedUrl))
+        {
+            messages::resourceAlreadyExists(asyncResp->res, "EventDestination", "Destination", normalizedUrl);
+            return;
+        }
         auto subId = std::make_shared<std::string>();
         snmpCompletedOperations = 0;
         auto snmpCompletionHandler = [asyncResp, subId, oemsnmpcommunitystring,
@@ -2032,6 +2041,12 @@ void handleEventServiceSubscriptionPost(
         return;
     }
 
+    // Check for duplicate destination before creating Redfish subscription
+    if (EventServiceManager::getInstance().isDuplicateDestination(normalizedUrl))
+    {
+        messages::resourceAlreadyExists(asyncResp->res, "EventDestination", "Destination", normalizedUrl);
+        return;
+    }
 
     std::string id;
     EventServiceManager::getInstance().addPushSubscription(subValue, id);
