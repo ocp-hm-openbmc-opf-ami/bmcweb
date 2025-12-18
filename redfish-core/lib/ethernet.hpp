@@ -2596,6 +2596,7 @@ inline void parseInterfaceData(
             ethData.linkUp ? ethernet_interface::LinkStatus::LinkUp
                            : ethernet_interface::LinkStatus::LinkDown;
         jsonResponse["Status"]["State"] = resource::State::Enabled;
+        jsonResponse["Status"]["Health"] = resource::Health::OK;
         jsonResponse["SpeedMbps"] = ethData.speed;
         jsonResponse["MTUSize"] = ethData.mtuSize;
         if (ethData.macAddress)
@@ -2750,6 +2751,7 @@ inline void parseInterfaceData(
     {
         jsonResponse["LinkStatus"] = ethernet_interface::LinkStatus::NoLink;
         jsonResponse["Status"]["State"] = resource::State::Disabled;
+        jsonResponse["Status"]["Health"] = resource::Health::OK;
         jsonResponse["IPv4Addresses"] = nlohmann::json::array();
         jsonResponse["IPv4StaticAddresses"] = nlohmann::json::array();
         jsonResponse["IPv6AddressPolicyTable"] = nlohmann::json::array();
@@ -2758,6 +2760,10 @@ inline void parseInterfaceData(
         jsonResponse["IPv6StaticDefaultGateways"] = nlohmann::json::array();
         jsonResponse["NameServers"] = nlohmann::json::array();
         jsonResponse["StaticNameServers"] = nlohmann::json::array();
+        jsonResponse["MACAddress"] = *ethData.macAddress;
+        jsonResponse["SpeedMbps"] = 0;
+        jsonResponse["HostName"] = nullptr;
+        jsonResponse["FQDN"] = nullptr;
     }
 }
 
