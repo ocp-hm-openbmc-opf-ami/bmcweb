@@ -560,7 +560,7 @@ inline void handleNTPServersPatch(
     auto isValidNtpServer = [](const std::string& server) -> bool {
         for (char c : server)
         {
-            if (!isdigit(c) && !isalpha(c) && c != '-' && c != '.')
+            if (!isdigit(c) && !isalpha(c) && c != '-' && c != '.' && c != ':')
             {
                 return false; // Found an invalid character
             }
