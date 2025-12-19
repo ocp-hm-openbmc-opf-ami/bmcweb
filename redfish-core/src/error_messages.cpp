@@ -1896,15 +1896,17 @@ void resourceCreationConflict(crow::Response& res,
  * @endinternal
  */
 nlohmann::json
-    actionParameterValueConflict(std::string_view arg1, std::string_view arg2)
+    actionParameterValueConflict(std::string_view arg1, const nlohmann::json& arg2)
 {
+    std::string arg2Str =
+        arg2.dump(-1, ' ', true, nlohmann::json::error_handler_t::replace);
     return getLog(
         redfish::registries::base::Index::actionParameterValueConflict,
-        std::to_array({arg1, arg2}));
+        std::to_array<std::string_view>({arg1, arg2Str}));
 }
 
 void actionParameterValueConflict(crow::Response& res, std::string_view arg1,
-                                  std::string_view arg2)
+                                  const nlohmann::json& arg2)
 {
     res.result(boost::beast::http::status::bad_request);
     addMessageToErrorJson(res.jsonValue,

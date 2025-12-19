@@ -1193,10 +1193,10 @@ void resourceCreationConflict(crow::Response& res,
  *
  * @returns Message ActionParameterValueConflict formatted to JSON */
 nlohmann::json
-    actionParameterValueConflict(std::string_view arg1, std::string_view arg2);
+    actionParameterValueConflict(std::string_view arg1, const nlohmann::json& arg2);
 
 void actionParameterValueConflict(crow::Response& res, std::string_view arg1,
-                                  std::string_view arg2);
+                                  const nlohmann::json& arg2);
 
 /**
  * @brief Formats MaximumErrorsExceeded message into JSON
