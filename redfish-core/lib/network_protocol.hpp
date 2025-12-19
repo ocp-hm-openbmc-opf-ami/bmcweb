@@ -179,7 +179,6 @@ inline void
                 messages::internalError(asyncResp->res);
                 return;
             }
-            asyncResp->res.jsonValue["SNMP"]["Port"] = 161;
             asyncResp->res.jsonValue["SNMP"]["ProtocolEnabled"] =
                 protocolEnabled;
         });
