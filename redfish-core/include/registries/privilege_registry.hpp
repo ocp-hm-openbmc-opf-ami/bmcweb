@@ -258,6 +258,7 @@ const static auto& postCableCollection = privilegeSetConfigureComponents;
 // Certificate
 const static auto& headCertificate = privilegeSetConfigureManager;
 const static auto& getCertificate = privilegeSetConfigureManager;
+const static auto& privilegeSetLoginCertificate = privilegeSetLogin;
 const static auto& patchCertificate = privilegeSetConfigureManager;
 const static auto& putCertificate = privilegeSetConfigureManager;
 const static auto& deleteCertificate = privilegeSetConfigureManager;
@@ -602,7 +603,7 @@ const static auto& deleteEthernetInterfaceCollection = privilegeSetConfigureComp
 // SubOverManagerEthernetInterfaceCollection
 const static auto& getSubOverManagerEthernetInterfaceCollection = privilegeSetLogin;
 const static auto& headSubOverManagerEthernetInterfaceCollection = privilegeSetLogin;
-const static auto& patchSubOverManagerEthernetInterfaceCollection = privilegeSetConfigureManager;
+const static auto& patchSubOverManagerEthernetInterfaceCollection = privilegeSetConfigureComponents;
 const static auto& postSubOverManagerEthernetInterfaceCollection = privilegeSetConfigureManager;
 const static auto& putSubOverManagerEthernetInterfaceCollection = privilegeSetConfigureManager;
 const static auto& deleteSubOverManagerEthernetInterfaceCollection = privilegeSetConfigureManager;

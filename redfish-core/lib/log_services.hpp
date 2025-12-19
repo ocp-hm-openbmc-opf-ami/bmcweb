@@ -4186,7 +4186,7 @@ inline void requestRoutesCrashdumpEntry(App& app)
         app, "/redfish/v1/Systems/<str>/LogServices/Crashdump/Entries/<str>/")
         // this is incorrect, should be
         // .privileges(redfish::privileges::getLogEntry)
-        .privileges({{"ConfigureComponents"}})
+        .privileges(redfish::privileges::getLogEntry)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
