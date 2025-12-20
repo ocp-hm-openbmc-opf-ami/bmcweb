@@ -3883,20 +3883,6 @@ inline void requestEthernetInterfacesRoutes(App& app)
                                     return; // if Duplicates found
                                 }
                             }
-                            for (const auto& val1 : StaticName)
-                            {
-                                for (const auto& val2 :
-                                     ethData.staticNameServers)
-                                {
-                                    if (val1 == val2)
-                                    {
-                                        messages::propertyValueIncorrect(
-                                            asyncResp->res, "StaticNameServers",
-                                            val2);
-                                        return;
-                                    }
-                                }
-                            }
                         }
                         else
                         {
