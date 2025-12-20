@@ -3135,7 +3135,7 @@ void getSerialConsoleSshStatus(
  */
 void getVirtualMediaConfig(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    service_util::getEnabled(
+    service_util::getRunning(
         asyncResp, virtualMediaServiceName,
         nlohmann::json::json_pointer("/VirtualMediaConfig/ServiceEnabled"));
     service_util::getMasked(asyncResp, virtualMediaServiceName,
