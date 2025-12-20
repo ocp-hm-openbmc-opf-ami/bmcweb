@@ -108,6 +108,11 @@
                     "description": "Indicates the primary/preferred channel for each platform. The privilege of the default channel should match the RoleId attribute when a Manager Account is created.",
                     "longDescription": "This property indicates the primary/preferred channel for each platform. The privilege of the default channel should match the RoleId attribute when a Manager Account is created."
                 },
+                "EncryptedNTP": {
+                    "$ref": "#/definitions/EncryptedNTP",
+                    "description": "Encrypted NTP configuration settings.",
+                    "longDescription": "This property contains the encrypted Network Time Protocol (NTP) configuration settings used to securely synchronize time on the system."
+		},
                 "GraphicalConsole": {
                     "$ref": "#/definitions/GraphicalConsole",
                     "description": "The settings for this manager's GraphicalConsole protocol support.",
@@ -264,7 +269,42 @@
             },
             "type": "object"
         },
-        "GraphicalConsole": {
+        "EncryptedNTP": {
+            "additionalProperties": false,
+            "patternProperties": {
+                "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
+                    "description": "This property shall specify a valid odata or Redfish property.",
+                    "type": [
+                        "array",
+                        "boolean",
+                        "integer",
+                        "number",
+                        "null",
+                        "object",
+                        "string"
+                    ]
+                }
+            },
+            "properties": {
+                "NTPServers": {
+                    "description": "List of NTP server addresses.",
+                    "items": {
+                        "type": "string"
+                    },
+                    "longDescription": "This property contains a list of NTP server addresses that the system uses to synchronize its internal clock. These addresses are stored in an encrypted format for security.",
+                    "readonly": false,
+                    "type": "array"
+                },
+                "NTPStatus": {
+                    "description": "Status of the NTP synchronization process.",
+                    "longDescription": "This property indicates the current status of the NTP synchronization process. The value may represent states such as disabled or enabled depending on the implementation.",
+                    "readonly": false,
+                    "type": "boolean"
+                }
+            },
+            "type": "object"
+        },
+	"GraphicalConsole": {
             "additionalProperties": false,
             "patternProperties": {
                 "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
@@ -324,6 +364,11 @@
                     "$ref": "#/definitions/ChannelList",
                     "description": "Indicates the primary/preferred channel for each platform. The privilege of the default channel should match the RoleId attribute when a Manager Account is created.",
                     "longDescription": "This property indicates the primary/preferred channel for each platform. The privilege of the default channel should match the RoleId attribute when a Manager Account is created."
+                },
+		"EncryptedNTP": {
+                    "$ref": "#/definitions/EncryptedNTP",
+                    "description": "Encrypted NTP configuration settings.",
+                    "longDescription": "This property contains the encrypted Network Time Protocol (NTP) configuration settings used to securely synchronize time on the system."
                 },
                 "GraphicalConsole": {
                     "$ref": "#/definitions/GraphicalConsole",

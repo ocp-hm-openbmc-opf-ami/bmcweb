@@ -1055,6 +1055,8 @@ inline void
                         if (intfPair.first == pidConfigurationIface ||
                             intfPair.first == stepwiseConfigurationIface)
                         {
+			    #if (!BMCWEB_CHALUPA_AMD_MACRO)
+                            {
                             if (propertyPair.first == "Zones")
                             {
                                 const std::vector<std::string>* inputs =
@@ -1092,7 +1094,9 @@ inline void
                             // but I'm okay kicking this can down the road a
                             // bit
 
-                            else if (propertyPair.first == "Inputs" ||
+			    }
+                            #endif
+                            if (propertyPair.first == "Inputs" ||
                                      propertyPair.first == "Outputs")
                             {
                                 auto& data = (*config)[propertyPair.first];

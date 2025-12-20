@@ -96,6 +96,10 @@
                     <Annotation Term="OData.Description" String="Indicates the primary/preferred channel for each platform. The privilege of the default channel should match the RoleId attribute when a Manager Account is created."/>
                     <Annotation Term="OData.LongDescription" String="This property indicates the primary/preferred channel for each platform. The privilege of the default channel should match the RoleId attribute when a Manager Account is created."/>
                 </Property>
+                <Property Name="EncryptedNTP" Type="AmiManagerNetworkProtocol.v1_0_0.EncryptedNTP" Nullable="false">
+                    <Annotation Term="OData.Description" String="Encrypted NTP configuration settings."/>
+                    <Annotation Term="OData.LongDescription" String="This property contains the encrypted Network Time Protocol (NTP) configuration settings used to securely synchronize time on the system."/>
+               </Property>
             </ComplexType>
             <ComplexType Name="AmiManagerNetworkProtocol" BaseType="AmiManagerNetworkProtocol.v1_0_0.ManagerNetworkProtocol">
                 <Annotation Term="OData.AdditionalProperties" Bool="false"/>
@@ -122,7 +126,7 @@
                     <Annotation Term="OData.LongDescription" String="Indicates whether virtual media configuration service is masked." />
                 </Property>
             </ComplexType>
-            <ComplexType Name="ChannelList" Abstract="true">
+            <ComplexType Name="ChannelList">
                 <Annotation Term="OData.AdditionalProperties" Bool="false"/>
                 <Property Name="ChannelId" Type="Edm.Int64" Nullable="false">
                     <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read" />
@@ -136,7 +140,7 @@
                 </Property>
             </ComplexType>
 
-	    <ComplexType Name="PhysicalLED">
+            <ComplexType Name="PhysicalLED">
                 <Annotation Term="OData.AdditionalProperties" Bool="false" />
                 <Annotation Term="OData.Description" String="physical leds to display status of server." />
                 <Property Name="AmberLED" Type="Edm.String" Nullable="false">
@@ -264,6 +268,18 @@
                     <Annotation Term="OData.Description" String="Value of the CommunityString."/>
                     <Annotation Term="OData.LongDescription" String="This element corresponds to the value of CommunityString."/>
                 </Property>
+        </ComplexType>
+        <ComplexType Name="EncryptedNTP">
+                <Property Name="NTPServers" Type="Collection(Edm.String)" Nullable="false">
+                    <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+                    <Annotation Term="OData.Description" String="List of NTP server addresses."/>
+                    <Annotation Term="OData.LongDescription" String="This property contains a list of NTP server addresses that the system uses to synchronize its internal clock. These addresses are stored in an encrypted format for security."/>
+                </Property>
+                <Property Name="NTPStatus" Type="Edm.Boolean" Nullable="false">
+                    <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+                    <Annotation Term="OData.Description" String="Status of the NTP synchronization process."/>
+                    <Annotation Term="OData.LongDescription" String="This property indicates the current status of the NTP synchronization process. The value may represent states such as disabled or enabled depending on the implementation."/>
+                </Property>
             </ComplexType>
             <EnumType Name="AllowedMiBs">
                 <Member Name="all">
@@ -279,3 +295,4 @@
         </Schema>
     </edmx:DataServices>
 </edmx:Edmx>
+
