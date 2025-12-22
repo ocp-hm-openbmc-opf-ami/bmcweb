@@ -4379,6 +4379,18 @@ inline void handleAccountCollectionPost(
         return;
     }
 
+    std::string user_name(username);
+
+    if (!std::regex_match(user_name.c_str(),
+                                std::regex("^[a-zA-Z_][a-zA-Z0-9_.]{0,15}$")))
+    {
+         BMCWEB_LOG_ERROR("username:{} is not valid",username);
+         messages::propertyValueFormatError(asyncResp->res, username,
+                                                   "UserName");
+         return;
+    }
+
+
     bool enabled = enabledJson.value_or(true);
     if (oemObj.is_object())
     {
