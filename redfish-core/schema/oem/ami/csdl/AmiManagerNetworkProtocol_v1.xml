@@ -15,7 +15,7 @@
         <edmx:Include Namespace="Resource" />
         <edmx:Include Namespace="Resource.v1_0_0" />
     </edmx:Reference>
-    <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/AmiBIOSInventoryCRC_v1.xml">
+    <edmx:Reference Uri="/redfish/v1/schema/AmiBIOSInventoryCRC_v1.xml">
         <edmx:Include Namespace="AmiBIOSInventoryCRC" />
         <edmx:Include Namespace="AmiBIOSInventoryCRC.v1_0_0" />
     </edmx:Reference>
@@ -295,4 +295,3 @@
         </Schema>
     </edmx:DataServices>
 </edmx:Edmx>
-
