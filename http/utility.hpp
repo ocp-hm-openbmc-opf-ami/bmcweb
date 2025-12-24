@@ -693,6 +693,45 @@ inline void setPortDefaults(boost::urls::url& url)
     }
 }
 
+// decode URI-encoded strings
+inline std::string urlDecode(const std::string& encoded)
+{
+    std::string decoded;
+    decoded.reserve(encoded.size());
+    
+    for (size_t i = 0; i < encoded.size(); ++i)
+    {
+        if (encoded[i] == '%' && i + 2 < encoded.size())
+        {
+            // Convert hex to char
+            int value = 0;
+            std::string hexStr = encoded.substr(i + 1, 2);
+            
+            try {
+                value = std::stoi(hexStr, nullptr, 16);
+                decoded += static_cast<char>(value);
+                i += 2; // Skip the two hex digits
+            }
+            catch (const std::exception&)
+            {
+                // If conversion fails, keep the original characters
+                decoded += encoded[i];
+            }
+        }
+        else if (encoded[i] == '+')
+        {
+            // '+' is often used for space in query strings
+            decoded += ' ';
+        }
+        else
+        {
+            decoded += encoded[i];
+        }
+    }
+    
+    return decoded;
+}
+
 } // namespace utility
 } // namespace crow
 
