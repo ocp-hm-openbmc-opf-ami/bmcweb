@@ -4451,7 +4451,7 @@ inline void handleComputerSystemPatch(
         return;
     }
     // clang-format on
-
+    asyncResp->res.result(boost::beast::http::status::no_content);
     if (assetTag)
     {
         setAssetTag(asyncResp, *assetTag);
@@ -4780,9 +4780,6 @@ inline void handleComputerSystemPatch(
             }
         }
     }
-
-    // Set success status only if no errors occurred above
-    asyncResp->res.result(boost::beast::http::status::no_content);
 }
 
 inline void handleSystemCollectionResetActionHead(
