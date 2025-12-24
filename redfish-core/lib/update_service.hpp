@@ -2601,15 +2601,19 @@ inline void handleUpdateServicePatch(
                 std::optional<bool> boot_override;
                 std::optional<bool> extlog;
                 std::optional<bool> service_manager;
-                std::size_t preserveconfiguration_size =
-                    preserveconfiguration.value().size();
             
          
-		if (!preserveconfiguration.has_value() || !preserveconfiguration->is_object() || preserveconfiguration_size == 0)
+		if (!preserveconfiguration.has_value() || !preserveconfiguration->is_object())
                 {
                         BMCWEB_LOG_DEBUG("JSON value is not an object or is missing in preserveconfiguration");
                         messages::propertyValueTypeError(asyncResp->res, *preserveconfiguration ,"preserveconfiguration");
                         return;
+                }
+                if (preserveconfiguration->empty())
+                {
+                    BMCWEB_LOG_DEBUG("preserveconfiguration is an empty json object and is accepted.");
+                    messages::success(asyncResp->res);
+                    return;
                 }
                 if (!json_util::readJson(
                         *preserveconfiguration, asyncResp->res,
