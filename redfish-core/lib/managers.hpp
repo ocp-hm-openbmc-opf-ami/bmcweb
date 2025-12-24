@@ -2425,6 +2425,26 @@ inline void
 {
     BMCWEB_LOG_DEBUG("Set Time Zone Name: {}", timeZoneName);
 
+    // Validate timezone before attempting to set it
+    try
+    {
+        const std::chrono::time_zone* tz = std::chrono::locate_zone(timeZoneName);
+        if (tz == nullptr)
+        {
+            BMCWEB_LOG_ERROR("Invalid timezone: {}", timeZoneName);
+            messages::propertyValueFormatError(asyncResp->res, timeZoneName,
+                                             "TimeZoneName");
+            return;
+        }
+    }
+    catch (const std::runtime_error& e)
+    {
+        BMCWEB_LOG_ERROR("Invalid timezone: {}, error: {}", timeZoneName, e.what());
+        messages::propertyValueFormatError(asyncResp->res, timeZoneName,
+                                         "TimeZoneName");
+        return;
+    }
+
     crow::utility::saveTimeZone(crow::utility::localTimeZone,timeZoneName);
 
     crow::connections::systemBus->async_method_call(
