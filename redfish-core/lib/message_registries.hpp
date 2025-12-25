@@ -607,7 +607,7 @@ inline void requestRoutesMessageRegistryFile(App& app)
 
    BMCWEB_ROUTE(app, "/redfish/v1/Registries/<str>/")
         .privileges(redfish::privileges::getMessageRegistryFile)
-        .methods(boost::beast::http::verb::post,boost::beast::http::verb::patch,boost::beast::http::verb::delete_)(
+        .methods(boost::beast::http::verb::post,boost::beast::http::verb::patch,boost::beast::http::verb::delete_,boost::beast::http::verb::put)(
             [&app](const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& registry)
@@ -640,8 +640,35 @@ inline void requestRoutesMessageRegistryFile(App& app)
             return;
         }
     }
+
+#if BMCWEB_AMI_REP_MACRO
+    sdbusplus::asio::getProperty<std::string>(
+    *crow::connections::systemBus, "xyz.openbmc_project.OOBInventoryConfig",
+    "/xyz/openbmc_project/OOBInventoryConfig",
+    "xyz.openbmc_project.OobBiosConfigInventory.OobBiosConfigInventory",
+    "BiosAttributeRegistryVersion",
+    [asyncResp, registry](const boost::system::error_code& ec,
+                         const std::string& registryVersion) {
+        if (ec)
+        {
+            messages::resourceNotFound(asyncResp->res, "MessageRegistryFile", registry);
+            return;
+        }
+        
+        if (!registryVersion.empty() && registry == registryVersion) 
+        {
+            asyncResp->res.addHeader("Allow", "GET");
+            messages::operationNotAllowed(asyncResp->res);
+            return;
+        } else {
+            messages::resourceNotFound(asyncResp->res, "MessageRegistryFile", registry);
+            return;
+        }
+    });
+#else
     messages::resourceNotFound(asyncResp->res, "MessageRegistryFile", registry);
     return;
+#endif
   });
 }
 
