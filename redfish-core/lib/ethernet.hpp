@@ -1707,6 +1707,7 @@ inline void handleFqdnPatch(const std::string& ifaceId, const std::string& fqdn,
 
     handleHostnamePatch(hostname, asyncResp);
     handleDomainnamePatch(ifaceId, domainname, asyncResp);
+    asyncResp->res.result(boost::beast::http::status::no_content);
 }
 
 inline void handleMACAddressPatch(
