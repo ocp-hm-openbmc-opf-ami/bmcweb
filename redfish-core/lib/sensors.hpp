@@ -3280,7 +3280,7 @@ inline void filterThresholdSensors(
                                    lastSlashPos - secondLastSlashPos - 1);
                 std::string sensorName = objpath.substr(lastSlashPos + 1);
 
-                std::string sensorTypeName = sensorType + "_" + sensorName;
+                std::string sensorTypeName = redfish::sensor_utils::getSensorId(sensorName, sensorType);
 
                 if (sensorTypeName == sensorId)
                 {
