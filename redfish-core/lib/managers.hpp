@@ -2604,12 +2604,13 @@ inline void
         boost::urls::format("/redfish/v1/Managers/bmc#/Oem#/OpenBmc/",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
 
+    #if (!BMCWEB_ARBEL_NUVOTON_MACRO)
     nlohmann::json::object_t jpeg;
     jpeg["@odata.id"] =
         boost::urls::format("/redfish/v1/Managers/{}/Oem/OpenBmc/Jpeg",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
     oemOpenbmc["Jpeg"] = std::move(jpeg);
-
+    #endif
     nlohmann::json::object_t certificates;
     certificates["@odata.id"] =
         boost::urls::format("/redfish/v1/Managers/{}/Truststore/Certificates",
