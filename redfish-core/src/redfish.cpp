@@ -483,9 +483,11 @@ RedfishService::RedfishService(App& app)
 #endif
 #if BMCWEB_AMI_RAIDBRCM_MACRO
     requestRoutesBRCMStorageDevices(app);
+    requestRaidPostCall(app);
 #endif
 #if BMCWEB_AMI_SL8_MACRO
     requestRoutesSl8StorageDevices(app);
+    requestRaidPostCall(app);
 #endif
 #if BMCWEB_AMI_PCIESW_MACRO
     requestRoutesPcieSwitchCollection(app);
