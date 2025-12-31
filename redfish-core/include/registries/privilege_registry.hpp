@@ -258,6 +258,7 @@ const static auto& postCableCollection = privilegeSetConfigureComponents;
 // Certificate
 const static auto& headCertificate = privilegeSetConfigureManager;
 const static auto& getCertificate = privilegeSetConfigureManager;
+const static auto& privilegeSetLoginCertificate = privilegeSetLogin;
 const static auto& patchCertificate = privilegeSetConfigureManager;
 const static auto& putCertificate = privilegeSetConfigureManager;
 const static auto& deleteCertificate = privilegeSetConfigureManager;
@@ -586,23 +587,23 @@ const static auto& postEnvironmentMetrics = privilegeSetConfigureManager;
 // EthernetInterface
 const static auto& getEthernetInterface = privilegeSetLogin;
 const static auto& headEthernetInterface = privilegeSetLogin;
-const static auto& patchEthernetInterface = privilegeSetConfigureComponents;
-const static auto& postEthernetInterface = privilegeSetConfigureComponents;
-const static auto& putEthernetInterface = privilegeSetConfigureComponents;
-const static auto& deleteEthernetInterface = privilegeSetConfigureComponents;
+const static auto& patchEthernetInterface = privilegeSetConfigureManager;
+const static auto& postEthernetInterface = privilegeSetConfigureManager;
+const static auto& putEthernetInterface = privilegeSetConfigureManager;
+const static auto& deleteEthernetInterface = privilegeSetConfigureManager;
 
 // EthernetInterfaceCollection
 const static auto& getEthernetInterfaceCollection = privilegeSetLogin;
 const static auto& headEthernetInterfaceCollection = privilegeSetLogin;
-const static auto& patchEthernetInterfaceCollection = privilegeSetConfigureComponents;
-const static auto& postEthernetInterfaceCollection = privilegeSetConfigureComponents;
-const static auto& putEthernetInterfaceCollection = privilegeSetConfigureComponents;
-const static auto& deleteEthernetInterfaceCollection = privilegeSetConfigureComponents;
+const static auto& patchEthernetInterfaceCollection = privilegeSetConfigureManager;
+const static auto& postEthernetInterfaceCollection = privilegeSetConfigureManager;
+const static auto& putEthernetInterfaceCollection = privilegeSetConfigureManager;
+const static auto& deleteEthernetInterfaceCollection = privilegeSetConfigureManager;
 
 // SubOverManagerEthernetInterfaceCollection
 const static auto& getSubOverManagerEthernetInterfaceCollection = privilegeSetLogin;
 const static auto& headSubOverManagerEthernetInterfaceCollection = privilegeSetLogin;
-const static auto& patchSubOverManagerEthernetInterfaceCollection = privilegeSetConfigureManager;
+const static auto& patchSubOverManagerEthernetInterfaceCollection = privilegeSetConfigureComponents;
 const static auto& postSubOverManagerEthernetInterfaceCollection = privilegeSetConfigureManager;
 const static auto& putSubOverManagerEthernetInterfaceCollection = privilegeSetConfigureManager;
 const static auto& deleteSubOverManagerEthernetInterfaceCollection = privilegeSetConfigureManager;
@@ -1911,10 +1912,10 @@ const static auto& postTrustedComponentCollection = privilegeSetConfigureManager
 // UpdateService
 const static auto& getUpdateService = privilegeSetLogin;
 const static auto& headUpdateService = privilegeSetLogin;
-const static auto& patchUpdateService = privilegeSetConfigureComponents;
+const static auto& patchUpdateService = privilegeSetConfigureManager;
 const static auto& postUpdateService = privilegeSetConfigureManager;
-const static auto& putUpdateService = privilegeSetConfigureComponents;
-const static auto& deleteUpdateService = privilegeSetConfigureComponents;
+const static auto& putUpdateService = privilegeSetConfigureManager;
+const static auto& deleteUpdateService = privilegeSetConfigureManager;
 
 // USBController
 const static auto& getUSBController = privilegeSetLogin;

@@ -15,6 +15,7 @@
 #include "logging.hpp"
 #include "registries.hpp"
 #include "registries/base_message_registry.hpp"
+#include "registries/ami_message_registry.hpp"
 #include "registries/openbmc_message_registry.hpp"
 #include "registries/certificate_service_message_registry.hpp"
 #include "registries/license_message_registry.hpp"
@@ -90,6 +91,18 @@ static nlohmann::json getLog(redfish::registries::license::Index name,
     }
     return getLogFromRegistry(redfish::registries::license::header,
                               redfish::registries::license::registry, index, args);
+}
+
+static nlohmann::json getLog(redfish::registries::ami::Index name,
+                             std::span<const std::string_view> args)
+{
+    size_t index = static_cast<size_t>(name);
+    if (index >= redfish::registries::ami::registry.size())
+    {
+        return {};
+    }
+    return getLogFromRegistry(redfish::registries::ami::header,
+                              redfish::registries::ami::registry, index, args);
 }
 
 nlohmann::json asyncCommandError(const std::string& errorCode,
@@ -329,7 +342,7 @@ nlohmann::json propertyValueError(std::string_view arg1)
 void propertyValueError(crow::Response& res, std::string_view arg1)
 {
     res.result(boost::beast::http::status::bad_request);
-    addMessageToJson(res.jsonValue, propertyValueError(arg1), arg1);
+    addMessageToErrorJson(res.jsonValue, propertyValueError(arg1));
 }
 
 /**
@@ -950,6 +963,24 @@ void resourceCannotBeDeleted(crow::Response& res)
 {
     res.result(boost::beast::http::status::method_not_allowed);
     addMessageToErrorJson(res.jsonValue, resourceCannotBeDeleted());
+}
+
+/**
+ * @internal
+ * @brief Formats InvalidImageSize message into JSON
+ *
+ * See header file for more information
+ * @endinternal
+ */
+nlohmann::json invalidImageSize()
+{
+    return getLog(redfish::registries::ami::Index::invalidImageSize, {});
+}
+
+void invalidImageSize(crow::Response& res)
+{
+    res.result(boost::beast::http::status::bad_request);
+    addMessageToErrorJson(res.jsonValue, invalidImageSize());
 }
 
 /**
@@ -1672,7 +1703,7 @@ nlohmann::json passwordChangeRequired(const boost::urls::url_view_base& arg1)
 void passwordChangeRequired(crow::Response& res,
                             const boost::urls::url_view_base& arg1)
 {
-    addMessageToJsonRoot(res.jsonValue, passwordChangeRequired(arg1));
+    addMessageToErrorJson(res.jsonValue, passwordChangeRequired(arg1));
 }
 
 /**
@@ -1896,15 +1927,17 @@ void resourceCreationConflict(crow::Response& res,
  * @endinternal
  */
 nlohmann::json
-    actionParameterValueConflict(std::string_view arg1, std::string_view arg2)
+    actionParameterValueConflict(std::string_view arg1, const nlohmann::json& arg2)
 {
+    std::string arg2Str =
+        arg2.dump(-1, ' ', true, nlohmann::json::error_handler_t::replace);
     return getLog(
         redfish::registries::base::Index::actionParameterValueConflict,
-        std::to_array({arg1, arg2}));
+        std::to_array<std::string_view>({arg1, arg2Str}));
 }
 
 void actionParameterValueConflict(crow::Response& res, std::string_view arg1,
-                                  std::string_view arg2)
+                                  const nlohmann::json& arg2)
 {
     res.result(boost::beast::http::status::bad_request);
     addMessageToErrorJson(res.jsonValue,
@@ -2813,7 +2846,7 @@ nlohmann::json requestBodyNotAllowed()
 }
 
 void requestBodyNotAllowed(crow::Response& res)
-{    
+{
     res.result(boost::beast::http::status::bad_request);
     addMessageToErrorJson(res.jsonValue, requestBodyNotAllowed());
 }

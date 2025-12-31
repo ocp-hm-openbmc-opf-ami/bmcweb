@@ -140,7 +140,7 @@ inline void createTimeOutTask(const std::shared_ptr<bmcweb::AsyncResp>& asyncRes
         "type='signal',interface='org.freedesktop.DBus.Properties',"
         "member='PropertiesChanged', path='/xyz/openbmc_project/state/bmc0'");
     task->startTimer(std::chrono::minutes(timeDiff));
-            
+
     task->populateResp(asyncResp->res);
     task->payload.emplace(std::move(payload));
 }
@@ -1055,6 +1055,8 @@ inline void
                         if (intfPair.first == pidConfigurationIface ||
                             intfPair.first == stepwiseConfigurationIface)
                         {
+			    #if (!BMCWEB_CHALUPA_AMD_MACRO)
+                            {
                             if (propertyPair.first == "Zones")
                             {
                                 const std::vector<std::string>* inputs =
@@ -1092,7 +1094,9 @@ inline void
                             // but I'm okay kicking this can down the road a
                             // bit
 
-                            else if (propertyPair.first == "Inputs" ||
+			    }
+                            #endif
+                            if (propertyPair.first == "Inputs" ||
                                      propertyPair.first == "Outputs")
                             {
                                 auto& data = (*config)[propertyPair.first];
@@ -2421,6 +2425,26 @@ inline void
 {
     BMCWEB_LOG_DEBUG("Set Time Zone Name: {}", timeZoneName);
 
+    // Validate timezone before attempting to set it
+    try
+    {
+        const std::chrono::time_zone* tz = std::chrono::locate_zone(timeZoneName);
+        if (tz == nullptr)
+        {
+            BMCWEB_LOG_ERROR("Invalid timezone: {}", timeZoneName);
+            messages::propertyValueFormatError(asyncResp->res, timeZoneName,
+                                             "TimeZoneName");
+            return;
+        }
+    }
+    catch (const std::runtime_error& e)
+    {
+        BMCWEB_LOG_ERROR("Invalid timezone: {}, error: {}", timeZoneName, e.what());
+        messages::propertyValueFormatError(asyncResp->res, timeZoneName,
+                                         "TimeZoneName");
+        return;
+    }
+
     crow::utility::saveTimeZone(crow::utility::localTimeZone,timeZoneName);
 
     crow::connections::systemBus->async_method_call(
@@ -2641,7 +2665,7 @@ inline void
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
     #endif
     #if (!BMCWEB_AMI_PSM_MACRO)
-    
+
     dbus::utility::getProperty<std::string>(
         "org.freedesktop.timedate1", "/org/freedesktop/timedate1",
         "org.freedesktop.timedate1", "Timezone",
@@ -2866,7 +2890,7 @@ inline void
                            const crow::Request& req,
                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                            const std::string& managerId) {
-	    
+
 	        asyncResp->res.clearHeader(boost::beast::http::field::allow);
 
             if (!redfish::setUpRedfishRoute(app, req, asyncResp))
@@ -3148,8 +3172,11 @@ inline void
                 }
                 std::optional<std::string> bitRate;
                 std::optional<std::string> vId;
+                std::optional<std::string> name;
+                std::optional<std::string> description;
                 if (!json_util::readJsonPatch(req, asyncResp->res, "BitRate",
-                                              bitRate, "Id", vId))
+                                              bitRate, "Id", vId, "Name", name,
+                                              "Description", description))
                 {
                     return;
                 }
@@ -3158,7 +3185,18 @@ inline void
                     messages::propertyNotWritable(asyncResp->res, "Id");
                     asyncResp->res.result(
                         boost::beast::http::status::bad_request);
-                    return;
+                }
+                if (name)
+                {
+                    messages::propertyNotWritable(asyncResp->res, "Name");
+                    asyncResp->res.result(
+                        boost::beast::http::status::bad_request);
+                }
+                if (description)
+                {
+                    messages::propertyNotWritable(asyncResp->res, "Description");
+                    asyncResp->res.result(
+                        boost::beast::http::status::bad_request);
                 }
                 if (bitRate)
                 {

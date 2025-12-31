@@ -1331,8 +1331,16 @@ constexpr std::array registry =
             0,
             {},
             "Ensure that the given date is not greater than 2038-01-18",
+        }},MessageEntry{
+        "invalidImageSize",
+        {
+            "Indicates that the image provided is invalid or the image size is less than the required minimum size.",
+            "The image provided is invalid or the image size is less than 600KB.",
+            "Critical",
+            0,
+            {},
+            "Ensure that the image is valid with size greater than 600KB and resubmit the request.",
         }},
-		
 };
 
 enum class Index
@@ -1468,7 +1476,8 @@ enum class Index
 	iPMIPreserveConfigurationConflict = 129,
 	sNMPPreserveConfigurationConflict = 130,
 	rEDFISHPreserveConfigurationConflict = 131,
-	certificateDateOverLimitUnixDate = 132
+	certificateDateOverLimitUnixDate = 132,
+	invalidImageSize = 133
 	
 };
 } // namespace redfish::registries::openbmc

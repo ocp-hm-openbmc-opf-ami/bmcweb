@@ -1659,6 +1659,7 @@ static LogParseError fillEventLogEntryJson(
         "/redfish/v1/Systems/{}/LogServices/EventLog/Entries/{}",
         BMCWEB_REDFISH_SYSTEM_URI_NAME, logEntryID);
     logEntryJson["Name"] = "System Event Log Entry";
+    logEntryJson["Description"] = "EventLog " + logEntryID;
     logEntryJson["Id"] = logEntryID;
     logEntryJson["Message"] = std::move(msg);
     logEntryJson["MessageId"] = std::move(messageID);
@@ -1690,6 +1691,7 @@ inline void fillEventLogLogEntryFromPropertyMap(
         BMCWEB_REDFISH_SYSTEM_URI_NAME, Id);
     objectToFillOut["Name"] = "System Event Log Entry";
     objectToFillOut["Id"] = Id;
+    objectToFillOut["Description"] = "EventLog " + Id;
     std::string msgID, msgForm;
     LogParseError status = fillMessageEntry(entry.Message, msgID, msgForm);
     if (status != LogParseError::success)
@@ -1698,7 +1700,7 @@ inline void fillEventLogLogEntryFromPropertyMap(
     }
     else
     {
-        objectToFillOut["MessageID"] = std::move(msgID);
+	objectToFillOut["MessageId"] = std::move(msgID);
         objectToFillOut["Message"] = std::move(msgForm);
     }
     objectToFillOut["Resolved"] = entry.Resolved;
@@ -4184,7 +4186,7 @@ inline void requestRoutesCrashdumpEntry(App& app)
         app, "/redfish/v1/Systems/<str>/LogServices/Crashdump/Entries/<str>/")
         // this is incorrect, should be
         // .privileges(redfish::privileges::getLogEntry)
-        .privileges({{"ConfigureComponents"}})
+        .privileges(redfish::privileges::getLogEntry)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,

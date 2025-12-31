@@ -533,6 +533,7 @@ inline void addPCIeDeviceCommonProperties(
         boost::urls::format("/redfish/v1/Systems/{}/PCIeDevices/{}",
                             BMCWEB_REDFISH_SYSTEM_URI_NAME, pcieDeviceId);
     asyncResp->res.jsonValue["Name"] = "PCIe Device";
+    asyncResp->res.jsonValue["Description"] = "PCIe Device";
     asyncResp->res.jsonValue["Id"] = pcieDeviceId;
     asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
     asyncResp->res.jsonValue["Status"]["Health"] = resource::Health::OK;
@@ -796,6 +797,7 @@ inline void addPCIeFunctionCommonProperties(crow::Response& resp,
         BMCWEB_REDFISH_SYSTEM_URI_NAME, pcieDeviceId,
         std::to_string(pcieFunctionId));
     resp.jsonValue["Name"] = "PCIe Function";
+    resp.jsonValue["Description"] = "PCIe Function";
     resp.jsonValue["Id"] = std::to_string(pcieFunctionId);
     resp.jsonValue["FunctionId"] = pcieFunctionId;
     resp.jsonValue["Links"]["PCIeDevice"]["@odata.id"] =

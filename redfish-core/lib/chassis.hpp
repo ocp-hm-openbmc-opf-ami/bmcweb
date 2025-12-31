@@ -818,7 +818,7 @@ inline void handleChassisGetSubTree(
                             BMCWEB_LOG_ERROR(
                                 "DBus response error for HotPluggable: {}",
                                 ec2);
-                            messages::internalError(asyncResp->res);
+                            //messages::internalError(asyncResp->res);
                             return;
                         }
                         asyncResp->res.jsonValue["HotPluggable"] = property;

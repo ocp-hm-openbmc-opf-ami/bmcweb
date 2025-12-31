@@ -179,7 +179,6 @@ inline void
                 messages::internalError(asyncResp->res);
                 return;
             }
-            asyncResp->res.jsonValue["SNMP"]["Port"] = 161;
             asyncResp->res.jsonValue["SNMP"]["ProtocolEnabled"] =
                 protocolEnabled;
         });
@@ -560,7 +559,7 @@ inline void handleNTPServersPatch(
     auto isValidNtpServer = [](const std::string& server) -> bool {
         for (char c : server)
         {
-            if (!isdigit(c) && !isalpha(c) && c != '-' && c != '.')
+            if (!isdigit(c) && !isalpha(c) && c != '-' && c != '.' && c != ':')
             {
                 return false; // Found an invalid character
             }
@@ -1459,24 +1458,28 @@ inline void handleManagersNetworkProtocolPatch(
         return;
     }
 
-    // Read individual properties using readJson (less strict than readJsonPatch)
-    json_util::readJson(jsonRequest, asyncResp->res, "HostName", newHostName);
-    json_util::readJson(jsonRequest, asyncResp->res, "NTP", ntp);
-    json_util::readJson(jsonRequest, asyncResp->res, "IPMI", ipmi);
-    json_util::readJson(jsonRequest, asyncResp->res, "HTTPS", bmcweb);
-    json_util::readJson(jsonRequest, asyncResp->res, "SSH", ssh);
-    json_util::readJson(jsonRequest, asyncResp->res, "Id", vId);
-    json_util::readJson(jsonRequest, asyncResp->res, "SNMP", snmp);
-    json_util::readJson(jsonRequest, asyncResp->res, "Oem/Ami/HTTPS/Masked", bmcwebMasked);
-    json_util::readJson(jsonRequest, asyncResp->res, "Oem/Ami/HTTPS/Running", bmcwebRunning);
-    json_util::readJson(jsonRequest, asyncResp->res, "Oem/Ami/IPMB/ProtocolEnabled", ipmbEnabled);
-    json_util::readJson(jsonRequest, asyncResp->res, "Oem/Ami/IPMB/Masked", ipmbMasked);
-    json_util::readJson(jsonRequest, asyncResp->res, "Oem/Ami/IPMB/Running", ipmbRunning);
-    json_util::readJson(jsonRequest, asyncResp->res, "Oem/Ami/IPMI/Running", ipmiRunning);
-    json_util::readJson(jsonRequest, asyncResp->res, "Oem/Ami/IPMI/Masked", ipmiMasked);
-    json_util::readJson(jsonRequest, asyncResp->res, "Oem/Ami/SSH/Masked", sshMasked);
-    json_util::readJson(jsonRequest, asyncResp->res, "Oem/Ami/SSH/Running", sshRunning);
-    json_util::readJson(jsonRequest, asyncResp->res, "Oem/Ami/SNMP", oem_snmp);
+    if (!json_util::readJsonPatch(
+            req, asyncResp->res,
+            "HostName", newHostName,
+            "NTP", ntp,
+            "IPMI", ipmi,
+            "HTTPS", bmcweb,
+            "SSH", ssh,
+            "Id", vId,
+            "SNMP", snmp,
+            "Oem/Ami/HTTPS/Masked", bmcwebMasked,
+            "Oem/Ami/HTTPS/Running", bmcwebRunning,
+            "Oem/Ami/IPMB/ProtocolEnabled", ipmbEnabled,
+            "Oem/Ami/IPMB/Masked", ipmbMasked,
+            "Oem/Ami/IPMB/Running", ipmbRunning,
+            "Oem/Ami/IPMI/Running", ipmiRunning,
+            "Oem/Ami/IPMI/Masked", ipmiMasked,
+            "Oem/Ami/SSH/Masked", sshMasked,
+            "Oem/Ami/SSH/Running", sshRunning,
+            "Oem/Ami/SNMP", oem_snmp))
+    {
+        return;
+    }
 
     if (vId)
     {

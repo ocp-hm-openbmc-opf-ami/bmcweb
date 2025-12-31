@@ -20,6 +20,7 @@
 
 #if (BMCWEB_AMI_REP_MACRO)
 #include "ext/include/registries/ami_certificate_service_message_registry.hpp"
+#include "ext/include/registries/ami_privilege_mapping.hpp"
 #endif
 
 #include <boost/url/format.hpp>
@@ -73,6 +74,43 @@ inline void requestRoutesMessageRegistryFileCollection(App& app)
         .methods(boost::beast::http::verb::get)(std::bind_front(
             handleMessageRegistryFileCollectionGet, std::ref(app)));
 }
+
+/**
+ * @brief Helper function to populate privilege mappings for entities
+ * 
+ * @param mappings Reference to the mappings JSON array
+ * @param entities Map of entity names to their operation maps
+ */
+template <typename EntityMapType>
+inline void addEntitiesToMappings(nlohmann::json& mappings,
+                                   const EntityMapType& entities)
+{
+    for (const auto& entity : entities)
+    {
+        std::string entityName = entity.first;
+        const auto& operationMaps = entity.second;
+
+        nlohmann::json entityObj = nlohmann::json::object();
+        entityObj["Entity"] = entityName;
+        entityObj["OperationMap"] = nlohmann::json::object();
+
+        for (const auto& operation : operationMaps)
+        {
+            const std::string& method = operation.first;
+            const auto& privileges = operation.second;
+            entityObj["OperationMap"][method] = nlohmann::json::array();
+
+            for (const auto& privilege : privileges)
+            {
+                entityObj["OperationMap"][method].push_back(
+                    {{"Privilege", nlohmann::json::array({privilege})}});
+            }
+        }
+
+        mappings.push_back(entityObj);
+    }
+}
+
 inline void
     fillPrivilegeRegistry(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                           const registries::Header* header)
@@ -169,30 +207,13 @@ inline void
         mappings.push_back(mappingObj);
     }
 
-    for (const auto& entity : registries::PrivilegeRegistry::OEMentities)
-    {
-        std::string entityName = entity.first;
-        const auto& operationMaps = entity.second;
+    // Add OEM entities
+    addEntitiesToMappings(mappings, registries::PrivilegeRegistry::OEMentities);
 
-        nlohmann::json oemPrivilegesObj = nlohmann::json::object();
-        oemPrivilegesObj["Entity"] = entityName;
-        oemPrivilegesObj["OperationMap"] = nlohmann::json::object();
-
-        for (const auto& operation : operationMaps)
-        {
-            const std::string& method = operation.first;
-            const auto& privileges = operation.second;
-            oemPrivilegesObj["OperationMap"][method] = nlohmann::json::array();
-
-            for (const auto& privilege : privileges)
-            {
-                oemPrivilegesObj["OperationMap"][method].push_back(
-                    {{"Privilege", nlohmann::json::array({privilege})}});
-            }
-        }
-
-        mappings.push_back(oemPrivilegesObj);
-    }
+#if (BMCWEB_AMI_REP_MACRO)
+    // Add AMI-specific entities to PrivilegeRegistry
+    addEntitiesToMappings(mappings, redfish::registries::AMIPrivilegeMapping::AMIEntities);
+#endif
 }
 
 inline void handleMessageRoutesMessageRegistryFileGet(
@@ -586,7 +607,7 @@ inline void requestRoutesMessageRegistryFile(App& app)
 
    BMCWEB_ROUTE(app, "/redfish/v1/Registries/<str>/")
         .privileges(redfish::privileges::getMessageRegistryFile)
-        .methods(boost::beast::http::verb::post,boost::beast::http::verb::patch,boost::beast::http::verb::delete_)(
+        .methods(boost::beast::http::verb::post,boost::beast::http::verb::patch,boost::beast::http::verb::delete_,boost::beast::http::verb::put)(
             [&app](const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& registry)
@@ -619,8 +640,35 @@ inline void requestRoutesMessageRegistryFile(App& app)
             return;
         }
     }
+
+#if BMCWEB_AMI_REP_MACRO
+    sdbusplus::asio::getProperty<std::string>(
+    *crow::connections::systemBus, "xyz.openbmc_project.OOBInventoryConfig",
+    "/xyz/openbmc_project/OOBInventoryConfig",
+    "xyz.openbmc_project.OobBiosConfigInventory.OobBiosConfigInventory",
+    "BiosAttributeRegistryVersion",
+    [asyncResp, registry](const boost::system::error_code& ec,
+                         const std::string& registryVersion) {
+        if (ec)
+        {
+            messages::resourceNotFound(asyncResp->res, "MessageRegistryFile", registry);
+            return;
+        }
+        
+        if (!registryVersion.empty() && registry == registryVersion) 
+        {
+            asyncResp->res.addHeader("Allow", "GET");
+            messages::operationNotAllowed(asyncResp->res);
+            return;
+        } else {
+            messages::resourceNotFound(asyncResp->res, "MessageRegistryFile", registry);
+            return;
+        }
+    });
+#else
     messages::resourceNotFound(asyncResp->res, "MessageRegistryFile", registry);
     return;
+#endif
   });
 }
 

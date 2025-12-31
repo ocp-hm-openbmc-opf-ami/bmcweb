@@ -29,7 +29,7 @@ std::string getRole(std::string role)
     else if (role == "priv-operator")
         return "Operator";
     else if (role == "priv-user")
-        return "Readonly";
+        return "ReadOnly";
     else
         return "";
 }
@@ -259,11 +259,11 @@ inline void handleLogin(const crow::Request& req,
                     .generateUserSession(username, req.ipAddress, std::nullopt,
                                          persistent_data::SessionType::Session,
                                          isConfigureSelfOnly, "WebUI");
-            std::string username = session->username;
             std::string ipAddr   =  redfish::ip_util::extractIPv4FromMappedIPv6(req.serverIPAddress);
 
             if (session && session->userRole.empty())
             {
+                std::string username = session->username;
                 std::string userPath = "/xyz/openbmc_project/user/" + session->username;
                 try
                 {

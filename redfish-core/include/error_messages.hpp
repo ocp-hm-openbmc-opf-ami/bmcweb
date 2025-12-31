@@ -590,6 +590,17 @@ nlohmann::json resourceCannotBeDeleted();
 void resourceCannotBeDeleted(crow::Response& res);
 
 /**
+ * @internal
+ * @brief Formats InvalidImageSize message into JSON
+ *
+ * See header file for more information
+ * @endinternal
+ */
+nlohmann::json invalidImageSize();
+
+void invalidImageSize(crow::Response& res);
+
+/**
  * @brief Formats ResourceInUse message into JSON
  * Message body: "The change to the requested resource failed because the
  * resource is in use or in transition."
@@ -1193,10 +1204,10 @@ void resourceCreationConflict(crow::Response& res,
  *
  * @returns Message ActionParameterValueConflict formatted to JSON */
 nlohmann::json
-    actionParameterValueConflict(std::string_view arg1, std::string_view arg2);
+    actionParameterValueConflict(std::string_view arg1, const nlohmann::json& arg2);
 
 void actionParameterValueConflict(crow::Response& res, std::string_view arg1,
-                                  std::string_view arg2);
+                                  const nlohmann::json& arg2);
 
 /**
  * @brief Formats MaximumErrorsExceeded message into JSON

@@ -39,21 +39,8 @@ using NumericThresholdParams =
 using DiscreteThresholdParams =
     std::tuple<std::string, std::string, uint64_t, std::string>;
 
-using TriggerThresholdParams =
-    std::variant<std::vector<NumericThresholdParams>,
-                 std::vector<DiscreteThresholdParams>>;
-
-using TriggerThresholdParamsExt =
-    std::variant<std::monostate, std::vector<NumericThresholdParams>,
-                 std::vector<DiscreteThresholdParams>>;
-
 using TriggerSensorsParams =
     std::vector<std::pair<sdbusplus::message::object_path, std::string>>;
-
-using TriggerGetParamsVariant =
-    std::variant<std::monostate, bool, std::string, TriggerThresholdParamsExt,
-                 TriggerSensorsParams, std::vector<std::string>,
-                 std::vector<sdbusplus::message::object_path>>;
 
 inline triggers::TriggerActionEnum
     toRedfishTriggerAction(std::string_view dbusValue)
@@ -215,7 +202,9 @@ struct Context
     std::vector<std::pair<sdbusplus::message::object_path, std::string>>
         sensors;
     std::vector<sdbusplus::message::object_path> reports;
-    TriggerThresholdParams thresholds;
+
+    std::vector<NumericThresholdParams> numericThresholds;
+    std::vector<DiscreteThresholdParams> discreteThresholds;
 
     std::optional<DiscreteCondition> discreteCondition;
     std::optional<MetricType> metricType;
@@ -372,7 +361,7 @@ inline bool parseNumericThresholds(
         }
     }
 
-    ctx.thresholds = std::move(parsedParams);
+    ctx.numericThresholds = std::move(parsedParams);
     return true;
 }
 
@@ -384,7 +373,7 @@ inline bool parseDiscreteTriggers(
     std::vector<DiscreteThresholdParams> parsedParams;
     if (!discreteTriggers)
     {
-        ctx.thresholds = std::move(parsedParams);
+        ctx.discreteThresholds = std::move(parsedParams);
         return true;
     }
 
@@ -427,7 +416,7 @@ inline bool parseDiscreteTriggers(
                                   value);
     }
 
-    ctx.thresholds = std::move(parsedParams);
+    ctx.discreteThresholds = std::move(parsedParams);
     return true;
 }
 
@@ -742,19 +731,11 @@ inline std::optional<nlohmann::json::array_t>
     return triggerActions;
 }
 
-inline std::optional<nlohmann::json::array_t>
-    getDiscreteTriggers(const TriggerThresholdParamsExt& thresholdParams)
+inline std::optional<nlohmann::json::array_t> getDiscreteTriggers(
+    const std::vector<DiscreteThresholdParams>& discreteParams)
 {
     nlohmann::json::array_t triggers;
-    const std::vector<DiscreteThresholdParams>* discreteParams =
-        std::get_if<std::vector<DiscreteThresholdParams>>(&thresholdParams);
-
-    if (discreteParams == nullptr)
-    {
-        return std::nullopt;
-    }
-
-    for (const auto& [name, severity, dwellTime, value] : *discreteParams)
+    for (const auto& [name, severity, dwellTime, value] : discreteParams)
     {
         std::optional<std::string> duration =
             time_utils::toDurationStringFromUint(dwellTime);
@@ -774,19 +755,12 @@ inline std::optional<nlohmann::json::array_t>
     return triggers;
 }
 
-inline std::optional<nlohmann::json>
-    getNumericThresholds(const TriggerThresholdParamsExt& thresholdParams)
+inline std::optional<nlohmann::json::object_t> getNumericThresholds(
+    const std::vector<NumericThresholdParams>& numericParams)
 {
     nlohmann::json::object_t thresholds;
-    const std::vector<NumericThresholdParams>* numericParams =
-        std::get_if<std::vector<NumericThresholdParams>>(&thresholdParams);
 
-    if (numericParams == nullptr)
-    {
-        return std::nullopt;
-    }
-
-    for (const auto& [type, dwellTime, activation, reading] : *numericParams)
+    for (const auto& [type, dwellTime, activation, reading] : numericParams)
     {
         std::optional<std::string> duration =
             time_utils::toDurationStringFromUint(dwellTime);
@@ -844,22 +818,23 @@ inline std::vector<std::string>
     return metricProperties;
 }
 
-inline bool fillTrigger(
-    nlohmann::json& json, const std::string& id,
-    const std::vector<std::pair<std::string, TriggerGetParamsVariant>>&
-        properties)
+inline bool fillTrigger(nlohmann::json& json, const std::string& id,
+                        const dbus::utility::DBusPropertiesMap& properties)
 {
     const std::string* name = nullptr;
     const bool* discrete = nullptr;
     const TriggerSensorsParams* sensors = nullptr;
     const std::vector<sdbusplus::message::object_path>* reports = nullptr;
     const std::vector<std::string>* triggerActions = nullptr;
-    const TriggerThresholdParamsExt* thresholds = nullptr;
+
+    const std::vector<DiscreteThresholdParams>* discreteThresholds = nullptr;
+    const std::vector<NumericThresholdParams>* numericThresholds = nullptr;
 
     const bool success = sdbusplus::unpackPropertiesNoThrow(
         dbus_utils::UnpackErrorPrinter(), properties, "Name", name, "Discrete",
         discrete, "Sensors", sensors, "Reports", reports, "TriggerActions",
-        triggerActions, "Thresholds", thresholds);
+        triggerActions, "DiscreteThresholds", discreteThresholds,
+        "NumericThresholds", numericThresholds);
 
     if (!success)
     {
@@ -891,42 +866,39 @@ inline bool fillTrigger(
         json["Links"]["MetricReportDefinitions"] = *linkedReports;
     }
 
-    if (discrete != nullptr)
+    if (discreteThresholds != nullptr)
     {
-        if (*discrete)
+        std::optional<nlohmann::json::array_t> discreteTriggers =
+            getDiscreteTriggers(*discreteThresholds);
+
+        if (!discreteTriggers)
         {
-            std::optional<nlohmann::json::array_t> discreteTriggers =
-                getDiscreteTriggers(*thresholds);
-
-            if (!discreteTriggers)
-            {
-                BMCWEB_LOG_ERROR("Property Thresholds is invalid for discrete "
-                                 "triggers in Trigger: {}",
-                                 id);
-                return false;
-            }
-
-            json["DiscreteTriggers"] = *discreteTriggers;
-            json["DiscreteTriggerCondition"] =
-                discreteTriggers->empty() ? "Changed" : "Specified";
-            json["MetricType"] = metric_definition::MetricType::Discrete;
+            BMCWEB_LOG_ERROR("Property Thresholds is invalid for discrete "
+                             "triggers in Trigger: {}",
+                             id);
+            return false;
         }
-        else
+
+        json["DiscreteTriggers"] = *discreteTriggers;
+        json["DiscreteTriggerCondition"] =
+            discreteTriggers->empty() ? "Changed" : "Specified";
+        json["MetricType"] = metric_definition::MetricType::Discrete;
+    }
+    if (numericThresholds != nullptr)
+    {
+        std::optional<nlohmann::json::object_t> jnumericThresholds =
+            getNumericThresholds(*numericThresholds);
+
+        if (!jnumericThresholds)
         {
-            std::optional<nlohmann::json> numericThresholds =
-                getNumericThresholds(*thresholds);
-
-            if (!numericThresholds)
-            {
-                BMCWEB_LOG_ERROR("Property Thresholds is invalid for numeric "
-                                 "thresholds in Trigger: {}",
-                                 id);
-                return false;
-            }
-
-            json["NumericThresholds"] = *numericThresholds;
-            json["MetricType"] = metric_definition::MetricType::Numeric;
+            BMCWEB_LOG_ERROR("Property Thresholds is invalid for numeric "
+                             "thresholds in Trigger: {}",
+                             id);
+            return false;
         }
+
+        json["NumericThresholds"] = *jnumericThresholds;
+        json["MetricType"] = metric_definition::MetricType::Numeric;
     }
 
     if (name != nullptr)
@@ -970,7 +942,7 @@ inline void handleTriggerCollectionPost(
         service, "/xyz/openbmc_project/Telemetry/Triggers",
         "xyz.openbmc_project.Telemetry.TriggerManager", "AddTrigger",
         "TelemetryService/" + ctx.id, ctx.name, ctx.actions, ctx.sensors,
-        ctx.reports, ctx.thresholds);
+        ctx.reports, ctx.numericThresholds, ctx.discreteThresholds);
 }
 
 } // namespace telemetry
@@ -1031,9 +1003,7 @@ inline void requestRoutesTrigger(App& app)
                     telemetry::triggerInterface,
                     [asyncResp,
                      id](const boost::system::error_code& ec,
-                         const std::vector<std::pair<
-                             std::string, telemetry::TriggerGetParamsVariant>>&
-                             ret) {
+                         const dbus::utility::DBusPropertiesMap& ret) {
                         if (ec.value() == EBADR ||
                             ec == boost::system::errc::host_unreachable)
                         {

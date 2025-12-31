@@ -801,7 +801,7 @@ static inline std::shared_ptr<MatchWrapper> doListenForCompletion(
                     break;
                 case 22:
                     BMCWEB_LOG_ERROR("Signal received: {}", errorCode);
-                    messages::actionNotSupported(asyncResp->res, name);
+                    messages::invalidImageSize(asyncResp->res);
                     break;
                 case 111:
                     messages::actionParameterValueError(
@@ -979,8 +979,8 @@ inline void validateParams(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             boost::urls::parse_uri(*actionParams.imageUrl); 
         if (!url)
         {
-            BMCWEB_LOG_ERROR("Invalid URI format");
-            messages::propertyValueFormatError(asyncResp->res, *actionParams.imageUrl, "Image");
+            messages::actionParameterValueFormatError(
+                asyncResp->res, *actionParams.imageUrl, "Image", "InsertMedia");
             return;
         }
         // Validate host
@@ -1016,6 +1016,130 @@ inline void validateParams(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             messages::propertyValueFormatError(asyncResp->res, *actionParams.imageUrl, "Image");
             return;
         }
+        std::optional<TransferProtocol> uriTransferProtocolType =
+            getTransferProtocolFromUri(*url);
+
+        std::optional<TransferProtocol> paramTransferProtocolType =
+            getTransferProtocolFromParam(actionParams.transferProtocolType);
+
+        // ImageUrl does not contain valid protocol type
+        if (uriTransferProtocolType &&
+            *uriTransferProtocolType == TransferProtocol::invalid)
+        {
+            BMCWEB_LOG_ERROR("Request action parameter ImageUrl must "
+                             "contain specified protocol type from list: "
+                             "(smb, nfs, https).");
+
+            messages::resourceAtUriInUnknownFormat(asyncResp->res, *url);
+
+            return;
+        }
+
+        if (!paramTransferProtocolType)
+        {
+            messages::actionParameterMissing(asyncResp->res, "InsertMedia",
+                                             "TransferProtocolType");
+            return;
+        }
+
+        // transferProtocolType should contain value from list
+        if (paramTransferProtocolType &&
+            *paramTransferProtocolType == TransferProtocol::invalid)
+        {
+            BMCWEB_LOG_ERROR("Request action parameter TransferProtocolType "
+                             "must be provided with value from list: "
+                             "(CIFS, HTTPS).");
+
+            messages::propertyValueNotInList(
+                asyncResp->res, actionParams.transferProtocolType.value_or(""),
+                "TransferProtocolType");
+            return;
+        }
+
+        // valid transfer protocol not provided either with URI nor param
+        if (!uriTransferProtocolType && !paramTransferProtocolType)
+        {
+            BMCWEB_LOG_ERROR("Request action parameter ImageUrl must "
+                             "contain specified protocol type or param "
+                             "TransferProtocolType must be provided.");
+
+            messages::resourceAtUriInUnknownFormat(asyncResp->res, *url);
+
+            return;
+        }
+
+        // valid transfer protocol provided both with URI and param
+        if (paramTransferProtocolType && uriTransferProtocolType)
+        {
+            // check if protocol is the same for URI and param
+            if (*paramTransferProtocolType != *uriTransferProtocolType)
+            {
+                BMCWEB_LOG_ERROR("Request action parameter "
+                                 "TransferProtocolType must  contain the "
+                                 "same protocol type as protocol type "
+                                 "provided with param imageUrl.");
+
+                messages::actionParameterValueTypeError(
+                    asyncResp->res,
+                    actionParams.transferProtocolType.value_or(""),
+                    "TransferProtocolType", "InsertMedia");
+
+                return;
+            }
+        }
+
+        if (actionParams.transferProtocolType == "NFS" &&
+            !validateImageUrl(*actionParams.imageUrl))
+        {
+            messages::actionParameterValueFormatError(
+                asyncResp->res, *actionParams.imageUrl, "Image", "InsertMedia");
+            return;
+        }
+
+        // validation passed, add protocol to URI if needed
+        if (!uriTransferProtocolType && paramTransferProtocolType)
+        {
+            actionParams.imageUrl = getUriWithTransferProtocol(
+                *actionParams.imageUrl, *paramTransferProtocolType);
+        }
+
+        if (actionParams.transferProtocolType)
+        {
+            if ((*actionParams.transferProtocolType == "NFS" &&
+                 actionParams.imageUrl->find("nfs://[") == 0) ||
+                (*actionParams.transferProtocolType == "CIFS" &&
+                 actionParams.imageUrl->find("smb://[") == 0))
+            {
+                std::size_t startBracket = actionParams.imageUrl->find('[');
+                auto endBracket = actionParams.imageUrl->find(']', startBracket);
+                auto colon = actionParams.imageUrl->find(':', endBracket);
+ 
+                if (endBracket != std::string::npos && colon == endBracket + 1)
+                {
+                    std::string ipv6 = actionParams.imageUrl->substr(
+                            startBracket + 1, endBracket - (startBracket + 1));
+                    std::string path = actionParams.imageUrl->substr(colon + 1);
+ 
+                    if (*actionParams.transferProtocolType == "NFS")
+                    {
+                        *actionParams.imageUrl = "nfs://" + ipv6 + ":" + path;
+                    }
+                    else 
+                    {
+                        *actionParams.imageUrl = "smb://" + ipv6 + path;
+                    }
+                }
+                else
+                {
+                    BMCWEB_LOG_ERROR("{} URL format invalid: {}",
+                                     *actionParams.transferProtocolType,
+                                     *actionParams.imageUrl);
+                    messages::propertyValueFormatError(
+                        asyncResp->res, *actionParams.imageUrl, "Image");
+                    return;
+                }
+            }
+        }
     }
     // optional param transferMethod must be stream
     if (actionParams.transferMethod &&
@@ -1029,85 +1153,7 @@ inline void validateParams(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
         return;
     }
-    boost::system::result<boost::urls::url_view> url =
-        boost::urls::parse_uri(*actionParams.imageUrl);
-    if (!url)
-    {
-        messages::actionParameterValueFormatError(
-            asyncResp->res, *actionParams.imageUrl, "Image", "InsertMedia");
-        return;
-    }
-    std::optional<TransferProtocol> uriTransferProtocolType =
-        getTransferProtocolFromUri(*url);
-
-    std::optional<TransferProtocol> paramTransferProtocolType =
-        getTransferProtocolFromParam(actionParams.transferProtocolType);
-
-    // ImageUrl does not contain valid protocol type
-    if (uriTransferProtocolType &&
-        *uriTransferProtocolType == TransferProtocol::invalid)
-    {
-        BMCWEB_LOG_ERROR("Request action parameter ImageUrl must "
-                         "contain specified protocol type from list: "
-                         "(smb, nfs, https).");
-
-        messages::resourceAtUriInUnknownFormat(asyncResp->res, *url);
-
-        return;
-    }
-
-    if (!paramTransferProtocolType)
-    {
-        messages::actionParameterMissing(asyncResp->res, "InsertMedia",
-                                         "TransferProtocolType");
-        return;
-    }
-
-    // transferProtocolType should contain value from list
-    if (paramTransferProtocolType &&
-        *paramTransferProtocolType == TransferProtocol::invalid)
-    {
-        BMCWEB_LOG_ERROR("Request action parameter TransferProtocolType "
-                         "must be provided with value from list: "
-                         "(CIFS, HTTPS).");
-
-        messages::propertyValueNotInList(
-            asyncResp->res, actionParams.transferProtocolType.value_or(""),
-            "TransferProtocolType");
-        return;
-    }
-
-    // valid transfer protocol not provided either with URI nor param
-    if (!uriTransferProtocolType && !paramTransferProtocolType)
-    {
-        BMCWEB_LOG_ERROR("Request action parameter ImageUrl must "
-                         "contain specified protocol type or param "
-                         "TransferProtocolType must be provided.");
-
-        messages::resourceAtUriInUnknownFormat(asyncResp->res, *url);
-
-        return;
-    }
-
-    // valid transfer protocol provided both with URI and param
-    if (paramTransferProtocolType && uriTransferProtocolType)
-    {
-        // check if protocol is the same for URI and param
-        if (*paramTransferProtocolType != *uriTransferProtocolType)
-        {
-            BMCWEB_LOG_ERROR("Request action parameter "
-                             "TransferProtocolType must  contain the "
-                             "same protocol type as protocol type "
-                             "provided with param imageUrl.");
-
-            messages::actionParameterValueTypeError(
-                asyncResp->res, actionParams.transferProtocolType.value_or(""),
-                "TransferProtocolType", "InsertMedia");
-
-            return;
-        }
-    }
-
+    
     // validate the Username and Password for CIFS and HTTPS
 
     if (actionParams.transferProtocolType == "CIFS" ||
@@ -1133,21 +1179,6 @@ inline void validateParams(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
             return;
         }
-    }
-
-    if (actionParams.transferProtocolType == "NFS" &&
-        !validateImageUrl(*actionParams.imageUrl))
-    {
-        messages::actionParameterValueFormatError(
-            asyncResp->res, *actionParams.imageUrl, "Image", "InsertMedia");
-        return;
-    }
-
-    // validation passed, add protocol to URI if needed
-    if (!uriTransferProtocolType && paramTransferProtocolType)
-    {
-        actionParams.imageUrl = getUriWithTransferProtocol(
-            *actionParams.imageUrl, *paramTransferProtocolType);
     }
 
     if (!actionParams.userName)

@@ -402,6 +402,7 @@ inline void assembleDimmProperties(
     const nlohmann::json::json_pointer& jsonPtr)
 {
     asyncResp->res.jsonValue[jsonPtr]["Id"] = dimmId;
+    asyncResp->res.jsonValue[jsonPtr]["Description"] = dimmId;
     asyncResp->res.jsonValue[jsonPtr]["Name"] = dimmId;
     asyncResp->res.jsonValue[jsonPtr]["Status"]["State"] =
         resource::State::Enabled;

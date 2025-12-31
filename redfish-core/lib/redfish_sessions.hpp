@@ -257,7 +257,36 @@ inline std::string getprivilege(int priv)
         return "";
 }
 
+bool validateSessionAccess(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const crow::Request& req,
+    const std::string& targetUserName)
+{
+    // User must be authenticated to access sessions
+    if (req.session == nullptr)
+    {
+        messages::insufficientPrivilege(asyncResp->res);
+        return false;
+    }
+
+    // User can access their own sessions or if they have ConfigureUsers privilege
+    if (targetUserName != req.session->username)
+    {
+        Privileges effectiveUserPrivileges =
+            redfish::getUserPrivileges(*req.session);
+
+        if (!effectiveUserPrivileges.isSupersetOf({"ConfigureUsers"}))
+        {
+            messages::insufficientPrivilege(asyncResp->res);
+            return false;
+        }
+    }
+
+    return true;
+}
+
 inline void getSessionInfo(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
+                           const crow::Request& req,
                            const std::string& interface,
                            const std::string& propertyName,
                            std::string sessionId, bool& found)
@@ -290,6 +319,12 @@ inline void getSessionInfo(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
                      additionalConfigValue) = tuple;
             if (SessId == id)
             {
+                // Verify session ownership or ConfigureUsers privilege
+                if (!validateSessionAccess(asyncResp, req, userName))
+                {                    
+                    return;
+                }
+
                 found = true;
                 asyncResp->res.jsonValue["Id"] = sessionId;
                 asyncResp->res.jsonValue["UserName"] = userName;
@@ -367,6 +402,12 @@ inline void handleSessionGet(
 
     if (session)
     {
+        // Verify session ownership or ConfigureUsers privilege
+        if (!validateSessionAccess(asyncResp, req, session->username))
+        {
+            return;
+        }
+
         std::string ipStr = redfish::ip_util::extractIPv4FromMappedIPv6(req.serverIPAddress);
         fillSessionObject(asyncResp->res, *session, ipStr);
         return;
@@ -378,7 +419,7 @@ inline void handleSessionGet(
     {
         for (size_t i = 0; i < SessionInterfaces.size(); ++i)
         {
-            getSessionInfo(asyncResp, SessionInterfaces[i],
+            getSessionInfo(asyncResp, req, SessionInterfaces[i],
                            SessionProperties[i], sessionId, found);
         }
         // Session details found
@@ -529,9 +570,16 @@ inline void handleSessionDelete(
                 for (const auto& tuple : vec)
                 {
                     uint8_t id = std::get<0>(tuple);
+                    std::string userName = std::get<2>(tuple);
                     uint8_t SessionType = std::get<3>(tuple);
                     if (SessId == id)
                     {
+                        // Verify session ownership or ConfigureUsers privilege
+                        if (!validateSessionAccess(asyncResp, req, userName))
+                        {
+                            return;
+                        }
+
                         sessType = SessionType;
                         found = true;
                         break;
@@ -607,16 +655,10 @@ inline void handleSessionDelete(
     // ConfigureSelf privilege.
     if (session)
     {
-        if (session->username != req.session->username)
+        // Verify session ownership or ConfigureUsers privilege
+        if (!validateSessionAccess(asyncResp, req, session->username))
         {
-            Privileges effectiveUserPrivileges =
-                redfish::getUserPrivileges(*req.session);
-
-            if (!effectiveUserPrivileges.isSupersetOf({"ConfigureUsers"}))
-            {
-                messages::insufficientPrivilege(asyncResp->res);
-                return;
-            }
+            return;
         }
 
         if (req.session != nullptr && req.session->uniqueId == sessionId &&
@@ -1283,9 +1325,16 @@ inline void requestRoutesSession(App& app)
                             for (const auto& tuple : vec)
                             {
                                 uint8_t id = std::get<0>(tuple);
+                                std::string userName = std::get<2>(tuple);
 
                                 if (SessId == id)
                                 {
+                                    // Verify session ownership or ConfigureUsers privilege
+                                    if (!validateSessionAccess(asyncResp, req, userName))
+                                    {
+                                        return;
+                                    }
+
                                     found = true;
                                     break;
                                 }

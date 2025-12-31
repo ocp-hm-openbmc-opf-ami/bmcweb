@@ -691,6 +691,26 @@ class EventServiceManager
         return obj != subscriptionsMap.end();
     }
 
+    bool isDuplicateDestination(const std::string& destUrl)
+    {
+        for (const auto& [id, subscription] : subscriptionsMap)
+        {
+            if (!subscription || !subscription->userSub)
+            {
+                continue;
+            }
+            
+            std::string existingDest = subscription->userSub->destinationUrl.buffer();
+            
+            if (existingDest == destUrl)
+            {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+
     bool deleteSubscription(const std::string& id)
     {
         auto obj = subscriptionsMap.find(id);

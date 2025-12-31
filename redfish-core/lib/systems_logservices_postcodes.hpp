@@ -157,8 +157,7 @@ static bool fillPostCodeEntry(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const boost::container::flat_map<
         uint64_t, std::tuple<uint64_t, std::vector<uint8_t>>>& postcode,
-    const uint16_t bootIndex, const uint64_t codeIndex = 0,
-    const uint64_t skip = 0, const uint64_t top = 0)
+    const uint16_t bootIndex, const uint64_t codeIndex = 0)
 {
     // Get the Message from the MessageRegistry
     const registries::Message* message =
@@ -188,14 +187,6 @@ static bool fillPostCodeEntry(
         else
         {
             usTimeOffset = code.first - firstCodeTimeUs;
-        }
-
-        // skip if no specific codeIndex is specified and currentCodeIndex does
-        // not fall between top and skip
-        if ((codeIndex == 0) &&
-            (currentCodeIndex <= skip || currentCodeIndex > top))
-        {
-            continue;
         }
 
         // skip if a specific codeIndex is specified and does not match the
@@ -272,6 +263,7 @@ static bool fillPostCodeEntry(
             BMCWEB_REDFISH_SYSTEM_URI_NAME, postcodeEntryID);
         bmcLogEntry["Name"] = "POST Code Log Entry";
         bmcLogEntry["Id"] = postcodeEntryID;
+        bmcLogEntry["Description"] = "PostCode " + postcodeEntryID;
         bmcLogEntry["Message"] = std::move(msg);
         bmcLogEntry["MessageId"] = "OpenBMC.0.2.BIOSPOSTCode";
         bmcLogEntry["MessageArgs"] = messageArgs;
@@ -296,16 +288,20 @@ static bool fillPostCodeEntry(
         }
 
 #if BMCWEB_SBMR_EXT_MACRO
-        while (asyncResp->res.jsonValue["Members"].size() >= 150)
+        // Follow postcode log wrap policy with maximum entry of 150 
+        if (asyncResp->res.jsonValue["Members"].size() >= 150)
 	    {
-	  	    asyncResp->res.jsonValue["Members"].erase(asyncResp->res.jsonValue["Members"].begin());
+            asyncResp->res.jsonValue["Members"].erase(asyncResp->res.jsonValue["Members"].begin(),
+                                                   asyncResp->res.jsonValue["Members"].end() - 149);
 	    }
         asyncResp->res.jsonValue["Members"].emplace_back(std::move(bmcLogEntry));
         asyncResp->res.jsonValue["Members@odata.count"] = asyncResp->res.jsonValue["Members"].size();
 #else
-        while (asyncResp->res.jsonValue["Members"].size() >= 150)
+        // Follow postcode log wrap policy with maximum entry of 150 
+        if (asyncResp->res.jsonValue["Members"].size() >= 150)
 	    {
-	  	    asyncResp->res.jsonValue["Members"].erase(asyncResp->res.jsonValue["Members"].begin());
+            asyncResp->res.jsonValue["Members"].erase(asyncResp->res.jsonValue["Members"].begin(),
+                                                   asyncResp->res.jsonValue["Members"].end() - 149);
 	    }
         nlohmann::json& logEntryArray = asyncResp->res.jsonValue["Members"];
         logEntryArray.emplace_back(std::move(bmcLogEntry));
@@ -389,19 +385,8 @@ inline void
             if (!postcode.empty())
             {
                 endCount = entryCount + postcode.size();
-                if (skip < endCount && (top + skip) > entryCount)
-                {
-                    uint64_t thisBootSkip =
-                        std::max(static_cast<uint64_t>(skip), entryCount) -
-                        entryCount;
-                    uint64_t thisBootTop =
-                        std::min(static_cast<uint64_t>(top + skip), endCount) -
-                        entryCount;
-
-                    fillPostCodeEntry(asyncResp, postcode, bootIndex, 0,
-                                      thisBootSkip, thisBootTop);
-                }
-                asyncResp->res.jsonValue["Members@odata.count"] = asyncResp->res.jsonValue["Members"].size();
+                // Collect all entries without filtering
+                fillPostCodeEntry(asyncResp, postcode, bootIndex);
             }
 
             // continue to previous bootIndex
@@ -411,7 +396,32 @@ inline void
                                    static_cast<uint16_t>(bootIndex + 1),
                                    bootCount, endCount, skip, top);
             }
-            else if (skip + top < endCount)
+            else
+            {
+                // All boot cycles processed, now apply skip/top handling
+                nlohmann::json& members = asyncResp->res.jsonValue["Members"];
+                size_t totalEntries = members.size();
+
+                // Apply skip
+                if (skip > 0 && skip < totalEntries)
+                {
+                    members.erase(members.begin(), members.begin() + static_cast<std::ptrdiff_t>(skip));
+                }
+                else if (skip >= totalEntries)
+                {
+                    members = nlohmann::json::array();
+                }
+
+                // Apply top (limit results)
+                if (members.size() > top)
+                {
+                    members.erase(members.begin() + static_cast<std::ptrdiff_t>(top), members.end());
+                }
+                asyncResp->res.jsonValue["Members"] = members;
+                asyncResp->res.jsonValue["Members@odata.count"] = totalEntries;
+            }
+
+            if (skip + top < endCount)
             {
                 asyncResp->res.jsonValue["Members@odata.nextLink"] =
                     std::format(
@@ -452,10 +462,6 @@ inline void handleSystemsLogServicesPostCodesEntriesGet(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& systemName)
 {
-    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-    {
-        return;
-    }
     query_param::QueryCapabilities capabilities = {
         .canDelegateTop = true,
         .canDelegateSkip = true,

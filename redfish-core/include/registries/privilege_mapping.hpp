@@ -39,104 +39,112 @@ std::vector<const char*> OEMprivilegesUsed = {"Login",
 
 std::vector<std::pair<std::string,
     std::vector<std::pair<std::string,
-    std::vector<std::string>>>>> OEMentities = {
-                                               {"AmiFirewallConfiguration",{
-                                                    {"GET", {"Login"}},
-                                                }},
+    std::vector<std::string>>>>> OEMentities = {                                                
                                                 {"InventoryCRC", {
-                                                   {"GET", {"Login"}},
-                                                   {"PATCH", {"ConfigureComponents"}},
-						                           {"POST", {"ConfigureComponents"}},
-						                           {"DELETE", {"ConfigureComponents"}}, 
-                                                }},
-                                                {"Jpeg", {
-				                                   {"GET", {"Login"}},
-						                           {"POST", {"ConfigureComponents"}},
-						                           {"DELETE", {"ConfigureComponents"}},
-                                                }},
-                                                {"NodeManager",{
-                                                  {"GET", {"Login"}},
-						  {"POST", {"ConfigureManager"}},
-                                                }},
-						{"NmTriggerCollection", {
-                                                  {"GET", {"Login"}},
-                                                }},
-						{"NmTrigger", {
-		                                  {"GET", {"Login"}},
-                                                }},
-                                                {"NmDomainCollection", {
-			                          {"GET", {"Login"}},
-                                                }},
-                                                {"NmDomain", {
-		                                  {"GET", {"Login"}},
-                                                  {"PATCH", {"ConfigureManager"}},
-                                                  {"POST", {"ConfigureManager"}},
-                                                }},
-                                                {"NmPolicyCollection", {
-			                          {"GET", {"Login"}},
-                                                  {"POST", {"ConfigureManager"}},						                                         }},
-					        {"NmPolicy", {
-					          {"GET", {"Login"}},
-                                                  {"PATCH", {"ConfigureManager"}},
-                                                  {"DELETE", {"ConfigureManager"}},
-                                                  {"POST", {"ConfigureManager"}},
-                                                }},
-				                {"NmThrottlingStatus", {
-					          {"GET", {"Login"}},
-	                                        }},					  
-                                                 {"ThresholdSensorCollection",{
-                                                   {"GET", {"Login"}},
-                                                }},
-						 {"AMIChassisFRUCollection", {
-						   {"GET", {"Login"}},
-				                }},
-			                         {"AMIChassisFRU", {
-						   {"GET", {"Login"}},
-			                        }},			   
-						 {"SensorHistory", {
-						   {"GET", {"Login"}},
-                                                   {"PATCH", {"ConfigureComponents"}},
-                                                }}, 
-						 {"AMIAtScaleDebug", {
-	                                           {"GET", {"Login"}},
-                                                   {"HEAD", {"Login"}},
-                                                   {"PATCH", {"ConfigureComponents"}},
-                                                   {"PUT", {"ConfigureComponents"}},
-                                                   {"DELETE", {"ConfigureComponents"}},
-                                                   {"POST", {"ConfigureComponents"}},
-						}},
-					          {"AMIAutonomousCrashDump", {
-		                                   {"GET", {"Login"}},
-                                                   {"HEAD", {"Login"}},
-                                                   {"PATCH", {"ConfigureComponents"}},
-                                                   {"PUT", {"ConfigureComponents"}},
-                                                   {"DELETE", {"ConfigureComponents"}},
-                                                   {"POST", {"ConfigureComponents"}},
-						}},
-						  {"AmiLicenseControl", {
-						    {"GET", {"Login"}},
+                                                    {"GET", {"Login"}},
                                                     {"PATCH", {"ConfigureComponents"}},
                                                     {"POST", {"ConfigureComponents"}},
-					        }},
-						  {"AMIInventoryStatus", {
-						    {"GET", {"Login"}},
-						}},
-						  {"CupsSensorCollection", {
-						    {"GET", {"Login"}},
-						}},
-						  {"CupsService", {
-						    {"GET", {"Login"}},
+                                                    {"DELETE", {"ConfigureComponents"}},
+                                                }},
+                                                {"Jpeg", {
+                                                    {"GET", {"Login"}},
+                                                    {"POST", {"ConfigureComponents"}},
+                                                    {"DELETE", {"ConfigureComponents"}},
+                                                }},
+                                                {"NodeManager", {
+                                                    {"GET", {"Login"}},
+                                                    {"POST", {"ConfigureManager"}},
+                                                }},
+                                                {"NmTriggerCollection", {
+                                                    {"GET", {"Login"}},
+                                                }},
+                                                {"NmTrigger", {
+                                                    {"GET", {"Login"}},
+                                                }},
+                                                {"NmDomainCollection", {
+                                                    {"GET", {"Login"}},
+                                                }},
+                                                {"NmDomain", {
+                                                    {"GET", {"Login"}},
+                                                    {"PATCH", {"ConfigureManager"}},
+                                                    {"POST", {"ConfigureManager"}},
+                                                }},
+                                                {"NmPolicyCollection", {
+                                                    {"GET", {"Login"}},
+                                                    {"POST", {"ConfigureManager"}},
+                                                }},
+                                                {"NmPolicy", {
+                                                    {"GET", {"Login"}},
+                                                    {"PATCH", {"ConfigureManager"}},
+                                                    {"DELETE", {"ConfigureManager"}},
+                                                    {"POST", {"ConfigureManager"}},
+                                                }},
+                                                {"NmThrottlingStatus", {
+                                                    {"GET", {"Login"}},
+                                                }},
+                                                {"ThresholdSensorCollection", {
+                                                    {"GET", {"Login"}},
+                                                }},
+                                                {"SensorHistory", {
+                                                    {"GET", {"Login"}},
                                                     {"PATCH", {"ConfigureComponents"}},
-						}},
-						  {"PefService", {
-						    {"GET", {"Login"}},
+                                                }},
+                                                {"CupsSensorCollection", {
+                                                    {"GET", {"Login"}},
+                                                }},
+                                                {"CupsService", {
+                                                    {"GET", {"Login"}},
                                                     {"PATCH", {"ConfigureComponents"}},
-						    {"POST", {"ConfigureComponents"}},
-						}},
-						  {"PefEntry", {
-						    {"GET", {"Login"}},
+                                                }},
+                                                {"PefService", {
+                                                    {"GET", {"Login"}},
                                                     {"PATCH", {"ConfigureComponents"}},
-						}},
+                                                    {"POST", {"ConfigureComponents"}},
+                                                }},
+                                                {"PefEntry", {
+                                                    {"GET", {"Login"}},
+                                                    {"PATCH", {"ConfigureComponents"}},
+                                                }},
+						{"AmiAutoVideoSettings", {
+                        	                        {"GET", {"Login"}},
+                                	                {"HEAD", {"Login"}},
+                                        	        {"PATCH", {"ConfigureManager"}},
+                                                	{"PUT", {"ConfigureManager"}},
+                                                	{"DELETE", {"ConfigureManager"}},
+                                                	{"POST", {"ConfigureManager"}},
+						     }},
+			                        {"AMIResetToDefaults", {
+                        	                        {"GET", {"Login"}},
+                                	                {"HEAD", {"Login"}},
+                                        	        {"PATCH", {"ConfigureManager"}},
+                                                	{"PUT", {"ConfigureManager"}},
+	                                                {"DELETE", {"ConfigureManager"}},
+        	                                        {"POST", {"ConfigureManager"}},
+	                                             }},
+                			        {"AmiVideoLogs", {
+	                                                {"GET", {"Login"}},
+	                                                {"HEAD", {"Login"}},
+	                                                {"PATCH", {"ConfigureManager"}},
+        	                                        {"PUT", {"ConfigureManager"}},
+                	                                {"DELETE", {"ConfigureManager"}},
+                        	                        {"POST", {"ConfigureManager"}},
+                                	            }},
+			                        {"AmiRemoteVideoStorage",{
+                                        	        {"GET", {"Login"}},
+                                                	{"HEAD", {"Login"}},
+	                                                {"PATCH", {"ConfigureManager"}},
+        	                                        {"POST", {"ConfigureManager"}},
+                	                                {"PUT", {"ConfigureManager"}},
+                        	                        {"DELETE", {"ConfigureManager"}},
+                                	            }},
+			                        {"AmiVideoTriggerSetting", {
+                        	                        {"GET", {"Login"}},
+                                	                {"HEAD", {"Login"}},
+                                        	        {"PATCH", {"ConfigureManager"}},
+                                                	{"PUT", {"ConfigureManager"}},
+	                                                {"DELETE", {"ConfigureManager"}},
+        	                                        {"POST", {"ConfigureManager"}},
+                	                            }},
     };
 
 

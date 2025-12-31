@@ -2175,6 +2175,11 @@ inline void afterVerifyUserExists(
 
     if (params.enabled)
     {
+        // Don't process if an error already occurred
+        if (asyncResp->res.result() != boost::beast::http::status::ok)
+        {
+            return;
+        }
         accountsTotalOperations++;
         setDbusProperty(
             asyncResp, "Enabled", "xyz.openbmc_project.User.Manager",
@@ -2197,6 +2202,11 @@ inline void afterVerifyUserExists(
 
     if (params.locked)
     {
+        // Don't process if an error already occurred
+        if (asyncResp->res.result() != boost::beast::http::status::ok)
+        {
+            return;
+        }
         accountsTotalOperations++;
         // admin can unlock the account which is locked by
         // successive authentication failures but admin should
@@ -2216,49 +2226,88 @@ inline void afterVerifyUserExists(
         completionHandler(true);
     }
 
-    // Need to fetch current user's RoleId to determine validation logic
-    sdbusplus::asio::getProperty<std::vector<std::string>>(
-        *crow::connections::systemBus,
-        "xyz.openbmc_project.User.Manager",
-        params.dbusObjectPath,
-        "xyz.openbmc_project.User.Attributes",
-        "UserPrivilege",
-        [asyncResp, params, completionHandler](const boost::system::error_code& ec,
-                                                    const std::vector<std::string>& userPrivileges) {
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR("Failed to get UserPrivilege: {}", ec.message());
-                messages::internalError(asyncResp->res);
-                completionHandler(false);
-                return;
-            }
+    // Only process accountTypes/roleId if needed and no error occurred
+    if (params.accountTypes || params.roleId)
+    {
+        // Don't process if an error already occurred
+        if (asyncResp->res.result() != boost::beast::http::status::ok)
+        {
+            return;
+        }
 
-            if (userPrivileges.empty())
-            {
-                BMCWEB_LOG_ERROR("UserPrivilege is empty");
-                messages::internalError(asyncResp->res);
-                completionHandler(false);
-                return;
-            }
-
-            if (params.accountTypes && !params.roleId)
-            {
-                std::string_view currentPrivilege = userPrivileges.front();
-                std::string currentRoleId = getRoleIdFromPrivilege(currentPrivilege);
-
-                // If user is Administrator, allow any AccountTypes
-                if (currentRoleId == "Administrator")
+        // Need to fetch current user's RoleId to determine validation logic
+        sdbusplus::asio::getProperty<std::vector<std::string>>(
+            *crow::connections::systemBus,
+            "xyz.openbmc_project.User.Manager",
+            params.dbusObjectPath,
+            "xyz.openbmc_project.User.Attributes",
+            "UserPrivilege",
+            [asyncResp, params, completionHandler](const boost::system::error_code& ec,
+                                                        const std::vector<std::string>& userPrivileges) {
+                // Check if an error has already occurred (e.g., password validation failed)
+                // This must be checked BEFORE any processing to avoid incrementing counters
+                if (asyncResp->res.result() != boost::beast::http::status::ok)
                 {
+                    return;
+                }
+                
+                if (ec)
+                {
+                    BMCWEB_LOG_ERROR("Failed to get UserPrivilege: {}", ec.message());
+                    messages::internalError(asyncResp->res);
+                    completionHandler(false);
+                    return;
+                }
+
+                if (userPrivileges.empty())
+                {
+                    BMCWEB_LOG_ERROR("UserPrivilege is empty");
+                    messages::internalError(asyncResp->res);
+                    completionHandler(false);
+                    return;
+                }
+
+                if (params.accountTypes && !params.roleId)
+                {
+                    std::string_view currentPrivilege = userPrivileges.front();
+                    std::string currentRoleId = getRoleIdFromPrivilege(currentPrivilege);
+
+                    // If user is Administrator, allow any AccountTypes
+                    if (currentRoleId == "Administrator")
+                    {
+                        patchAccountTypes(*params.accountTypes, asyncResp,
+                                        params.dbusObjectPath, params.userSelf, completionHandler);
+                    }
+                    else
+                    {
+                        // For non-admin users, AccountTypes must NOT contain HostConsole or ManagerConsole
+                        if (std::find(params.accountTypes->begin(), params.accountTypes->end(), "HostConsole") != params.accountTypes->end() ||
+                            std::find(params.accountTypes->begin(), params.accountTypes->end(), "ManagerConsole") != params.accountTypes->end())
+                        {
+                            messages::propertyValueConflict(asyncResp->res, currentRoleId, "AccountTypes");
+                            completionHandler(false);
+                            return;
+                        }
+                        else
+                        {
+                            patchAccountTypes(*params.accountTypes, asyncResp,
+                                        params.dbusObjectPath, params.userSelf, completionHandler);
+                        }
+                    }
+                }
+                else if (params.accountTypes && params.roleId == "Administrator")
+                {
+                    // If RoleId is Administrator, allow any AccountTypes                    
                     patchAccountTypes(*params.accountTypes, asyncResp,
                                     params.dbusObjectPath, params.userSelf, completionHandler);
                 }
-                else
+                else if (params.accountTypes && params.roleId != "Administrator")
                 {
                     // For non-admin users, AccountTypes must NOT contain HostConsole or ManagerConsole
                     if (std::find(params.accountTypes->begin(), params.accountTypes->end(), "HostConsole") != params.accountTypes->end() ||
                         std::find(params.accountTypes->begin(), params.accountTypes->end(), "ManagerConsole") != params.accountTypes->end())
                     {
-                        messages::propertyValueConflict(asyncResp->res, currentRoleId, "AccountTypes");
+                        messages::propertyValueConflict(asyncResp->res, params.roleId.value_or(""), "AccountTypes");
                         completionHandler(false);
                         return;
                     }
@@ -2268,37 +2317,16 @@ inline void afterVerifyUserExists(
                                     params.dbusObjectPath, params.userSelf, completionHandler);
                     }
                 }
-            }
-            else if (params.accountTypes && params.roleId == "Administrator")
-            {
-                // If RoleId is Administrator, allow any AccountTypes
-                BMCWEB_LOG_ERROR("RoleId is Administrator, allowing any AccountTypes");
-                patchAccountTypes(*params.accountTypes, asyncResp,
-                                params.dbusObjectPath, params.userSelf, completionHandler);
-            }
-            else if (params.accountTypes && params.roleId != "Administrator")
-            {
-                BMCWEB_LOG_ERROR("RoleId is not Administrator, validating AccountTypes");
-                // For non-admin users, AccountTypes must NOT contain HostConsole or ManagerConsole
-                if (std::find(params.accountTypes->begin(), params.accountTypes->end(), "HostConsole") != params.accountTypes->end() ||
-                    std::find(params.accountTypes->begin(), params.accountTypes->end(), "ManagerConsole") != params.accountTypes->end())
-                {
-                    BMCWEB_LOG_ERROR("RoleId is not Administrator, AccountTypes validation failed");
-                    messages::propertyValueConflict(asyncResp->res, params.roleId.value_or(""), "AccountTypes");
-                    completionHandler(false);
-                    return;
-                }
-                else
-                {
-                    BMCWEB_LOG_ERROR("RoleId is not Administrator, AccountTypes validation passed");
-                    patchAccountTypes(*params.accountTypes, asyncResp,
-                                params.dbusObjectPath, params.userSelf, completionHandler);
-                }
-            }
-        });
+            });
+    }
 
     if (params.passwordChangeRequired)
     {
+        // Don't process if an error already occurred
+        if (asyncResp->res.result() != boost::beast::http::status::ok)
+        {
+            return;
+        }
         std::optional<bool> passwordChangeRequired =
             params.passwordChangeRequired;
         if (params.username != "root")
@@ -2330,8 +2358,6 @@ inline void afterVerifyUserExists(
             return;
         }
     }
-
-
 }
 
 inline void updateUserProperties(
@@ -4353,6 +4379,18 @@ inline void handleAccountCollectionPost(
         return;
     }
 
+    std::string user_name(username);
+
+    if (!std::regex_match(user_name.c_str(),
+                                std::regex("^[a-zA-Z_][a-zA-Z0-9_.]{0,15}$")))
+    {
+         BMCWEB_LOG_ERROR("username:{} is not valid",username);
+         messages::propertyValueFormatError(asyncResp->res, username,
+                                                   "UserName");
+         return;
+    }
+
+
     bool enabled = enabledJson.value_or(true);
     if (oemObj.is_object())
     {
@@ -4587,23 +4625,35 @@ inline void handleAccountGet(
         asyncResp->res.clearHeader(boost::beast::http::field::allow);
         asyncResp->res.addHeader(boost::beast::http::field::allow, "GET, HEAD, PATCH");
     }
-    if (req.session->username != accountName)
+    
+    // Check privileges before making D-Bus call
+    bool hasPrivilege = false;
+    if (req.session->username == accountName)
+    {
+        hasPrivilege = true;
+    }
+    else
     {
         // At this point we've determined that the user is trying to
-        // modify a user that isn't them.  We need to verify that they
-        // have permissions to modify other users, so re-run the auth
+        // access a user that isn't them.  We need to verify that they
+        // have permissions to access other users, so re-run the auth
         // check with the same permissions, minus ConfigureSelf.
         Privileges effectiveUserPrivileges =
             redfish::getUserPrivileges(*req.session);
         Privileges requiredPermissionsToChangeNonSelf = {"ConfigureUsers",
                                                          "ConfigureManager"};
-        if (!effectiveUserPrivileges.isSupersetOf(
+        if (effectiveUserPrivileges.isSupersetOf(
                 requiredPermissionsToChangeNonSelf))
         {
-            BMCWEB_LOG_DEBUG("GET Account denied access");
-            messages::insufficientPrivilege(asyncResp->res);
-            return;
+            hasPrivilege = true;
         }
+    }
+    
+    if (!hasPrivilege)
+    {
+        BMCWEB_LOG_DEBUG("GET Account denied access");
+        messages::insufficientPrivilege(asyncResp->res);
+        return;
     }
 
     sdbusplus::message::object_path path("/xyz/openbmc_project/user");
@@ -4868,6 +4918,14 @@ inline void validateChannelPrivilegesUpdateUser(
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, userName, originalRoleId, modifiedRoleId, userChannelPrivileges,accountTypes](const boost::system::error_code& ec, const std::map<uint8_t, std::string>& channelMap) {
+            // Check if an error has already occurred before processing
+            if (asyncResp->res.result() != boost::beast::http::status::ok)
+            {
+                BMCWEB_LOG_ERROR("Skipping channel privileges update - error already set, status: {}", 
+                    static_cast<unsigned>(asyncResp->res.result()));
+                return;
+            }
+            
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("D-Bus Method GetChannelInterfaceMap Response Error: {}", ec);
@@ -4882,6 +4940,14 @@ inline void validateChannelPrivilegesUpdateUser(
             userPath,
             "xyz.openbmc_project.User.Attributes", "UserGroups",
             [asyncResp, userName, originalRoleId, modifiedRoleId, userChannelPrivileges, channelMap, accountTypes](const boost::system::error_code& ec1, const std::vector<std::string>& userGroups) {
+                // Check if an error has already occurred before processing
+                if (asyncResp->res.result() != boost::beast::http::status::ok)
+                {
+                    BMCWEB_LOG_ERROR("Skipping UserGroups processing in channel privileges - error already set, status: {}", 
+                        static_cast<unsigned>(asyncResp->res.result()));
+                    return;
+                }
+                
                 if (ec1)
                 {
                     BMCWEB_LOG_DEBUG("D-Bus response error {}", ec1);
@@ -5242,6 +5308,14 @@ inline void handleSNMPOEMProperties(const std::shared_ptr<bmcweb::AsyncResp>& as
         // Call to fetch current SNMPAccessEnableStatus and proceed with logic
         getSNMPAccessStatus(asyncResp, username, [asyncResp, username, hasSNMP, algorithm, encryption, accessMode, password](bool currentSNMPAccessEnableStatus) {
 
+            // Check if an error has already occurred before processing
+            if (asyncResp->res.result() != boost::beast::http::status::ok)
+            {
+                BMCWEB_LOG_ERROR("Skipping SNMP processing - error already set, status: {}", 
+                    static_cast<unsigned>(asyncResp->res.result()));
+                return;
+            }
+
             if (hasSNMP && !*hasSNMP && currentSNMPAccessEnableStatus == false)
             {
                 // Clear the body before setting 204
@@ -5380,17 +5454,28 @@ inline void handleAccountPatch(App& app, const crow::Request& req,
 
             auto completionHandler = [asyncResp, hasError, username, body](bool success)
             {
+                // Always increment completed operations counter, regardless of success/failure
+                accountsCompletedOperations++;
+                
                 if (!success)
                 {
                     *hasError = true;
                 }
-                else
+                
+                if (accountsCompletedOperations == accountsTotalOperations)
                 {
-                    accountsCompletedOperations++;
-                }
-                if (accountsCompletedOperations == accountsTotalOperations && !(*hasError) && accountsTotalOperations == body.size())
-                {
-                    EventServiceManager::getInstance().propertyModifiedEventLog(propertyModified, propertyOriginal, "/redfish/v1/AccountService/Accounts/" + username);
+                    if (!(*hasError) && accountsTotalOperations == body.size())
+                    {
+                        EventServiceManager::getInstance().propertyModifiedEventLog(propertyModified, propertyOriginal, "/redfish/v1/AccountService/Accounts/" + username);
+                    }
+                    
+                    // All async operations complete - now check final status
+                    // If all succeeded (status is still 200 OK), change to 204 No Content
+                    // Otherwise, preserve the error response set by the operations
+                    if (asyncResp->res.result() == boost::beast::http::status::ok)
+                    {
+                        asyncResp->res.result(boost::beast::http::status::no_content);
+                    }
                 }
             };
 
@@ -5600,22 +5685,10 @@ inline void handleAccountPatch(App& app, const crow::Request& req,
                     // Handle SNMP properties, ensure errors are propagated if any
                     handleSNMPOEMProperties(asyncResp, originalRoleId, roleId, oemObj, algorithm, encryption, accessMode, 
                                                     smtpMailId, hasSNMP, mutableUser, password, accountTypes);
-                    
-                    // If there was any error handling SNMP properties, return early
-                    if (asyncResp->res.result() != boost::beast::http::status::ok)
-                    {
-                        return;
-                    }
                 }
 
-                // Check if there were validation issues or any earlier failure
-                if (asyncResp->res.result() != boost::beast::http::status::ok)
-                {
-                    return;
-                }
-
-                // Now, modify the response status if all went well
-                asyncResp->res.result(boost::beast::http::status::no_content);
+                // Async operations will complete and call completionHandler
+                // Final status check moved to completionHandler
                 return;
 
             }
@@ -5661,29 +5734,16 @@ inline void handleAccountPatch(App& app, const crow::Request& req,
                                     locked, accountTypes, userSelf, req.session,
                                     passwordChangeRequired, completionHandler);
 
-                if (asyncResp->res.result() != boost::beast::http::status::ok)
-                {
-                    return;
-                }
-
                 if (oemObj)
                 {
                     std::optional<bool> hasSNMPCopy = hasSNMP;
 
                     handleSNMPOEMProperties(asyncResp, originalRoleId, roleId, oemObj, algorithm, encryption,
                                             accessMode, smtpMailId, hasSNMPCopy, newUser, password, accountTypes);
-
-                    if (asyncResp->res.result() != boost::beast::http::status::ok)
-                    {
-                        return;
-                    }
                 }
 
-                if (asyncResp->res.result() != boost::beast::http::status::ok)
-                {
-                    return;
-                }
-                asyncResp->res.result(boost::beast::http::status::no_content);
+                // Async operations will complete and call completionHandler
+                // Final status check moved to completionHandler
                 return;
             },
             "xyz.openbmc_project.User.Manager", "/xyz/openbmc_project/user",

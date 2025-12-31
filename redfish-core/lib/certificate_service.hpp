@@ -546,7 +546,7 @@ inline void getCertificateProperties(
                 asyncResp->res.jsonValue["Oem"]["Ami"]["PublicKey"] = *publicKey;
             }
             asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.id"] =
-                certURL;
+                boost::urls::format("{}/#Oem/Ami", certURL.buffer());
             asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] = json_util::odataType("AMICertificate", "Ami");
 
             asyncResp->res.addHeader(

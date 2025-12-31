@@ -125,7 +125,7 @@
 #endif
 
 #if (BMCWEB_AMI_RAIDBRCM_MACRO) || (BMCWEB_AMI_RAIDMSCC_MACRO) ||              \
-    (BMCWEB_AMI_NVME_MACRO) || (BMCWEB_AMI_SL8_MACRO)
+    (BMCWEB_AMI_NVME_MACRO) || (BMCWEB_AMI_SL8_MACRO) || (BMCWEB_AMI_REP_MACRO)
 #include "ext/include/storage_ext.hpp"
 #endif
 
@@ -464,7 +464,7 @@ RedfishService::RedfishService(App& app)
 #endif
 
 #if (BMCWEB_AMI_NVME_MACRO) || (BMCWEB_AMI_RAIDMSCC_MACRO) ||                  \
-    (BMCWEB_AMI_RAIDBRCM_MACRO) || (BMCWEB_AMI_SL8_MACRO)
+    (BMCWEB_AMI_RAIDBRCM_MACRO) || (BMCWEB_AMI_SL8_MACRO) || (BMCWEB_AMI_REP_MACRO)
     {
         redfish::ext::core::resource::requestStorageCollectionRoutes(app);
         redfish::ext::core::resource::requestRoutesStorage(app);
