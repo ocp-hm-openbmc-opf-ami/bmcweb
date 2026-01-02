@@ -544,7 +544,7 @@ inline void handleDecoratorAssetProperties(
 #if (!BMCWEB_AMI_RM_MACRO) && (!BMCWEB_AMI_PSM_MACRO)
     // SensorThreshold Collection
     asyncResp->res.jsonValue["Oem"]["AMI"]["SensorThreshold"]["@odata.id"] =
-        boost::urls::format("/redfish/v1/Chassis/{}/Sensors/Oem/Threshold",
+        boost::urls::format("/redfish/v1/Chassis/{}/Sensors/Oem/Ami/Threshold",
                             chassisId);
     asyncResp->res.jsonValue["Oem"]["AMI"]["SensorThreshold"]["@odata.type"] = json_util::odataType("OemAMISensor");
 #endif
