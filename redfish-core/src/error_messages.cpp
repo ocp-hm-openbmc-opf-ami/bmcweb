@@ -2907,6 +2907,25 @@ void dumpQuotaExceeded(crow::Response& res)
 {
     res.result(boost::beast::http::status::bad_request);
     addMessageToErrorJson(res.jsonValue, dumpQuotaExceeded());
+
+}
+
+/**
+ * @internal
+ * @brief Formats PasswordCorruption message into JSON
+ *
+ * See header file for more information
+ * @endinternal
+ */
+nlohmann::json passwordCorruption()
+{
+    return getLog(redfish::registries::ami::Index::passwordCorruption, {});
+}
+
+void passwordCorruption(crow::Response& res)
+{
+    res.result(boost::beast::http::status::internal_server_error);
+    addMessageToErrorJson(res.jsonValue, passwordCorruption());
 }
 nlohmann::json firmwareUpdateFailed(void)
 {

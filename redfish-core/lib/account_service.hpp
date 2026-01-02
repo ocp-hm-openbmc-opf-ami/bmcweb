@@ -2178,6 +2178,14 @@ inline void afterVerifyUserExists(
             completionHandler(false);
             return;
         }
+        else if (retval == PAM_AUTHTOK_RECOVERY_ERR)
+        {
+            // Password corruption detected
+            messages::passwordCorruption(asyncResp->res);
+            BMCWEB_LOG_ERROR("pamUpdatePassword Failed - Password corruption detected (PAM_AUTHTOK_RECOVERY_ERR)");
+            completionHandler(false);
+            return;
+        }
         else if (retval != PAM_SUCCESS)
         {
             messages::passwordResetFailed(asyncResp->res);
@@ -3971,27 +3979,39 @@ inline void processAfterCreateUser(
         return;
     }
     // Ensure password update is successful
-    if (pamUpdatePassword(username, password) != PAM_SUCCESS)
+    int retval = pamUpdatePassword(username, password);
+    if (retval != PAM_SUCCESS)
     {
         // If password update fails, delete the created user
         sdbusplus::message::object_path tempObjPath(rootUserDbusPath);
         tempObjPath /= username;
         const std::string userPath(tempObjPath);
         crow::connections::systemBus->async_method_call(
-            [asyncResp](const boost::system::error_code& ec3) {
+            [asyncResp, retval](const boost::system::error_code& ec3) {
                 if (ec3)
                 {
                     messages::internalError(asyncResp->res);
                     return;
                 }
-                // Password format error message
-                messages::propertyValueFormatError(asyncResp->res, nullptr,
-                                                   "Password");
+                // Provide specific error message based on PAM error code
+                if (retval == PAM_AUTHTOK_ERR)
+                {
+                    messages::propertyValueFormatError(asyncResp->res, nullptr, "Password");
+                }
+                else if (retval == PAM_AUTHTOK_RECOVERY_ERR)
+                {
+                    messages::passwordCorruption(asyncResp->res);
+                    BMCWEB_LOG_ERROR("pamUpdatePassword Failed - Password corruption detected (PAM_AUTHTOK_RECOVERY_ERR)");
+                }
+                else
+                {
+                    messages::internalError(asyncResp->res);
+                }
             },
             "xyz.openbmc_project.User.Manager", userPath,
             "xyz.openbmc_project.Object.Delete", "Delete");
 
-        BMCWEB_LOG_ERROR("pamUpdatePassword Failed");
+        BMCWEB_LOG_ERROR("pamUpdatePassword Failed with retval={}", retval);
         return;
     }
 
