@@ -256,16 +256,19 @@ inline int pamAuthenticateUser(std::string_view username,
 inline int pamUpdatePassword(const std::string& username,
                              const std::string& password)
 {
+    BMCWEB_LOG_ERROR("pamUpdatePassword: Starting for user {}", username);
     PasswordData data;
     if (int ret = data.addPrompt("New password: ", password);
         ret != PAM_SUCCESS)
     {
+        BMCWEB_LOG_ERROR("pamUpdatePassword: addPrompt 'New password' failed with ret={}", ret);
         return ret;
     }
 
     if (int ret = data.addPrompt("Retype new password: ", password);
         ret != PAM_SUCCESS)
     {
+         BMCWEB_LOG_ERROR("pamUpdatePassword: addPrompt 'Retype new password' failed with ret={}", ret);
          return ret;
     }
     const struct pam_conv localConversation = {pamFunctionConversation, &data};
@@ -276,15 +279,25 @@ inline int pamUpdatePassword(const std::string& username,
 
     if (retval != PAM_SUCCESS)
     {
+        BMCWEB_LOG_ERROR("pamUpdatePassword: pam_start failed with retval={}", retval);
         return retval;
     }
 
     retval = pam_chauthtok(localAuthHandle, PAM_SILENT);
     if (retval != PAM_SUCCESS)
     {
+        if (retval == PAM_AUTHTOK_RECOVERY_ERR)
+        {
+            BMCWEB_LOG_ERROR("pamUpdatePassword: Password corruption detected, retval={}", retval);
+        }
+        else
+        {
+            BMCWEB_LOG_ERROR("pamUpdatePassword: pam_chauthtok failed with retval={}", retval);
+        }
         pam_end(localAuthHandle, PAM_SUCCESS);
         return retval;
     }
 
+    BMCWEB_LOG_ERROR("pamUpdatePassword: Success for user {}", username);
     return pam_end(localAuthHandle, PAM_SUCCESS);
 }

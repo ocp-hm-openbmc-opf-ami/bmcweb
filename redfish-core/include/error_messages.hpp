@@ -1738,6 +1738,15 @@ void dumpQuotaExceeded(crow::Response& res);
 nlohmann::json firmwareUpdateFailed(void);
 
 void firmwareUpdateFailed(crow::Response& res);
+ /* @internal
+ * @brief Formats PasswordCorruption message into JSON
+ *
+ * See header file for more information
+ * @endinternal
+ */
+nlohmann::json passwordCorruption();
+
+void passwordCorruption(crow::Response& res);
 
 } // namespace messages
 

@@ -1349,7 +1349,7 @@ constexpr std::array registry =
             0,
             {},
             "Delete existing dump files to free space, then retry the request.",
-	}},MessageEntry{
+	    }},MessageEntry{
         "FirmwareUpdateFailed",
         {
             "The firmware image validation timed out.",
@@ -1358,6 +1358,15 @@ constexpr std::array registry =
             0,
             {},
             "The firmware image may be invalid or the D-Bus service is currently unavailable. Please check the format and try again later.",
+        }},MessageEntry{
+        "PasswordCorruption",
+        {
+            "Indicates that the password authentication token is corrupted in the system.",
+            "Password authentication token corruption detected. The system encountered an internal error while processing the password.",
+            "Critical",
+            0,
+            {},
+            "Contact the system administrator. The password storage may be corrupted and require system maintenance.",
         }},
 };
 
@@ -1496,8 +1505,9 @@ enum class Index
 	rEDFISHPreserveConfigurationConflict = 131,
 	certificateDateOverLimitUnixDate = 132,
 	invalidImageSize = 133,
-    	dumpQuotaExceeded = 134,
-	firmwareUpdateFailed = 135
+    dumpQuotaExceeded = 134,
+	firmwareUpdateFailed = 135,
+	passwordCorruption = 136
 	
 };
 } // namespace redfish::registries::openbmc
