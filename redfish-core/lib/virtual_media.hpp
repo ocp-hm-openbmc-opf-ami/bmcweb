@@ -437,6 +437,15 @@ inline void
                             virtual_media::ConnectedVia::URI;
                     }
                 }
+                if (property == "UserName")
+                {
+                    const std::string* userNameValue =
+                        std::get_if<std::string>(&value);
+                    if (userNameValue != nullptr && !userNameValue->empty())
+                    {
+                        asyncResp->res.jsonValue["UserName"] = *userNameValue;
+                    }
+                }
                 if (property == "WriteProtected")
                 {
                     const bool* writeProtectedValue = std::get_if<bool>(&value);
@@ -727,6 +736,34 @@ inline std::string getUriWithTransferProtocol(
     return imageUri;
 }
 
+inline void setUserName(std::shared_ptr<bmcweb::AsyncResp> asyncResp, const std::string& userName, const std::string& name)
+{
+   sdbusplus::message::object_path path;
+
+    if (name == "Slot_0" || name == "Slot_1" )
+    {
+        path = sdbusplus::message::object_path (
+        "/xyz/openbmc_project/VirtualMedia/Proxy");
+    }
+    else if(name == "Slot_2" || name == "Slot_3" )
+    {
+        path = sdbusplus::message::object_path (
+        "/xyz/openbmc_project/VirtualMedia/Legacy");
+    }
+    path /= name;
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus, rmediaServiceName,
+        path, "xyz.openbmc_project.VirtualMedia.MountPoint", "UserName",
+        userName, [asyncResp](const boost::system::error_code& ec) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("Failed to set UserName property: {}", ec);
+                messages::internalError(asyncResp->res);
+                return;
+            }
+        }); 
+}
+
 struct InsertMediaActionParams
 {
     std::optional<std::string> imageUrl;
@@ -759,7 +796,8 @@ struct MatchWrapper
 static inline std::shared_ptr<MatchWrapper> doListenForCompletion(
     const std::string& name, const std::string& objectPath,
     const std::string& action, bool legacy,
-    std::shared_ptr<bmcweb::AsyncResp> asyncResp)
+    std::shared_ptr<bmcweb::AsyncResp> asyncResp,
+    std::string userName)
 {
     BMCWEB_LOG_DEBUG("Start Listening for completion : {}", action);
     std::string matcherString = sdbusplus::bus::match::rules::type::signal();
@@ -776,7 +814,7 @@ static inline std::shared_ptr<MatchWrapper> doListenForCompletion(
     auto matchWrapper = std::make_shared<MatchWrapper>();
     auto matchHandler = [asyncResp = std::move(asyncResp), name, action,
                          objectPath,
-                         matchWrapper](sdbusplus::message::message& m) {
+                         matchWrapper, userName](sdbusplus::message::message& m) {
         int errorCode = 0;
         try
         {
@@ -788,6 +826,7 @@ static inline std::shared_ptr<MatchWrapper> doListenForCompletion(
             {
                 case 0: // success
                     BMCWEB_LOG_INFO("Signal received: Success");
+                    setUserName(asyncResp, userName, name);
                     messages::success(asyncResp->res);
                     break;
                 case EPERM:
@@ -856,6 +895,7 @@ inline void doMountVmLegacy(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                             const std::string& imageUrl, bool rw,
                             std::string&& userName, std::string&& password,const std::string& sessionId)
 {
+    std::string userNameCopy = userName;
     int fd = -1;
     dbus::utility::DbusVariantType unixFd = -1;
     std::shared_ptr<CredentialsPipe> secretPipe;
@@ -891,7 +931,7 @@ inline void doMountVmLegacy(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         "/xyz/openbmc_project/VirtualMedia/Legacy/" + name;
     const std::string action = "VirtualMedia.InsertMedia";
     auto wrapper =
-        doListenForCompletion(name, objectPath, action, true, asyncResp);
+        doListenForCompletion(name, objectPath, action, true, asyncResp, std::move(userNameCopy));
 
     if (imageUrl.find("nfs://") != 0)
     {
@@ -1220,7 +1260,7 @@ inline void doEjectAction(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     std::string action = "VirtualMedia.Eject";
 
     auto wrapper =
-        doListenForCompletion(name, objectPath, action, legacy, asyncResp);
+        doListenForCompletion(name, objectPath, action, legacy, asyncResp, "");
 
     crow::connections::systemBus->async_method_call(
         [asyncResp, name, action, objectPath,
