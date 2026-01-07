@@ -469,7 +469,8 @@ inline void objectPropertiesToJson(
     if (chassisSubNode == ChassisSubNode::sensorsNode)
     {
         sensorJson["@odata.type"] = json_util::odataType("Sensor");
-
+        sensorJson["Description"] = std::string(sensorName) + " Sensor";
+        
         sensor::ReadingType readingType = sensors::toReadingType(sensorType);
         if (readingType == sensor::ReadingType::Invalid)
         {

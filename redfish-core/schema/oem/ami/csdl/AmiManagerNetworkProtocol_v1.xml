@@ -281,6 +281,7 @@
                     <Annotation Term="OData.LongDescription" String="This property indicates the current status of the NTP synchronization process. The value may represent states such as disabled or enabled depending on the implementation."/>
                 </Property>
             </ComplexType>
+
             <EnumType Name="AllowedMiBs">
                 <Member Name="all">
                 <Annotation Term="OData.Description" String="all are supported"/>

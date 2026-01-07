@@ -1700,7 +1700,7 @@ inline void fillEventLogLogEntryFromPropertyMap(
     }
     else
     {
-	objectToFillOut["MessageId"] = std::move(msgID);
+        objectToFillOut["MessageID"] = std::move(msgID);
         objectToFillOut["Message"] = std::move(msgForm);
     }
     objectToFillOut["Resolved"] = entry.Resolved;

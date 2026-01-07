@@ -2709,7 +2709,7 @@ inline void handleSensorCollectionGet(
 
     #if (!BMCWEB_AMI_PSM_MACRO)
     asyncResp->res.jsonValue["Oem"]["Ami"]["Threshold"]["@odata.id"] =
-        boost::urls::format("/redfish/v1/Chassis/{}/Sensors/Oem/Threshold",
+        boost::urls::format("/redfish/v1/Chassis/{}/Sensors/Oem/Ami/Threshold",
                             chassisId);
     #endif
     // We get all sensors as hyperlinkes in the chassis (this
@@ -2732,7 +2732,7 @@ inline void handleSensorThreshCollectionGet(
     }
 
     asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
-        "/redfish/v1/Chassis/{}/Sensors/Oem/Threshold", chassisId);
+        "/redfish/v1/Chassis/{}/Sensors/Oem/Ami/Threshold", chassisId);
 
     std::array<std::string, 2> interfaces = {
         "xyz.openbmc_project.Sensor.Threshold.Warning",
@@ -2788,7 +2788,7 @@ inline void handleSensorThreshCollectionGet(
                 sensorPathList.push_back(
                     {"@odata.id",
                      boost::urls::format(
-                         "/redfish/v1/Chassis/{}/Sensors/Oem/Threshold/{}",
+                         "/redfish/v1/Chassis/{}/Sensors/Oem/Ami/Threshold/{}",
                          chassisId, sensorTypeName)});
             }
             asyncResp->res.jsonValue["Members@odata.count"] =
@@ -2940,7 +2940,7 @@ inline void handleSensorThreshGet(
         return;
     }
     asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
-        "/redfish/v1/Chassis/{}/Sensors/Oem/Threshold/{}", chassisId, sensorId);
+        "/redfish/v1/Chassis/{}/Sensors/Oem/Ami/Threshold/{}", chassisId, sensorId);
 
     constexpr std::array<std::string_view, 3> interfaces = {
         "xyz.openbmc_project.Sensor.Value", "xyz.openbmc_project.Sensor.State",
@@ -3199,7 +3199,7 @@ inline void handleSensorThreshPatch(
     asyncResp->res.jsonValue = {
         {"@odata.type", "#SensorThreshold.v1_0_0.SensorThreshold"},
         {"@odata.id", "/redfish/v1/Chassis/" + chassisId + "/" +
-                          "Sensors/Oem/Threshold/" + sensorId},
+                          "Sensors/Oem/Ami/Threshold/" + sensorId},
         {"Id", sensorId + " Sensor Threshold"},
         {"Name", sensorName}};
 
@@ -3286,7 +3286,7 @@ inline void filterThresholdSensors(
                 {
                     asyncResp->res.jsonValue["Oem"]["Ami"]["SensorThreshold"]
                                             ["@odata.id"] = boost::urls::format(
-                        "/redfish/v1/Chassis/{}/Sensors/Oem/Threshold/{}",
+                        "/redfish/v1/Chassis/{}/Sensors/Oem/Ami/Threshold/{}",
                         chassisId, sensorId);
                     return;
                 }
@@ -3451,6 +3451,8 @@ inline void handleSensorGet(App& app, const crow::Request& req,
             filterThresholdSensors(asyncResp, chassisId, sensorId);
             asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
                 "/redfish/v1/Chassis/{}/Sensors/{}", chassisId, sensorId);
+
+	    asyncResp->res.jsonValue["Description"] = "Chassis " + sensorId + " Sensor";
 
             BMCWEB_LOG_DEBUG("Sensor doGet enter");
             constexpr std::array<std::string_view, 3> interfaces = {
@@ -3819,7 +3821,7 @@ inline void requestRoutesSensorCollection(App& app)
 
 inline void requestRoutesSensorThreshCollection(App& app)
 {
-    BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/Sensors/Oem/Threshold/")
+    BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/Sensors/Oem/Ami/Threshold/")
         .privileges(redfish::privileges::getSensorThreshCollection)
         .methods(boost::beast::http::verb::get)(std::bind_front(
             sensors::handleSensorThreshCollectionGet, std::ref(app)));
@@ -3827,17 +3829,17 @@ inline void requestRoutesSensorThreshCollection(App& app)
 
 inline void requestRoutesSensorThresh(App& app)
 {
-    BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/Sensors/Oem/Threshold/<str>/")
+    BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/Sensors/Oem/Ami/Threshold/<str>/")
         .privileges(redfish::privileges::getSensorThresh)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(sensors::handleSensorThreshGet, std::ref(app)));
 
-    BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/Sensors/Oem/Threshold/<str>/")
+    BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/Sensors/Oem/Ami/Threshold/<str>/")
         .privileges(redfish::privileges::patchSensorThresh)
         .methods(boost::beast::http::verb::patch)(
             std::bind_front(sensors::handleSensorThreshPatch, std::ref(app)));
 
-    BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/Sensors/Oem/Threshold/<str>/")
+    BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/Sensors/Oem/Ami/Threshold/<str>/")
         .methods(boost::beast::http::verb::post, boost::beast::http::verb::put,
                  boost::beast::http::verb::delete_)(
             [](const crow::Request& req,
