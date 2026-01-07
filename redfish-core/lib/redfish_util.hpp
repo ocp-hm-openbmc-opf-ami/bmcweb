@@ -75,7 +75,8 @@ void getMainChassisId(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             {
                 if (objectPath.find("Baseboard") != std::string::npos || 
                     objectPath.find("Chalupa") != std::string::npos || 
-		    objectPath.find("EVB") != std::string::npos)
+                    objectPath.find("EVB") != std::string::npos ||
+                    objectPath.find("Chassis") != std::string::npos)
                 {
                     std::size_t idPos = objectPath.rfind('/');
                     if (idPos != std::string::npos && (idPos + 1) < objectPath.size())
