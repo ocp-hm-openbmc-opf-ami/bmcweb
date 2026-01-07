@@ -249,11 +249,19 @@ bool Subscription::sendSNMPTrap(uint32_t eventId, std::string timestamp,
     {
         return false;
     }
-    phosphor::network::snmp::sendTrap<
-        phosphor::network::snmp::OBMCErrorNotification>(
-        static_cast<uint32_t>(eventId), timestamp, sev, std::move(msg));
-    eventSeqNum++;
-    return true;
+    try
+    {
+        phosphor::network::snmp::sendTrap<
+            phosphor::network::snmp::OBMCErrorNotification>(
+            static_cast<uint32_t>(eventId), timestamp, sev, std::move(msg));
+        eventSeqNum++;
+        return true;
+    }
+    catch (const sdbusplus::exception_t& e)
+    {
+        BMCWEB_LOG_ERROR("Exception during SNMP trap send: {}", e.what());
+        return false;
+    }
 }
 
 void Subscription::filterAndsendSNMPTrap(
