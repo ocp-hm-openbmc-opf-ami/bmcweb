@@ -1,5 +1,5 @@
 {
-    "$id": "/redfish/v1/JsonSchemas/AMIAccountService.json",
+    "$id": "/redfish/v1/JsonSchemas/AMIAccountService/AMIAccountService.v1_0_0.json",
     "$schema": "http://redfish.dmtf.org/schemas/v1/redfish-schema-v1.json",
     "copyright": "Copyright American Megatrends, Inc. (AMI)",
     "definitions": {
