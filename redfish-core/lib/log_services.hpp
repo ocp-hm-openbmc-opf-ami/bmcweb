@@ -4438,6 +4438,10 @@ inline void requestRoutesCrashdumpCollect(App& app)
                                 messages::serviceTemporarilyUnavailable(
                                     asyncResp->res, "60");
                             }
+                            else if (ec.value() == EHOSTUNREACH)
+                            {
+                                messages::actionNotSupported(asyncResp->res,"CollectDiagnosticData");
+                            }
                             else
                             {
                                 messages::internalError(asyncResp->res);
