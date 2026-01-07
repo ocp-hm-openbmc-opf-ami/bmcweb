@@ -108,6 +108,8 @@ struct SmtpPatchParams
     std::optional<std::string> sender;
     std::optional<bool> tlsenable;
     std::optional<std::string> username;
+    std::optional<bool> oauth;
+    std::optional<std::string> accessToken;
     
     bool hasValue() const
     {
@@ -115,7 +117,8 @@ struct SmtpPatchParams
                host.has_value() || password.has_value() ||
                port.has_value() || recipient.has_value() ||
                sender.has_value() || tlsenable.has_value() ||
-               username.has_value();
+               username.has_value() || oauth.has_value() ||
+               accessToken.has_value();
     }
 };
 
@@ -170,63 +173,74 @@ inline void getSmtpConfig(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             const std::string* sender = nullptr;
             bool TLSEnable = true;
             const std::string* username = nullptr;
+            bool oauth = false;
+            const std::string* accessToken = nullptr;
 
             const bool success = sdbusplus::unpackPropertiesNoThrow(
                 dbus_utils::UnpackErrorPrinter(), propertiesList,
                 "Authentication", authentication, "Enable", enable, "Host",
                 host, "Password", password, "Port", port, "Recipient",
                 recipient, "Sender", sender, "TLSEnable", TLSEnable, "UserName",
-                username);
+                username, "Oauth", oauth, "accesstoken", accessToken);
 
             if (!success)
             {
                 messages::internalError(asyncResp->res);
                 return;
             }
-            asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]["@odata.type"] =
-                "#AMIEventService.SMTP";
-            asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"][configuration]
+            asyncResp->res.jsonValue["Oem"]["Ami"]["SMTP"]["@odata.type"] =
+                "#AmiEventService.SMTP";
+            asyncResp->res.jsonValue["Oem"]["Ami"]["SMTP"][configuration]
                                     ["Authentication"] = authentication;
 
             asyncResp->res
-                .jsonValue["Oem"]["OpenBmc"]["SMTP"][configuration]["Enable"] =
+                .jsonValue["Oem"]["Ami"]["SMTP"][configuration]["Enable"] =
                 enable;
 
             if (host != nullptr)
             {
-                asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]
+                asyncResp->res.jsonValue["Oem"]["Ami"]["SMTP"]
                                         [configuration]["Host"] = *host;
             }
             if (username != nullptr)
             {
-                asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]
+                asyncResp->res.jsonValue["Oem"]["Ami"]["SMTP"]
                                         [configuration]["UserName"] = *username;
             }
             if (password != nullptr)
             {
-                asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]
+                asyncResp->res.jsonValue["Oem"]["Ami"]["SMTP"]
                                         [configuration]["Password"] = *password;
             }
 
             if (port != nullptr)
             {
-                asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]
+                asyncResp->res.jsonValue["Oem"]["Ami"]["SMTP"]
                                         [configuration]["Port"] = *port;
             }
             if (recipient != nullptr)
             {
-                asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]
+                asyncResp->res.jsonValue["Oem"]["Ami"]["SMTP"]
                                         [configuration]["Recipient"] =
                     *recipient;
             }
             if (sender != nullptr)
             {
-                asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]
+                asyncResp->res.jsonValue["Oem"]["Ami"]["SMTP"]
                                         [configuration]["Sender"] = *sender;
             }
 
-            asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"][configuration]
+            asyncResp->res.jsonValue["Oem"]["Ami"]["SMTP"][configuration]
                                     ["TLSEnable"] = TLSEnable;
+
+            asyncResp->res.jsonValue["Oem"]["Ami"]["SMTP"][configuration]
+                                    ["OAUTH"] = oauth;
+
+            if (accessToken != nullptr)
+            {
+                asyncResp->res.jsonValue["Oem"]["Ami"]["SMTP"]
+                                        [configuration]["AccessToken"] = *accessToken;
+            }
         });
 }
 
@@ -250,17 +264,17 @@ inline void
               << sslPrimaryServerKeyFile.c_str() << "\n";
 
     isPrimaryCACERT = redfish::ensureOpensslKeyPresentAndValid(sslPrimaryCACERTFile);
-    asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]["PrimaryConfiguration"]
+    asyncResp->res.jsonValue["Oem"]["Ami"]["SMTP"]["PrimaryConfiguration"]
                             ["isCACERTExist"] = isPrimaryCACERT;
     isPrimaryServerCRT =
         redfish::ensureOpensslKeyPresentAndValid(sslPrimaryServerCRTFile);
 
-    asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]["PrimaryConfiguration"]
+    asyncResp->res.jsonValue["Oem"]["Ami"]["SMTP"]["PrimaryConfiguration"]
                             ["isServerCRTExist"] = isPrimaryServerCRT;
     isPrimaryServerKey =
         redfish::ensureOpensslKeyPresentAndValid(sslPrimaryServerKeyFile);
 
-    asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]["PrimaryConfiguration"]
+    asyncResp->res.jsonValue["Oem"]["Ami"]["SMTP"]["PrimaryConfiguration"]
                             ["isServerKeyExist"] = isPrimaryServerKey;
 
     if (isPrimaryCACERT)
@@ -272,7 +286,7 @@ inline void
                   << primaryCACERTModifiedDate << "\n";
 
         asyncResp->res
-            .jsonValue["Oem"]["OpenBmc"]["SMTP"]["PrimaryConfiguration"]
+            .jsonValue["Oem"]["Ami"]["SMTP"]["PrimaryConfiguration"]
                       ["primaryCACERTModifiedDate"] = primaryCACERTModifiedDate;
     }
     if (isPrimaryServerCRT)
@@ -284,7 +298,7 @@ inline void
                   << primaryCACERTModifiedDate << "\n";
 
         asyncResp->res
-            .jsonValue["Oem"]["OpenBmc"]["SMTP"]["PrimaryConfiguration"]
+            .jsonValue["Oem"]["Ami"]["SMTP"]["PrimaryConfiguration"]
                       ["primaryserverCRTModifiedDate"] =
             primaryCACERTModifiedDate;
     }
@@ -297,7 +311,7 @@ inline void
                   << primaryCACERTModifiedDate << "\n";
 
         asyncResp->res
-            .jsonValue["Oem"]["OpenBmc"]["SMTP"]["PrimaryConfiguration"]
+            .jsonValue["Oem"]["Ami"]["SMTP"]["PrimaryConfiguration"]
                       ["primaryServerKeyModifiedDate"] =
             primaryCACERTModifiedDate;
     }
@@ -312,17 +326,17 @@ inline void
               << sslSecondaryServerKeyFile.c_str() << "\n";
 
     isSecondrayCACERT = redfish::ensureOpensslKeyPresentAndValid(sslSecondaryCACERTFile);
-    asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]["SecondaryConfiguration"]
+    asyncResp->res.jsonValue["Oem"]["Ami"]["SMTP"]["SecondaryConfiguration"]
                             ["isCACERTExist"] = isSecondrayCACERT;
     isSecondrayServerKey =
         redfish::ensureOpensslKeyPresentAndValid(sslSecondaryServerKeyFile);
 
-    asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]["SecondaryConfiguration"]
+    asyncResp->res.jsonValue["Oem"]["Ami"]["SMTP"]["SecondaryConfiguration"]
                             ["isServerKeyExist"] = isSecondrayServerKey;
     isSecondrayServerCRT =
         redfish::ensureOpensslKeyPresentAndValid(sslSecondaryServerCRTFile);
 
-    asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]["SecondaryConfiguration"]
+    asyncResp->res.jsonValue["Oem"]["Ami"]["SMTP"]["SecondaryConfiguration"]
                             ["isServerCRTExist"] = isSecondrayServerCRT;
 
     if (isSecondrayCACERT)
@@ -333,7 +347,7 @@ inline void
                   << modifiedDate << "\n";
 
         asyncResp->res
-            .jsonValue["Oem"]["OpenBmc"]["SMTP"]["SecondaryConfiguration"]
+            .jsonValue["Oem"]["Ami"]["SMTP"]["SecondaryConfiguration"]
                       ["secondaryCACERTModifiedDate"] = modifiedDate;
     }
     if (isSecondrayServerCRT)
@@ -344,7 +358,7 @@ inline void
                   << modifiedDate << "\n";
 
         asyncResp->res
-            .jsonValue["Oem"]["OpenBmc"]["SMTP"]["SecondaryConfiguration"]
+            .jsonValue["Oem"]["Ami"]["SMTP"]["SecondaryConfiguration"]
                       ["secondaryserverCRTModifiedDate"] = modifiedDate;
     }
     if (isSecondrayServerKey)
@@ -355,7 +369,7 @@ inline void
                   << modifiedDate << "\n";
 
         asyncResp->res
-            .jsonValue["Oem"]["OpenBmc"]["SMTP"]["SecondaryConfiguration"]
+            .jsonValue["Oem"]["Ami"]["SMTP"]["SecondaryConfiguration"]
                       ["secondaryServerKeyModifiedDate"] = modifiedDate;
     }
 }
@@ -824,6 +838,20 @@ inline void handleSmtpPatch(SmtpPatchParams&& input,
     const std::string& interface = (configType == "Primary") ? 
                                     interfacePrimary : interfaceSecondary;
 
+    // Helper lambda to check property state (current or being set in this request)
+    auto getEffectivePropertyState = [&](const std::string& propName, const std::optional<bool>& newValue) -> bool {
+        if (newValue.has_value()) {
+            return *newValue;
+        }
+        try {
+            auto value = getSMTPProperty(interface, propName);
+            return std::get<bool>(value);
+        } catch (const std::exception& e) {
+            BMCWEB_LOG_ERROR("Error reading {} property: {}", propName, e.what());
+            return false;
+        }
+    };
+
     if (input.port)
     {
         if (!isValidPort(*input.port))
@@ -958,38 +986,38 @@ inline void handleSmtpPatch(SmtpPatchParams&& input,
 
         if (*input.tlsenable)
         {
-            bool isCACERT = ensureOpensslKeyPresentAndValid(cacertFile);
-            bool isServerKey = ensureOpensslKeyPresentAndValid(serverKeyFile);
-            bool isServerCRT = ensureOpensslKeyPresentAndValid(serverCrtFile);
-
-            if (!isCACERT)
+            // Skip certificate validation if OAuth is enabled
+            bool skipCertValidation = getEffectivePropertyState("Oauth", input.oauth);
+            
+            if (skipCertValidation)
             {
-                anyFailure = true;
-                messages::propertyValueEmpty(asyncResp->res,
-                            configType + " CACERT is missing", cacertFile);
-            }
-            else if (!isServerKey)
-            {
-                anyFailure = true;
-                messages::propertyValueEmpty(asyncResp->res,
-                            configType + " Server Key is missing", serverKeyFile);
-            }
-            else if (!isServerCRT)
-            {
-                anyFailure = true;
-                messages::propertyValueEmpty(asyncResp->res,
-                            configType + " Server CRT is missing", serverCrtFile);
+                BMCWEB_LOG_INFO("OAuth is enabled, skipping SSL certificate validation for TLS");
             }
             else
             {
-                setSMTPProperty(asyncResp, interface,
-                        "TLSEnable", *input.tlsenable);
+                // Validate certificates for traditional TLS
+                if (!ensureOpensslKeyPresentAndValid(cacertFile) ||
+                    !ensureOpensslKeyPresentAndValid(serverKeyFile) ||
+                    !ensureOpensslKeyPresentAndValid(serverCrtFile))
+                {
+                    anyFailure = true;
+                    messages::propertyValueEmpty(asyncResp->res,
+                                configType + " SSL certificates missing", "TLSEnable");
+                    return;
+                }
             }
+            setSMTPProperty(asyncResp, interface, "TLSEnable", *input.tlsenable);
         }
         else
         {
-            setSMTPProperty(asyncResp, interface,
-                    "TLSEnable", *input.tlsenable);
+            // Cannot disable TLS when OAuth is enabled
+            if (getEffectivePropertyState("Oauth", input.oauth))
+            {
+                anyFailure = true;
+                messages::propertyValueNotInList(asyncResp->res, "false", "TLSEnable");
+                return;
+            }
+            setSMTPProperty(asyncResp, interface, "TLSEnable", *input.tlsenable);
         }
     }
 
@@ -1009,6 +1037,39 @@ inline void handleSmtpPatch(SmtpPatchParams&& input,
     {
         setSMTPProperty(asyncResp, interface,
                 "Sender", *input.sender);
+    }
+
+    // OAuth validation
+    if (input.oauth)
+    {
+        if (*input.oauth && !getEffectivePropertyState("TLSEnable", input.tlsenable))
+        {
+            anyFailure = true;
+            messages::propertyValueNotInList(asyncResp->res, "true", "OAUTH");
+            return;
+        }
+        setSMTPProperty(asyncResp, interface, "Oauth", *input.oauth);
+    }
+
+    // AccessToken validation
+    if (input.accessToken)
+    {
+        if (input.accessToken->empty())
+        {
+            anyFailure = true;
+            messages::propertyMissing(asyncResp->res, "AccessToken");
+            return;
+        }
+        
+        if (!getEffectivePropertyState("TLSEnable", input.tlsenable) ||
+            !getEffectivePropertyState("Oauth", input.oauth))
+        {
+            anyFailure = true;
+            messages::propertyValueNotInList(asyncResp->res, *input.accessToken, "AccessToken");
+            return;
+        }
+        
+        setSMTPProperty(asyncResp, interface, "accesstoken", *input.accessToken);
     }
 }
 
@@ -1065,21 +1126,21 @@ void getEventServiceInfo(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
                           "SecondaryConfiguration");
             getSmtpSSLCertificates(asyncResp);
 
-            asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]
+            asyncResp->res.jsonValue["Oem"]["Ami"]["SMTP"]
                                     ["PrimaryConfiguration"]["@odata.type"] =
-                "#AMIEventService.PrimaryConfiguration";
-            asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]
+                "#AmiEventService.PrimaryConfiguration";
+            asyncResp->res.jsonValue["Oem"]["Ami"]["SMTP"]
                                     ["SecondaryConfiguration"]["@odata.type"] =
-                "#AMIEventService.SecondaryConfiguration";
+                "#AmiEventService.SecondaryConfiguration";
 
             asyncResp->res
-                .jsonValue["Oem"]["OpenBmc"]["SMTP"]["PrimaryConfiguration"]
-                          ["Actions"]["#AMIEventService.PrimaryConfiguration"]
+                .jsonValue["Oem"]["Ami"]["SMTP"]["PrimaryConfiguration"]
+                          ["Actions"]["#AmiEventService.PrimaryConfiguration"]
                           ["target"] =
                 "/redfish/v1/EventService/Actions/Oem/Ami/SMTP.PrimarySSLCertificateUpload";
             asyncResp->res
-                .jsonValue["Oem"]["OpenBmc"]["SMTP"]["SecondaryConfiguration"]
-                          ["Actions"]["#AMIEventService.SecondaryConfiguration"]
+                .jsonValue["Oem"]["Ami"]["SMTP"]["SecondaryConfiguration"]
+                          ["Actions"]["#AmiEventService.SecondaryConfiguration"]
                           ["target"] =
                 "/redfish/v1/EventService/Actions/Oem/Ami/SMTP.SecondarySSLCertificateUpload";
 }
@@ -1196,24 +1257,28 @@ BMCWEB_ROUTE(app, "/redfish/v1/EventService/")
                     "ServiceEnabled", serviceEnabled, //
                     "DeliveryRetryAttempts", retryAttemps, //
                     "DeliveryRetryIntervalSeconds", retryInterval, //
-                    "Oem/OpenBmc/SMTP/PrimaryConfiguration/Authentication", primarySmtpConfig.authentication, //
-                    "Oem/OpenBmc/SMTP/PrimaryConfiguration/Enable", primarySmtpConfig.enable,
-                    "Oem/OpenBmc/SMTP/PrimaryConfiguration/Host", primarySmtpConfig.host,
-                    "Oem/OpenBmc/SMTP/PrimaryConfiguration/Password", primarySmtpConfig.password,
-                    "Oem/OpenBmc/SMTP/PrimaryConfiguration/Port", primarySmtpConfig.port,
-                    "Oem/OpenBmc/SMTP/PrimaryConfiguration/Recipient", primarySmtpConfig.recipient,
-                    "Oem/OpenBmc/SMTP/PrimaryConfiguration/Sender", primarySmtpConfig.sender,
-                    "Oem/OpenBmc/SMTP/PrimaryConfiguration/TLSEnable", primarySmtpConfig.tlsenable,
-                    "Oem/OpenBmc/SMTP/PrimaryConfiguration/UserName", primarySmtpConfig.username,
-                    "Oem/OpenBmc/SMTP/SecondaryConfiguration/Authentication", secondarySmtpConfig.authentication,
-                    "Oem/OpenBmc/SMTP/SecondaryConfiguration/Enable", secondarySmtpConfig.enable,
-                    "Oem/OpenBmc/SMTP/SecondaryConfiguration/Host", secondarySmtpConfig.host,
-                    "Oem/OpenBmc/SMTP/SecondaryConfiguration/Password", secondarySmtpConfig.password,
-                    "Oem/OpenBmc/SMTP/SecondaryConfiguration/Port", secondarySmtpConfig.port,
-                    "Oem/OpenBmc/SMTP/SecondaryConfiguration/Recipient", secondarySmtpConfig.recipient,
-                    "Oem/OpenBmc/SMTP/SecondaryConfiguration/Sender", secondarySmtpConfig.sender,
-                    "Oem/OpenBmc/SMTP/SecondaryConfiguration/TLSEnable", secondarySmtpConfig.tlsenable,
-                    "Oem/OpenBmc/SMTP/SecondaryConfiguration/UserName", secondarySmtpConfig.username
+                    "Oem/Ami/SMTP/PrimaryConfiguration/Authentication", primarySmtpConfig.authentication, //
+                    "Oem/Ami/SMTP/PrimaryConfiguration/Enable", primarySmtpConfig.enable,
+                    "Oem/Ami/SMTP/PrimaryConfiguration/Host", primarySmtpConfig.host,
+                    "Oem/Ami/SMTP/PrimaryConfiguration/Password", primarySmtpConfig.password,
+                    "Oem/Ami/SMTP/PrimaryConfiguration/Port", primarySmtpConfig.port,
+                    "Oem/Ami/SMTP/PrimaryConfiguration/Recipient", primarySmtpConfig.recipient,
+                    "Oem/Ami/SMTP/PrimaryConfiguration/Sender", primarySmtpConfig.sender,
+                    "Oem/Ami/SMTP/PrimaryConfiguration/TLSEnable", primarySmtpConfig.tlsenable,
+                    "Oem/Ami/SMTP/PrimaryConfiguration/UserName", primarySmtpConfig.username,
+                    "Oem/Ami/SMTP/PrimaryConfiguration/OAUTH", primarySmtpConfig.oauth,
+                    "Oem/Ami/SMTP/PrimaryConfiguration/AccessToken", primarySmtpConfig.accessToken,
+                    "Oem/Ami/SMTP/SecondaryConfiguration/Authentication", secondarySmtpConfig.authentication,
+                    "Oem/Ami/SMTP/SecondaryConfiguration/Enable", secondarySmtpConfig.enable,
+                    "Oem/Ami/SMTP/SecondaryConfiguration/Host", secondarySmtpConfig.host,
+                    "Oem/Ami/SMTP/SecondaryConfiguration/Password", secondarySmtpConfig.password,
+                    "Oem/Ami/SMTP/SecondaryConfiguration/Port", secondarySmtpConfig.port,
+                    "Oem/Ami/SMTP/SecondaryConfiguration/Recipient", secondarySmtpConfig.recipient,
+                    "Oem/Ami/SMTP/SecondaryConfiguration/Sender", secondarySmtpConfig.sender,
+                    "Oem/Ami/SMTP/SecondaryConfiguration/TLSEnable", secondarySmtpConfig.tlsenable,
+                    "Oem/Ami/SMTP/SecondaryConfiguration/UserName", secondarySmtpConfig.username,
+                    "Oem/Ami/SMTP/SecondaryConfiguration/OAUTH", secondarySmtpConfig.oauth,
+                    "Oem/Ami/SMTP/SecondaryConfiguration/AccessToken", secondarySmtpConfig.accessToken
                     ))
             {
                 return;

@@ -40,7 +40,7 @@ namespace redfish
         "AMIControlInputs",
 		"AMIControlOutputsCollection",
         "AMIControlOutputs",
-	"AMIEventService",
+	"AmiEventService",
 	"AMIWebSession",
 	"AMISessionService",
 	"AMISensor",

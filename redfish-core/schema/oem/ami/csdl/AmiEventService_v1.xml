@@ -19,7 +19,7 @@
 
    <edmx:DataServices>
 
-      <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AMIEventService">
+      <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AmiEventService">
          <Action Name="PrimaryConfiguration" IsBound="true">
             <Annotation Term="OData.Description"
                String="This action sends SNMP trap alert from Pef Service." />
@@ -50,24 +50,24 @@
          </Action>
          <ComplexType Name="Oem" BaseType="Resource.OemObject">
             <Annotation Term="OData.AdditionalProperties" Bool="true" />
-            <Annotation Term="OData.Description" String="AMIEventService Oem properties." />
+            <Annotation Term="OData.Description" String="AmiEventService Oem properties." />
             <Annotation Term="OData.AutoExpand" />
-            <Property Name="OpenBmc" Type="AMIEventService.OpenBmc" />
+            <Property Name="Ami" Type="AmiEventService.Ami" />
          </ComplexType>
 
-         <ComplexType Name="OpenBmc" BaseType="Resource.OemObject">
+         <ComplexType Name="Ami" BaseType="Resource.OemObject">
             <Annotation Term="OData.AdditionalProperties" Bool="true" />
-            <Annotation Term="OData.Description" String="Oem properties for OpenBmc." />
+            <Annotation Term="OData.Description" String="Oem properties for Ami." />
             <Annotation Term="OData.AutoExpand" />
-            <Property Name="SMTP" Type="AMIEventService.SMTP" />
+            <Property Name="SMTP" Type="AmiEventService.SMTP" />
          </ComplexType>
 
          <ComplexType Name="SMTP" BaseType="Resource.OemObject">
             <Annotation Term="OData.AdditionalProperties" Bool="true" />
-            <Annotation Term="OData.Description" String="OpenBmc oem smtp properties." />
+            <Annotation Term="OData.Description" String="Ami oem smtp properties." />
             <Annotation Term="OData.AutoExpand" />
-            <Property Name="PrimaryConfiguration" Type="AMIEventService.PrimaryConfiguration" />
-            <Property Name="SecondaryConfiguration" Type="AMIEventService.SecondaryConfiguration" />
+            <Property Name="PrimaryConfiguration" Type="AmiEventService.PrimaryConfiguration" />
+            <Property Name="SecondaryConfiguration" Type="AmiEventService.SecondaryConfiguration" />
          </ComplexType>
 
          <ComplexType Name="PrimaryConfiguration" BaseType="Resource.OemObject">
@@ -129,6 +129,20 @@
                <Annotation Term="OData.LongDescription"
                   String="SMTP server username required when authentication." />
             </Property>
+            <Property Name="OAUTH" Type="Edm.Boolean">
+               <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite" />
+               <Annotation Term="OData.Description"
+                  String="This indicates if OAuth authentication is enabled for SMTP." />
+               <Annotation Term="OData.LongDescription"
+                  String="The value of this property indicates whether OAuth authentication is enabled for SMTP server connection." />
+            </Property>
+            <Property Name="AccessToken" Type="Edm.String">
+               <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite" />
+               <Annotation Term="OData.Description"
+                  String="OAuth access token for SMTP authentication." />
+               <Annotation Term="OData.LongDescription"
+                  String="The value of this property contains the OAuth access token required for SMTP server authentication." />
+            </Property>
             <Property Name="isCACERTExist" Type="Edm.Boolean">
                <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite" />
                <Annotation Term="OData.Description" String="This indicates CACERT exist or not" />
@@ -147,7 +161,7 @@
                <Annotation Term="OData.LongDescription"
                   String="The value of this property is used to indicate Server Key exist or not." />
             </Property>
-            <Property Name="Actions" Type="AMIEventService.Actions" Nullable="false">
+            <Property Name="Actions" Type="AmiEventService.Actions" Nullable="false">
                <Annotation Term="OData.Description" String="The available actions for this resource."/>
                <Annotation Term="OData.LongDescription" String="This property shall contain the available actions for this resource."/>
              </Property>  
@@ -211,6 +225,20 @@
                <Annotation Term="OData.LongDescription"
                   String="SMTP server username required when authentication." />
             </Property>
+            <Property Name="OAUTH" Type="Edm.Boolean">
+               <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite" />
+               <Annotation Term="OData.Description"
+                  String="This indicates if OAuth authentication is enabled for SMTP." />
+               <Annotation Term="OData.LongDescription"
+                  String="The value of this property indicates whether OAuth authentication is enabled for SMTP server connection." />
+            </Property>
+            <Property Name="AccessToken" Type="Edm.String">
+               <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite" />
+               <Annotation Term="OData.Description"
+                  String="OAuth access token for SMTP authentication." />
+               <Annotation Term="OData.LongDescription"
+                  String="The value of this property contains the OAuth access token required for SMTP server authentication." />
+            </Property>
             <Property Name="isCACERTExist" Type="Edm.Boolean">
                <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite" />
                <Annotation Term="OData.Description" String="This indicates CACERT exist or not" />
@@ -229,7 +257,7 @@
                <Annotation Term="OData.LongDescription"
                   String="The value of this property is used to indicate Server Key exist or not." />
             </Property>
-            <Property Name="Actions" Type="AMIEventService.Actions" Nullable="false">
+            <Property Name="Actions" Type="AmiEventService.Actions" Nullable="false">
                <Annotation Term="OData.Description" String="The available actions for this resource."/>
                <Annotation Term="OData.LongDescription" String="This property shall contain the available actions for this resource."/>
              </Property>     
@@ -238,7 +266,7 @@
             <Annotation Term="OData.AdditionalProperties" Bool="true"/>
             <Annotation Term="OData.Description" String="The available actions for this resource."/>
             <Annotation Term="OData.LongDescription" String="This type shall contain the available actions for this resource."/>
-            <Property Name="Oem" Type="AMIEventService.OemActions" Nullable="false">
+            <Property Name="Oem" Type="AmiEventService.OemActions" Nullable="false">
               <Annotation Term="OData.Description" String="The available OEM-specific actions for this resource."/>
               <Annotation Term="OData.LongDescription" String="This property shall contain the available OEM-specific actions for this resource."/>
             </Property>

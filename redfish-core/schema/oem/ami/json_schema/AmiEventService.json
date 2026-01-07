@@ -1,7 +1,7 @@
 {
-    "$id": "/redfish/v1/JsonSchemas/AMIEventService.json",
+    "$id": "http://redfish.dmtf.org/schemas/v1/AmiEventService.json",
     "$schema": "http://redfish.dmtf.org/schemas/v1/redfish-schema-v1.json",
-    "copyright": "Copyright American Megatrends, Inc. (AMI)",
+    "copyright": "Copyright 2014-2019 DMTF. For the full DMTF copyright policy, see http://www.dmtf.org/about/policies/copyright",
     "definitions": {
         "Actions": {
             "additionalProperties": true,
@@ -30,9 +30,9 @@
             },
             "type": "object"
         },
-        "Oem": {
+        "Ami": {
             "additionalProperties": true,
-            "description": "AMIEventService Oem properties.",
+            "description": "Oem properties for Ami.",
             "patternProperties": {
                 "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
                     "description": "This property shall specify a valid odata or Redfish property.",
@@ -48,10 +48,41 @@
                 }
             },
             "properties": {
-                "OpenBmc": {
+                "SMTP": {
                     "anyOf": [
                         {
-                            "$ref": "#/definitions/OpenBmc"
+                            "$ref": "#/definitions/SMTP"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                }
+            },
+            "type": "object"
+        },
+        "Oem": {
+            "additionalProperties": true,
+            "description": "AmiEventService Oem properties.",
+            "patternProperties": {
+                "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
+                    "description": "This property shall specify a valid odata or Redfish property.",
+                    "type": [
+                        "array",
+                        "boolean",
+                        "integer",
+                        "number",
+                        "null",
+                        "object",
+                        "string"
+                    ]
+                }
+            },
+            "properties": {
+                "Ami": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/definitions/Ami"
                         },
                         {
                             "type": "null"
@@ -82,37 +113,6 @@
             "properties": {},
             "type": "object"
         },
-        "OpenBmc": {
-            "additionalProperties": true,
-            "description": "Oem properties for OpenBmc.",
-            "patternProperties": {
-                "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
-                    "description": "This property shall specify a valid odata or Redfish property.",
-                    "type": [
-                        "array",
-                        "boolean",
-                        "integer",
-                        "number",
-                        "null",
-                        "object",
-                        "string"
-                    ]
-                }
-            },
-            "properties": {
-                "SMTP": {
-                    "anyOf": [
-                        {
-                            "$ref": "#/definitions/SMTP"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ]
-                }
-            },
-            "type": "object"
-        },
         "PrimaryConfiguration": {
             "additionalProperties": false,
             "description": "An indication by boolean value.",
@@ -131,6 +131,15 @@
                 }
             },
             "properties": {
+                "AccessToken": {
+                    "description": "OAuth access token for SMTP authentication.",
+                    "longDescription": "The value of this property contains the OAuth access token required for SMTP server authentication.",
+                    "readonly": false,
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
                 "Actions": {
                     "$ref": "#/definitions/Actions",
                     "description": "The available actions for this resource.",
@@ -160,6 +169,15 @@
                     "readonly": false,
                     "type": [
                         "string",
+                        "null"
+                    ]
+                },
+                "OAUTH": {
+                    "description": "This indicates if OAuth authentication is enabled for SMTP.",
+                    "longDescription": "The value of this property indicates whether OAuth authentication is enabled for SMTP server connection.",
+                    "readonly": false,
+                    "type": [
+                        "boolean",
                         "null"
                     ]
                 },
@@ -252,7 +270,7 @@
         },
         "SMTP": {
             "additionalProperties": true,
-            "description": "OpenBmc oem smtp properties.",
+            "description": "Ami oem smtp properties.",
             "patternProperties": {
                 "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
                     "description": "This property shall specify a valid odata or Redfish property.",
@@ -309,6 +327,15 @@
                 }
             },
             "properties": {
+                "AccessToken": {
+                    "description": "OAuth access token for SMTP authentication.",
+                    "longDescription": "The value of this property contains the OAuth access token required for SMTP server authentication.",
+                    "readonly": false,
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
                 "Actions": {
                     "$ref": "#/definitions/Actions",
                     "description": "The available actions for this resource.",
@@ -338,6 +365,15 @@
                     "readonly": false,
                     "type": [
                         "string",
+                        "null"
+                    ]
+                },
+                "OAUTH": {
+                    "description": "This indicates if OAuth authentication is enabled for SMTP.",
+                    "longDescription": "The value of this property indicates whether OAuth authentication is enabled for SMTP server connection.",
+                    "readonly": false,
+                    "type": [
+                        "boolean",
                         "null"
                     ]
                 },
@@ -429,5 +465,5 @@
             "type": "object"
         }
     },
-    "title": "#AMIEventService.v1_0_0"
+    "title": "#AmiEventService.AmiEventService"
 }
