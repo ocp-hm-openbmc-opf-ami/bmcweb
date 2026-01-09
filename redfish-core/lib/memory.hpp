@@ -404,10 +404,13 @@ inline void assembleDimmProperties(
     asyncResp->res.jsonValue[jsonPtr]["Id"] = dimmId;
     asyncResp->res.jsonValue[jsonPtr]["Description"] = dimmId;
     asyncResp->res.jsonValue[jsonPtr]["Name"] = dimmId;
+    if(!BMCWEB_AMI_REP_MACRO)
+    {
     asyncResp->res.jsonValue[jsonPtr]["Status"]["State"] =
         resource::State::Enabled;
     asyncResp->res.jsonValue[jsonPtr]["Status"]["Health"] =
         resource::Health::OK;
+    }
 
     const uint16_t* memoryDataWidth = nullptr;
     const size_t* memorySizeInKB = nullptr;
