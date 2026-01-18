@@ -260,10 +260,7 @@ RedfishService::RedfishService(App& app)
     requestRoutesUpdateService(app);
     // requestRoutesStorageCollection(app);
     // requestRoutesStorage(app);
-    requestRoutesStorageControllerCollection(app);
-    requestRoutesStorageController(app);
 
-    requestRoutesDrive(app);
     requestRoutesCable(app);
     requestRoutesCableCollection(app);
 
