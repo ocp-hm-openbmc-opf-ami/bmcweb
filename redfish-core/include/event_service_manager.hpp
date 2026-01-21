@@ -61,8 +61,6 @@ using ObjectType =
     boost::container::flat_map<std::string,
                                boost::container::flat_map<std::string, Value>>;
 
-static std::string existMsg;
-
 inline bool isFilterQuerySpecialChar(char c)
 {
     switch (c)

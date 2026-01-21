@@ -306,11 +306,10 @@ void Subscription::filterAndsendSNMPTrap(
 
         std::string msg = redfish::registries::fillMessageArgs(
             messageArgsView, message->message);
-        if (msg.empty() || existMsg == msg)
+        if (msg.empty())
         {
             continue;
         }
-        existMsg = msg;
         std::string messageSeverity{message->messageSeverity};
         this->sendSNMPTrap(static_cast<uint32_t>(eventSeqNum), idStr,
                            messageSeverity == "Ok"         ? "Ok"
