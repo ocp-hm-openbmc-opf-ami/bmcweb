@@ -2692,12 +2692,11 @@ inline void
     // Still used by OCP profiles
     // https://github.com/opencomputeproject/OCP-Profiles/issues/23
     // Fill in CommandShell info
-    #if (!BMCWEB_AMI_PSM_MACRO)
     asyncResp->res.jsonValue["CommandShell"]["ServiceEnabled"] = true;
     asyncResp->res.jsonValue["CommandShell"]["MaxConcurrentSessions"] = 1;
     asyncResp->res.jsonValue["CommandShell"]["ConnectTypesSupported"] = {
         "SSH", "IPMI"};
-    if constexpr (!BMCWEB_EXPERIMENTAL_REDFISH_MULTI_COMPUTER_SYSTEM)
+    if constexpr (!BMCWEB_EXPERIMENTAL_REDFISH_MULTI_COMPUTER_SYSTEM && !BMCWEB_AMI_PSM_MACRO)
     {
         asyncResp->res.jsonValue["Links"]["ManagerForServers@odata.count"] = 1;
 
@@ -2710,7 +2709,6 @@ inline void
         asyncResp->res.jsonValue["Links"]["ManagerForServers"] =
             std::move(managerForServers);
     }
-    #endif
     #if (!BMCWEB_AMI_RM_MACRO) && (!BMCWEB_AMI_PSM_MACRO)
     sw_util::populateSoftwareInformation(asyncResp, sw_util::bmcPurpose,
                                          "FirmwareVersion", true);
