@@ -737,7 +737,7 @@ inline void handleChassisGetSubTree(
             std::bind_front(handlePhysicalSecurityGetSubTree, asyncResp));
         getMinMaxValues(asyncResp);
 
-        #if BMCWEB_AMI_REP_MACRO
+        #if BMCWEB_AMI_REP_MACRO && !BMCWEB_AMI_PSM_MACRO
             asyncResp->res.jsonValue["PCIeSlots"] = 
                 {{"@odata.id", boost::urls::format("/redfish/v1/Chassis/{}/PCIeSlots",chassisId)}};
         #endif
