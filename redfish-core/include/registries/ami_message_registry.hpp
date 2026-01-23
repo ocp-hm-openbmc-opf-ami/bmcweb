@@ -1349,6 +1349,15 @@ constexpr std::array registry =
             0,
             {},
             "Delete existing dump files to free space, then retry the request.",
+	}},MessageEntry{
+        "FirmwareUpdateFailed",
+        {
+            "The firmware image validation timed out.",
+            "This may be due to an invalid firmware image or D-Bus service unavailability.",
+            "Warning",
+            0,
+            {},
+            "The firmware image may be invalid or the D-Bus service is currently unavailable. Please check the format and try again later.",
         }},
 };
 
@@ -1487,7 +1496,8 @@ enum class Index
 	rEDFISHPreserveConfigurationConflict = 131,
 	certificateDateOverLimitUnixDate = 132,
 	invalidImageSize = 133,
-    dumpQuotaExceeded = 134
-
+    	dumpQuotaExceeded = 134,
+	firmwareUpdateFailed = 135
+	
 };
 } // namespace redfish::registries::openbmc
