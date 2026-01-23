@@ -1968,6 +1968,22 @@ inline void handleLDAPPatch(LdapPatchParams&& input,
             return;
         }
 
+        if (input.serviceEnabled)
+        {
+            if (!*input.serviceEnabled && !confData.serviceEnabled)
+            {
+                messages::serviceDisabled(asyncResp->res, serverT + " Service Disabled");
+                asyncResp->res.result(boost::beast::http::status::bad_request);
+                return;
+            }
+        }
+        else if (!confData.serviceEnabled)
+        {
+            messages::serviceDisabled(asyncResp->res, serverT + " Service Disabled");
+            asyncResp->res.result(boost::beast::http::status::bad_request);
+            return;
+        }
+
         auto successCount = std::make_shared<int>(0);
         auto pendingCount = std::make_shared<int>(0);
         auto totalCount = std::make_shared<int>(0);

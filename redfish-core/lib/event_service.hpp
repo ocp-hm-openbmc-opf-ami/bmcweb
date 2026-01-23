@@ -670,7 +670,7 @@ bool validateMsgId(const std::string& messageId)
     std::vector<std::string> fields;
     bmcweb::split(fields, messageId, '.');
 
-    if (fields.size() == 4)
+    if (fields.size() == 5)
     {
         // MessageId Format:
         // <Registry Prefix>.<Major Version>.<Minor Version>.<MessageKey>
@@ -678,7 +678,8 @@ bool validateMsgId(const std::string& messageId)
         const std::string& msgPrefix = fields[0];
         const std::string& majorStr = fields[1];
         const std::string& minorStr = fields[2];
-        const std::string& msgSuffix = fields[3];
+        const std::string& patchStr = fields[3];
+        const std::string& msgSuffix = fields[4];
 
         const auto registry = redfish::registries::getRegistryFromPrefix(msgPrefix);
         const auto* header = redfish::registries::resolveHeader(msgPrefix);
@@ -689,7 +690,8 @@ bool validateMsgId(const std::string& messageId)
         }
 
         if (std::to_string(header->versionMajor) == majorStr &&
-            std::to_string(header->versionMinor) == minorStr)
+            std::to_string(header->versionMinor) == minorStr &&
+            std::to_string(header->versionPatch) == patchStr)
         {
             if(std::any_of(registry.begin(), registry.end(),
                             [&msgSuffix](const redfish::registries::MessageEntry& messageEntry) {

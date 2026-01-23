@@ -1278,7 +1278,7 @@ inline void getAutomaticRebootAttempts(
             const dbus::utility::DBusPropertiesMap& propertiesList) {
             if (ec)
             {
-                if (ec.value() != EBADR)
+                if (ec.value() != EBADR && ec.value() != EHOSTUNREACH)
                 {
                     BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
                     messages::internalError(asyncResp->res);
@@ -4798,7 +4798,6 @@ inline void handleSystemCollectionResetActionHead(
         boost::beast::http::field::link,
         "</redfish/v1/JsonSchemas/ActionInfo/ActionInfo.json>; rel=describedby");
 }
-
 
 inline void afterGetAllowedHostTransitions(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)

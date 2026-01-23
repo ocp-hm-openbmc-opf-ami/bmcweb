@@ -1700,7 +1700,7 @@ inline void fillEventLogLogEntryFromPropertyMap(
     }
     else
     {
-        objectToFillOut["MessageID"] = std::move(msgID);
+        objectToFillOut["MessageId"] = std::move(msgID);
         objectToFillOut["Message"] = std::move(msgForm);
     }
     objectToFillOut["Resolved"] = entry.Resolved;
@@ -1811,7 +1811,7 @@ inline void fillSELEntryFromPropertyMap(
     }
     else
     {
-        objectToFillOut["MessageID"] = std::move(msgID);
+        objectToFillOut["MessageId"] = std::move(msgID);
         objectToFillOut["Message"] = std::move(msgForm);
     }
     objectToFillOut["Resolved"] = entry.Resolved;
@@ -4437,6 +4437,10 @@ inline void requestRoutesCrashdumpCollect(App& app)
                             {
                                 messages::serviceTemporarilyUnavailable(
                                     asyncResp->res, "60");
+                            }
+                            else if (ec.value() == EHOSTUNREACH)
+                            {
+                                messages::actionNotSupported(asyncResp->res,"CollectDiagnosticData");
                             }
                             else
                             {

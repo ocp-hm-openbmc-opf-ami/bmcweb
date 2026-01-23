@@ -1,13 +1,13 @@
 {
-    "$id": "/redfish/v1/JsonSchemas/AmiLicenseControl/AmiLicenseControl.v1_0_0.json",
-    "$ref": "#/definitions/AmiLicenseControl",
+    "$id": "http://redfish.dmtf.org/schemas/v1/AMIAtScaleDebug.v1_0_0.json",
+    "$ref": "#/definitions/AMIAtScaleDebug",
     "$schema": "http://redfish.dmtf.org/schemas/v1/redfish-schema-v1.json",
-    "copyright": "Copyright American Megatrends, Inc. (AMI)",
+    "copyright": "Copyright 2014-2019 DMTF. For the full DMTF copyright policy, see http://www.dmtf.org/about/policies/copyright",
     "definitions": {
-        "AmiLicenseControl": {
+        "AMIAtScaleDebug": {
             "additionalProperties": false,
-            "description": "This is the schema definition for the License Control in License.",
-            "longDescription": "This resource shall be used to represent License Control in License.",
+            "description": "Parameters for AMIAtScaleDebug.",
+            "longDescription": "Parameters for AMIAtScaleDebug.",
             "patternProperties": {
                 "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
                     "description": "This property shall specify a valid odata or Redfish property.",
@@ -35,12 +35,6 @@
                 "@odata.type": {
                     "$ref": "http://redfish.dmtf.org/schemas/v1/odata-v4.json#/definitions/type"
                 },
-                "AlertMessage": {
-                    "description": "The property indicates the Alert Message.",
-                    "longDescription": "The property indicates the Alert Message.",
-                    "readonly": true,
-                    "type": "string"
-                },
                 "Description": {
                     "anyOf": [
                         {
@@ -52,19 +46,19 @@
                     ],
                     "readonly": true
                 },
-                "GlobalLicenseValidity": {
-                    "description": "The property indicates the Global License Validity.",
-                    "longDescription": "The property indicates the Global License Validity.",
-                    "readonly": true,
-                    "type": "integer"
+                "Enabled": {
+                    "description": "The property signifies if the AtScaleDebug is enabled or disabled.",
+                    "longDescription": "The property signifies if the AtScaleDebug is enabled or disabled.",
+                    "readonly": false,
+                    "type": "boolean"
                 },
                 "Id": {
                     "$ref": "http://redfish.dmtf.org/schemas/v1/Resource.json#/definitions/Id",
                     "readonly": true
                 },
-                "LicenseKey": {
-                    "description": "The property indicates the License Key.",
-                    "longDescription": "The property indicates the License Key.",
+                "JTagInformation": {
+                    "description": "The JTag Information of AtScaleDebug.",
+                    "longDescription": "The JTag Information of AtScaleDebug.",
                     "readonly": true,
                     "type": "string"
                 },
@@ -77,17 +71,11 @@
                     "description": "The OEM extension property.",
                     "longDescription": "This property shall contain the OEM extensions.  All values for properties that this object contains shall conform to the Redfish Specification-described requirements."
                 },
-                "ServicesUpCountDays": {
-                    "description": "The property indicates the count of services up days.",
-                    "longDescription": "The property indicates the count of services up days.",
+                "TLSAuthentication": {
+                    "description": "The property signifies if the AtScaleDebug TLS Authentication is enabled or disabled.",
+                    "longDescription": "The property signifies if the AtScaleDebug TLS Authentication is enabled or disabled.",
                     "readonly": true,
-                    "type": "integer"
-                },
-                "UserAlertCount": {
-                    "description": "The property indicates the Alert day count.",
-                    "longDescription": "The property indicates the Alert day count.",
-                    "readonly": false,
-                    "type": "integer"
+                    "type": "string"
                 }
             },
             "required": [
@@ -99,6 +87,7 @@
             "type": "object"
         }
     },
-    "owningEntity": "Ami",
-    "title": "#AmiLicenseControl.v1_0_0.AmiLicenseControl"
+    "owningEntity": "AMI",
+    "release": "1.0",
+    "title": "#AMIAtScaleDebug.v1_0_0.AMIAtScaleDebug"
 }

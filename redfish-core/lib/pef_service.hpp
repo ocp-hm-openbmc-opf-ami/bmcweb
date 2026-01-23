@@ -851,7 +851,7 @@ inline void requestRoutesSendTrap(App& app)
                                 {
                                     crow::connections::systemBus->async_method_call(
                                         [aResp](const boost::system::error_code&
-                                                    ecTrapSend) {
+                                                    ecTrapSend, bool result) {
                                             if (ecTrapSend)
                                             {
                                                 BMCWEB_LOG_DEBUG(
@@ -859,6 +859,16 @@ inline void requestRoutesSendTrap(App& app)
                                                     ecTrapSend.message());
                                                 messages::internalError(
                                                     aResp->res);
+                                                return;
+                                            }
+                                            if (!result)
+                                            {
+                                                messages::serviceDisabled(
+                                                    aResp->res,
+                                                    "SNMP Service Disabled");
+                                                aResp->res.result(
+                                                    boost::beast::http::status::
+                                                        bad_request);
                                                 return;
                                             }
                                             messages::success(aResp->res);

@@ -21,6 +21,19 @@
 
 namespace crow
 {
+// Cache structure for user properties
+struct UserPropertiesCache
+{
+    std::string userRole;
+    bool remoteUser = false;
+    std::optional<bool> passwordExpired;
+    std::optional<std::vector<std::string>> userGroups;
+    bool isValid = false;
+};
+
+// Static cache storage
+static UserPropertiesCache cachedUserProperties;
+
 // Populate session with user information.
 inline bool
     populateUserInfo(persistent_data::UserSession& session,
@@ -38,8 +51,26 @@ inline bool
 
     if (!success)
     {
-        BMCWEB_LOG_ERROR("Failed to unpack user properties.");
-        return false;
+        if (cachedUserProperties.isValid)
+        {
+            userRole = cachedUserProperties.userRole;
+            remoteUser = cachedUserProperties.remoteUser;
+            passwordExpired = cachedUserProperties.passwordExpired;
+            userGroups = cachedUserProperties.userGroups;
+        }
+        else
+        {
+            BMCWEB_LOG_ERROR("No cached user properties available");
+            return false;
+        }
+    }
+    else
+    {
+        cachedUserProperties.userRole = userRole;
+        cachedUserProperties.remoteUser = remoteUser;
+        cachedUserProperties.passwordExpired = passwordExpired;
+        cachedUserProperties.userGroups = userGroups;
+        cachedUserProperties.isValid = true;
     }
 
     if (!remoteUser && (!passwordExpired || !userGroups))
