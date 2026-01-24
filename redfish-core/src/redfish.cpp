@@ -328,7 +328,9 @@ RedfishService::RedfishService(App& app)
     requestRoutesMemoryCollection(app);
     requestRoutesMemory(app);
 
+    #if (!BMCWEB_AMI_PSM_MACRO)
     requestRoutesSystems(app);
+    #endif
 
     requestRoutesBiosService(app);
     requestRoutesBiosReset(app);
@@ -374,9 +376,9 @@ RedfishService::RedfishService(App& app)
     requestRoutesSystemPCIeFunction(app);
     requestRoutesSystemPCIeDeviceCollection(app);
     requestRoutesSystemPCIeDevice(app);
-
+    #if (!BMCWEB_AMI_PSM_MACRO)
     requestRoutesPCIeSlots(app);
-
+    #endif
     requestRoutesSensorCollection(app);
     requestRoutesSensor(app);
     requestRoutesSensorPatching(app);

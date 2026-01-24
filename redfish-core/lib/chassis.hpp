@@ -529,14 +529,12 @@ inline void handleDecoratorAssetProperties(
             boost::urls::format("/redfish/v1/Chassis/{}/Power", chassisId);
     }
 #endif
-#if (!BMCWEB_AMI_RM_MACRO) && (!BMCWEB_AMI_PSM_MACRO)
     // FRU Device
     asyncResp->res.jsonValue["Oem"]["AMI"]["FRU"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Chassis/{}/FRU", chassisId);
     asyncResp->res.jsonValue["Oem"]["AMI"]["@odata.type"] = json_util::odataType("OemAMIChassis");
     asyncResp->res.jsonValue["Oem"]["AMI"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Chassis/{}#/Oem/AMI", chassisId);
-#endif
     // SensorCollection
     asyncResp->res.jsonValue["Sensors"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Chassis/{}/Sensors", chassisId);
@@ -739,7 +737,7 @@ inline void handleChassisGetSubTree(
             std::bind_front(handlePhysicalSecurityGetSubTree, asyncResp));
         getMinMaxValues(asyncResp);
 
-        #if BMCWEB_AMI_REP_MACRO
+        #if BMCWEB_AMI_REP_MACRO && !BMCWEB_AMI_PSM_MACRO
             asyncResp->res.jsonValue["PCIeSlots"] = 
                 {{"@odata.id", boost::urls::format("/redfish/v1/Chassis/{}/PCIeSlots",chassisId)}};
         #endif

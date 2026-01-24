@@ -62,9 +62,9 @@ inline void handleServiceRootGetImpl(
     asyncResp->res.jsonValue["Managers"]["@odata.id"] = "/redfish/v1/Managers";
     asyncResp->res.jsonValue["SessionService"]["@odata.id"] =
         "/redfish/v1/SessionService";
-//#if (!BMCWEB_AMI_PSM_MACRO)
+#if (!BMCWEB_AMI_PSM_MACRO)
     asyncResp->res.jsonValue["Systems"]["@odata.id"] = "/redfish/v1/Systems";
-//#endif
+#endif
     asyncResp->res.jsonValue["Registries"]["@odata.id"] =
         "/redfish/v1/Registries";
     asyncResp->res.jsonValue["UpdateService"]["@odata.id"] =
