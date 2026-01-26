@@ -16,7 +16,7 @@ inline void getBsodjpeg(std::shared_ptr<bmcweb::AsyncResp> asyncResp)
     if (!imageFile)
     {
         BMCWEB_LOG_DEBUG("Failed to open image file.");
-        asyncResp->res.jsonValue["Image"] = "Image File is  not Created";
+        asyncResp->res.jsonValue["Image"] = "Image File is not Created";
         return;
     }
 
