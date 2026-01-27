@@ -4875,6 +4875,32 @@ inline void handleSystemCollectionResetActionGet(
     afterGetAllowedHostTransitions(asyncResp);
    
 }
+
+inline void handleComputerSystemPostDelete(App& app, const crow::Request& req,
+                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                       const std::string& systemName)
+{
+    asyncResp->res.clearHeader(boost::beast::http::field::allow);
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+       return;
+    }
+    if (!membersResponseGet(asyncResp, systemName, "ComputerSystemCollection"))
+    {
+        return;
+    }
+    if (systemName != "system")
+    {
+        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                   systemName);
+        return;
+    }
+    asyncResp->res.addHeader("Allow", "GET, PATCH");
+    messages::operationNotAllowed(asyncResp->res);
+    return;
+}
+
+
 /**
  * SystemResetActionInfo derived class for delivering Computer Systems
  * ResetType AllowableValues using ResetInfo schema.
@@ -4909,28 +4935,7 @@ inline void requestRoutesSystems(App& app)
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/")
     .privileges(redfish::privileges::getComputerSystem)
     .methods(boost::beast::http::verb::post,boost::beast::http::verb::delete_)(
-            [&app](const crow::Request &req,
-                    const std::shared_ptr<bmcweb::AsyncResp> &asyncResp,
-                    const std::string &systemName) {
-        asyncResp->res.clearHeader(boost::beast::http::field::allow);
-        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-        {
-           return;
-        }
-        if (!membersResponseGet(asyncResp, systemName, "ComputerSystemCollection"))
-        {
-            return;
-        }
-        if (systemName != "system")
-        {
-            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                       systemName);
-            return;
-        }
-        asyncResp->res.addHeader("Allow", "GET, PATCH");
-        messages::operationNotAllowed(asyncResp->res);
-        return;
-    });
+            std::bind_front(handleComputerSystemPostDelete, std::ref(app)));
 
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Actions/ComputerSystem.Reset/")
         .privileges(redfish::privileges::postComputerSystem)

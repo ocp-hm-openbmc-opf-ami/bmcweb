@@ -45,6 +45,7 @@ feature_options = [
     'ami-rep',
     'ami-nvme',
     'ami-nic',
+    'ami-cxl',
     'ami-raidmscc',
     'ami-raidbrcm',
     'ami-pciesw',
@@ -110,6 +111,8 @@ foreach option_key : feature_options + string_options + int_options
             'ami-rep',
         ) or option_key.contains(
             'ami-nic',
+        ) or option_key.contains(
+            'ami-cxl',
         ) or option_key.contains(
             'ami-pciesw',
         ) or option_key.contains(
