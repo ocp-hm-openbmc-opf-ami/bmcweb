@@ -23,6 +23,10 @@
 #include "ext/include/registries/ami_privilege_mapping.hpp"
 #endif
 
+#if (BMCWEB_AMI_ACD_MACRO)
+#include "ext/lib/acd/include/registries/acd_service_message_registry.hpp"
+#endif
+
 #include <boost/url/format.hpp>
 
 #include <array>
@@ -61,6 +65,15 @@ inline void handleMessageRegistryFileCollectionGet(
             boost::urls::format("/redfish/v1/Registries/{}", memberName);
         members.emplace_back(std::move(member));
     }
+
+#if (BMCWEB_AMI_ACD_MACRO)
+    {
+        nlohmann::json::object_t acdMember;
+        acdMember["@odata.id"] = boost::urls::url("/redfish/v1/Registries/ACD");
+        members.emplace_back(std::move(acdMember));
+    }
+#endif
+
     asyncResp->res.jsonValue["Members@odata.count"] = members.size();
 }
 
@@ -77,7 +90,7 @@ inline void requestRoutesMessageRegistryFileCollection(App& app)
 
 /**
  * @brief Helper function to populate privilege mappings for entities
- * 
+ *
  * @param mappings Reference to the mappings JSON array
  * @param entities Map of entity names to their operation maps
  */
@@ -510,6 +523,36 @@ inline void handleMessageRoutesMessageRegistryFileGet(
             return;
         }
     }
+#if (BMCWEB_AMI_ACD_MACRO)
+    else if (registry == "ACD" || registryName == "ACD")
+    {
+        header = &registries::acd::header;
+        dmtf.clear();
+
+        Val =  std::format(
+            "{}.{}.{}.{}", header->registryPrefix, header->versionMajor,
+            header->versionMinor, header->versionPatch);
+        if (registry == "ACD")
+        {
+            registryVal = 0;
+        }
+        else if (registry == Val + ".json")
+        {
+            for (const registries::MessageEntry& entry :
+                 registries::acd::registry)
+            {
+                registryEntries.emplace_back(&entry);
+            }
+            registryVal = 1;
+        }
+        else
+        {
+            messages::resourceNotFound(asyncResp->res, "MessageRegistryFile",
+                                       registry);
+            return;
+        }
+    }
+#endif
     else
     {
         messages::resourceNotFound(asyncResp->res, "MessageRegistryFile",
@@ -529,7 +572,7 @@ inline void handleMessageRoutesMessageRegistryFileGet(
         {
         asyncResp->res.jsonValue["Registry"] =
             std::format("{}.{}.{}", header->registryPrefix,
-                        header->versionMajor, header->versionMinor);    
+                        header->versionMajor, header->versionMinor);
         }
         else
         {
@@ -632,7 +675,7 @@ inline void requestRoutesMessageRegistryFile(App& app)
     static constexpr const auto registryFiles = std::to_array(
         {"Base", "TaskEvent", "License", "NodeManager", "ResourceEvent", "OpenBMC",
          "Telemetry", "PrivilegeRegistry", "HeartbeatEvent",
-         "CertificateService","Ami"}); 
+         "CertificateService","Ami"});
     for (const char* memberName : registryFiles) {
         if (registry == memberName || registryName == memberName) {
             asyncResp->res.addHeader("Allow", "GET");
@@ -640,6 +683,15 @@ inline void requestRoutesMessageRegistryFile(App& app)
             return;
         }
     }
+
+#if (BMCWEB_AMI_ACD_MACRO)
+    if (registry == "ACD" || registryName == "ACD")
+    {
+        asyncResp->res.addHeader("Allow", "GET");
+        messages::operationNotAllowed(asyncResp->res);
+        return;
+    }
+#endif
 
 #if BMCWEB_AMI_REP_MACRO
     sdbusplus::asio::getProperty<std::string>(
@@ -654,8 +706,8 @@ inline void requestRoutesMessageRegistryFile(App& app)
             messages::resourceNotFound(asyncResp->res, "MessageRegistryFile", registry);
             return;
         }
-        
-        if (!registryVersion.empty() && registry == registryVersion) 
+
+        if (!registryVersion.empty() && registry == registryVersion)
         {
             asyncResp->res.addHeader("Allow", "GET");
             messages::operationNotAllowed(asyncResp->res);
