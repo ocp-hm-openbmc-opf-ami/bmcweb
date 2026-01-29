@@ -2194,6 +2194,18 @@ inline void handleUpdateServicePatch(
 
     if (imgTargetBusy)
     {
+        sdbusplus::asio::getProperty<bool>(
+            *crow::connections::systemBus,
+            "xyz.openbmc_project.Software.BMC.Updater",
+            "/xyz/openbmc_project/software",
+            "xyz.openbmc_project.Software.FirmwareUpdateTarget", "HttpPushUriTargetsBusy",
+            [asyncResp, imgTargets, imgTargetBusy](const boost::system::error_code& ec2,
+                        const bool ishttpPushUriTargetbusy) {
+                if (ec2)
+                {
+                    BMCWEB_LOG_ERROR("DBUS response error {}", ec2);
+                }
+		httpPushUriTargetBusy = ishttpPushUriTargetbusy;
         if ((httpPushUriTargetBusy) && (*imgTargetBusy))
         {
             BMCWEB_LOG_DEBUG(
@@ -2402,6 +2414,7 @@ inline void handleUpdateServicePatch(
                 });
             // httpPushUriTargetBusy = *imgTargetBusy;
         }
+        });
     }
 
     if (oem)
