@@ -1720,6 +1720,15 @@ nlohmann::json invalidLicense();
 
 void invalidLicense(crow::Response& res);
 
+/**
+ * @brief Formats dumpQuotaExceeded message into JSON
+ * Message body: "There is no more space available for dump files. Please delete some."
+ *
+ *  @returns Message dumpQuotaExceeded formatted to JSON */
+nlohmann::json dumpQuotaExceeded();
+
+void dumpQuotaExceeded(crow::Response& res);
+
 
 } // namespace messages
 

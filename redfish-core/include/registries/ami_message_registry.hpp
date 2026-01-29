@@ -1340,6 +1340,15 @@ constexpr std::array registry =
             0,
             {},
             "Ensure that the image is valid with size greater than 600KB and resubmit the request.",
+        }},MessageEntry{
+        "dumpQuotaExceeded",
+        {
+            "Indicates that the maximum number of dump records has been reached or the dump storage is full.",
+            "The dump cannot be created because either the MaxNumberOfRecords (150) has been reached or the available dump storage (1024 KB) is insufficient.",
+            "Critical",
+            0,
+            {},
+            "Delete existing dump files to free space, then retry the request.",
         }},
 };
 
@@ -1477,7 +1486,8 @@ enum class Index
 	sNMPPreserveConfigurationConflict = 130,
 	rEDFISHPreserveConfigurationConflict = 131,
 	certificateDateOverLimitUnixDate = 132,
-	invalidImageSize = 133
-	
+	invalidImageSize = 133,
+    dumpQuotaExceeded = 134
+
 };
 } // namespace redfish::registries::openbmc
