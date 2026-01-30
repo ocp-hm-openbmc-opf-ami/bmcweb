@@ -65,9 +65,8 @@ inline void getFanPaths(
     endpointPath /= "all_sensors";
 
     dbus::utility::getAssociatedSubTreePaths(
-        endpointPath,
-        sdbusplus::message::object_path("/xyz/openbmc_project/inventory"), 0,
-        fanInterface,
+        endpointPath, sdbusplus::message::object_path("/xyz/openbmc_project"),
+        0, fanInterface,
         [asyncResp, callback](
             const boost::system::error_code& ec,
             const dbus::utility::MapperGetSubTreePathsResponse& subtreePaths) {
@@ -182,6 +181,10 @@ inline void handleFanPath(
 {
     for (const auto& fanPath : fanPaths)
     {
+        if (!(fanPath.find("fan_tach") != std::string::npos))
+        {
+            continue;
+        }
         if (!checkFanId(fanPath, fanId))
         {
             continue;
@@ -233,235 +236,229 @@ inline void addFanCommonProperties(crow::Response& resp,
     resp.jsonValue["Id"] = fanId;
     resp.jsonValue["@odata.id"] = boost::urls::format(
         "/redfish/v1/Chassis/{}/ThermalSubsystem/Fans/{}", chassisId, fanId);
+    resp.jsonValue["SpeedPercent"]["@odata.id"] = boost::urls::format(
+        "/redfish/v1/Chassis/{}/Sensors/{}", chassisId, "fantach_" + fanId);
+    resp.jsonValue["SpeedPercent"]["DataSourceUri"] = boost::urls::format(
+        "/redfish/v1/Chassis/{}/Sensors/{}", chassisId, "fantach_" + fanId);
     resp.jsonValue["Status"]["State"] = resource::State::Enabled;
     resp.jsonValue["Status"]["Health"] = resource::Health::OK;
-
-    inline void getFanHealth(
-        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-        const std::string& fanPath, const std::string& service)
-    {
-        dbus::utility::getProperty<bool>(
-            service, fanPath,
-            "xyz.openbmc_project.State.Decorator.OperationalStatus",
-            "Functional",
-            [asyncResp](const boost::system::error_code& ec, const bool value) {
-                if (ec)
+}
+inline void getFanHealth(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                         const std::string& fanPath, const std::string& service)
+{
+    dbus::utility::getProperty<bool>(
+        service, fanPath,
+        "xyz.openbmc_project.State.Decorator.OperationalStatus", "Functional",
+        [asyncResp](const boost::system::error_code& ec, const bool value) {
+            if (ec)
+            {
+                if (ec.value() != EBADR)
                 {
-                    if (ec.value() != EBADR)
-                    {
-                        BMCWEB_LOG_ERROR("DBUS response error for Health {}",
-                                         ec.value());
-                        messages::internalError(asyncResp->res);
-                    }
-                    return;
-                }
-
-                if (!value)
-                {
-                    asyncResp->res.jsonValue["Status"]["Health"] =
-                        resource::Health::Critical;
-                }
-            });
-    }
-
-    inline void getFanState(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                            const std::string& fanPath,
-                            const std::string& service)
-    {
-        dbus::utility::getProperty<bool>(
-            service, fanPath,
-            "xyz.openbmc_project.Inventory.Item", "Present",
-            [asyncResp](const boost::system::error_code& ec, const bool value) {
-                if (ec)
-                {
-                    if (ec.value() != EBADR)
-                    {
-                        BMCWEB_LOG_ERROR("DBUS response error for State {}",
-                                         ec.value());
-                        messages::internalError(asyncResp->res);
-                    }
-                    return;
-                }
-
-                if (!value)
-                {
-                    asyncResp->res.jsonValue["Status"]["State"] =
-                        resource::State::Absent;
-                }
-            });
-    }
-
-    inline void getFanAsset(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                            const std::string& fanPath,
-                            const std::string& service)
-    {
-         dbus::utility::getAllProperties(
-            *crow::connections::systemBus, service, fanPath,
-            "xyz.openbmc_project.Inventory.Decorator.Asset",
-            [fanPath, asyncResp{asyncResp}](
-                const boost::system::error_code& ec,
-                const dbus::utility::DBusPropertiesMap& assetList) {
-                if (ec)
-                {
-                    if (ec.value() != EBADR)
-                    {
-                        BMCWEB_LOG_ERROR("DBUS response error for Properties{}",
-                                         ec.value());
-                        messages::internalError(asyncResp->res);
-                    }
-                    return;
-                }
-                const std::string* manufacturer = nullptr;
-                const std::string* model = nullptr;
-                const std::string* partNumber = nullptr;
-                const std::string* serialNumber = nullptr;
-                const std::string* sparePartNumber = nullptr;
-
-                const bool success = sdbusplus::unpackPropertiesNoThrow(
-                    dbus_utils::UnpackErrorPrinter(), assetList, "Manufacturer",
-                    manufacturer, "Model", model, "PartNumber", partNumber,
-                    "SerialNumber", serialNumber, "SparePartNumber",
-                    sparePartNumber);
-                if (!success)
-                {
+                    BMCWEB_LOG_ERROR("DBUS response error for Health {}",
+                                     ec.value());
                     messages::internalError(asyncResp->res);
-                    return;
                 }
-                if (manufacturer != nullptr)
-                {
-                    asyncResp->res.jsonValue["Manufacturer"] = *manufacturer;
-                }
-                if (model != nullptr)
-                {
-                    asyncResp->res.jsonValue["Model"] = *model;
-                }
-                if (partNumber != nullptr)
-                {
-                    asyncResp->res.jsonValue["PartNumber"] = *partNumber;
-                }
-                if (serialNumber != nullptr)
-                {
-                    asyncResp->res.jsonValue["SerialNumber"] = *serialNumber;
-                }
-                if (sparePartNumber != nullptr && !sparePartNumber->empty())
-                {
-                    asyncResp->res.jsonValue["SparePartNumber"] =
-                        *sparePartNumber;
-                }
-            });
-    }
+                return;
+            }
 
-    inline void getFanLocation(
-        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-        const std::string& fanPath, const std::string& service)
-    {
-        dbus::utility::getProperty<std::string>(
-            service, fanPath,
-            "xyz.openbmc_project.Inventory.Decorator.LocationCode",
-            "LocationCode",
-            [asyncResp](const boost::system::error_code& ec,
-                        const std::string& property) {
-                if (ec)
+            if (!value)
+            {
+                asyncResp->res.jsonValue["Status"]["Health"] =
+                    resource::Health::Critical;
+            }
+        });
+}
+
+inline void getFanState(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                        const std::string& fanPath, const std::string& service)
+{
+    dbus::utility::getProperty<bool>(
+        service, fanPath, "xyz.openbmc_project.Inventory.Item", "Present",
+        [asyncResp](const boost::system::error_code& ec, const bool value) {
+            if (ec)
+            {
+                if (ec.value() != EBADR)
                 {
-                    if (ec.value() != EBADR)
-                    {
-                        BMCWEB_LOG_ERROR("DBUS response error for Location{}",
-                                         ec.value());
-                        messages::internalError(asyncResp->res);
-                    }
-                    return;
+                    BMCWEB_LOG_ERROR("DBUS response error for State {}",
+                                     ec.value());
+                    messages::internalError(asyncResp->res);
                 }
-                asyncResp->res
-                    .jsonValue["Location"]["PartLocation"]["ServiceLabel"] =
-                    property;
-            });
-    }
+                return;
+            }
 
-    inline void afterGetValidFanPath(
-        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-        const std::string& chassisId, const std::string& fanId,
-        const std::string& fanPath, const std::string& service)
-    {
-        addFanCommonProperties(asyncResp->res, chassisId, fanId);
-        getFanState(asyncResp, fanPath, service);
-        getFanHealth(asyncResp, fanPath, service);
-        getFanAsset(asyncResp, fanPath, service);
-        getFanLocation(asyncResp, fanPath, service);
-    }
+            if (!value)
+            {
+                asyncResp->res.jsonValue["Status"]["State"] =
+                    resource::State::Absent;
+            }
+        });
+}
 
-    inline void doFanGet(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+inline void getFanAsset(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                        const std::string& fanPath, const std::string& service)
+{
+    dbus::utility::getAllProperties(
+        *crow::connections::systemBus, service, fanPath,
+        "xyz.openbmc_project.Inventory.Decorator.Asset",
+        [fanPath, asyncResp{asyncResp}](
+            const boost::system::error_code& ec,
+            const dbus::utility::DBusPropertiesMap& assetList) {
+            if (ec)
+            {
+                if (ec.value() != EBADR)
+                {
+                    BMCWEB_LOG_ERROR("DBUS response error for Properties{}",
+                                     ec.value());
+                    messages::internalError(asyncResp->res);
+                }
+                return;
+            }
+            const std::string* manufacturer = nullptr;
+            const std::string* model = nullptr;
+            const std::string* partNumber = nullptr;
+            const std::string* serialNumber = nullptr;
+            const std::string* sparePartNumber = nullptr;
+
+            const bool success = sdbusplus::unpackPropertiesNoThrow(
+                dbus_utils::UnpackErrorPrinter(), assetList, "Manufacturer",
+                manufacturer, "Model", model, "PartNumber", partNumber,
+                "SerialNumber", serialNumber, "SparePartNumber",
+                sparePartNumber);
+            if (!success)
+            {
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            if (manufacturer != nullptr)
+            {
+                asyncResp->res.jsonValue["Manufacturer"] = *manufacturer;
+            }
+            if (model != nullptr)
+            {
+                asyncResp->res.jsonValue["Model"] = *model;
+            }
+            if (partNumber != nullptr)
+            {
+                asyncResp->res.jsonValue["PartNumber"] = *partNumber;
+            }
+            if (serialNumber != nullptr)
+            {
+                asyncResp->res.jsonValue["SerialNumber"] = *serialNumber;
+            }
+            if (sparePartNumber != nullptr && !sparePartNumber->empty())
+            {
+                asyncResp->res.jsonValue["SparePartNumber"] = *sparePartNumber;
+            }
+        });
+}
+
+inline void getFanLocation(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                           const std::string& fanPath,
+                           const std::string& service)
+{
+    dbus::utility::getProperty<std::string>(
+        service, fanPath,
+        "xyz.openbmc_project.Inventory.Decorator.LocationCode", "LocationCode",
+        [asyncResp](const boost::system::error_code& ec,
+                    const std::string& property) {
+            if (ec)
+            {
+                if (ec.value() != EBADR)
+                {
+                    BMCWEB_LOG_ERROR("DBUS response error for Location{}",
+                                     ec.value());
+                    messages::internalError(asyncResp->res);
+                }
+                return;
+            }
+            asyncResp->res
+                .jsonValue["Location"]["PartLocation"]["ServiceLabel"] =
+                property;
+        });
+}
+
+inline void
+    afterGetValidFanPath(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                          const std::string& chassisId, const std::string& fanId,
-                         const std::optional<std::string>& validChassisPath)
-    {
-        if (!validChassisPath)
-        {
-            messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
-            return;
-        }
+                         const std::string& fanPath, const std::string& service)
+{
+    addFanCommonProperties(asyncResp->res, chassisId, fanId);
+    getFanState(asyncResp, fanPath, service);
+    getFanHealth(asyncResp, fanPath, service);
+    getFanAsset(asyncResp, fanPath, service);
+    getFanLocation(asyncResp, fanPath, service);
+}
 
-        getValidFanPath(
-            asyncResp, *validChassisPath, fanId,
-            std::bind_front(afterGetValidFanPath, asyncResp, chassisId, fanId));
+inline void doFanGet(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                     const std::string& chassisId, const std::string& fanId,
+                     const std::optional<std::string>& validChassisPath)
+{
+    if (!validChassisPath)
+    {
+        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
+        return;
     }
 
-    inline void handleFanHead(
-        App & app, const crow::Request& req,
-        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-        const std::string& chassisId, const std::string& fanId)
-    {
-        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-        {
-            return;
-        }
+    getValidFanPath(
+        asyncResp, *validChassisPath, fanId,
+        std::bind_front(afterGetValidFanPath, asyncResp, chassisId, fanId));
+}
 
-        redfish::chassis_utils::getValidChassisPath(
-            asyncResp, chassisId,
-            [asyncResp, chassisId,
-             fanId](const std::optional<std::string>& validChassisPath) {
-                if (!validChassisPath)
-                {
-                    messages::resourceNotFound(asyncResp->res, "Chassis",
-                                               chassisId);
-                    return;
-                }
-                getValidFanPath(
-                    asyncResp, *validChassisPath, fanId,
-                    [asyncResp](const std::string&, const std::string&) {
-                        asyncResp->res.addHeader(
-                            boost::beast::http::field::link,
-                            "</redfish/v1/JsonSchemas/Fan/Fan.json>; rel=describedby");
-                    });
-            });
+inline void handleFanHead(App& app, const crow::Request& req,
+                          const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                          const std::string& chassisId,
+                          const std::string& fanId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
     }
 
-    inline void handleFanGet(
-        App & app, const crow::Request& req,
-        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-        const std::string& chassisId, const std::string& fanId)
-    {
-        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-        {
-            return;
-        }
+    redfish::chassis_utils::getValidChassisPath(
+        asyncResp, chassisId,
+        [asyncResp, chassisId,
+         fanId](const std::optional<std::string>& validChassisPath) {
+            if (!validChassisPath)
+            {
+                messages::resourceNotFound(asyncResp->res, "Chassis",
+                                           chassisId);
+                return;
+            }
+            getValidFanPath(
+                asyncResp, *validChassisPath, fanId,
+                [asyncResp](const std::string&, const std::string&) {
+                    asyncResp->res.addHeader(
+                        boost::beast::http::field::link,
+                        "</redfish/v1/JsonSchemas/Fan/Fan.json>; rel=describedby");
+                });
+        });
+}
 
-        redfish::chassis_utils::getValidChassisPath(
-            asyncResp, chassisId,
-            std::bind_front(doFanGet, asyncResp, chassisId, fanId));
+inline void handleFanGet(App& app, const crow::Request& req,
+                         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                         const std::string& chassisId, const std::string& fanId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
     }
 
-    inline void requestRoutesFan(App & app)
-    {
-        BMCWEB_ROUTE(app,
-                     "/redfish/v1/Chassis/<str>/ThermalSubsystem/Fans/<str>/")
-            .privileges(redfish::privileges::headFan)
-            .methods(boost::beast::http::verb::head)(
-                std::bind_front(handleFanHead, std::ref(app)));
+    redfish::chassis_utils::getValidChassisPath(
+        asyncResp, chassisId,
+        std::bind_front(doFanGet, asyncResp, chassisId, fanId));
+}
 
-        BMCWEB_ROUTE(app,
-                     "/redfish/v1/Chassis/<str>/ThermalSubsystem/Fans/<str>/")
-            .privileges(redfish::privileges::getFan)
-            .methods(boost::beast::http::verb::get)(
-                std::bind_front(handleFanGet, std::ref(app)));
-    }
+inline void requestRoutesFan(App& app)
+{
+    BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/ThermalSubsystem/Fans/<str>/")
+        .privileges(redfish::privileges::headFan)
+        .methods(boost::beast::http::verb::head)(
+            std::bind_front(handleFanHead, std::ref(app)));
+
+    BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/ThermalSubsystem/Fans/<str>/")
+        .privileges(redfish::privileges::getFan)
+        .methods(boost::beast::http::verb::get)(
+            std::bind_front(handleFanGet, std::ref(app)));
+}
 
 } // namespace redfish

@@ -20,78 +20,47 @@
 namespace redfish
 {
 
-inline void
-    getFanRedundancy(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                     const std::string& chassisId)
+inline void getFanRedundancy(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId,
+    const dbus::utility::MapperGetSubTreePathsResponse& fanPaths)
 {
-    constexpr std::array<std::string_view, 1> interfaces{
-        "xyz.openbmc_project.Sensor.Value"};
-
-    const std::string& fantachPath = "/xyz/openbmc_project/sensors/fan_tach";
-
+    if (fanPaths.empty())
+    {
+        return;
+    }
     asyncResp->res.jsonValue["FanRedundancy"] = nlohmann::json::array();
+    nlohmann::json::object_t redundancy;
+    redundancy["RedundancyType"] = "NPlusM";
+    redundancy["MinNeededInGroup"] = 1;
+    redundancy["Status"]["State"] = "Enabled";
+    redundancy["Status"]["Health"] = "OK";
+    redundancy["RedundancyGroup"] = nlohmann::json::array();
 
-    dbus::utility::getSubTree(
-        fantachPath, 0, interfaces,
-        [chassisId,
-         asyncResp](const boost::system::error_code& ec,
-                    const dbus::utility::MapperGetSubTreeResponse& subtree) {
-            if (ec)
-            {
-                BMCWEB_LOG_DEBUG("DBUS response error {}", ec.value());
-                messages::internalError(asyncResp->res);
-                return;
-            }
+    for (const std::string& fanPath : fanPaths)
+    {
+        if (!(fanPath.find("fan_tach") != std::string::npos))
+        {
+            continue;
+        }
+        std::string fanName =
+            sdbusplus::message::object_path(fanPath).filename();
+        if (fanName.empty())
+        {
+            continue;
+        }
 
-            std::vector<std::string> pathNames;
+        nlohmann::json item = nlohmann::json::object();
+        item["@odata.id"] = boost::urls::format(
+            "/redfish/v1/Chassis/{}/ThermalSubsystem/Fans/{}", chassisId,
+            fanName);
 
-            for (const auto& [fanPath, serviceMap] : subtree)
-            {
-                for (const auto& [service, interfacesList] : serviceMap)
-                {
-                    if ((service == "xyz.openbmc_project.FanSensor") &&
-                        (!interfacesList.empty()))
-                    {
-                        sdbusplus::message::object_path path(fanPath);
-                        std::string leaf = path.filename();
-                        if (leaf.empty())
-                        {
-                            continue;
-                        }
-                        pathNames.push_back(leaf);
-                    }
-                }
-            }
-            if (pathNames.empty())
-            {
-                return;
-            }
+        redundancy["RedundancyGroup"].push_back(std::move(item));
+    }
+    redundancy["MaxSupportedInGroup"] = redundancy["RedundancyGroup"].size();
 
-            nlohmann::json::object_t redundandy;
-            redundandy["RedundancyType"] = "NPlusM";
-            redundandy["MinNeededInGroup"] = 1;
-            redundandy["Status"]["State"] = "Enabled";
-            redundandy["Status"]["Health"] = "OK";
-            redundandy["RedundancyGroup"] = nlohmann::json::array();
+    asyncResp->res.jsonValue["FanRedundancy"].push_back(std::move(redundancy));
 
-            std::sort(pathNames.begin(), pathNames.end(),
-                      AlphanumLess<std::string>());
-
-            for (const std::string& leaf : pathNames)
-            {
-                boost::urls::url url = boost::urls::format(
-                    "/redfish/v1/Chassis/{}/ThermalSubsystem/Fans", chassisId);
-                crow::utility::appendUrlPieces(url, leaf);
-                nlohmann::json::object_t member;
-                member["@odata.id"] = std::move(url);
-                redundandy["RedundancyGroup"].push_back(std::move(member));
-            }
-            redundandy["MaxSupportedInGroup"] =
-                redundandy["RedundancyGroup"].size();
-
-            asyncResp->res.jsonValue["FanRedundancy"].push_back(
-                std::move(redundandy));
-        });
 }
 
 inline void doThermalSubsystemCollection(
@@ -130,7 +99,8 @@ inline void doThermalSubsystemCollection(
     asyncResp->res.jsonValue["Status"]["Health"] = resource::Health::OK;
     if (chassisId != "Cpld" && chassisId != "CDU")
     {
-        getFanRedundancy(asyncResp, chassisId);
+        getFanPaths(asyncResp, *validChassisPath,
+                    std::bind_front(getFanRedundancy, asyncResp, chassisId));
     }
 }
 
