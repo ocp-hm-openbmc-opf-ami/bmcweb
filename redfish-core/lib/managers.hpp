@@ -477,28 +477,6 @@ inline void
 }
 
 inline void
-    handleFactoryDefaultGet(crow::App& app, const crow::Request& req,
-                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                            const std::string& managerId)
-{
-    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-    {
-        return;
-    }
-
-    if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
-    {
-        messages::resourceNotFound(asyncResp->res, "Manager", managerId);
-        return;
-    }
-
-    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("AMIResetToDefaults");
-    asyncResp->res.jsonValue["@odata.id"] = boost::urls::format("/redfish/v1/Managers/{}/Oem/Ami/ResetToDefaults",BMCWEB_REDFISH_MANAGER_URI_NAME);
-    asyncResp->res.jsonValue["Name"]="AMI ResetToDefaults";
-    asyncResp->res.jsonValue["Id"]="AMIResetToDefaults";
-    redfish::getPreserveConfig(asyncResp, "Managers");
-}
-inline void
     requestRoutesManagerResetToDefaults(App& app)
 {
     /**
@@ -578,58 +556,6 @@ inline void
                     "/xyz/openbmc_project/software",
                     "xyz.openbmc_project.Common.FactoryReset", "Reset");
             });
-    BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/Oem/Ami/ResetToDefaults/")
-        .privileges(redfish::privileges::postManager)
-        .methods(boost::beast::http::verb::post)(
-            [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   const std::string& managerId) {
-                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-                {
-                    return;
-                }
-                if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
-                {
-                    messages::resourceNotFound(asyncResp->res, "Manager",
-                                               managerId);
-                    return;
-                }
-                for (const std::shared_ptr<task::TaskData>& task : task::tasks)
-                {
-                    if (task == nullptr)
-                    {
-                        continue; // shouldn't be possible
-                    }
-                    if (task->state == "Pending")
-                    {
-                        messages::factoryDefaultResetActionConflict(
-                            asyncResp->res, "FactoryDefaultReset",
-                            "FirmwareUpdate");
-                        return;
-                    }
-                }
-                crow::connections::systemBus->async_method_call(
-                    [asyncResp](const boost::system::error_code& ec) {
-                        if (ec)
-                        {
-                            BMCWEB_LOG_DEBUG("Failed to ResetToDefaults: {}",
-                                             ec);
-                            messages::internalError(asyncResp->res);
-                            return;
-                        }
-                        // Factory Reset doesn't actually happen until a reboot
-                        // Can't erase what the BMC is running on
-                        doBMCGracefulRestart(asyncResp);
-                        messages::success(asyncResp->res);
-                    },
-                    "xyz.openbmc_project.Software.BMC.Updater",
-                    "/xyz/openbmc_project/software",
-                    "xyz.openbmc_project.Common.FactoryReset", "Reset");
-            });
-    BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/Oem/Ami/ResetToDefaults/")
-        .privileges(redfish::privileges::getManager)
-        .methods(boost::beast::http::verb::get)(
-            std::bind_front(handleFactoryDefaultGet, std::ref(app)));
 }
 
 /**
