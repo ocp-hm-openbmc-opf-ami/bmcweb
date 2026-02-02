@@ -2908,16 +2908,6 @@ void dumpQuotaExceeded(crow::Response& res)
     res.result(boost::beast::http::status::bad_request);
     addMessageToErrorJson(res.jsonValue, dumpQuotaExceeded());
 }
-nlohmann::json firmwareUpdateFailed(void)
-{
-    return getLog(redfish::registries::ami::Index::firmwareUpdateFailed, {});
-}
-
-void firmwareUpdateFailed(crow::Response& res)
-{
-    res.result(boost::beast::http::status::bad_request);
-    addMessageToErrorJson(res.jsonValue, firmwareUpdateFailed());
-}
 
 } // namespace messages
 } // namespace redfish

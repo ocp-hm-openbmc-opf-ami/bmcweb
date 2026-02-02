@@ -1729,15 +1729,6 @@ nlohmann::json dumpQuotaExceeded();
 
 void dumpQuotaExceeded(crow::Response& res);
 
-/**
- * @brief Formats FirmwareUpdateFailed message into JSON
- * Message body: "This may indicate an invalid firmware format
- * or incompatible image."
- *
- * @returns Message FirmwareUpdateFailed formatted to JSON */
-nlohmann::json firmwareUpdateFailed(void);
-
-void firmwareUpdateFailed(crow::Response& res);
 
 } // namespace messages
 
