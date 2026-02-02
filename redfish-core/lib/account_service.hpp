@@ -189,7 +189,7 @@ inline void setSMTPMailId(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,co
 {
     std::cerr<<"SMTPMailId value in setSMTPMailId function: " << SMTPMailId << std::endl;
     sdbusplus::asio::setProperty(
-        *crow::connections::systemBus,"xyz.openbmc_project.User.Manager", 
+        *crow::connections::systemBus,"xyz.openbmc_project.User.Manager",
         "/xyz/openbmc_project/user/" + username,
         "xyz.openbmc_project.User.Attributes", "SMTPMailID" , SMTPMailId,
         [asyncResp](const boost::system::error_code& ec){
@@ -2274,7 +2274,7 @@ inline void afterVerifyUserExists(
                 {
                     return;
                 }
-                
+
                 if (ec)
                 {
                     BMCWEB_LOG_ERROR("Failed to get UserPrivilege: {}", ec.message());
@@ -2321,7 +2321,7 @@ inline void afterVerifyUserExists(
                 }
                 else if (params.accountTypes && params.roleId == "Administrator")
                 {
-                    // If RoleId is Administrator, allow any AccountTypes                    
+                    // If RoleId is Administrator, allow any AccountTypes
                     patchAccountTypes(*params.accountTypes, asyncResp,
                                     params.dbusObjectPath, params.userSelf, completionHandler);
                 }
@@ -3683,21 +3683,20 @@ inline void handleAccountServicePatch(
     if (RememberOldPasswordTimes)
     {
         uint8_t rememberRange = RememberOldPasswordTimes.value();
+        if (rememberRange > 5)
+        {
+            std::string RemebrOldPasswdTimes = std::to_string(rememberRange);
+            std::string_view RembrOldPasswdView(RemebrOldPasswdTimes);
+            messages::propertyValueOutOfRange(
+                asyncResp->res, RembrOldPasswdView, "RememberOldPasswordTimes");
+            return;
+        }
+
         crow::connections::systemBus->async_method_call(
             [asyncResp, rememberRange](const boost::system::error_code ec) {
                 if (ec)
                 {
                     messages::internalError(asyncResp->res);
-                    return;
-                }
-                if (rememberRange > 5)
-                {
-                    std::string RemebrOldPasswdTimes =
-                        std::to_string(rememberRange);
-                    std::string_view RembrOldPasswdView(RemebrOldPasswdTimes);
-                    messages::propertyValueOutOfRange(
-                        asyncResp->res, RembrOldPasswdView,
-                        "RememberOldPasswordTimes");
                     return;
                 }
                 messages::success(asyncResp->res);
@@ -4047,7 +4046,7 @@ inline void processAfterGetAllGroups(
     std::optional<std::string> algorithm,
     std::optional<std::string> encryption,
     std::optional<std::string> accessMode,
-    std::optional<bool> hasSNMP, std::vector<std::string> dbusChannelPrivileges, 
+    std::optional<bool> hasSNMP, std::vector<std::string> dbusChannelPrivileges,
     std::vector<uint8_t> dbusChannelAccess, std::optional<std::string> smtpMailId)
 {
     std::vector<std::string> userGroups;
@@ -4661,7 +4660,7 @@ inline void handleAccountGet(
         asyncResp->res.clearHeader(boost::beast::http::field::allow);
         asyncResp->res.addHeader(boost::beast::http::field::allow, "GET, HEAD, PATCH");
     }
-    
+
     // Check privileges before making D-Bus call
     bool hasPrivilege = false;
     if (req.session->username == accountName)
@@ -4684,7 +4683,7 @@ inline void handleAccountGet(
             hasPrivilege = true;
         }
     }
-    
+
     if (!hasPrivilege)
     {
         BMCWEB_LOG_DEBUG("GET Account denied access");
@@ -4741,7 +4740,7 @@ inline void handleAccountGet(
                         "UserEnabled", userEnabled, "UserChannelAccess", userChannelAccess,
                         "UserLockedForFailedAttempt", userLocked,
                         "UserPrivilege", userPrivileges, "UserPasswordExpired",
-                        userPasswordExpired, "UserGroups", userGroups, 
+                        userPasswordExpired, "UserGroups", userGroups,
                         "SNMPAccessEnableStatus", snmpAccessEnableStatus,
                         "SMTPMailID" , smtpMailId);
                     if (!success)
@@ -4838,7 +4837,7 @@ inline void handleAccountGet(
                         return;
                     }
                     asyncResp->res.jsonValue["Oem"]["Ami"]["SMTP"]["SMTPMailId"] = *smtpMailId;
-                        
+
                 }
             }
 
@@ -4957,11 +4956,11 @@ inline void validateChannelPrivilegesUpdateUser(
             // Check if an error has already occurred before processing
             if (asyncResp->res.result() != boost::beast::http::status::ok)
             {
-                BMCWEB_LOG_ERROR("Skipping channel privileges update - error already set, status: {}", 
+                BMCWEB_LOG_ERROR("Skipping channel privileges update - error already set, status: {}",
                     static_cast<unsigned>(asyncResp->res.result()));
                 return;
             }
-            
+
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("D-Bus Method GetChannelInterfaceMap Response Error: {}", ec);
@@ -4979,11 +4978,11 @@ inline void validateChannelPrivilegesUpdateUser(
                 // Check if an error has already occurred before processing
                 if (asyncResp->res.result() != boost::beast::http::status::ok)
                 {
-                    BMCWEB_LOG_ERROR("Skipping UserGroups processing in channel privileges - error already set, status: {}", 
+                    BMCWEB_LOG_ERROR("Skipping UserGroups processing in channel privileges - error already set, status: {}",
                         static_cast<unsigned>(asyncResp->res.result()));
                     return;
                 }
-                
+
                 if (ec1)
                 {
                     BMCWEB_LOG_DEBUG("D-Bus response error {}", ec1);
@@ -5254,7 +5253,7 @@ inline void handleSNMPOEMProperties(const std::shared_ptr<bmcweb::AsyncResp>& as
     std::optional<nlohmann::json> snmp;
     std::optional<nlohmann::json> channelPrivileges;
     std::optional<nlohmann::json> smtp;
-   
+
     if (!json_util::readJson( *ami, asyncResp->res, "ChannelPrivileges" , channelPrivileges, "SNMP", snmp, "SMTP", smtp))
     {
         return;
@@ -5347,7 +5346,7 @@ inline void handleSNMPOEMProperties(const std::shared_ptr<bmcweb::AsyncResp>& as
             // Check if an error has already occurred before processing
             if (asyncResp->res.result() != boost::beast::http::status::ok)
             {
-                BMCWEB_LOG_ERROR("Skipping SNMP processing - error already set, status: {}", 
+                BMCWEB_LOG_ERROR("Skipping SNMP processing - error already set, status: {}",
                     static_cast<unsigned>(asyncResp->res.result()));
                 return;
             }
@@ -5492,19 +5491,19 @@ inline void handleAccountPatch(App& app, const crow::Request& req,
             {
                 // Always increment completed operations counter, regardless of success/failure
                 accountsCompletedOperations++;
-                
+
                 if (!success)
                 {
                     *hasError = true;
                 }
-                
+
                 if (accountsCompletedOperations == accountsTotalOperations)
                 {
                     if (!(*hasError) && accountsTotalOperations == body.size())
                     {
                         EventServiceManager::getInstance().propertyModifiedEventLog(propertyModified, propertyOriginal, "/redfish/v1/AccountService/Accounts/" + username);
                     }
-                    
+
                     // All async operations complete - now check final status
                     // If all succeeded (status is still 200 OK), change to 204 No Content
                     // Otherwise, preserve the error response set by the operations
@@ -5537,7 +5536,7 @@ inline void handleAccountPatch(App& app, const crow::Request& req,
             std::optional<nlohmann::json> oemObj;
             std::string originalRoleId;
             std::optional<std::string> smtpMailId;
-            
+
             if (userHasConfigureUsers)
             {
                 if (!json_util::readJsonPatch(
@@ -5714,12 +5713,12 @@ inline void handleAccountPatch(App& app, const crow::Request& req,
                      locked, accountTypes, userSelf, req.session,
                      passwordChangeRequired, completionHandler);
 
-                if (oemObj) 
+                if (oemObj)
                 {
                     std::string mutableUser = username;
 
                     // Handle SNMP properties, ensure errors are propagated if any
-                    handleSNMPOEMProperties(asyncResp, originalRoleId, roleId, oemObj, algorithm, encryption, accessMode, 
+                    handleSNMPOEMProperties(asyncResp, originalRoleId, roleId, oemObj, algorithm, encryption, accessMode,
                                                     smtpMailId, hasSNMP, mutableUser, password, accountTypes);
                 }
 
@@ -5751,7 +5750,7 @@ inline void handleAccountPatch(App& app, const crow::Request& req,
                 algorithm(std::move(algorithm)),
                 encryption(std::move(encryption)),
                 accessMode(std::move(accessMode)),
-                smtpMailId(std::move(smtpMailId)),                
+                smtpMailId(std::move(smtpMailId)),
                 hasSNMP](
                     const boost::system::error_code& ec,
                     sdbusplus::message_t& m)
