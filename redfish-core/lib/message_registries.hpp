@@ -9,6 +9,7 @@
 #include "registries/base_message_registry.hpp"
 #include "registries/certificate_service_message_registry.hpp"
 #include "registries/heartbeat_event_message_registry.hpp"
+#include "registries/license_message_registry.hpp"
 #include "registries/nm_message_registry.hpp"
 #include "registries/openbmc_message_registry.hpp"
 #include "registries/privilege_mapping.hpp"
@@ -16,11 +17,14 @@
 #include "registries/resource_event_message_registry.hpp"
 #include "registries/task_event_message_registry.hpp"
 #include "registries/telemetry_message_registry.hpp"
-#include "registries/license_message_registry.hpp"
 
 #if (BMCWEB_AMI_REP_MACRO)
 #include "ext/include/registries/ami_certificate_service_message_registry.hpp"
 #include "ext/include/registries/ami_privilege_mapping.hpp"
+#endif
+
+#if (BMCWEB_AMI_CONTROLS_MACRO)
+#include "ext/include/registries/amioem_controls_privilege_mapping.hpp"
 #endif
 
 #include <boost/url/format.hpp>
@@ -51,8 +55,8 @@ inline void handleMessageRegistryFileCollectionGet(
 
     nlohmann::json& members = asyncResp->res.jsonValue["Members"];
     static constexpr const auto registryFiles = std::to_array(
-        {"Base", "TaskEvent", "License", "NodeManager", "ResourceEvent", "OpenBMC",
-         "Telemetry", "PrivilegeRegistry", "HeartbeatEvent",
+        {"Base", "TaskEvent", "License", "NodeManager", "ResourceEvent",
+         "OpenBMC", "Telemetry", "PrivilegeRegistry", "HeartbeatEvent",
          "CertificateService"});
     for (const char* memberName : registryFiles)
     {
@@ -77,13 +81,13 @@ inline void requestRoutesMessageRegistryFileCollection(App& app)
 
 /**
  * @brief Helper function to populate privilege mappings for entities
- * 
+ *
  * @param mappings Reference to the mappings JSON array
  * @param entities Map of entity names to their operation maps
  */
 template <typename EntityMapType>
 inline void addEntitiesToMappings(nlohmann::json& mappings,
-                                   const EntityMapType& entities)
+                                  const EntityMapType& entities)
 {
     for (const auto& entity : entities)
     {
@@ -180,8 +184,10 @@ inline void
         }
 
         // Check for PropertyOverrides for this entity
-        const auto propertyOverrideIt = registries::PrivilegeRegistry::propertyOverrides.find(entityName);
-        if (propertyOverrideIt != registries::PrivilegeRegistry::propertyOverrides.end())
+        const auto propertyOverrideIt =
+            registries::PrivilegeRegistry::propertyOverrides.find(entityName);
+        if (propertyOverrideIt !=
+            registries::PrivilegeRegistry::propertyOverrides.end())
         {
             mappingObj["PropertyOverrides"] = nlohmann::json::array();
             for (const auto& propOverride : propertyOverrideIt->second)
@@ -193,11 +199,13 @@ inline void
                 {
                     const std::string& opMethod = op.first;
                     const auto& privileges = op.second;
-                    propOverrideObj["OperationMap"][opMethod] = nlohmann::json::array();
+                    propOverrideObj["OperationMap"][opMethod] =
+                        nlohmann::json::array();
                     for (const auto& privilege : privileges)
                     {
                         propOverrideObj["OperationMap"][opMethod].push_back(
-                            {{"Privilege", nlohmann::json::array({privilege})}});
+                            {{"Privilege",
+                              nlohmann::json::array({privilege})}});
                     }
                 }
                 mappingObj["PropertyOverrides"].push_back(propOverrideObj);
@@ -212,7 +220,15 @@ inline void
 
 #if (BMCWEB_AMI_REP_MACRO)
     // Add AMI-specific entities to PrivilegeRegistry
-    addEntitiesToMappings(mappings, redfish::registries::AMIPrivilegeMapping::AMIEntities);
+    addEntitiesToMappings(
+        mappings, redfish::registries::AMIPrivilegeMapping::AMIEntities);
+#endif
+
+#if (BMCWEB_AMI_CONTROLS_MACRO)
+    // Add AMI-specific Controls entities to PrivilegeRegistry
+    addEntitiesToMappings(
+        mappings,
+        redfish::registries::AMIPrivilegeMapping::AMIOemControlsEntities);
 #endif
 }
 
@@ -227,7 +243,8 @@ inline void handleMessageRoutesMessageRegistryFileGet(
     {
         return;
     }
-    if (!membersResponseGet(asyncResp, registry, "MessageRegistryFileCollection"))
+    if (!membersResponseGet(asyncResp, registry,
+                            "MessageRegistryFileCollection"))
     {
         return;
     }
@@ -274,9 +291,9 @@ inline void handleMessageRoutesMessageRegistryFileGet(
     else if (registry == "License" || registryName == "License")
     {
         header = &registries::license::header;
-        Val =  std::format(
-            "{}.{}.{}.{}", header->registryPrefix, header->versionMajor,
-            header->versionMinor, header->versionPatch);
+        Val = std::format("{}.{}.{}.{}", header->registryPrefix,
+                          header->versionMajor, header->versionMinor,
+                          header->versionPatch);
         if (registry == "License")
         {
             registryVal = 0;
@@ -300,9 +317,9 @@ inline void handleMessageRoutesMessageRegistryFileGet(
     else if (registry == "TaskEvent" || registryName == "TaskEvent")
     {
         header = &registries::task_event::header;
-        Val =  std::format(
-            "{}.{}.{}.{}", header->registryPrefix, header->versionMajor,
-            header->versionMinor, header->versionPatch);
+        Val = std::format("{}.{}.{}.{}", header->registryPrefix,
+                          header->versionMajor, header->versionMinor,
+                          header->versionPatch);
         if (registry == "TaskEvent")
         {
             registryVal = 0;
@@ -326,9 +343,9 @@ inline void handleMessageRoutesMessageRegistryFileGet(
     else if (registry == "OpenBMC" || registryName == "OpenBMC")
     {
         header = &registries::openbmc::header;
-        Val =  std::format(
-            "{}.{}.{}.{}", header->registryPrefix, header->versionMajor,
-            header->versionMinor, header->versionPatch);
+        Val = std::format("{}.{}.{}.{}", header->registryPrefix,
+                          header->versionMajor, header->versionMinor,
+                          header->versionPatch);
         if (registry == "OpenBMC")
         {
             dmtf.clear();
@@ -353,9 +370,9 @@ inline void handleMessageRoutesMessageRegistryFileGet(
     else if (registry == "NodeManager" || registryName == "NodeManager")
     {
         header = &registries::nm::header;
-        Val =  std::format(
-            "{}.{}.{}.{}", header->registryPrefix, header->versionMajor,
-            header->versionMinor, header->versionPatch);
+        Val = std::format("{}.{}.{}.{}", header->registryPrefix,
+                          header->versionMajor, header->versionMinor,
+                          header->versionPatch);
         if (registry == "NodeManager")
         {
             dmtf.clear();
@@ -380,9 +397,9 @@ inline void handleMessageRoutesMessageRegistryFileGet(
     else if (registry == "ResourceEvent" || registryName == "ResourceEvent")
     {
         header = &registries::resource_event::header;
-        Val =  std::format(
-            "{}.{}.{}.{}", header->registryPrefix, header->versionMajor,
-            header->versionMinor, header->versionPatch);
+        Val = std::format("{}.{}.{}.{}", header->registryPrefix,
+                          header->versionMajor, header->versionMinor,
+                          header->versionPatch);
         if (registry == "ResourceEvent")
         {
             registryVal = 0;
@@ -406,9 +423,9 @@ inline void handleMessageRoutesMessageRegistryFileGet(
     else if (registry == "Telemetry" || registryName == "Telemetry")
     {
         header = &registries::telemetry::header;
-        Val =  std::format(
-            "{}.{}.{}.{}", header->registryPrefix, header->versionMajor,
-            header->versionMinor, header->versionPatch);
+        Val = std::format("{}.{}.{}.{}", header->registryPrefix,
+                          header->versionMajor, header->versionMinor,
+                          header->versionPatch);
         if (registry == "Telemetry")
         {
             registryVal = 0;
@@ -432,9 +449,9 @@ inline void handleMessageRoutesMessageRegistryFileGet(
     else if (registry == "HeartbeatEvent" || registryName == "HeartbeatEvent")
     {
         header = &registries::heartbeat_event::header;
-        Val =  std::format(
-            "{}.{}.{}.{}", header->registryPrefix, header->versionMajor,
-            header->versionMinor, header->versionPatch);
+        Val = std::format("{}.{}.{}.{}", header->registryPrefix,
+                          header->versionMajor, header->versionMinor,
+                          header->versionPatch);
         if (registry == "HeartbeatEvent")
         {
             registryVal = 0;
@@ -480,9 +497,9 @@ inline void handleMessageRoutesMessageRegistryFileGet(
              registryName == "CertificateService")
     {
         header = &registries::certificate::header;
-        Val =  std::format(
-            "{}.{}.{}.{}", header->registryPrefix, header->versionMajor,
-            header->versionMinor, header->versionPatch);
+        Val = std::format("{}.{}.{}.{}", header->registryPrefix,
+                          header->versionMajor, header->versionMinor,
+                          header->versionPatch);
         if (registry == "CertificateService")
         {
             registryVal = 0;
@@ -494,13 +511,14 @@ inline void handleMessageRoutesMessageRegistryFileGet(
             {
                 registryEntries.emplace_back(&entry);
             }
-            #if (BMCWEB_AMI_REP_MACRO)
-                header = &registries::ami::certificate::header;
-                for (const registries::MessageEntry& entry : registries::ami::certificate::registry)
-                {
-                    registryEntries.emplace_back(&entry);
-                }
-            #endif
+#if (BMCWEB_AMI_REP_MACRO)
+            header = &registries::ami::certificate::header;
+            for (const registries::MessageEntry& entry :
+                 registries::ami::certificate::registry)
+            {
+                registryEntries.emplace_back(&entry);
+            }
+#endif
             registryVal = 1;
         }
         else
@@ -520,16 +538,17 @@ inline void handleMessageRoutesMessageRegistryFileGet(
     {
         asyncResp->res.jsonValue["@odata.id"] =
             boost::urls::format("/redfish/v1/Registries/{}", registry);
-        asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("MessageRegistryFile");
+        asyncResp->res.jsonValue["@odata.type"] =
+            json_util::odataType("MessageRegistryFile");
         asyncResp->res.jsonValue["Name"] = registry + " Message Registry File";
         asyncResp->res.jsonValue["Description"] =
             dmtf + registry + " Message Registry File Location";
         asyncResp->res.jsonValue["Id"] = header->registryPrefix;
-        if(registry != "PrivilegeRegistry")
+        if (registry != "PrivilegeRegistry")
         {
-        asyncResp->res.jsonValue["Registry"] =
-            std::format("{}.{}.{}", header->registryPrefix,
-                        header->versionMajor, header->versionMinor);    
+            asyncResp->res.jsonValue["Registry"] =
+                std::format("{}.{}.{}", header->registryPrefix,
+                            header->versionMajor, header->versionMinor);
         }
         else
         {
@@ -556,7 +575,8 @@ inline void handleMessageRoutesMessageRegistryFileGet(
         std::vector<std::string> split;
         bmcweb::split(split, header->type, '.');
         asyncResp->res.jsonValue["@Redfish.Copyright"] = header->copyright;
-        asyncResp->res.jsonValue["@odata.type"] = json_util::odataType(split[2]);
+        asyncResp->res.jsonValue["@odata.type"] =
+            json_util::odataType(split[2]);
         asyncResp->res.jsonValue["Id"] = std::format(
             "{}.{}.{}.{}", header->registryPrefix, header->versionMajor,
             header->versionMinor, header->versionPatch);
@@ -605,71 +625,82 @@ inline void requestRoutesMessageRegistryFile(App& app)
         .methods(boost::beast::http::verb::get)(std::bind_front(
             handleMessageRoutesMessageRegistryFileGet, std::ref(app)));
 
-   BMCWEB_ROUTE(app, "/redfish/v1/Registries/<str>/")
+    BMCWEB_ROUTE(app, "/redfish/v1/Registries/<str>/")
         .privileges(redfish::privileges::getMessageRegistryFile)
-        .methods(boost::beast::http::verb::post,boost::beast::http::verb::patch,boost::beast::http::verb::delete_,boost::beast::http::verb::put)(
-            [&app](const crow::Request& req,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& registry)
-  {
-    asyncResp->res.clearHeader(boost::beast::http::field::allow);
-    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-    {
-        return;
-    }
-    if (!membersResponseGet(asyncResp, registry, "MessageRegistryFileCollection"))
-    {
-        return;
-    }
-    size_t pos = registry.find('.');
-    std::string registryName;
-    if (pos != std::string::npos)
-    {
-        // Retrieve the substring before the first full stop
-        registryName = registry.substr(0, pos);
-    }
-    std::string Val;
-    static constexpr const auto registryFiles = std::to_array(
-        {"Base", "TaskEvent", "License", "NodeManager", "ResourceEvent", "OpenBMC",
-         "Telemetry", "PrivilegeRegistry", "HeartbeatEvent",
-         "CertificateService","Ami"}); 
-    for (const char* memberName : registryFiles) {
-        if (registry == memberName || registryName == memberName) {
-            asyncResp->res.addHeader("Allow", "GET");
-            messages::operationNotAllowed(asyncResp->res);
-            return;
-        }
-    }
+        .methods(
+            boost::beast::http::verb::post, boost::beast::http::verb::patch,
+            boost::beast::http::verb::delete_,
+            boost::beast::http::verb::
+                put)([&app](const crow::Request& req,
+                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                            const std::string& registry) {
+            asyncResp->res.clearHeader(boost::beast::http::field::allow);
+            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+            {
+                return;
+            }
+            if (!membersResponseGet(asyncResp, registry,
+                                    "MessageRegistryFileCollection"))
+            {
+                return;
+            }
+            size_t pos = registry.find('.');
+            std::string registryName;
+            if (pos != std::string::npos)
+            {
+                // Retrieve the substring before the first full stop
+                registryName = registry.substr(0, pos);
+            }
+            std::string Val;
+            static constexpr const auto registryFiles = std::to_array(
+                {"Base", "TaskEvent", "License", "NodeManager", "ResourceEvent",
+                 "OpenBMC", "Telemetry", "PrivilegeRegistry", "HeartbeatEvent",
+                 "CertificateService", "Ami"});
+            for (const char* memberName : registryFiles)
+            {
+                if (registry == memberName || registryName == memberName)
+                {
+                    asyncResp->res.addHeader("Allow", "GET");
+                    messages::operationNotAllowed(asyncResp->res);
+                    return;
+                }
+            }
 
 #if BMCWEB_AMI_REP_MACRO
-    sdbusplus::asio::getProperty<std::string>(
-    *crow::connections::systemBus, "xyz.openbmc_project.OOBInventoryConfig",
-    "/xyz/openbmc_project/OOBInventoryConfig",
-    "xyz.openbmc_project.OobBiosConfigInventory.OobBiosConfigInventory",
-    "BiosAttributeRegistryVersion",
-    [asyncResp, registry](const boost::system::error_code& ec,
-                         const std::string& registryVersion) {
-        if (ec)
-        {
-            messages::resourceNotFound(asyncResp->res, "MessageRegistryFile", registry);
-            return;
-        }
-        
-        if (!registryVersion.empty() && registry == registryVersion) 
-        {
-            asyncResp->res.addHeader("Allow", "GET");
-            messages::operationNotAllowed(asyncResp->res);
-            return;
-        } else {
-            messages::resourceNotFound(asyncResp->res, "MessageRegistryFile", registry);
-            return;
-        }
-    });
+            sdbusplus::asio::getProperty<std::string>(
+                *crow::connections::systemBus,
+                "xyz.openbmc_project.OOBInventoryConfig",
+                "/xyz/openbmc_project/OOBInventoryConfig",
+                "xyz.openbmc_project.OobBiosConfigInventory.OobBiosConfigInventory",
+                "BiosAttributeRegistryVersion",
+                [asyncResp, registry](const boost::system::error_code& ec,
+                                      const std::string& registryVersion) {
+                    if (ec)
+                    {
+                        messages::resourceNotFound(
+                            asyncResp->res, "MessageRegistryFile", registry);
+                        return;
+                    }
+
+                    if (!registryVersion.empty() && registry == registryVersion)
+                    {
+                        asyncResp->res.addHeader("Allow", "GET");
+                        messages::operationNotAllowed(asyncResp->res);
+                        return;
+                    }
+                    else
+                    {
+                        messages::resourceNotFound(
+                            asyncResp->res, "MessageRegistryFile", registry);
+                        return;
+                    }
+                });
 #else
-    messages::resourceNotFound(asyncResp->res, "MessageRegistryFile", registry);
-    return;
+            messages::resourceNotFound(asyncResp->res, "MessageRegistryFile",
+                                       registry);
+            return;
 #endif
-  });
+        });
 }
 
 } // namespace redfish
