@@ -1087,19 +1087,97 @@ class EventServiceManager
                 }
 
                 int32_t sensorType = 0; // Default value if not found
+                std::string sensorPath;
+                std::optional<std::string> redfishMsgId;
+                std::optional<std::string> redfishMsgArgs;
 
-                //  Extract SENSOR_TYPE from AdditionalData
+		        //Extract SENSOR_TYPE, SENSOR_PATH, REDFISH_MESSAGE_ID and
+                //REDFISH_MESSAGE_ARGS from AdditionalData
+
                 for (const auto& entry : additionalData)
                 {
                     if (entry.find("SENSOR_TYPE=") == 0)
                     {
                         // Extract value after "SENSOR_TYPE="
-                        sensorType = std::stoi(entry.substr(12));
-                        break;
+                        sensorType = std::stoi(entry.substr(strlen("SENSOR_TYPE=")));
+                        continue;
+                    }
+
+                    if (entry.find("SENSOR_PATH=") == 0)
+                    {
+                        // Extract value after "SENSOR_PATH="
+                        sensorPath = entry.substr(strlen("SENSOR_PATH="));
+                        continue;
+                    }
+
+                    if (entry.find("REDFISH_MESSAGE_ID=") == 0)
+                    {
+                        // Extract value after "REDFISH_MESSAGE_ID="
+                        redfishMsgId = entry.substr(strlen("REDFISH_MESSAGE_ID="));
+                        continue;
+                    }
+
+                    if (entry.find("REDFISH_MESSAGE_ARGS=") == 0)
+                    {
+                        // Extract value after "REDFISH_MESSAGE_ARGS="
+                        redfishMsgArgs = entry.substr(strlen("REDFISH_MESSAGE_ARGS="));
+                        continue;
+                    }
+                }
+                // Fallback Logic: infer sensor type from path when metadata
+                // doesn’t provide SENSOR_TYPE.
+                if (sensorType == 0 && !sensorPath.empty())
+                {
+                    if (sensorPath.find("/temperature/") != std::string::npos)
+                    {
+                        sensorType = 1;
+                    }
+                    else if (sensorPath.find("/voltage/") != std::string::npos)
+                    {
+                        sensorType = 2;
+                    }
+                    else if (sensorPath.find("/current/") != std::string::npos)
+                    {
+                        sensorType = 3;
+                    }
+                    else if (sensorPath.find("/fan") != std::string::npos)
+                    {
+                        sensorType = 4;
+                    }
+                }
+
+                std::string logEntry = messages;
+                if (!redfishMsgId)
+                {
+                    // Some phosphor-logging threshold entries already encode a
+                    // full MessageId plus args separated by commas (no
+                    // REDFISH_MESSAGE_ID/ARGS provided). Normalize that into
+                    // MessageId + MessageArgs so downstream parsing succeeds.
+                    size_t commaPos = messages.find(',');
+                    if (commaPos != std::string::npos &&
+                        messages.find("SensorThreshold") != std::string::npos)
+                    {
+                        redfishMsgId = messages.substr(0, commaPos);
+                        redfishMsgArgs = messages.substr(commaPos + 1);
+                    }
+                }
+                if (redfishMsgId)
+                {
+                    size_t lastDot = redfishMsgId->rfind('.');
+                    if (lastDot != std::string::npos)
+                    {
+                         *redfishMsgId = redfishMsgId->substr(lastDot + 1);
+                    }
+                    logEntry = *redfishMsgId;
+                    if (redfishMsgArgs && !redfishMsgArgs->empty())
+                    {
+                        // Use colon separator to match getDbusEventLogParams() parsing logic
+                        logEntry += ":";
+                        logEntry += *redfishMsgArgs;
                     }
                 }
                 EventServiceManager::getInstance().readEventLogsFromDbus(
-                    messages, timestampStr, sensorType);
+                    logEntry, timestampStr, sensorType);
             });
     }
 
