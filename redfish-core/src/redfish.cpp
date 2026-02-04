@@ -18,7 +18,7 @@
 #include "event_service.hpp"
 #include "eventservice_sse.hpp"
 #include "fabric_adapters.hpp"
-#include "fan_from_sensor.hpp"
+#include "fan.hpp"
 #include "fips_manager.hpp"
 #include "fru.hpp"
 #include "hypervisor_system.hpp"

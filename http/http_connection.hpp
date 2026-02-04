@@ -471,16 +471,44 @@ class Connection :
 
                 if (target == localMediaUploadPath)
                 {
-                    std::error_code ec;    
-                    std::filesystem::space_info spaceInfo = std::filesystem::space("/tmp/lmedia", ec);    
-                    if (ec) {    
+                    std::error_code ec;
+
+                    // Get available disk space on /tmp/lmedia
+                    std::filesystem::space_info spaceInfo = std::filesystem::space("/tmp/lmedia", ec);
+                    if (ec) {
                         BMCWEB_LOG_ERROR("Failed to get space info for /tmp/lmedia: {}", ec.message());
-                    }    
-                
-                    std::uintmax_t availableSpace = spaceInfo.available;   
-                    if (availableSpace < limit) {  
-                        maxBodySize = availableSpace;  
-                    } 
+                    }
+
+                    // Get available system memory (RAM)
+                    long availableMem = -1;
+                    FILE* meminfo = fopen("/proc/meminfo", "r");
+                    if (meminfo)
+                    {
+                        char line[256];
+                        while (fgets(line, sizeof(line), meminfo))
+                        {
+                            if (sscanf(line, "MemAvailable: %ld kB", &availableMem) == 1)
+                            {
+                                break;
+                            }
+                        }
+                        fclose(meminfo);
+                    }
+                    uint64_t availableMemBytes = (availableMem > 0) ? (static_cast<uint64_t>(availableMem) * 1024UL) : UINT64_MAX;
+                    constexpr uint64_t memReserve = 50UL * 1024UL * 1024UL; // 50MB
+                    if (availableMemBytes > memReserve)
+                    {
+                        availableMemBytes -= memReserve;
+                    }
+                    else
+                    {
+                        availableMemBytes = 0;
+                    }
+
+                    std::uintmax_t availableSpace = spaceInfo.available;
+                    // min(availableMemBytes, availableSpace, limit)
+                    uint64_t minVal = std::min({availableMemBytes, static_cast<uint64_t>(availableSpace), limit});
+                    maxBodySize = minVal;
                 }
 
                 break;

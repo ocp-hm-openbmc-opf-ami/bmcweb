@@ -497,12 +497,12 @@ inline void handleFruGet(App& app, const crow::Request& req,
 
 inline void requestRoutesFru(App& app)
 {
-    BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/FRU/<str>")
+    BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/FRU/<str>/")
         .privileges(redfish::privileges::getFru)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleFruGet, std::ref(app)));
 
-    BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/FRU/<str>")
+    BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/FRU/<str>/")
         .privileges(redfish::privileges::getFru)
         .methods(boost::beast::http::verb::post,boost::beast::http::verb::patch,boost::beast::http::verb::delete_)([&app]
             (const crow::Request& req,

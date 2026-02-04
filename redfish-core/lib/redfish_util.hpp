@@ -51,7 +51,8 @@ void getMainChassisId(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                       CallbackFunc&& callback)
 {
     // Find managed chassis
-    constexpr std::array<std::string_view, 2> interfaces = {
+    constexpr std::array<std::string_view, 3> interfaces = {
+        "xyz.openbmc_project.Inventory.Item.Board.Motherboard",
         "xyz.openbmc_project.Inventory.Item.Board",
         "xyz.openbmc_project.Inventory.Item.Chassis"};
     dbus::utility::getSubTree(
@@ -71,20 +72,39 @@ void getMainChassisId(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             }
 
             std::string chassisId;
-            for (const auto& [objectPath, serviceMap] : subtree)
+            // Priority order: Baseboard > Chassis > EVB
+            constexpr std::array<std::string_view, 3> priorities = {"Baseboard", "Chassis", "EVB"};
+            
+            for (const auto& priority : priorities)
             {
-                if (objectPath.find("Baseboard") != std::string::npos || 
-                    objectPath.find("Chalupa") != std::string::npos || 
-                    objectPath.find("EVB") != std::string::npos ||
-                    objectPath.find("Chassis") != std::string::npos)
+                for (const auto& [objectPath, serviceMap] : subtree)
                 {
-                    std::size_t idPos = objectPath.rfind('/');
-                    if (idPos != std::string::npos && (idPos + 1) < objectPath.size())
+                    if (objectPath.find(priority) != std::string::npos)
                     {
-                        chassisId = objectPath.substr(idPos + 1);
-                        break;
+                        std::size_t idPos = objectPath.rfind('/');
+                        if (idPos != std::string::npos && (idPos + 1) < objectPath.size())
+                        {
+                            chassisId = objectPath.substr(idPos + 1);
+                            break;
+                        }
                     }
                 }
+                if (!chassisId.empty())
+                {
+                    break;
+                }
+            }
+            if (chassisId.empty())
+            {
+                std::size_t idPos = subtree[0].first.rfind('/');
+                if (idPos == std::string::npos ||
+                    (idPos + 1) >= subtree[0].first.size())
+                {
+                    messages::internalError(asyncResp->res);
+                    BMCWEB_LOG_DEBUG("Can't parse chassis ID!");
+                    return;
+                }
+                chassisId = subtree[0].first.substr(idPos + 1);
             }
             BMCWEB_LOG_DEBUG("chassisId = {}", chassisId);
             callback(chassisId, asyncResp);

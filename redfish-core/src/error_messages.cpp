@@ -2891,5 +2891,23 @@ void invalidLicense(crow::Response& res)
     addMessageToErrorJson(res.jsonValue, invalidLicense());
 }
 
+/**
+ * @internal
+ * @brief Formats DumpQuotaExceeded message into JSON
+ *
+ * See header file for more information
+ * @endinternal
+ */
+nlohmann::json dumpQuotaExceeded(void)
+{
+    return getLog(redfish::registries::ami::Index::dumpQuotaExceeded, {});
+}
+
+void dumpQuotaExceeded(crow::Response& res)
+{
+    res.result(boost::beast::http::status::bad_request);
+    addMessageToErrorJson(res.jsonValue, dumpQuotaExceeded());
+}
+
 } // namespace messages
 } // namespace redfish

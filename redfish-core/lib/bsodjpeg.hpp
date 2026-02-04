@@ -15,8 +15,7 @@ inline void getBsodjpeg(std::shared_ptr<bmcweb::AsyncResp> asyncResp)
 
     if (!imageFile)
     {
-        BMCWEB_LOG_DEBUG("Failed to open image file.");
-        asyncResp->res.jsonValue["Image"] = "Image File is  not Created";
+        messages::resourceNotFound(asyncResp->res, "Jpeg", "Image");
         return;
     }
 
@@ -39,11 +38,17 @@ inline void getBsodjpeg(std::shared_ptr<bmcweb::AsyncResp> asyncResp)
                              imageData.size());
     std::string output = crow::utility::base64encode(strdata);
     asyncResp->res.jsonValue["Image"] = output;
+    asyncResp->res.jsonValue["Image"] = output;
+    asyncResp->res.jsonValue["@odata.id"] =
+            "/redfish/v1/Managers/bmc/Oem/OpenBmc/Jpeg/Image";
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("JpegImage");
+    asyncResp->res.jsonValue["Id"] = "Image";
+    asyncResp->res.jsonValue["Name"] = "BSOD Image Data";
 }
 
 inline void requestRoutesBsodjpeg(App& app)
 {
-    BMCWEB_ROUTE(app, "/redfish/v1/Managers/bmc/Oem/OpenBmc/Jpeg")
+    BMCWEB_ROUTE(app, "/redfish/v1/Managers/bmc/Oem/OpenBmc/Jpeg/")
         .privileges(redfish::privileges::getJPEG)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
@@ -56,14 +61,35 @@ inline void requestRoutesBsodjpeg(App& app)
             "/redfish/v1/Managers/bmc/Oem/OpenBmc/Jpeg";
         asyncResp->res.jsonValue["Id"] = "Jpeg";
         asyncResp->res.jsonValue["Name"] = "Jpeg Image";
-	asyncResp->res.jsonValue["@odata.type"] = "#Jpeg.v1_0_0.Jpeg";
+	    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("Jpeg");
+        // Check if image exists
+        if (fs::exists(inputImagePath) && !fs::is_empty(inputImagePath))
+        {
+            asyncResp->res.jsonValue["ImageURI"] = "/redfish/v1/Managers/bmc/Oem/OpenBmc/Jpeg/Image";
+        }
+        else
+        {
+            asyncResp->res.jsonValue["ImageURI"] = "Image File is not Created";
+        }
+        return;
+    });
+
+    BMCWEB_ROUTE(app, "/redfish/v1/Managers/bmc/Oem/OpenBmc/Jpeg/Image/")
+        .privileges(redfish::privileges::getJPEG)
+        .methods(boost::beast::http::verb::get)(
+            [&app](const crow::Request& req,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
+        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+        {
+            return;
+        }
         getBsodjpeg(asyncResp);
     });
 }
 
 inline void requestRoutesDeleteBsodjpeg(App& app)
 {
-    BMCWEB_ROUTE(app, "/redfish/v1/Managers/bmc/Oem/OpenBmc/Jpeg")
+    BMCWEB_ROUTE(app, "/redfish/v1/Managers/bmc/Oem/OpenBmc/Jpeg/Image/")
         .privileges(redfish::privileges::deleteJPEG)
         .methods(boost::beast::http::verb::delete_)(
             [&app](const crow::Request& req,
@@ -90,7 +116,7 @@ inline void requestRoutesDeleteBsodjpeg(App& app)
 
 inline void requestRoutesTriggerBsodjpeg(App& app)
 {
-    BMCWEB_ROUTE(app, "/redfish/v1/Managers/bmc/Oem/OpenBmc/Jpeg")
+    BMCWEB_ROUTE(app, "/redfish/v1/Managers/bmc/Oem/OpenBmc/Jpeg/")
         .privileges(redfish::privileges::postJPEG)
         .methods(boost::beast::http::verb::post)(
             [&app](const crow::Request& req,
@@ -122,3 +148,4 @@ inline void requestRoutesTriggerBsodjpeg(App& app)
 }
 
 } // namespace redfish
+

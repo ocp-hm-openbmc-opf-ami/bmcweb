@@ -2734,70 +2734,84 @@ inline void handleSensorThreshCollectionGet(
     asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
         "/redfish/v1/Chassis/{}/Sensors/Oem/Ami/Threshold", chassisId);
 
-    std::array<std::string, 2> interfaces = {
-        "xyz.openbmc_project.Sensor.Threshold.Warning",
-        "xyz.openbmc_project.Sensor.Threshold.Critical"};
+    std::string chassisSensorPath =
+        "/xyz/openbmc_project/inventory/system/board/" + chassisId +
+        "/all_sensors";
 
-    crow::connections::systemBus->async_method_call(
-        [asyncResp, chassisId](const boost::system::error_code ec,
-                               const std::vector<std::string>& ifaceList) {
-            if (ec)
-            {
-                BMCWEB_LOG_DEBUG(
-                    "Error in querying GetSubTreePaths with Object Mapper. {}",
-                    ec);
-                messages::internalError(asyncResp->res);
-                return;
-            }
+    ::dbus::utility::checkDbusPathExists(chassisSensorPath, [asyncResp,
+                                                             chassisId](
+                                                                const bool
+                                                                    pathExists) {
+        if (!pathExists)
+        {
+            messages::resourceNotFound(asyncResp->res, chassisId, "Threshold");
+            return;
+        }
 
-            asyncResp->res.jsonValue["@odata.type"] =
-                "#ThresholdSensorCollection.ThresholdSensorCollection";
-            asyncResp->res.jsonValue["Description"] =
-                "Collection of Threshold Sensors of this Chassis";
-            asyncResp->res.jsonValue["Name"] = "Threshold Sensors";
-            nlohmann::json& sensorPathList =
-                asyncResp->res.jsonValue["Members"];
-            sensorPathList = nlohmann::json::array();
-
-            for (const std::string& objpath : ifaceList)
-            {
-                std::size_t lastSlashPos = objpath.rfind('/');
-                std::size_t secondLastSlashPos =
-                    objpath.rfind('/', lastSlashPos - 1);
-
-                if (lastSlashPos == std::string::npos ||
-                    secondLastSlashPos == std::string::npos ||
-                    (objpath.size() <= lastSlashPos + 1))
+        std::array<std::string, 2> interfaces = {
+            "xyz.openbmc_project.Sensor.Threshold.Warning",
+            "xyz.openbmc_project.Sensor.Threshold.Critical"};
+        crow::connections::systemBus->async_method_call(
+            [asyncResp, chassisId](const boost::system::error_code ec,
+                                   const std::vector<std::string>& ifaceList) {
+                if (ec)
                 {
-                    BMCWEB_LOG_ERROR("Failed to parse object path: {}",
-                                     objpath);
-                    continue;
+                    BMCWEB_LOG_DEBUG(
+                        "Error in querying GetSubTreePaths with Object Mapper. {}",
+                        ec);
+                    messages::internalError(asyncResp->res);
+                    return;
                 }
 
-                std::string sensorType =
-                    objpath.substr(secondLastSlashPos + 1,
-                                   lastSlashPos - secondLastSlashPos - 1);
-                std::string sensorName = objpath.substr(lastSlashPos + 1);
+                asyncResp->res.jsonValue["@odata.type"] =
+                    "#ThresholdSensorCollection.ThresholdSensorCollection";
+                asyncResp->res.jsonValue["Description"] =
+                    "Collection of Threshold Sensors of this Chassis";
+                asyncResp->res.jsonValue["Name"] = "Threshold Sensors";
+                nlohmann::json& sensorPathList =
+                    asyncResp->res.jsonValue["Members"];
+                sensorPathList = nlohmann::json::array();
 
-                if (sensorType == "fan_tach")
+                for (const std::string& objpath : ifaceList)
                 {
-                    sensorType = "fantach";
-                }
-                std::string sensorTypeName = sensorType + "_" + sensorName;
+                    std::size_t lastSlashPos = objpath.rfind('/');
+                    std::size_t secondLastSlashPos =
+                        objpath.rfind('/', lastSlashPos - 1);
 
-                sensorPathList.push_back(
-                    {"@odata.id",
-                     boost::urls::format(
-                         "/redfish/v1/Chassis/{}/Sensors/Oem/Ami/Threshold/{}",
-                         chassisId, sensorTypeName)});
-            }
-            asyncResp->res.jsonValue["Members@odata.count"] =
-                sensorPathList.size();
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths", "/", 0,
-        interfaces);
+                    if (lastSlashPos == std::string::npos ||
+                        secondLastSlashPos == std::string::npos ||
+                        (objpath.size() <= lastSlashPos + 1))
+                    {
+                        BMCWEB_LOG_ERROR("Failed to parse object path: {}",
+                                         objpath);
+                        continue;
+                    }
+
+                    std::string sensorType =
+                        objpath.substr(secondLastSlashPos + 1,
+                                       lastSlashPos - secondLastSlashPos - 1);
+                    std::string sensorName = objpath.substr(lastSlashPos + 1);
+
+                    if (sensorType == "fan_tach")
+                    {
+                        sensorType = "fantach";
+                    }
+                    std::string sensorTypeName = sensorType + "_" + sensorName;
+
+                    sensorPathList.push_back(
+                        {"@odata.id",
+                         boost::urls::format(
+                             "/redfish/v1/Chassis/{}/Sensors/Oem/Ami/Threshold/{}",
+                             chassisId, sensorTypeName)});
+                }
+                asyncResp->res.jsonValue["Members@odata.count"] =
+                    sensorPathList.size();
+            },
+            "xyz.openbmc_project.ObjectMapper",
+            "/xyz/openbmc_project/object_mapper",
+            "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths", "/", 0,
+            interfaces);
+    });
 }
 
 inline void getSensorFromDbus(
@@ -2932,40 +2946,59 @@ inline void handleSensorThreshGet(
         return;
     }
     asyncResp->res.addHeader("Allow", "GET, PATCH");
-    std::pair<std::string, std::string> nameType =
-        redfish::sensor_utils::splitSensorNameAndType(sensorId);
-    if (nameType.first.empty() || nameType.second.empty())
-    {
-        messages::resourceNotFound(asyncResp->res, sensorId, "Sensor");
-        return;
-    }
-    asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
-        "/redfish/v1/Chassis/{}/Sensors/Oem/Ami/Threshold/{}", chassisId, sensorId);
+    std::string chassisSensorPath =
+        "/xyz/openbmc_project/inventory/system/board/" + chassisId +
+        "/all_sensors";
 
-    constexpr std::array<std::string_view, 3> interfaces = {
-        "xyz.openbmc_project.Sensor.Value", "xyz.openbmc_project.Sensor.State",
-        "xyz.openbmc_project.Association.Definitions"};
-    std::string sensorPath = "/xyz/openbmc_project/sensors/" + nameType.first +
-                             '/' + nameType.second;
-    ::dbus::utility::getDbusObject(
-        sensorPath, interfaces,
-        [asyncResp, sensorId,
-         sensorPath](const boost::system::error_code& ec,
-                     const ::dbus::utility::MapperGetObject& subtree) {
-            if (ec == boost::system::errc::io_error)
+    ::dbus::utility::checkDbusPathExists(
+        chassisSensorPath,
+        [asyncResp, chassisId, sensorId](const bool pathExists) {
+            if (!pathExists)
             {
-                BMCWEB_LOG_WARNING("Sensor not found from getSensorPaths");
+                messages::resourceNotFound(asyncResp->res, chassisId,
+                                           "Threshold");
+                return;
+            }
+            std::pair<std::string, std::string> nameType =
+                redfish::sensor_utils::splitSensorNameAndType(sensorId);
+            if (nameType.first.empty() || nameType.second.empty())
+            {
                 messages::resourceNotFound(asyncResp->res, sensorId, "Sensor");
                 return;
             }
-            if (ec)
-            {
-                messages::internalError(asyncResp->res);
-                BMCWEB_LOG_ERROR(
-                    "Sensor getSensorPaths resp_handler: Dbus error {}", ec);
-                return;
-            }
-            getSensorFromDbus(asyncResp, sensorPath, subtree);
+            asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
+                "/redfish/v1/Chassis/{}/Sensors/Oem/Threshold/{}", chassisId,
+                sensorId);
+
+            constexpr std::array<std::string_view, 3> interfaces = {
+                "xyz.openbmc_project.Sensor.Value",
+                "xyz.openbmc_project.Sensor.State",
+                "xyz.openbmc_project.Association.Definitions"};
+            std::string sensorPath = "/xyz/openbmc_project/sensors/" +
+                                     nameType.first + '/' + nameType.second;
+            ::dbus::utility::getDbusObject(
+                sensorPath, interfaces,
+                [asyncResp, sensorId,
+                 sensorPath](const boost::system::error_code& ec,
+                             const ::dbus::utility::MapperGetObject& subtree) {
+                    if (ec == boost::system::errc::io_error)
+                    {
+                        BMCWEB_LOG_WARNING(
+                            "Sensor not found from getSensorPaths");
+                        messages::resourceNotFound(asyncResp->res, sensorId,
+                                                   "Sensor");
+                        return;
+                    }
+                    if (ec)
+                    {
+                        messages::internalError(asyncResp->res);
+                        BMCWEB_LOG_ERROR(
+                            "Sensor getSensorPaths resp_handler: Dbus error {}",
+                            ec);
+                        return;
+                    }
+                    getSensorFromDbus(asyncResp, sensorPath, subtree);
+                });
         });
 }
 
@@ -3379,121 +3412,81 @@ inline void handleSensorGet(App& app, const crow::Request& req,
         return;
     }
     asyncResp->res.addHeader("Allow", "GET, PATCH");
-    // Validate chassis ID via D-Bus call
-    crow::connections::systemBus->async_method_call(
-        [asyncResp, chassisId,
-         sensorId](const boost::system::error_code ec_,
-                   const std::vector<std::string>& chassisPaths) {
-            if (ec_)
+    std::string chassisSensorPath =
+        "/xyz/openbmc_project/inventory/system/board/" + chassisId +
+        "/all_sensors";
 
-            {
-                BMCWEB_LOG_ERROR(
-                    "D-Bus call error while validating chassis ID");
-                asyncResp->res.result(
-                    boost::beast::http::status::internal_server_error);
-                return;
-            }
-
-            // Extract valid chassis IDs from the D-Bus paths
-            bool isValid = false;
-            for (const std::string& objpath : chassisPaths)
-            {
-                std::size_t lastPos = objpath.rfind('/');
-                if (lastPos != std::string::npos)
+    ::dbus::utility::checkDbusPathExists(chassisSensorPath, [asyncResp,
+                                                             chassisId,
+                                                             sensorId](
+                                                                const bool
+                                                                    pathExists) {
+        if (!pathExists)
+        {
+            messages::resourceNotFound(asyncResp->res, chassisId, "Chassis");
+            return;
+        }
+        // Proceed with sensor retrieval after chassis validation
+        BMCWEB_LOG_DEBUG(
+            "Chassis ID is valid. Proceeding with sensor retrieval.");
+        std::pair<std::string, std::string> nameType =
+            redfish::sensor_utils::splitSensorNameAndType(sensorId);
+        std::string sensorPath = "/xyz/openbmc_project/sensors/" +
+                                 nameType.first + '/' + nameType.second;
+        if (nameType.first.empty() || nameType.second.empty())
+        {
+            messages::resourceNotFound(asyncResp->res, sensorId, "Sensor");
+            return;
+        }
+        if (valideSensorWithConfFile(sensorId))
+        {
+            getSensorReading(sensorPath, [asyncResp, chassisId, sensorId](
+                                             const std::string& reading) {
+                if (reading != "nan")
                 {
-                    std::string extractedChassisId =
-                        objpath.substr(lastPos + 1);
-                    std::cerr
-                        << "extractedChassisId: " << extractedChassisId << "\n";
-                    std::cerr << "chassisId: " << chassisId << "\n";
-
-                    if (extractedChassisId == chassisId)
-                    {
-                        isValid = true;
-                        break;
-                    }
+                    asyncResp->res.jsonValue["Oem"]["Ami"]
+                                            ["@odata.id"] = boost::urls::format(
+                        "/redfish/v1/Chassis/{}/Sensors/{}/Oem/SensorHistory",
+                        chassisId, sensorId);
                 }
-            }
+            });
+        }
+        filterThresholdSensors(asyncResp, chassisId, sensorId);
+        asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
+            "/redfish/v1/Chassis/{}/Sensors/{}", chassisId, sensorId);
 
-            if (!isValid)
-            {
-                messages::resourceNotFound(asyncResp->res, chassisId,
-                                           "chassisId");
-                return;
-            }
-
-            // Proceed with sensor retrieval after chassis validation
-            BMCWEB_LOG_DEBUG(
-                "Chassis ID is valid. Proceeding with sensor retrieval.");
-            std::pair<std::string, std::string> nameType =
-                redfish::sensor_utils::splitSensorNameAndType(sensorId);
-            std::string sensorPath = "/xyz/openbmc_project/sensors/" +
-                                     nameType.first + '/' + nameType.second;
-            if (nameType.first.empty() || nameType.second.empty())
-            {
-                messages::resourceNotFound(asyncResp->res, sensorId, "Sensor");
-                return;
-            }
-            if (valideSensorWithConfFile(sensorId))
-            {
-                getSensorReading(sensorPath, [asyncResp, chassisId, sensorId](
-                                                 const std::string& reading) {
-                    if (reading != "nan")
-                    {
-                        asyncResp->res
-                            .jsonValue["Oem"]["Ami"]
-                                      ["@odata.id"] = boost::urls::format(
-                            "/redfish/v1/Chassis/{}/Sensors/{}/Oem/SensorHistory",
-                            chassisId, sensorId);
-                    }
-                });
-            }
-            filterThresholdSensors(asyncResp, chassisId, sensorId);
-            asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
-                "/redfish/v1/Chassis/{}/Sensors/{}", chassisId, sensorId);
-
-	    asyncResp->res.jsonValue["Description"] = "Chassis " + sensorId + " Sensor";
-
-            BMCWEB_LOG_DEBUG("Sensor doGet enter");
-            constexpr std::array<std::string_view, 3> interfaces = {
-                "xyz.openbmc_project.Sensor.Value",
-                "xyz.openbmc_project.Sensor.State",
-                "xyz.openbmc_project.Association.Definitions"};
-            // Get a list of all of the sensors that implement Sensor.Value
-            // and get the path and service name associated with the sensor
-            ::dbus::utility::getDbusObject(
-                sensorPath, interfaces,
-                [asyncResp, sensorId,
-                 sensorPath](const boost::system::error_code& ec,
-                             const ::dbus::utility::MapperGetObject& subtree) {
-                    BMCWEB_LOG_DEBUG("respHandler1 enter");
-                    if (ec == boost::system::errc::io_error)
-                    {
-                        BMCWEB_LOG_WARNING(
-                            "Sensor not found from getSensorPaths");
-                        messages::resourceNotFound(asyncResp->res, sensorId,
-                                                   "Sensor");
-                        return;
-                    }
-                    if (ec)
-                    {
-                        messages::internalError(asyncResp->res);
-                        BMCWEB_LOG_ERROR(
-                            "Sensor getSensorPaths resp_handler: Dbus error {}",
-                            ec);
-                        return;
-                    }
-                    getSensorFromDbus(asyncResp, sensorPath, subtree);
-                    BMCWEB_LOG_DEBUG("respHandler1 exit");
-                });
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
-        "/xyz/openbmc_project/inventory", 0,
-        std::array<const char*, 2>{
-            "xyz.openbmc_project.Inventory.Item.Board",
-            "xyz.openbmc_project.Inventory.Item.Chassis"});
+        BMCWEB_LOG_DEBUG("Sensor doGet enter");
+        constexpr std::array<std::string_view, 3> interfaces = {
+            "xyz.openbmc_project.Sensor.Value",
+            "xyz.openbmc_project.Sensor.State",
+            "xyz.openbmc_project.Association.Definitions"};
+        // Get a list of all of the sensors that implement Sensor.Value
+        // and get the path and service name associated with the sensor
+        ::dbus::utility::getDbusObject(
+            sensorPath, interfaces,
+            [asyncResp, sensorId,
+             sensorPath](const boost::system::error_code& ec,
+                         const ::dbus::utility::MapperGetObject& subtree) {
+                BMCWEB_LOG_DEBUG("respHandler1 enter");
+                if (ec == boost::system::errc::io_error)
+                {
+                    BMCWEB_LOG_WARNING("Sensor not found from getSensorPaths");
+                    messages::resourceNotFound(asyncResp->res, sensorId,
+                                               "Sensor");
+                    return;
+                }
+                if (ec)
+                {
+                    messages::internalError(asyncResp->res);
+                    BMCWEB_LOG_ERROR(
+                        "Sensor getSensorPaths resp_handler: Dbus error {}",
+                        ec);
+                    return;
+                }
+                getSensorFromDbus(asyncResp, sensorPath, subtree);
+                BMCWEB_LOG_DEBUG("respHandler1 exit");
+            });
+    });
 }
 
 inline void
