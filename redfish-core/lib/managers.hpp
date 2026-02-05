@@ -40,10 +40,6 @@
 #include <string_view>
 #include <variant>
 
-#include <cstdio>
-#include <filesystem>
-#include <regex>
-
 namespace redfish
 {
 
@@ -109,10 +105,6 @@ inline void createTimeOutTask(const std::shared_ptr<bmcweb::AsyncResp>& asyncRes
             dbus::utility::DBusPropertiesMap values;
 
             std::string index = std::to_string(taskData->index);
-	    int convertedIndex = std::stoi(index);
-	    std::vector<uint16_t> defaultId;
-            defaultId.push_back(static_cast<uint16_t>(convertedIndex));
-
             msg.read(iface, values);
 
             if (iface == "xyz.openbmc_project.State.BMC")
@@ -121,30 +113,42 @@ inline void createTimeOutTask(const std::shared_ptr<bmcweb::AsyncResp>& asyncRes
                 {
                     if (property.first == "TimeOut")
                     {
-			timeOutValue = std::get_if<uint64_t>(&property.second);
-                        if (timeOutValue == nullptr)
-                        {
-                            taskData->messages.emplace_back(
-                                messages::taskCompletedOK(index));
-                            taskData->state = "Completed";
-                            return task::completed;
-                        }
+                        redfish::taskservice::setTaskState("Completed", 
+                                        static_cast<size_t>( std::stoi(index)));
+                        taskData->messages.emplace_back(
+                                        messages::taskCompletedOK(index));
+                        taskData->state = "Completed";
+                        taskData->timer.cancel();
+                        syslog(LOG_INFO, "BMC Reboot Task Completed\r\n");
+                        return task::completed;
                     }
-                }
-		if (timeOutValue != nullptr && *timeOutValue != 0)
-                {
-                        setTaskId(defaultId);
+                    else
+                    {
+                        redfish::taskservice::setTaskState("Pending", 
+                                    static_cast<size_t>( std::stoi(index)));
                         taskData->state = "Pending";
                         taskData->messages.emplace_back(messages::taskPaused(index));
+                        syslog(LOG_INFO, "BMC Reboot Task Pending\r\n");
+                        return !task::completed;             
+                    }
+                }
+		        /*if (timeOutValue != nullptr && *timeOutValue != 0)
+                {
+                        redfish::taskservice::setTaskState("Pending", 
+                                    static_cast<size_t>( std::stoi(index)));
+                        taskData->state = "Pending";
+                        taskData->messages.emplace_back(messages::taskPaused(index));
+                        syslog(LOG_INFO, "BMC Reboot Task Pending\r\n");
                         return !task::completed;
                 }
+                */
             }
             return !task::completed;
         },
         "type='signal',interface='org.freedesktop.DBus.Properties',"
         "member='PropertiesChanged', path='/xyz/openbmc_project/state/bmc0'");
     task->startTimer(std::chrono::minutes(timeDiff));
-
+    syslog(LOG_INFO, "BMC Reboot Task Started %llu \r\n", timeDiff);         
     task->populateResp(asyncResp->res);
     task->payload.emplace(std::move(payload));
 }
@@ -316,8 +320,7 @@ inline void setTimer(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
  * ManagerResetAction class supports the POST method for the Reset (reboot)
  * action.
  */
-inline void
-    requestRoutesManagerResetAction(App& app)
+inline void requestRoutesManagerResetAction(App& app)
 {
     /**
      * Function handles POST method request.
@@ -362,10 +365,10 @@ inline void
 
             task::Payload payload(req);
 
-            if (!json_util::readJsonAction( //
-                    req, asyncResp->res, //
-                    "ResetType", resetType, //
-                    "OperationApplyTime", operationApplyTime, //
+            if (!json_util::readJsonAction(                                  //
+                    req, asyncResp->res,                                     //
+                    "ResetType", resetType,                                  //
+                    "OperationApplyTime", operationApplyTime,                //
                     "MaintenanceWindowStartTime", maintenanceWindowStartTime //
                     ))
             {
@@ -377,8 +380,8 @@ inline void
 
             auto value =
                 getProperty(servicePath, objectPath, interface, propName);
-            auto requestedBMCTransition = std::get<std::string>(value);
-         /*   if (requestedBMCTransition !=
+            /*auto requestedBMCTransition = std::get<std::string>(value);
+            if (requestedBMCTransition !=
                 "xyz.openbmc_project.State.BMC.Transition.None")
             {
                 BMCWEB_LOG_ERROR("Already One Reboot Task is running");
@@ -402,7 +405,12 @@ inline void
                 if (!(maintenanceWindowStartTime))
                 {
                     resetOperation(asyncResp, resetType);
-                    createTimeOutTask(asyncResp, std::move(payload), 0);
+                    createTimeOutTask(asyncResp, std::move(payload), 1);
+                    std::string index = asyncResp->res.jsonValue["Id"];
+                    redfish::taskservice::setTaskState("Completed", 
+                                    static_cast<size_t>(std::stoi(index)));
+                    syslog(LOG_INFO, "BMC Immediate Reboot Task Completed\r\n");
+                    
                     return;
                 }
 
@@ -480,8 +488,29 @@ inline void
         });
 }
 
-inline void
-    requestRoutesManagerResetToDefaults(App& app)
+inline void handleFactoryDefaultGet(
+    crow::App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& managerId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
+    if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "Manager", managerId);
+        return;
+    }
+
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("AMIResetToDefaults");
+    asyncResp->res.jsonValue["@odata.id"] = boost::urls::format("/redfish/v1/Managers/{}/Oem/Ami/ResetToDefaults",BMCWEB_REDFISH_MANAGER_URI_NAME);
+    asyncResp->res.jsonValue["Name"]="AMI ResetToDefaults";
+    asyncResp->res.jsonValue["Id"]="AMIResetToDefaults";
+    redfish::getPreserveConfig(asyncResp, "Managers");
+}
+inline void requestRoutesManagerResetToDefaults(App& app)
 {
     /**
      * Function handles ResetToDefaults POST method request.
@@ -1143,8 +1172,8 @@ inline bool
     {
         std::string path;
         if (!redfish::json_util::readJsonObject( //
-                odata, response->res, //
-                "@odata.id", path //
+                odata, response->res,            //
+                "@odata.id", path                //
                 ))
         {
             return false;
@@ -1447,10 +1476,10 @@ inline CreatePIDRet
         std::optional<std::string> chassisId;
         std::optional<double> failSafePercent;
         std::optional<double> minThermalOutput;
-        if (!redfish::json_util::readJson( //
-                jsonValue, response->res, //
-                "Chassis/@odata.id", chassisId, //
-                "FailSafePercent", failSafePercent, //
+        if (!redfish::json_util::readJson(           //
+                jsonValue, response->res,            //
+                "Chassis/@odata.id", chassisId,      //
+                "FailSafePercent", failSafePercent,  //
                 "MinThermalOutput", minThermalOutput //
                 ))
         {
@@ -1488,14 +1517,14 @@ inline CreatePIDRet
         std::optional<double> positiveHysteresis;
         std::optional<double> negativeHysteresis;
         std::optional<std::string> direction; // upper clipping curve vs lower
-        if (!redfish::json_util::readJson( //
-                jsonValue, response->res, //
-                "Zones", zones, //
-                "Steps", steps, //
-                "Inputs", inputs, //
+        if (!redfish::json_util::readJson(    //
+                jsonValue, response->res,     //
+                "Zones", zones,               //
+                "Steps", steps,               //
+                "Inputs", inputs,             //
                 "PositiveHysteresis", positiveHysteresis, //
                 "NegativeHysteresis", negativeHysteresis, //
-                "Direction", direction //
+                "Direction", direction                    //
                 ))
         {
             return CreatePIDRet::fail;
@@ -1530,9 +1559,9 @@ inline CreatePIDRet
                 double out = 0.0;
 
                 if (!redfish::json_util::readJsonObject( //
-                        step, response->res, //
-                        "Target", target, //
-                        "Output", out //
+                        step, response->res,             //
+                        "Target", target,                //
+                        "Output", out                    //
                         ))
                 {
                     return CreatePIDRet::fail;
@@ -1596,8 +1625,7 @@ struct GetPIDValues : std::enable_shared_from_this<GetPIDValues>
 
     {}
 
-    void
-        run()
+    void run()
     {
         std::shared_ptr<GetPIDValues> self = shared_from_this();
 
@@ -1683,9 +1711,9 @@ struct GetPIDValues : std::enable_shared_from_this<GetPIDValues>
             });
     }
 
-    static void
-        processingComplete(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                           const CompletionValues& completion)
+    static void processingComplete(
+        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+        const CompletionValues& completion)
     {
         if (asyncResp->res.result() != boost::beast::http::status::ok)
         {
@@ -2582,6 +2610,7 @@ inline void
     managerReset["@Redfish.ActionInfo"] =
         boost::urls::format("/redfish/v1/Managers/{}/ResetActionInfo",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
+
     // ResetToDefaults (Factory Reset) has values like
     // PreserveNetworkAndUsers and PreserveNetwork that aren't supported
     // on OpenBMC
@@ -2596,7 +2625,7 @@ inline void
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
     #endif
     #if (!BMCWEB_AMI_PSM_MACRO)
-
+    
     dbus::utility::getProperty<std::string>(
         "org.freedesktop.timedate1", "/org/freedesktop/timedate1",
         "org.freedesktop.timedate1", "Timezone",
@@ -2819,7 +2848,7 @@ inline void
                            const crow::Request& req,
                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                            const std::string& managerId) {
-
+	    
 	        asyncResp->res.clearHeader(boost::beast::http::field::allow);
 
             if (!redfish::setUpRedfishRoute(app, req, asyncResp))
@@ -3734,7 +3763,6 @@ inline void
                 {
                     return;
                 }
-                
                 if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
                 {
                     messages::resourceNotFound(asyncResp->res, "Manager", managerId);

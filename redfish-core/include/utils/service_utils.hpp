@@ -433,7 +433,6 @@ inline void setPortNumber(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         serviceManagerService, "/xyz/openbmc_project/control/service",
         "org.freedesktop.DBus.ObjectManager", "GetManagedObjects");
 }
-
 inline void setServiceEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                              const std::string& serviceName, const bool enabled)
 {

@@ -3277,14 +3277,6 @@ void createResetMaintenanceWindowTask(
 
             std::string index = std::to_string(taskData->index);
 
-            int convertedIndex = std::stoi(index);
-
-            std::vector<uint16_t> defaultId;
-
-            defaultId.push_back(static_cast<uint16_t>(convertedIndex));
-
-            setTaskName(resetType);
-
             msg.read(iface, values);
 
             const char* processName = "xyz.openbmc_project.State.Host0";
@@ -3331,9 +3323,6 @@ void createResetMaintenanceWindowTask(
 
                 if ((timeOutValue != nullptr && *timeOutValue != 0))
                 {
-                    setTaskId(defaultId);
-                    setStatus(
-                        "xyz.openbmc_project.Common.Task.OperationStatus.New");
                     taskData->state = "Pending";
                     taskData->messages.emplace_back(
                         messages::taskPaused(index));
@@ -3350,12 +3339,10 @@ void createResetMaintenanceWindowTask(
                         *osState ==
                             "xyz.openbmc_project.State.OperatingSystem.Status.OSStatus.Inactive")
                     {
-                        setStatus(
-                            "xyz.openbmc_project.Common.Task.OperationStatus.InProgress");
                         taskData->state = "Running";
                         taskData->messages.emplace_back(
                             messages::taskStarted(index));
-                        taskData->extendTimer(std::chrono::minutes(5));
+                        taskData->extendTimer(std::chrono::minutes(15));
                         return !task::completed;
                     }
                     else if (
@@ -3364,8 +3351,6 @@ void createResetMaintenanceWindowTask(
                         *osState ==
                             "xyz.openbmc_project.State.OperatingSystem.Status.OSStatus.Standby")
                     {
-                        setStatus(
-                            "xyz.openbmc_project.Common.Task.OperationStatus.Completed");
                         taskData->messages.emplace_back(
                             messages::taskCompletedOK(index));
                         taskData->state = "Completed";
@@ -3378,8 +3363,6 @@ void createResetMaintenanceWindowTask(
                         *osState ==
                             "xyz.openbmc_project.State.OperatingSystem.Status.OSStatus.Standby")
                     {
-                        setStatus(
-                            "xyz.openbmc_project.Common.Task.OperationStatus.InProgress");
                         taskData->state = "Running";
                         taskData->messages.emplace_back(
                             messages::taskStarted(index));
@@ -3393,8 +3376,6 @@ void createResetMaintenanceWindowTask(
                         *osState ==
                             "xyz.openbmc_project.State.OperatingSystem.Status.OSStatus.Inactive")
                     {
-                        setStatus(
-                            "xyz.openbmc_project.Common.Task.OperationStatus.Completed");
                         taskData->messages.emplace_back(
                             messages::taskCompletedOK(index));
                         taskData->state = "Completed";
@@ -3405,6 +3386,17 @@ void createResetMaintenanceWindowTask(
                     std::chrono::seconds(requestedHostTransition) +
                     (std::chrono::minutes(10)));
             }
+            else 
+            {
+                if(taskData->state != "Running")
+                {
+                    taskData->state = "Pending";
+                    taskData->messages.emplace_back(
+                        messages::taskPaused(index));
+                    return !task::completed;
+                }
+            }
+
             return !task::completed;
         },
         "type='signal',interface='org.freedesktop.DBus.Properties',"
@@ -3436,20 +3428,11 @@ void createSystemMaintenanceWindowTask(
                 taskData->state = "Cancelled";
                 return task::completed;
             }
-
+            (void)resetType;
             std::string iface;
             dbus::utility::DBusPropertiesMap values;
 
             std::string index = std::to_string(taskData->index);
-
-            int convertedIndex = std::stoi(index);
-
-            std::vector<uint16_t> defaultId;
-
-            defaultId.push_back(static_cast<uint16_t>(convertedIndex));
-
-            setTaskName(resetType);
-
             msg.read(iface, values);
 
             const char* processName = "xyz.openbmc_project.State.Host0";
@@ -3496,9 +3479,6 @@ void createSystemMaintenanceWindowTask(
 
                 if (timeOutValue != nullptr && *timeOutValue != 0)
                 {
-                    setTaskId(defaultId);
-                    setStatus(
-                        "xyz.openbmc_project.Common.Task.OperationStatus.New");
                     taskData->state = "Pending";
                     taskData->messages.emplace_back(
                         messages::taskPaused(index));
@@ -3512,8 +3492,6 @@ void createSystemMaintenanceWindowTask(
                     *osState ==
                         "xyz.openbmc_project.State.OperatingSystem.Status.OSStatus.Standby")
                 {
-                    setStatus(
-                        "xyz.openbmc_project.Common.Task.OperationStatus.InProgress");
                     taskData->state = "Running";
                     taskData->messages.emplace_back(
                         messages::taskStarted(index));
@@ -3525,8 +3503,6 @@ void createSystemMaintenanceWindowTask(
                     *osState ==
                         "xyz.openbmc_project.State.OperatingSystem.Status.OSStatus.Inactive")
                 {
-                    setStatus(
-                        "xyz.openbmc_project.Common.Task.OperationStatus.Completed");
                     taskData->messages.emplace_back(
                         messages::taskCompletedOK(index));
                     taskData->state = "Completed";
@@ -3536,6 +3512,16 @@ void createSystemMaintenanceWindowTask(
                     std::chrono::seconds(requestedPowerTransition) +
                     (std::chrono::minutes(10)));
             }
+            else 
+            {
+                if(taskData->state == "New")
+                {
+                    taskData->state = "Pending";
+                    taskData->messages.emplace_back(
+                        messages::taskPaused(index));
+                    return !task::completed;
+                }
+            }
             return !task::completed;
         },
         "type='signal',interface='org.freedesktop.DBus.Properties',"
@@ -3543,6 +3529,27 @@ void createSystemMaintenanceWindowTask(
     task->startTimer(std::chrono::minutes(5));
     task->populateResp(asyncResp->res);
     task->payload.emplace(std::move(payload));
+
+    auto chassis_Value = getPowerTransitionTimeOut(
+                "xyz.openbmc_project.State.Host0", 
+                "/xyz/openbmc_project/state/host0", 
+                "xyz.openbmc_project.State.OperatingSystem.Status", 
+                "PowerTransitionTimeOut");
+
+    uint64_t requestedPowerTransition = std::get<uint64_t>(chassis_Value);
+    if(requestedPowerTransition > 5)
+    {
+        // Will not get any signal from host for pending state so 
+        // considering after 5 seconds state will be pending state
+        if(task->state == "New")
+        {
+                std::this_thread::sleep_for(std::chrono::seconds(5));
+                task->state = "Pending";
+                task->messages.emplace_back(
+                    messages::taskPaused(std::to_string(task->index)));
+        }
+    }
+
 }
 
 /*
@@ -3572,15 +3579,6 @@ void SystemsImmediateResetTask(
             dbus::utility::DBusPropertiesMap values;
 
             std::string index = std::to_string(taskData->index);
-
-            int convertedIndex = std::stoi(index);
-
-            std::vector<uint16_t> defaultId;
-
-            defaultId.push_back(static_cast<uint16_t>(convertedIndex));
-
-            setTaskName(resetType);
-
             msg.read(iface, values);
 
             if (iface == "xyz.openbmc_project.State.OperatingSystem.Status")
@@ -3612,9 +3610,6 @@ void SystemsImmediateResetTask(
                     *osState ==
                         "xyz.openbmc_project.State.OperatingSystem.Status.OSStatus.Inactive")
                 {
-                    setTaskId(defaultId);
-                    setStatus(
-                        "xyz.openbmc_project.Common.Task.OperationStatus.InProgress");
                     taskData->state = "Running";
                     taskData->messages.emplace_back(
                         messages::taskStarted(index));
@@ -3627,8 +3622,6 @@ void SystemsImmediateResetTask(
                     *osState ==
                         "xyz.openbmc_project.State.OperatingSystem.Status.OSStatus.Standby")
                 {
-                    setStatus(
-                        "xyz.openbmc_project.Common.Task.OperationStatus.InProgress");
                     taskData->state = "Running";
                     taskData->messages.emplace_back(
                         messages::taskStarted(index));
@@ -3641,8 +3634,6 @@ void SystemsImmediateResetTask(
                     *osState ==
                         "xyz.openbmc_project.State.OperatingSystem.Status.OSStatus.Standby")
                 {
-                    setStatus(
-                        "xyz.openbmc_project.Common.Task.OperationStatus.Completed");
                     taskData->messages.emplace_back(
                         messages::taskCompletedOK(index));
                     taskData->state = "Completed";
@@ -3655,8 +3646,6 @@ void SystemsImmediateResetTask(
                     *osState ==
                         "xyz.openbmc_project.State.OperatingSystem.Status.OSStatus.Inactive")
                 {
-                    setStatus(
-                        "xyz.openbmc_project.Common.Task.OperationStatus.Completed");
                     taskData->messages.emplace_back(
                         messages::taskCompletedOK(index));
                     taskData->state = "Completed";
