@@ -775,11 +775,7 @@ inline void afterAvailbleTimerAsyncWait(
     }
     if (asyncResp)
     {
-        #if BMCWEB_AMI_REP_MACRO
         messages::firmwareUpdateFailed(asyncResp->res);
-        #else
-        messages::operationTimeout(asyncResp->res);
-        #endif
     }
 }
 
