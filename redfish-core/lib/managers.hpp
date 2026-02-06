@@ -148,7 +148,6 @@ inline void createTimeOutTask(const std::shared_ptr<bmcweb::AsyncResp>& asyncRes
         "type='signal',interface='org.freedesktop.DBus.Properties',"
         "member='PropertiesChanged', path='/xyz/openbmc_project/state/bmc0'");
     task->startTimer(std::chrono::minutes(timeDiff));
-    syslog(LOG_INFO, "BMC Reboot Task Started %llu \r\n", timeDiff);         
     task->populateResp(asyncResp->res);
     task->payload.emplace(std::move(payload));
 }

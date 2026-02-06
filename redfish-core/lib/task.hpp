@@ -471,9 +471,6 @@ inline void createMultipleTasks(void)
                     taskData->state = "Cancelled";
                     return redfish::task::completed;
                 }
-
-                
-                syslog(LOG_INFO, "Multiple task creations...\r\n");
                 taskData->messages = std::string(local_tasks["TaskMessage"]);
                 taskData->state = taskStates[state_pos];
                 taskData->status = taskHealth[health_pos];
@@ -496,7 +493,6 @@ inline void createMultipleTasks(void)
         taskData["tasks"] = json::object();
         return;
     }
-    syslog(LOG_INFO, "Preserved Tasks created on BMC Restart/Shutdown its size %d\n", task::tasks.size());
 }
 
 } // namespace task
