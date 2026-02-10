@@ -421,7 +421,7 @@ RedfishService::RedfishService(App& app)
     requestRoutesTriggerCollection(app);
     requestRoutesTrigger(app);
 
-#if (!BMCWEB_CHALUPA_AMD_MACRO && !BMCWEB_ARBEL_NUVOTON_MACRO && !BMCWEB_AST2700_EVB_MACRO)
+#if (!BMCWEB_CHALUPA_AMD_MACRO || !BMCWEB_ARBEL_NUVOTON_MACRO || !BMCWEB_AST2700_EVB_MACRO)
     // FIPS Enablement
     requestFipsManagerRoutes(app);
 #endif
