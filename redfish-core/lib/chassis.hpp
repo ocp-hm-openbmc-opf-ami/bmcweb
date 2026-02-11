@@ -281,9 +281,10 @@ inline void handleChassisCollectionGet(
     asyncResp->res.jsonValue["Name"] = "Chassis Collection";
     asyncResp->res.jsonValue["Description"] = "The Collection for Chassis";
 
-    constexpr std::array<std::string_view, 2> interfaces{
+    constexpr std::array<std::string_view, 3> interfaces{
         "xyz.openbmc_project.Inventory.Item.Board",
-        "xyz.openbmc_project.Inventory.Item.Chassis"};
+        "xyz.openbmc_project.Inventory.Item.Chassis",
+        "xyz.openbmc_project.Inventory.Item.Blade"};
     collection_util::getCollectionMembers(
         asyncResp, boost::urls::url("/redfish/v1/Chassis"), interfaces,
         "/xyz/openbmc_project/inventory");
@@ -1071,6 +1072,34 @@ inline void
     });
 }
 
+inline void handleChassisPostDelete(App& app, const crow::Request& req,
+                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                       const std::string& chassisId)
+{
+    asyncResp->res.clearHeader(boost::beast::http::field::allow);
+
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    if (!membersResponseGet(asyncResp, chassisId,"ChassisCollection"))
+    {
+        return;
+    }
+    constexpr std::array<std::string_view, 2> interfaces = {
+        "xyz.openbmc_project.Inventory.Item.Board",
+        "xyz.openbmc_project.Inventory.Item.Chassis"};
+    dbus::utility::getSubTree(
+    "/xyz/openbmc_project/inventory", 0, interfaces,
+    [asyncResp,
+        chassisId,req,interfaces](const boost::system::error_code& ecs,
+            const dbus::utility::MapperGetSubTreeResponse& subtrees) 
+    {
+        handleChassisSubTree(asyncResp, chassisId, ecs, "post",subtrees);
+    });
+}
+
+
 /**
  * Chassis override class for delivering Chassis Schema
  * Functions triggers appropriate requests on DBus
@@ -1090,31 +1119,7 @@ inline void requestRoutesChassis(App& app)
    BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/")
         .privileges(redfish::privileges::getChassis)
         .methods(boost::beast::http::verb::post,boost::beast::http::verb::delete_)(
-            [&app](const crow::Request& req,
-                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                const std::string& chassisId) {
-                    asyncResp->res.clearHeader(boost::beast::http::field::allow);
-
-                    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-                    {
-                        return;
-                    }
-                    if (!membersResponseGet(asyncResp, chassisId,"ChassisCollection"))
-                    {
-                        return;
-                    }
-                    constexpr std::array<std::string_view, 2> interfaces = {
-                        "xyz.openbmc_project.Inventory.Item.Board",
-                        "xyz.openbmc_project.Inventory.Item.Chassis"};
-                    dbus::utility::getSubTree(
-                    "/xyz/openbmc_project/inventory", 0, interfaces,
-                    [asyncResp,
-                        chassisId,req,interfaces](const boost::system::error_code& ecs,
-                            const dbus::utility::MapperGetSubTreeResponse& subtrees) 
-                    {
-                        handleChassisSubTree(asyncResp, chassisId, ecs, "post",subtrees);
-                    });
-                });
+            std::bind_front(handleChassisPostDelete, std::ref(app)));
 }
 
 inline void setPowerTransitionTimer(

@@ -73,6 +73,10 @@
 #include "ext/src/nic.hpp"
 #endif
 
+#if BMCWEB_AMI_CXL_MACRO
+#include "ext/src/cxl.hpp"
+#endif
+
 #if BMCWEB_AMI_REP_MACRO
 #include "ext/src/rep.hpp"
 #endif
@@ -446,6 +450,11 @@ RedfishService::RedfishService(App& app)
 #if BMCWEB_AMI_NIC_MACRO
     registerNicRoutes(app);
 #endif
+
+#if BMCWEB_AMI_CXL_MACRO
+    registerCxlRoutes(app);
+#endif
+
 #if BMCWEB_AMI_RM_MACRO
     redfish::rm::registerRmRoutes(app);
 #endif

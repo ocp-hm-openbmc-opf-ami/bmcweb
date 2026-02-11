@@ -408,6 +408,10 @@ if get_option('ami-nic').enabled()
     srcfiles_bmcweb += 'ext/src/nic.cpp'
 endif
 
+if get_option('ami-cxl').enabled()
+	srcfiles_bmcweb += 'ext/src/cxl.cpp'
+endif
+
 if get_option('spdm-uris').enabled()
     srcfiles_bmcweb += 'ext/spdm/src/spdm.cpp'
 endif
