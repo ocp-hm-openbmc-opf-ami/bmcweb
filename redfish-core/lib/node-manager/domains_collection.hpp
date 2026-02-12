@@ -467,7 +467,7 @@ void getDomainObjectPath(const crow::Request& req,
 
 inline void requestRoutesNodeManagerDomains([[maybe_unused]] App& app)
 {
-    #if (BMCWEB_AMI_NM_MACRO)
+#ifdef ONETREE_INTELSIPACK
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Domains/")
         .privileges(redfish::privileges::privilegeSetLogin)
         .methods(boost::beast::http::verb::get)(

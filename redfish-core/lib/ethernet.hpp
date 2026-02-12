@@ -14,8 +14,8 @@
 #include "registries/privilege_registry.hpp"
 #include "utils/ip_utils.hpp"
 #include "utils/json_utils.hpp"
-#if BMCWEB_AMI_REP_MACRO
-    #include "ext/include/ami_errors.hpp"
+#ifdef ONETREE_RTP
+#include "ext/include/ami_errors.hpp"
 #endif
 
 #include <boost/system/error_code.hpp>
@@ -695,15 +695,15 @@ inline void extractIPV6Data(const std::string& ethifaceId,
             }
         }
     }
-    // **Sort the entire ipv6Config vector** in ascending order based on 'ipv6Index'
-    #if (BMCWEB_AMI_REP_MACRO)
+// **Sort the entire ipv6Config vector** in ascending order based on 'ipv6Index'
+#ifdef ONETREE_RTP
     {
         std::sort(ipv6Config.begin(), ipv6Config.end(), 
             [](const IPv6AddressData& a, const IPv6AddressData& b) {
                 return a.ipv6Index < b.ipv6Index;  // Ascending order
             });
     }
-    #endif
+#endif
 }
 
 // Helper function that extracts data for single ethernet ipv4 address
@@ -1811,20 +1811,27 @@ inline void handleInterfacePatch(
 
                                     if (!otherEnabledWithIP)
                                     {
-                                        #if (BMCWEB_AMI_REP_MACRO)
+#ifdef ONETREE_RTP
                                         {
-                                            messages::singleEthernetEnabled(asyncResp->res,
-                                                                           "InterfaceEnabled");
-                                            return; // Exit the entire handleInterfacePatch function
+                                            messages::singleEthernetEnabled(
+                                                asyncResp->res,
+                                                "InterfaceEnabled");
+                                            return; // Exit the entire
+                                                    // handleInterfacePatch
+                                                    // function
                                         }
-                                        #else
+#else
                                         {
-                                            messages::propertyValueExternalConflict(
-                                                asyncResp->res, "InterfaceEnabled",
-                                                *interfaceEnabled);
-                                            return; // Exit the entire handleInterfacePatch function
+                                            messages::
+                                                propertyValueExternalConflict(
+                                                    asyncResp->res,
+                                                    "InterfaceEnabled",
+                                                    *interfaceEnabled);
+                                            return; // Exit the entire
+                                                    // handleInterfacePatch
+                                                    // function
                                         }
-                                        #endif
+#endif
                                     }
                                 }
                                 setEthernetInterfaceBoolProperty(
@@ -1877,34 +1884,32 @@ inline void handleInterfacePatch(
             });
     };
 
-    #if(BMCWEB_AMI_REP_MACRO)
-        sdbusplus::asio::getProperty<std::string>(
-            *crow::connections::systemBus, "xyz.openbmc_project.Network",
-            "/xyz/openbmc_project/network/bond0",
-            "xyz.openbmc_project.Network.Bond", "ActiveSlave",
-            [asyncResp, ifaceId, interfaceEnabled, fetchInterfaceCountAndIPCheck]
-            (const boost::system::error_code&, const std::string& activeSlave) {
-                
-                if (ifaceId == "bond0" && *interfaceEnabled == false)
-                {
-                    messages::singleEthernetEnabled(asyncResp->res,
-                        "InterfaceEnabled");
-                    return; // Exit the entire handleInterfacePatch function
-                }
-                if (ifaceId == activeSlave && *interfaceEnabled == false)
-                {
-                    messages::BondActiveSlaveDisable(asyncResp->res,
-                                                    ifaceId);
-                    return; // Exit the entire handleInterfacePatch function
-                }
-                // Proceed with the rest of the logic after the ActiveSlave check
-                fetchInterfaceCountAndIPCheck();
-                
-            });
-    #else
-        // If the macro is not defined, directly fetch the interface count and proceed
-        fetchInterfaceCountAndIPCheck();
-    #endif
+#ifdef ONETREE_RTP
+    sdbusplus::asio::getProperty<std::string>(
+        *crow::connections::systemBus, "xyz.openbmc_project.Network",
+        "/xyz/openbmc_project/network/bond0",
+        "xyz.openbmc_project.Network.Bond", "ActiveSlave",
+        [asyncResp, ifaceId, interfaceEnabled, fetchInterfaceCountAndIPCheck](
+            const boost::system::error_code&, const std::string& activeSlave) {
+            if (ifaceId == "bond0" && *interfaceEnabled == false)
+            {
+                messages::singleEthernetEnabled(asyncResp->res,
+                                                "InterfaceEnabled");
+                return; // Exit the entire handleInterfacePatch function
+            }
+            if (ifaceId == activeSlave && *interfaceEnabled == false)
+            {
+                messages::BondActiveSlaveDisable(asyncResp->res, ifaceId);
+                return; // Exit the entire handleInterfacePatch function
+            }
+            // Proceed with the rest of the logic after the ActiveSlave check
+            fetchInterfaceCountAndIPCheck();
+        });
+#else
+    // If the macro is not defined, directly fetch the interface count and
+    // proceed
+    fetchInterfaceCountAndIPCheck();
+#endif
 }
 
 inline void setDHCPConfig(const std::string& propertyName, const bool& value,

@@ -516,7 +516,7 @@ inline void handleDecoratorAssetProperties(
                                 chassisId);
     }
 
-#if (BMCWEB_AMI_NIC_MACRO)
+#ifdef ONETREE_NIC
 
     asyncResp->res.jsonValue["NetworkAdapters"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Chassis/{}/NetworkAdapters",
@@ -524,7 +524,7 @@ inline void handleDecoratorAssetProperties(
 #endif
 
 // Power
-#if (BMCWEB_CHALUPA_AMD_MACRO)
+#ifdef ONETREE_AMD_CHALUPA
     {
         asyncResp->res.jsonValue["Power"]["@odata.id"] =
             boost::urls::format("/redfish/v1/Chassis/{}/Power", chassisId);
@@ -540,14 +540,14 @@ inline void handleDecoratorAssetProperties(
     asyncResp->res.jsonValue["Sensors"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Chassis/{}/Sensors", chassisId);
     asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
-#if (!BMCWEB_AMI_RM_MACRO) && (!BMCWEB_AMI_PSM_MACRO)
+#if (!defined(ONETREE_RM)) && (!defined(ONETREE_PSM))
     // SensorThreshold Collection
     asyncResp->res.jsonValue["Oem"]["AMI"]["SensorThreshold"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Chassis/{}/Sensors/Oem/Ami/Threshold",
                             chassisId);
     asyncResp->res.jsonValue["Oem"]["AMI"]["SensorThreshold"]["@odata.type"] = json_util::odataType("OemAMISensor");
 #endif
-#if (!BMCWEB_AMI_PSM_MACRO)
+#ifndef ONETREE_PSM
     nlohmann::json::array_t computerSystems;
     nlohmann::json::object_t system;
     system["@odata.id"] =
@@ -562,7 +562,7 @@ inline void handleDecoratorAssetProperties(
                                                BMCWEB_REDFISH_MANAGER_URI_NAME);
                                                
     managedBy.emplace_back(std::move(manager));
-#if (BMCWEB_AMI_PSM_MACRO)
+#ifdef ONETREE_PSM
     nlohmann::json::array_t managersInChassis = managedBy;
     asyncResp->res.jsonValue["Links"]["ManagersInChassis"] = std::move(managersInChassis);
 #endif
@@ -738,27 +738,27 @@ inline void handleChassisGetSubTree(
             std::bind_front(handlePhysicalSecurityGetSubTree, asyncResp));
         getMinMaxValues(asyncResp);
 
-        #if BMCWEB_AMI_REP_MACRO && !BMCWEB_AMI_PSM_MACRO
-            asyncResp->res.jsonValue["PCIeSlots"] = 
-                {{"@odata.id", boost::urls::format("/redfish/v1/Chassis/{}/PCIeSlots",chassisId)}};
-        #endif
+#if (defined(ONETREE_RTP)) && (!defined(ONETREE_PSM))
+        asyncResp->res.jsonValue["PCIeSlots"] = {
+            {"@odata.id", boost::urls::format(
+                              "/redfish/v1/Chassis/{}/PCIeSlots", chassisId)}};
+#endif
 
-        #if (BMCWEB_NVIDIA_AUX_RESET_URIS_MACRO)
-            if (chassisId == "BMC_0")
-            {
-                asyncResp->res
-                    .jsonValue["Actions"]["Oem"]["#NvidiaChassis.AuxPowerReset"]
-                                ["target"] =
-                    "/redfish/v1/Chassis/" + chassisId +
-                    "/Actions/Oem/NvidiaChassis.AuxPowerReset";
-                asyncResp->res
-                    .jsonValue["Actions"]["Oem"]["#NvidiaChassis.AuxPowerReset"]
-                                ["@Redfish.ActionInfo"] =
-                    "/redfish/v1/Chassis/" + chassisId +
-                    "/Oem/Nvidia/AuxPowerResetActionInfo";
-            }
-        #endif
-        
+#ifdef ONETREE_NVIDIASIPACK
+        if (chassisId == "BMC_0")
+        {
+            asyncResp->res.jsonValue["Actions"]["Oem"]
+                                    ["#NvidiaChassis.AuxPowerReset"]["target"] =
+                "/redfish/v1/Chassis/" + chassisId +
+                "/Actions/Oem/NvidiaChassis.AuxPowerReset";
+            asyncResp->res
+                .jsonValue["Actions"]["Oem"]["#NvidiaChassis.AuxPowerReset"]
+                          ["@Redfish.ActionInfo"] =
+                "/redfish/v1/Chassis/" + chassisId +
+                "/Oem/Nvidia/AuxPowerResetActionInfo";
+        }
+#endif
+
         dbus::utility::getAssociationEndPoints(
             path + "/drive",
             [asyncResp, chassisId](const boost::system::error_code& ec3,
@@ -860,7 +860,7 @@ inline void handleChassisGetSubTree(
                 handleDecoratorAssetProperties(asyncResp, chassisId, path,
                                                propertiesList);
             });
-#if (!BMCWEB_AMI_RM_MACRO) && (!BMCWEB_AMI_PSM_MACRO)
+#if (!defined(ONETREE_RM)) && (!defined(ONETREE_PSM))
         dbus::utility::getAllProperties(
             connectionName, path, "xyz.openbmc_project.Inventory.Item.Chassis",
             [asyncResp](

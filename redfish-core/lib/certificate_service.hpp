@@ -39,7 +39,7 @@ constexpr const char* ldapServiceName =
     "xyz.openbmc_project.Certs.Manager.Client.Ldap";
 constexpr const char* authorityServiceName =
     "xyz.openbmc_project.Certs.Manager.Authority.Truststore";
-#if BMCWEB_AMI_ASD_MACRO
+#ifdef ONETREE_ASD
 constexpr const char* ASDServiceName =
     "xyz.openbmc_project.Certs.Manager.Server.Asd";
 constexpr const char* ASDobjectPath = "/xyz/openbmc_project/certs/server/asd";
@@ -429,25 +429,25 @@ inline void getCertificateProperties(
             asyncResp->res.jsonValue["CertificateType"] = "";
             asyncResp->res.jsonValue["KeyUsage"] = nlohmann::json::array();
 
-            #if BMCWEB_AMI_REP_MACRO
-                // Only HTTPS and LDAP certificates support rekey/renew action
-                if (service == certs::httpsServiceName ||
-                        service == certs::ldapServiceName)
-                {
-                    BMCWEB_LOG_DEBUG("Certificate Actions URI, service {}",
-                                     service);
-                    std::string url(certURL.data(), certURL.size());
-                    nlohmann::json& actions = asyncResp->res.jsonValue["Actions"];
-                    actions["#Certificate.Renew"]["target"] =
-                        url + "/Actions/Certificate.Renew";
-                    actions["#Certificate.Renew"]["@Redfish.ActionInfo"] =
-                        url + "/Certificate.RenewActionInfo";
-                    actions["#Certificate.Rekey"]["target"] =
-                        url + "/Actions/Certificate.Rekey";
-                    actions["#Certificate.Rekey"]["@Redfish.ActionInfo"] =
-                        url + "/Certificate.RekeyActionInfo";
-                }
-            #endif
+#ifdef ONETREE_RTP
+            // Only HTTPS and LDAP certificates support rekey/renew action
+            if (service == certs::httpsServiceName ||
+                service == certs::ldapServiceName)
+            {
+                BMCWEB_LOG_DEBUG("Certificate Actions URI, service {}",
+                                 service);
+                std::string url(certURL.data(), certURL.size());
+                nlohmann::json& actions = asyncResp->res.jsonValue["Actions"];
+                actions["#Certificate.Renew"]["target"] =
+                    url + "/Actions/Certificate.Renew";
+                actions["#Certificate.Renew"]["@Redfish.ActionInfo"] =
+                    url + "/Certificate.RenewActionInfo";
+                actions["#Certificate.Rekey"]["target"] =
+                    url + "/Actions/Certificate.Rekey";
+                actions["#Certificate.Rekey"]["@Redfish.ActionInfo"] =
+                    url + "/Certificate.RekeyActionInfo";
+            }
+#endif
 
             if (certificateString != nullptr)
             {
@@ -884,7 +884,7 @@ inline void handleReplaceCertificateAction(
         name = "TrustStore certificate";
         service = certs::authorityServiceName;
     }
-#if BMCWEB_AMI_ASD_MACRO
+#ifdef ONETREE_ASD
     else if (crow::utility::readUrlSegments(*parsedUrl, "redfish", "v1",
                                             "Managers", "bmc", "Certificates",
                                             std::ref(id)))

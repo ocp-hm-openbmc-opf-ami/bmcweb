@@ -62,7 +62,7 @@ inline void handleServiceRootGetImpl(
     asyncResp->res.jsonValue["Managers"]["@odata.id"] = "/redfish/v1/Managers";
     asyncResp->res.jsonValue["SessionService"]["@odata.id"] =
         "/redfish/v1/SessionService";
-#if (!BMCWEB_AMI_PSM_MACRO)
+#ifndef ONETREE_PSM
     asyncResp->res.jsonValue["Systems"]["@odata.id"] = "/redfish/v1/Systems";
 #endif
     asyncResp->res.jsonValue["Registries"]["@odata.id"] =
@@ -77,10 +77,10 @@ inline void handleServiceRootGetImpl(
         "/redfish/v1/EventService";
     asyncResp->res.jsonValue["TelemetryService"]["@odata.id"] =
         "/redfish/v1/TelemetryService";
-#if (!BMCWEB_AMI_PSM_MACRO)
+#ifndef ONETREE_PSM
     asyncResp->res.jsonValue["Cables"]["@odata.id"] = "/redfish/v1/Cables";
 #endif
-#if (!BMCWEB_AMI_RM_MACRO) && (!BMCWEB_AMI_PSM_MACRO)
+#if (!defined(ONETREE_RM)) && (!defined(ONETREE_PSM))
     asyncResp->res.jsonValue["Oem"]["OpenBmc"]["Pef"]["@odata.id"] =
         "/redfish/v1/#Oem/OpenBmc";
     asyncResp->res.jsonValue["Oem"]["OpenBmc"]["Pef"]["@odata.type"] = json_util::odataType("OemPefServiceRoot", "OpenBmc");
@@ -95,19 +95,19 @@ inline void handleServiceRootGetImpl(
     asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] = json_util::odataType("OemServiceRoot", "Ami");
     asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.id"] =
         "/redfish/v1/#Oem/Ami";
-#if BMCWEB_AST2600_EVB_MACRO
+#ifdef ONETREE_EVB_AST2600
     asyncResp->res.jsonValue["Oem"]["Ami"]["PcieSwitch"] = {
         {"@odata.id", "/redfish/v1/Oem/Ami/PcieSwitch"}};
 #endif
     asyncResp->res.jsonValue["Oem"]["Ami"]["LicenseControl"] = {
         {"@odata.id", "/redfish/v1/Oem/Ami/LicenseControl"}};
 
-#if BMCWEB_AMI_ACD_MACRO
+#ifdef ONETREE_ACD
     asyncResp->res.jsonValue["Oem"]["Ami"]["AutonomousCrashDump"]["@odata.id"] =
         "/redfish/v1/Oem/Ami/AutonomousCrashDump";
 #endif
 
-#if BMCWEB_AMI_ASD_MACRO
+#ifdef ONETREE_ASD
     asyncResp->res.jsonValue["Oem"]["Ami"]["AtScaleDebug"]["@odata.id"] =
         "/redfish/v1/Oem/Ami/AtScaleDebug";
 #endif
@@ -131,14 +131,14 @@ inline void handleServiceRootGetImpl(
 #endif
 
 #endif
-#if (!BMCWEB_AMI_PSM_MACRO)
+#ifndef ONETREE_PSM
     asyncResp->res.jsonValue["Links"]["ManagerProvidingService"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Managers/{}",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
 #endif
-#if BMCWEB_SPDM_URIS_MACRO
+#ifdef ONETREE_NVIDIASIPACK
     asyncResp->res.jsonValue["ComponentIntegrity"]["@odata.id"] =
-	    "/redfish/v1/ComponentIntegrity";
+        "/redfish/v1/ComponentIntegrity";
 #endif
 
     nlohmann::json& protocolFeatures =
@@ -148,10 +148,9 @@ inline void handleServiceRootGetImpl(
     protocolFeatures["ExpandQuery"]["ExpandAll"] =
         BMCWEB_INSECURE_ENABLE_REDFISH_QUERY;
     // This is the maximum level defined in ServiceRoot.v1_13_0.json
-    if constexpr (BMCWEB_INSECURE_ENABLE_REDFISH_QUERY || BMCWEB_AMI_PSM_MACRO)
-    {
-        protocolFeatures["ExpandQuery"]["MaxLevels"] = 6;
-    }
+#if BMCWEB_INSECURE_ENABLE_REDFISH_QUERY || defined(ONETREE_PSM)
+    protocolFeatures["ExpandQuery"]["MaxLevels"] = 6;
+#endif
     protocolFeatures["ExpandQuery"]["Levels"] =
         BMCWEB_INSECURE_ENABLE_REDFISH_QUERY;
     protocolFeatures["ExpandQuery"]["Links"] =

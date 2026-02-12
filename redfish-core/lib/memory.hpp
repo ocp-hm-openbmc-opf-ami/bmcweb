@@ -404,14 +404,14 @@ inline void assembleDimmProperties(
     asyncResp->res.jsonValue[jsonPtr]["Id"] = dimmId;
     asyncResp->res.jsonValue[jsonPtr]["Description"] = dimmId;
     asyncResp->res.jsonValue[jsonPtr]["Name"] = dimmId;
-    if(!BMCWEB_AMI_REP_MACRO)
+#ifndef ONETREE_RTP
     {
     asyncResp->res.jsonValue[jsonPtr]["Status"]["State"] =
         resource::State::Enabled;
     asyncResp->res.jsonValue[jsonPtr]["Status"]["Health"] =
         resource::Health::OK;
     }
-
+#endif
     const uint16_t* memoryDataWidth = nullptr;
     const size_t* memorySizeInKB = nullptr;
     const std::string* partNumber = nullptr;

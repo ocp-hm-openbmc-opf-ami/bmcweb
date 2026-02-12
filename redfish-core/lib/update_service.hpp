@@ -117,8 +117,8 @@ inline void cleanUp()
     fwUpdateErrorMatcher = nullptr;
 }
 
-#if (BMCWEB_AMI_EGS_MACRO || BMCWEB_AMI_BHS_MACRO ||                           \
-     BMCWEB_AST2700_EVB_MACRO || BMCWEB_AST2600_EVB_MACRO)
+#if defined(ONETREE_EGS) || defined(ONETREE_BHS) ||                            \
+    defined(ONETREE_ASPEED_SDK_LAYER) || defined(ONETREE_EVB_AST2600)
 inline const PropertyValue getApplyTimePropertyValue(
     const std::string& servicePath, const std::string& objectName,
     const std::string& interface, const std::string& property_Name)
@@ -140,8 +140,8 @@ inline void activateImage(const std::string& objPath,
                           const std::vector<std::string>& imgUriTargets)
 {
     BMCWEB_LOG_DEBUG("Activate image for {} {}", objPath, service);
-#if (BMCWEB_AMI_EGS_MACRO || BMCWEB_AMI_BHS_MACRO ||                           \
-     BMCWEB_AST2700_EVB_MACRO || BMCWEB_AST2600_EVB_MACRO)
+#if defined(ONETREE_EGS) || defined(ONETREE_BHS) ||                            \
+    defined(ONETREE_ASPEED_SDK_LAYER) || defined(ONETREE_EVB_AST2600)
     // If targets is empty, it will apply to the active.
     if (!imgUriTargets.empty())
     {
@@ -181,7 +181,7 @@ inline void activateImage(const std::string& objPath,
                         }
                         BMCWEB_LOG_DEBUG("Image target matched with object {}",
                                          invObjPath);
-#if (BMCWEB_INTEL_PFR_MACRO)
+#ifdef ONETREE_INTEL_PFR
                         crow::connections::systemBus->async_method_call(
                             [invObjPath, objPath,
                              service](const boost::system::error_code ec2,
@@ -439,14 +439,13 @@ inline bool handleCreateTask(const boost::system::error_code& ec2,
 
         if (state->ends_with("Staged"))
         {
-#if (BMCWEB_INTEL_PFR_MACRO)
-            
-                BMCWEB_LOG_DEBUG("Task state = Complete");
-                taskData->messages.emplace_back(
-                    messages::taskCompletedOK(index));
-                taskData->state = "Completed";
-                return task::completed;
-            
+#ifdef ONETREE_INTEL_PFR
+
+            BMCWEB_LOG_DEBUG("Task state = Complete");
+            taskData->messages.emplace_back(messages::taskCompletedOK(index));
+            taskData->state = "Completed";
+            return task::completed;
+
 #else
             taskData->state = "Pending";
             taskData->messages.emplace_back(messages::taskPaused(index));
@@ -496,8 +495,8 @@ inline bool handleCreateTask(const boost::system::error_code& ec2,
         // still alive, update timer
         taskData->extendTimer(std::chrono::minutes(BMCWEB_UPDATE_TIMEOUT));
     }
-#if (BMCWEB_AMI_EGS_MACRO || BMCWEB_AMI_BHS_MACRO ||                           \
-     BMCWEB_AST2700_EVB_MACRO || BMCWEB_AST2600_EVB_MACRO)
+#if defined(ONETREE_EGS) || defined(ONETREE_BHS) ||                            \
+    defined(ONETREE_ASPEED_SDK_LAYER) || defined(ONETREE_EVB_AST2600)
 
     else if (iface == "xyz.openbmc_project.Common.Task")
     {
@@ -589,7 +588,8 @@ inline void createTask(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     
     if(isIntelservice)
     {
-        #if (BMCWEB_AMI_EGS_MACRO || BMCWEB_AMI_BHS_MACRO || BMCWEB_AST2700_EVB_MACRO || BMCWEB_AST2600_EVB_MACRO)
+#if defined(ONETREE_EGS) || defined(ONETREE_BHS) ||                            \
+    defined(ONETREE_ASPEED_SDK_LAYER) || defined(ONETREE_EVB_AST2600)
 
         std::vector<uint16_t> vectorTaskId = {static_cast<uint16_t>(task->index)};
 
@@ -607,8 +607,8 @@ inline void createTask(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 }
                 // messages::success(asyncResp->res);
             });
-        
-        #endif
+
+#endif
     }
 }
 
@@ -667,7 +667,8 @@ inline void softwareInterfaceAdded(
    
     if (isIntelservice)
     {
-       #if (BMCWEB_AMI_EGS_MACRO || BMCWEB_AMI_BHS_MACRO || BMCWEB_AST2700_EVB_MACRO || BMCWEB_AST2600_EVB_MACRO)
+#if defined(ONETREE_EGS) || defined(ONETREE_BHS) ||                            \
+    defined(ONETREE_ASPEED_SDK_LAYER) || defined(ONETREE_EVB_AST2600)
         std::array<std::string, 1> inface = {
             "xyz.openbmc_project.Software.Version"};
 
@@ -696,7 +697,7 @@ inline void softwareInterfaceAdded(
                     asyncResp->res.jsonValue["Oem"]["ImageName"] = updatingImage;
                 });
         }
-        #endif
+#endif
     }
     for (const auto& interface : interfacesProperties)
     {
@@ -1084,7 +1085,7 @@ inline void uploadImageFile(crow::Response& res, std::string_view body)
 inline bool convertApplyTime(crow::Response& res, const std::string& applyTime,
                              std::string& applyTimeNewVal)
 {
-#if (BMCWEB_INTEL_PFR_MACRO)
+#ifdef ONETREE_INTEL_PFR
     std::vector<std::string> applyTimeAllowableValues = {"Immediate",
                                                          "OnReset"};
 #else
@@ -1092,8 +1093,8 @@ inline bool convertApplyTime(crow::Response& res, const std::string& applyTime,
         "Immediate", "OnReset", "AtMaintenanceWindowStart",
         "InMaintenanceWindowOnReset"};
 #endif
-#if (BMCWEB_AMI_EGS_MACRO || BMCWEB_AMI_BHS_MACRO ||                           \
-     BMCWEB_AST2700_EVB_MACRO || BMCWEB_AST2600_EVB_MACRO)
+#if defined(ONETREE_EGS) || defined(ONETREE_BHS) ||                            \
+    defined(ONETREE_ASPEED_SDK_LAYER) || defined(ONETREE_EVB_AST2600)
 
     auto it = std::find(applyTimeAllowableValues.begin(),
                         applyTimeAllowableValues.end(), applyTime);
@@ -1612,8 +1613,8 @@ inline void updateMultipartContext(
             }
         });
 }
-#if (BMCWEB_AMI_EGS_MACRO || BMCWEB_AMI_BHS_MACRO ||                           \
-     BMCWEB_AST2700_EVB_MACRO || BMCWEB_AST2600_EVB_MACRO)
+#if defined(ONETREE_EGS) || defined(ONETREE_BHS) ||                            \
+    defined(ONETREE_ASPEED_SDK_LAYER) || defined(ONETREE_EVB_AST2600)
 
 inline bool checkApplyTime(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
@@ -1703,8 +1704,8 @@ inline void doHTTPUpdate(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         monitorForSoftwareAvailable(asyncResp, req, "/redfish/v1/UpdateService",
                                     httpPushUriTargets);
 
-#if (BMCWEB_AMI_EGS_MACRO || BMCWEB_AMI_BHS_MACRO ||                           \
-     BMCWEB_AST2700_EVB_MACRO || BMCWEB_AST2600_EVB_MACRO)
+#if defined(ONETREE_EGS) || defined(ONETREE_BHS) ||                            \
+    defined(ONETREE_ASPEED_SDK_LAYER) || defined(ONETREE_EVB_AST2600)
         if (checkApplyTime(asyncResp) == false)
         {
             messages::internalError(asyncResp->res);
@@ -1884,9 +1885,11 @@ inline void handleUpdateServiceGet(
     }
 
     getPreserveConfig(asyncResp, "UpdateService");
-    asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] = json_util::odataType("AMIUpdateService", "Ami");
-    
-    #if (BMCWEB_AMI_EGS_MACRO || BMCWEB_AMI_BHS_MACRO || BMCWEB_AST2700_EVB_MACRO || BMCWEB_AST2600_EVB_MACRO)
+    asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] =
+        json_util::odataType("AMIUpdateService", "Ami");
+
+#if defined(ONETREE_EGS) || defined(ONETREE_BHS) ||                            \
+    defined(ONETREE_ASPEED_SDK_LAYER) || defined(ONETREE_EVB_AST2600)
 
     sdbusplus::asio::getAllProperties(
         *crow::connections::systemBus,
@@ -1965,7 +1968,7 @@ inline void handleUpdateServiceGet(
                         requestedApplyTime->find_last_of('.') + 1);
             }
 
-#if (BMCWEB_INTEL_PFR_MACRO)
+#ifdef ONETREE_INTEL_PFR
             asyncResp->res
                 .jsonValue["HttpPushUriOptions"]["HttpPushUriApplyTime"]
                           ["ApplyTime@Redfish.AllowableValues"] = {
@@ -2053,8 +2056,8 @@ inline void handleUpdateServicePatch(
     std::optional<std::vector<std::string>> imgTargets;
     std::optional<bool> imgTargetBusy;
     std::optional<nlohmann::json> oem;
-#if (BMCWEB_AMI_EGS_MACRO || BMCWEB_AMI_BHS_MACRO ||                           \
-     BMCWEB_AST2700_EVB_MACRO || BMCWEB_AST2600_EVB_MACRO)
+#if defined(ONETREE_EGS) || defined(ONETREE_BHS) ||                            \
+    defined(ONETREE_ASPEED_SDK_LAYER) || defined(ONETREE_EVB_AST2600)
 
     std::optional<std::string> applyTime;
     std::optional<std::string> maintenanceWindowStartTime;
@@ -2228,16 +2231,15 @@ inline void handleUpdateServicePatch(
 // object. It will be enhanced to multiple targets for
 // single image in future. For now, consider first
 // target alone.
-#if (BMCWEB_AMI_EGS_MACRO || BMCWEB_AMI_BHS_MACRO ||                           \
-     BMCWEB_AST2700_EVB_MACRO || BMCWEB_AST2600_EVB_MACRO)
-
-                if ((*imgTargets).size() > 3)
-                {
-                    messages::invalidObject(
-                        asyncResp->res,
-                        boost::urls::format("HttpPushUriTargets"));
-                    return;
-                }
+#if defined(ONETREE_EGS) || defined(ONETREE_BHS) ||                            \
+    defined(ONETREE_ASPEED_SDK_LAYER) || defined(ONETREE_EVB_AST2600)
+                        if ((*imgTargets).size() > 3)
+                        {
+                            messages::invalidObject(
+                                asyncResp->res,
+                                boost::urls::format("HttpPushUriTargets"));
+                            return;
+                        }
 #else
                 if ((*imgTargets).size() != 1)
                 {
@@ -2271,8 +2273,8 @@ inline void handleUpdateServicePatch(
                                 return;
                             }
                             std::string swId = path.substr(idPos + 1);
-#if (BMCWEB_AMI_EGS_MACRO || BMCWEB_AMI_BHS_MACRO ||                           \
-     BMCWEB_AST2700_EVB_MACRO || BMCWEB_AST2600_EVB_MACRO)
+#if defined(ONETREE_EGS) || defined(ONETREE_BHS) ||                            \
+    defined(ONETREE_ASPEED_SDK_LAYER) || defined(ONETREE_EVB_AST2600)
 
                             for (const std::string& target : uriTargets)
                             {

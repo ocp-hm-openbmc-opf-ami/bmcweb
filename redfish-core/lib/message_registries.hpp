@@ -18,12 +18,12 @@
 #include "registries/telemetry_message_registry.hpp"
 #include "registries/license_message_registry.hpp"
 
-#if (BMCWEB_AMI_REP_MACRO)
+#ifdef ONETREE_RTP
 #include "ext/include/registries/ami_certificate_service_message_registry.hpp"
 #include "ext/include/registries/ami_privilege_mapping.hpp"
 #endif
 
-#if (BMCWEB_AMI_ACD_MACRO)
+#ifdef ONETREE_ACD
 #include "ext/lib/acd/include/registries/acd_service_message_registry.hpp"
 #endif
 
@@ -66,7 +66,7 @@ inline void handleMessageRegistryFileCollectionGet(
         members.emplace_back(std::move(member));
     }
 
-#if (BMCWEB_AMI_ACD_MACRO)
+#ifdef ONETREE_ACD
     {
         nlohmann::json::object_t acdMember;
         acdMember["@odata.id"] = boost::urls::url("/redfish/v1/Registries/ACD");
@@ -223,7 +223,7 @@ inline void
     // Add OEM entities
     addEntitiesToMappings(mappings, registries::PrivilegeRegistry::OEMentities);
 
-#if (BMCWEB_AMI_REP_MACRO)
+#ifdef ONETREE_RTP
     // Add AMI-specific entities to PrivilegeRegistry
     addEntitiesToMappings(mappings, redfish::registries::AMIPrivilegeMapping::AMIEntities);
 #endif
@@ -507,13 +507,14 @@ inline void handleMessageRoutesMessageRegistryFileGet(
             {
                 registryEntries.emplace_back(&entry);
             }
-            #if (BMCWEB_AMI_REP_MACRO)
-                header = &registries::ami::certificate::header;
-                for (const registries::MessageEntry& entry : registries::ami::certificate::registry)
-                {
-                    registryEntries.emplace_back(&entry);
-                }
-            #endif
+#ifdef ONETREE_RTP
+            header = &registries::ami::certificate::header;
+            for (const registries::MessageEntry& entry :
+                 registries::ami::certificate::registry)
+            {
+                registryEntries.emplace_back(&entry);
+            }
+#endif
             registryVal = 1;
         }
         else
@@ -523,7 +524,7 @@ inline void handleMessageRoutesMessageRegistryFileGet(
             return;
         }
     }
-#if (BMCWEB_AMI_ACD_MACRO)
+#ifdef ONETREE_ACD
     else if (registry == "ACD" || registryName == "ACD")
     {
         header = &registries::acd::header;
@@ -684,7 +685,7 @@ inline void requestRoutesMessageRegistryFile(App& app)
         }
     }
 
-#if (BMCWEB_AMI_ACD_MACRO)
+#ifdef ONETREE_ACD
     if (registry == "ACD" || registryName == "ACD")
     {
         asyncResp->res.addHeader("Allow", "GET");
@@ -693,7 +694,7 @@ inline void requestRoutesMessageRegistryFile(App& app)
     }
 #endif
 
-#if BMCWEB_AMI_REP_MACRO
+#ifdef ONETREE_RTP
     sdbusplus::asio::getAllProperties(
     *crow::connections::systemBus,
     "xyz.openbmc_project.OOBInventoryConfig",

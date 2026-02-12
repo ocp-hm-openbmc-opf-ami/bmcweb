@@ -208,7 +208,7 @@ static bool fillPostCodeEntry(
 
         // assemble messageArgs: BootIndex, TimeOffset(100us), PostCode(hex)
         std::ostringstream hexCode;
-#if BMCWEB_SBMR_EXT_MACRO
+#ifdef ONETREE_NVIDIASIPACK
         hexCode << "0x";
         for (auto itr : std::get<1>(code.second))
         {
@@ -248,7 +248,7 @@ static bool fillPostCodeEntry(
         {
             severity = message->messageSeverity;
         }
-#if BMCWEB_SBMR_EXT_MACRO
+#ifdef ONETREE_NVIDIASIPACK
         if (!asyncResp->res.jsonValue.contains("Members"))
         {
             asyncResp->res.jsonValue["Members"] = nlohmann::json::array();
@@ -287,7 +287,7 @@ static bool fillPostCodeEntry(
             return true;
         }
 
-#if BMCWEB_SBMR_EXT_MACRO
+#ifdef ONETREE_NVIDIASIPACK
         // Follow postcode log wrap policy with maximum entry of 150 
         if (asyncResp->res.jsonValue["Members"].size() >= 150)
 	    {

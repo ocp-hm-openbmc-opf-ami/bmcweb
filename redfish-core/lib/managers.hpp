@@ -981,7 +981,7 @@ inline void
                         if (intfPair.first == pidConfigurationIface ||
                             intfPair.first == stepwiseConfigurationIface)
                         {
-			    #if (!BMCWEB_CHALUPA_AMD_MACRO)
+#ifndef ONETREE_AMD_CHALUPA
                             {
                             if (propertyPair.first == "Zones")
                             {
@@ -2506,7 +2506,7 @@ inline void
     asyncResp->res.jsonValue["NetworkProtocol"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Managers/{}/NetworkProtocol",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
-    #if (!BMCWEB_AMI_RM_MACRO) && (!BMCWEB_AMI_PSM_MACRO)
+#if (!defined(ONETREE_RM)) && (!defined(ONETREE_PSM))
     asyncResp->res.jsonValue["SerialInterfaces"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Managers/{}/SerialInterfaces",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
@@ -2514,14 +2514,16 @@ inline void
     asyncResp->res.jsonValue["EthernetInterfaces"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Managers/{}/EthernetInterfaces",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
-    #if (!BMCWEB_CHALUPA_AMD_MACRO && !BMCWEB_ARBEL_NUVOTON_MACRO && !BMCWEB_AST2700_EVB_MACRO && !BMCWEB_AMI_RM_MACRO && !BMCWEB_AMI_PSM_MACRO)
+#if (!defined(ONETREE_AMD_CHALUPA) && !defined(ONETREE_EVB_NUVOTON_NPCM845) && \
+     !defined(ONETREE_ASPEED_SDK_LAYER) && !defined(ONETREE_RM) &&             \
+     !defined(ONETREE_PSM))
     {
     asyncResp->res.jsonValue["SecurityPolicy"]["@odata.id"] =
        	boost::urls::format("/redfish/v1/Managers/{}/SecurityPolicy",
                	            BMCWEB_REDFISH_MANAGER_URI_NAME);
     }
-    #endif
-    #if (!BMCWEB_AMI_RM_MACRO && !BMCWEB_AMI_PSM_MACRO)
+#endif
+#if (!defined(ONETREE_RM)) && (!defined(ONETREE_PSM))
     if constexpr (BMCWEB_VM_NBDPROXY)
     {
         asyncResp->res.jsonValue["VirtualMedia"]["@odata.id"] =
@@ -2533,7 +2535,7 @@ inline void
     nlohmann::json& oem = asyncResp->res.jsonValue["Oem"];
     nlohmann::json& oemOpenbmc = oem["OpenBmc"];
     nlohmann::json& oemIntel = oem["Intel"];
-#if (BMCWEB_NVIDIA_RESET_URIS_MACRO)
+#ifdef ONETREE_NVIDIASIPACK
     nlohmann::json& oemResetToDefaults =
 	    asyncResp->res.jsonValue["Actions"]["Oem"]
 	    ["#NvidiaManager.ResetToDefaults"];
@@ -2543,7 +2545,7 @@ inline void
 #endif
     oemIntel["@odata.type"] = json_util::odataType("OpenBMCManager", "Intel");
     oemIntel["@odata.id"] = "/redfish/v1/Managers/bmc#/Oem/Intel";
-#if (BMCWEB_AMI_NM_MACRO)
+#ifdef ONETREE_INTELSIPACK
     oemIntel["NodeManager"] = {
         {"@odata.id", "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager"}};
 #endif
@@ -2576,10 +2578,10 @@ inline void
     managerReset["@Redfish.ActionInfo"] =
         boost::urls::format("/redfish/v1/Managers/{}/ResetActionInfo",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
-    // ResetToDefaults (Factory Reset) has values like
-    // PreserveNetworkAndUsers and PreserveNetwork that aren't supported
-    // on OpenBMC
-    #if (!BMCWEB_AMI_RM_MACRO && !BMCWEB_AMI_PSM_MACRO)
+// ResetToDefaults (Factory Reset) has values like
+// PreserveNetworkAndUsers and PreserveNetwork that aren't supported
+// on OpenBMC
+#if (!defined(ONETREE_RM)) && (!defined(ONETREE_PSM))
     nlohmann::json& ResetToDefaults =
         asyncResp->res.jsonValue["Actions"]["#Manager.ResetToDefaults"];
     ResetToDefaults["target"] =
@@ -2588,8 +2590,8 @@ inline void
     ResetToDefaults["@Redfish.ActionInfo"] =
         boost::urls::format("/redfish/v1/Managers/{}/ResetActionInfo",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
-    #endif
-    #if (!BMCWEB_AMI_PSM_MACRO)
+#endif
+#ifndef ONETREE_PSM
 
     dbus::utility::getProperty<std::string>(
         "org.freedesktop.timedate1", "/org/freedesktop/timedate1",
@@ -2607,16 +2609,17 @@ inline void
             asyncResp->res.jsonValue["TimeZoneName"] = property;
             getCurrentDateTimeValue(asyncResp, property);
         });
-    #endif
-    // TODO (Gunnar): Remove these one day since moved to ComputerSystem
-    // Still used by OCP profiles
-    // https://github.com/opencomputeproject/OCP-Profiles/issues/23
-    // Fill in CommandShell info
+#endif
+// TODO (Gunnar): Remove these one day since moved to ComputerSystem
+// Still used by OCP profiles
+// https://github.com/opencomputeproject/OCP-Profiles/issues/23
+// Fill in CommandShell info
+
     asyncResp->res.jsonValue["CommandShell"]["ServiceEnabled"] = true;
     asyncResp->res.jsonValue["CommandShell"]["MaxConcurrentSessions"] = 1;
     asyncResp->res.jsonValue["CommandShell"]["ConnectTypesSupported"] = {
         "SSH", "IPMI"};
-    if constexpr (!BMCWEB_EXPERIMENTAL_REDFISH_MULTI_COMPUTER_SYSTEM && !BMCWEB_AMI_PSM_MACRO)
+#if !defined(ONETREE_PSM) && !BMCWEB_EXPERIMENTAL_REDFISH_MULTI_COMPUTER_SYSTEM
     {
         asyncResp->res.jsonValue["Links"]["ManagerForServers@odata.count"] = 1;
 
@@ -2629,13 +2632,15 @@ inline void
         asyncResp->res.jsonValue["Links"]["ManagerForServers"] =
             std::move(managerForServers);
     }
-    #if (!BMCWEB_AMI_RM_MACRO) && (!BMCWEB_AMI_PSM_MACRO)
+#endif
+
+#if (!defined(ONETREE_RM)) && (!defined(ONETREE_PSM))
     sw_util::populateSoftwareInformation(asyncResp, sw_util::bmcPurpose,
                                          "FirmwareVersion", true);
     #endif
     managerGetLastResetTime(asyncResp);
     getSystemLocationIndicatorActive(asyncResp);
-    #if (!BMCWEB_AMI_RM_MACRO) && (!BMCWEB_AMI_PSM_MACRO)
+#if (!defined(ONETREE_RM)) && (!defined(ONETREE_PSM))
     // ManagerDiagnosticData is added for all BMCs.
     nlohmann::json& managerDiagnosticData =
         asyncResp->res.jsonValue["ManagerDiagnosticData"];

@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #include "redfish.hpp"
 
-#include "amiconfig.h"
 #include "bmcweb_config.h"
 
 #include "account_service.hpp"
@@ -69,7 +68,7 @@
 #include "utils/json_utils.hpp"
 #include "dashboard.hpp"
 
-#if BMCWEB_AMI_NIC_MACRO
+#ifdef ONETREE_NIC
 #include "ext/src/nic.hpp"
 #endif
 
@@ -77,15 +76,15 @@
 #include "ext/src/cxl.hpp"
 #endif
 
-#if BMCWEB_AMI_REP_MACRO
+#ifdef ONETREE_RTP
 #include "ext/src/rep.hpp"
 #endif
 
-#if BMCWEB_AMI_RM_MACRO
+#ifdef ONETREE_RM
 #include "ext/src/rm.hpp"
 #endif
 
-#if BMCWEB_AMI_PSM_MACRO
+#ifdef ONETREE_PSM
 #include "ext/src/psm.hpp"
 #endif
 
@@ -97,52 +96,55 @@
 #include "ext/src/controls/controls.hpp"
 #endif
 
-#if BMCWEB_AMI_RAIDBRCM_MACRO
+#ifdef ONETREE_BRCMRAID
 #include "ext/lib/brcm/storage_brcm.hpp"
 #endif
 
-#if BMCWEB_AMI_RAIDMSCC_MACRO
+#ifdef ONETREE_MSCCRAID
 #include "ext/lib/mscc/storage_mscc.hpp"
 #endif
 
-#if BMCWEB_AMI_SL8_MACRO
+#ifdef ONETREE_BRCMRAID8
 #include "ext/lib/brcm/sl8_brcm.hpp"
 #endif
 
-#if BMCWEB_AMI_NVME_MACRO
+#ifdef ONETREE_NVME
 #include "ext/lib/nvme/storage_nvme.hpp"
 #endif
 
-#if BMCWEB_SPDM_URIS_MACRO
+#ifdef ONETREE_NVIDIASIPACK
+#include "ext/cper/src/cper.hpp"
+#include "ext/dot/src/dot.hpp"
 #include "ext/spdm/src/spdm.hpp"
+#include "ext/src/auxreset.hpp"
+#include "ext/src/erot_dump.hpp"
+#include "ext/src/reset.hpp"
+#include "ext/sbmr/src/sbmr.hpp"
 #endif
 
-#if BMCWEB_GPGPU_URIS_MACRO
+#ifdef ONETREE_GPGPU
 #include "ext/src/gpgpu.hpp"
 #endif
 
-#if BMCWEB_CPER_URIS_MACRO
-#include "ext/cper/src/cper.hpp"
-#endif
-
-#if (BMCWEB_AMI_RAIDBRCM_MACRO) || (BMCWEB_AMI_RAIDMSCC_MACRO) ||              \
-    (BMCWEB_AMI_NVME_MACRO) || (BMCWEB_AMI_SL8_MACRO) || (BMCWEB_AMI_REP_MACRO)
+#if (defined(ONETREE_BRCMRAID)) || (defined(ONETREE_MSCCRAID)) ||              \
+    (defined(ONETREE_NVME)) || (defined(ONETREE_BRCMRAID8)) || (defined(ONETREE_RTP))
 #include "ext/include/storage_ext.hpp"
 #endif
 
-#if (BMCWEB_AMI_RAIDMSCC_MACRO) || (BMCWEB_AMI_RAIDBRCM_MACRO) || (BMCWEB_AMI_SL8_MACRO)
+#if (defined(ONETREE_MSCCRAID)) || (defined(ONETREE_BRCMRAID)) ||              \
+    (defined(ONETREE_BRCMRAID8))
 #include "ext/include/log_services_ext.hpp"
 #endif
 
-#if BMCWEB_AMI_PCIESW_MACRO
+#ifdef ONETREE_BRCMPCIESW
 #include "redfish-core/lib/ext/pciesw/oem_pcie_switch.hpp"
 #endif
 
-#if BMCWEB_AMI_ACD_MACRO
+#ifdef ONETREE_ACD
 #include "ext/lib/acd/acd_service.hpp"
 #endif
 
-#if BMCWEB_AMI_ASD_MACRO
+#ifdef ONETREE_ASD
 #include "ext/lib/asd/asd_service.hpp"
 #endif
 
@@ -150,35 +152,15 @@
 #include "ext/lib/redebugserv/redebugserv.hpp"
 #endif
 
-#if BMCWEB_SBMR_EXT_MACRO
-#include "ext/sbmr/src/sbmr.hpp"
-#endif
-
-#if BMCWEB_DOT_URIS_MACRO
-#include "ext/dot/src/dot.hpp"
-#endif
-
-#if BMCWEB_NVIDIA_RESET_URIS_MACRO
-#include "ext/src/reset.hpp"
-#endif
-
-#if BMCWEB_NVIDIA_EROT_DUMP_MACRO
-#include "ext/src/erot_dump.hpp"
-#endif
-
-#if BMCWEB_AMI_RM_MACRO
+#ifdef ONETREE_RM
 #include "ext/src/rm.hpp"
 #endif
 
-#if BMCWEB_AMI_PSM_MACRO
+#ifdef ONETREE_PSM
 #include "ext/src/psm.hpp"
 #endif
 
-#if BMCWEB_NVIDIA_AUX_RESET_URIS_MACRO
-#include "ext/src/auxreset.hpp"
-#endif
-
-#if BMCWEB_ARM_SBMR_MACRO
+#ifdef ONETREE_ARM_SBMR
 #include "ext/src/arm_redfish.hpp"
 #endif
 
@@ -189,11 +171,11 @@ RedfishService::RedfishService(App& app)
 {
     //init schemaVersionMap
     json_util::initSchemaVersionMap();
-#if BMCWEB_AMI_ACD_MACRO
+#ifdef ONETREE_ACD
     redfish::ami::core::resource::requestRoutesACDService(app);
 #endif
 
-#if BMCWEB_AMI_ASD_MACRO
+#ifdef ONETREE_ASD
     redfish::ami::core::resource::requestRoutesASDService(app);
 #endif
 
@@ -229,7 +211,7 @@ RedfishService::RedfishService(App& app)
         requestRoutesThermal(app);
         requestRoutesPower(app);
     }
-#if (BMCWEB_CHALUPA_AMD_MACRO)
+#ifdef ONETREE_AMD_CHALUPA
     {
         requestRoutesPower(app);
     }
@@ -332,9 +314,9 @@ RedfishService::RedfishService(App& app)
     requestRoutesMemoryCollection(app);
     requestRoutesMemory(app);
 
-    #if (!BMCWEB_AMI_PSM_MACRO)
+#ifndef ONETREE_PSM
     requestRoutesSystems(app);
-    #endif
+#endif
 
     requestRoutesBiosService(app);
     requestRoutesBiosReset(app);
@@ -380,9 +362,9 @@ RedfishService::RedfishService(App& app)
     requestRoutesSystemPCIeFunction(app);
     requestRoutesSystemPCIeDeviceCollection(app);
     requestRoutesSystemPCIeDevice(app);
-    #if (!BMCWEB_AMI_PSM_MACRO)
+#ifndef ONETREE_PSM
     requestRoutesPCIeSlots(app);
-    #endif
+#endif
     requestRoutesSensorCollection(app);
     requestRoutesSensor(app);
     requestRoutesSensorPatching(app);
@@ -421,7 +403,8 @@ RedfishService::RedfishService(App& app)
     requestRoutesTriggerCollection(app);
     requestRoutesTrigger(app);
 
-#if (!BMCWEB_CHALUPA_AMD_MACRO || !BMCWEB_ARBEL_NUVOTON_MACRO || !BMCWEB_AST2700_EVB_MACRO)
+#if (!defined(ONETREE_AMD_CHALUPA) || !defined(ONETREE_EVB_NUVOTON_NPCM845) || \
+     !defined(ONETREE_ASPEED_SDK_LAYER))
     // FIPS Enablement
     requestFipsManagerRoutes(app);
 #endif
@@ -435,7 +418,7 @@ RedfishService::RedfishService(App& app)
     requestRoutesSendTrap(app);
 
     // All Extention packs routing table added here
-#if BMCWEB_AMI_REP_MACRO
+#ifdef ONETREE_RTP
     registerRepRoutes(app);
 #endif
 
@@ -447,7 +430,7 @@ RedfishService::RedfishService(App& app)
     registerOemAMIControlsRoutes(app);
 #endif
 
-#if BMCWEB_AMI_NIC_MACRO
+#ifdef ONETREE_NIC
     registerNicRoutes(app);
 #endif
 
@@ -455,19 +438,19 @@ RedfishService::RedfishService(App& app)
     registerCxlRoutes(app);
 #endif
 
-#if BMCWEB_AMI_RM_MACRO
+#ifdef ONETREE_RM
     redfish::rm::registerRmRoutes(app);
 #endif
-#if BMCWEB_AMI_PSM_MACRO
+#ifdef ONETREE_PSM
     redfish::psm::registerPsmRoutes(app);
 #endif
 
-#if BMCWEB_GPGPU_URIS_MACRO
+#ifdef ONETREE_GPGPU
     registerGpgpuRoutes(app);
 #endif
 
-#if (BMCWEB_AMI_NVME_MACRO) || (BMCWEB_AMI_RAIDMSCC_MACRO) ||                  \
-    (BMCWEB_AMI_RAIDBRCM_MACRO) || (BMCWEB_AMI_SL8_MACRO) || (BMCWEB_AMI_REP_MACRO)
+#if (defined(ONETREE_NVME)) || (defined(ONETREE_MSCCRAID)) ||                  \
+    (defined(ONETREE_BRCMRAID)) || (defined(ONETREE_BRCMRAID8)) || (defined(ONETREE_RTP))
     {
         redfish::ext::core::resource::requestStorageCollectionRoutes(app);
         redfish::ext::core::resource::requestRoutesStorage(app);
@@ -479,25 +462,26 @@ RedfishService::RedfishService(App& app)
     }
 #endif
 
-#if (BMCWEB_AMI_RAIDMSCC_MACRO) || (BMCWEB_AMI_RAIDBRCM_MACRO) || (BMCWEB_AMI_SL8_MACRO)
+#if (defined(ONETREE_MSCCRAID)) || (defined(ONETREE_BRCMRAID)) ||              \
+    (defined(ONETREE_BRCMRAID8))
     requestRoutesRaidLog(app);
 #endif
 
-#if BMCWEB_AMI_NVME_MACRO
+#ifdef ONETREE_NVME
     requestRoutesNvme(app);
 #endif
-#if BMCWEB_AMI_RAIDMSCC_MACRO
+#ifdef ONETREE_MSCCRAID
     requestRoutesMSCCStorageDevices(app);
 #endif
-#if BMCWEB_AMI_RAIDBRCM_MACRO
+#ifdef ONETREE_BRCMRAID
     requestRoutesBRCMStorageDevices(app);
     requestRaidPostCall(app);
 #endif
-#if BMCWEB_AMI_SL8_MACRO
+#ifdef ONETREE_BRCMRAID8
     requestRoutesSl8StorageDevices(app);
     requestRaidPostCall(app);
 #endif
-#if BMCWEB_AMI_PCIESW_MACRO
+#ifdef ONETREE_BRCMPCIESW
     requestRoutesPcieSwitchCollection(app);
     requestRoutesPcieSwitchInstanceCollection(app);
     requestRoutesPcieSwitchPortsCollection(app);
@@ -507,34 +491,22 @@ RedfishService::RedfishService(App& app)
     requestRoutesPcieSwitchTraseBuffer(app);
     requestRoutesPcieSwitchFWUpdate(app);
 #endif
-#if BMCWEB_SBMR_EXT_MACRO
+#ifdef ONETREE_NVIDIASIPACK
     registerSbmrRoutes(app);
-#endif
-#if BMCWEB_SPDM_URIS_MACRO
     registerSpdmRoutes(app);
-#endif
-#if BMCWEB_DOT_URIS_MACRO
     registerDotRoutes(app);
-#endif
-#if BMCWEB_CPER_URIS_MACRO
     registerCperRoutes(app);
-#endif
-#if BMCWEB_NVIDIA_RESET_URIS_MACRO
     registerResetRoutes(app);
-#endif
-#if BMCWEB_NVIDIA_EROT_DUMP_MACRO
     registerErotDumpRoutes(app);
-#endif
-#if BMCWEB_AMI_RM_MACRO
-    redfish::rm::registerRmRoutes(app);
-#endif
-#if BMCWEB_AMI_PSM_MACRO
-    redfish::psm::registerPsmRoutes(app);
-#endif
-#if BMCWEB_NVIDIA_AUX_RESET_URIS_MACRO
     registerAuxResetRoutes(app);
 #endif
-#if BMCWEB_ARM_SBMR_MACRO
+#ifdef ONETREE_RM
+    redfish::rm::registerRmRoutes(app);
+#endif
+#ifdef ONETREE_PSM
+    redfish::psm::registerPsmRoutes(app);
+#endif
+#ifdef ONETREE_ARM_SBMR
     registerSystemExtensionRoutes(app);
 #endif
     // Note, this must be the last route registered
