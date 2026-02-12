@@ -694,25 +694,100 @@ inline void requestRoutesMessageRegistryFile(App& app)
 #endif
 
 #if BMCWEB_AMI_REP_MACRO
-    sdbusplus::asio::getProperty<std::string>(
-    *crow::connections::systemBus, "xyz.openbmc_project.OOBInventoryConfig",
+    sdbusplus::asio::getAllProperties(
+    *crow::connections::systemBus,
+    "xyz.openbmc_project.OOBInventoryConfig",
     "/xyz/openbmc_project/OOBInventoryConfig",
     "xyz.openbmc_project.OobBiosConfigInventory.OobBiosConfigInventory",
-    "BiosAttributeRegistryVersion",
     [asyncResp, registry](const boost::system::error_code& ec,
-                         const std::string& registryVersion) {
+                         const std::vector<std::pair<std::string, dbus::utility::DbusVariantType>>& properties) 
+    {
         if (ec)
         {
             messages::resourceNotFound(asyncResp->res, "MessageRegistryFile", registry);
             return;
         }
 
-        if (!registryVersion.empty() && registry == registryVersion)
+        // Extract properties from the response
+        std::string registryVersion;
+        std::vector<std::string> languageInfo;
+
+        for (const auto& [key, value] : properties)
+        {
+            if (key == "BiosAttributeRegistryVersion")
+            {
+                const std::string* strValue = std::get_if<std::string>(&value);
+                if (strValue)
+                {
+                    registryVersion = *strValue;
+                }
+            }
+            else if (key == "LanguageInfo")
+            {
+                const std::vector<std::string>* vecValue = std::get_if<std::vector<std::string>>(&value);
+                if (vecValue)
+                {
+                    languageInfo = *vecValue;
+                }
+            }
+        }
+
+        if (registryVersion.empty())
+        {
+            messages::resourceNotFound(asyncResp->res, "MessageRegistryFile", registry);
+            return;
+        }
+
+        if (registry == registryVersion)
         {
             asyncResp->res.addHeader("Allow", "GET");
             messages::operationNotAllowed(asyncResp->res);
             return;
-        } else {
+        }
+
+        // Check for .json file variant
+        if (registry.ends_with(".json"))
+        {
+            if (languageInfo.empty())
+            {
+                BMCWEB_LOG_ERROR("languages not available");
+                messages::resourceNotFound(asyncResp->res, "MessageRegistryFile", registry);
+                return;
+            }
+
+            bool registryFound = false;
+
+            // Parse registryVersion: "BiosAttributeRegistry0ACQZ.0.72.0"
+            // Extract: registryId = "BiosAttributeRegistry0ACQZ", version = "0.72.0"
+            
+	    size_t dotPos = registryVersion.find('.');
+            std::string registryId = registryVersion.substr(0, dotPos);
+            std::string version = registryVersion.substr(dotPos + 1);
+
+            for (const auto& language : languageInfo)
+            {
+                std::string expectedFilename = registryId + "." + language + "." + version + ".json";
+                if (expectedFilename == registry)
+                {
+                    registryFound = true;
+                    break;
+                }
+            }
+
+            if (registryFound)
+            {
+                asyncResp->res.addHeader("Allow", "GET");
+                messages::operationNotAllowed(asyncResp->res);
+                return;
+            }
+            else
+            {
+                messages::resourceNotFound(asyncResp->res, "MessageRegistryFile", registry);
+                return;
+            }
+        }
+        else
+        {
             messages::resourceNotFound(asyncResp->res, "MessageRegistryFile", registry);
             return;
         }
