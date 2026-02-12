@@ -238,7 +238,7 @@ RedfishService::RedfishService(App& app)
     requestRoutesManagerResetActionInfo(app);
     requestRoutesManagerResetToDefaults(app);
     requestRoutesManagerDiagnosticData(app);
-    #if (!BMCWEB_ARBEL_NUVOTON_MACRO)
+    #ifdef ONETREE_EVB_NUVOTON_NPCM845
         requestRoutesBsodjpeg(app);
         requestRoutesDeleteBsodjpeg(app);
         requestRoutesTriggerBsodjpeg(app);
