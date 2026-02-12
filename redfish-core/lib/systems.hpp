@@ -61,6 +61,9 @@ const static std::array<std::pair<std::string_view, std::string_view>, 2>
 constexpr const char* dbus_Property_Interface =
     "org.freedesktop.DBus.Properties";
 
+static bool timerFlag = false;
+static bool taskAlreadyHappened = false;
+
 /**
  * @brief Updates the Functional State of DIMMs
  *
@@ -3306,6 +3309,14 @@ void createResetMaintenanceWindowTask(
                                 messages::internalError());
                             return task::completed;
                         }
+                        if(*timeOutValue == 0)
+                        {
+                            timerFlag = true;
+                        }
+                        else
+                        {
+                            timerFlag = false;
+                        }
                     }
 
                     if (property.first == "OperatingSystemState")
@@ -3321,15 +3332,25 @@ void createResetMaintenanceWindowTask(
                     }
                 }
 
-                if ((timeOutValue != nullptr && *timeOutValue != 0))
+                if(!timerFlag)
                 {
-                    taskData->state = "Pending";
+                    if(*osState ==
+                        "xyz.openbmc_project.State.OperatingSystem.Status.OSStatus.Inactive" ||
+                       *osState ==  "xyz.openbmc_project.State.OperatingSystem.Status.OSStatus.Standby")
+                        {
+                            if(!taskAlreadyHappened)
+                                taskAlreadyHappened = true;
+                        }
+                }
+
+                if(timerFlag && taskAlreadyHappened)
+                {
+                    taskData->state = "Cancelled";
                     taskData->messages.emplace_back(
-                        messages::taskPaused(index));
-                    taskData->extendTimer(
-                        std::chrono::seconds(requestedHostTransition) +
-                        (std::chrono::minutes(10)));
-                    return !task::completed;
+                    messages::taskCancelled(index));
+                    taskAlreadyHappened = false;
+                    timerFlag = false;
+                    return task::completed;
                 }
 
                 if (osState != nullptr && requestedHostTransition == 0)
@@ -3339,9 +3360,12 @@ void createResetMaintenanceWindowTask(
                         *osState ==
                             "xyz.openbmc_project.State.OperatingSystem.Status.OSStatus.Inactive")
                     {
-                        taskData->state = "Running";
-                        taskData->messages.emplace_back(
-                            messages::taskStarted(index));
+                        if(!taskAlreadyHappened)
+                        {
+                            taskData->state = "Running";
+                            taskData->messages.emplace_back(
+                                messages::taskStarted(index));
+                        }
                         taskData->extendTimer(std::chrono::minutes(15));
                         return !task::completed;
                     }
@@ -3351,10 +3375,14 @@ void createResetMaintenanceWindowTask(
                         *osState ==
                             "xyz.openbmc_project.State.OperatingSystem.Status.OSStatus.Standby")
                     {
-                        taskData->messages.emplace_back(
-                            messages::taskCompletedOK(index));
-                        taskData->state = "Completed";
-                        return task::completed;
+                        if(!taskAlreadyHappened)
+                        {
+                            timerFlag = false;
+                            taskData->state = "Completed";
+                            taskData->messages.emplace_back(
+                                messages::taskCompletedOK(index));
+                            return task::completed;
+                        }
                     }
 
                     else if (
@@ -3363,9 +3391,12 @@ void createResetMaintenanceWindowTask(
                         *osState ==
                             "xyz.openbmc_project.State.OperatingSystem.Status.OSStatus.Standby")
                     {
-                        taskData->state = "Running";
-                        taskData->messages.emplace_back(
-                            messages::taskStarted(index));
+                       if(!taskAlreadyHappened)
+                        {
+                            taskData->state = "Running";
+                            taskData->messages.emplace_back(
+                                messages::taskStarted(index));
+                        }
                         taskData->extendTimer(std::chrono::minutes(5));
                         return !task::completed;
                     }
@@ -3376,10 +3407,13 @@ void createResetMaintenanceWindowTask(
                         *osState ==
                             "xyz.openbmc_project.State.OperatingSystem.Status.OSStatus.Inactive")
                     {
-                        taskData->messages.emplace_back(
-                            messages::taskCompletedOK(index));
-                        taskData->state = "Completed";
-                        return task::completed;
+                        if(!taskAlreadyHappened)
+                        {
+                            taskData->messages.emplace_back(
+                                messages::taskCompletedOK(index));
+                            taskData->state = "Completed";
+                            return task::completed;
+                        }
                     }
                 }
                 taskData->extendTimer(
@@ -3462,6 +3496,14 @@ void createSystemMaintenanceWindowTask(
                                 messages::internalError());
                             return task::completed;
                         }
+                        if(*timeOutValue == 0)
+                        {
+                            timerFlag = true;
+                        }   
+                        else
+                        {
+                            timerFlag = false;
+                        }    
                     }
 
                     if (property.first == "OperatingSystemState")
@@ -3476,25 +3518,34 @@ void createSystemMaintenanceWindowTask(
                         }
                     }
                 }
-
-                if (timeOutValue != nullptr && *timeOutValue != 0)
+                if(!timerFlag)
                 {
-                    taskData->state = "Pending";
+                    if(*osState ==
+                        "xyz.openbmc_project.State.OperatingSystem.Status.OSStatus.Inactive")
+                    {
+                        taskAlreadyHappened = true;
+                    }
+                }
+                if(timerFlag && taskAlreadyHappened)
+                {
+                    taskData->state = "Cancelled";
                     taskData->messages.emplace_back(
-                        messages::taskPaused(index));
-                    taskData->extendTimer(
-                        std::chrono::seconds(requestedPowerTransition) +
-                        (std::chrono::minutes(10)));
-                    return !task::completed;
+                                messages::taskCancelled(index));
+                    taskAlreadyHappened = false;
+                    timerFlag = false;
+                    return task::completed;
                 }
 
                 if (requestedPowerTransition == 0 && osState != nullptr &&
                     *osState ==
                         "xyz.openbmc_project.State.OperatingSystem.Status.OSStatus.Standby")
                 {
-                    taskData->state = "Running";
-                    taskData->messages.emplace_back(
+                    if(!taskAlreadyHappened)
+                    {
+                        taskData->state = "Running";
+                        taskData->messages.emplace_back(
                         messages::taskStarted(index));
+                    }
                     taskData->extendTimer(std::chrono::minutes(5));
                     return !task::completed;
                 }
@@ -3503,10 +3554,15 @@ void createSystemMaintenanceWindowTask(
                     *osState ==
                         "xyz.openbmc_project.State.OperatingSystem.Status.OSStatus.Inactive")
                 {
-                    taskData->messages.emplace_back(
-                        messages::taskCompletedOK(index));
-                    taskData->state = "Completed";
-                    return task::completed;
+                    if(!taskAlreadyHappened)    
+                    {
+                        taskAlreadyHappened = false;
+                        timerFlag = false;
+                        taskData->state = "Completed";
+                        taskData->messages.emplace_back(
+                            messages::taskCompletedOK(index));
+                        return task::completed;
+                    }
                 }
                 taskData->extendTimer(
                     std::chrono::seconds(requestedPowerTransition) +

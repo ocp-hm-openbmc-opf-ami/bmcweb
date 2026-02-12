@@ -45,6 +45,8 @@ using PropertyValue = std::variant<uint8_t, uint16_t, uint64_t, std::string,
                                    std::vector<std::string>, bool>;
 
 inline bool checkinvalidURIPatch = true;
+static bool chassisTimerFlag = false;
+static bool chassisTaskAlreadyHappened = false;
 
 inline chassis::ChassisType translateChassisTypeToRedfish(
     const std::string_view& chassisType)
@@ -1386,6 +1388,15 @@ inline void createMaintenanceWindowTask(
                                 messages::internalError());
                             return task::completed;
                         }
+
+                        if(*timeOutValue == 0)
+                        {
+                            chassisTimerFlag = true;
+                        }
+                        else
+                        {
+                            chassisTimerFlag = false;
+                        }
                     }
 
                     if (property.first == "OperatingSystemState")
@@ -1401,35 +1412,53 @@ inline void createMaintenanceWindowTask(
                     }
                 }
 
-                if (timeOutValue != nullptr && *timeOutValue != 0)
+                if(!chassisTimerFlag)
                 {
-                    taskData->state = "Pending";
-                    taskData->messages.emplace_back(
-                        messages::taskPaused(index));
-                    taskData->extendTimer(
-                        std::chrono::seconds(reqchassisHostTransitionTimeOut) +
-                        (std::chrono::minutes(10)));
-                    return !task::completed;
+                    if(*osState ==
+                        "xyz.openbmc_project.State.OperatingSystem.Status.OSStatus.Inactive" ||
+                       *osState ==  "xyz.openbmc_project.State.OperatingSystem.Status.OSStatus.Standby")
+                    {
+                        if(!chassisTaskAlreadyHappened)
+                            chassisTaskAlreadyHappened = true;
+                    }
                 }
+
+                if(chassisTimerFlag && chassisTaskAlreadyHappened)
+                {
+                    taskData->state = "Cancelled";
+                    taskData->messages.emplace_back(
+                                messages::taskCancelled(index));
+                    chassisTaskAlreadyHappened = false;
+                    chassisTimerFlag = false;
+                    return task::completed;
+                }
+
                 if (reqchassisHostTransitionTimeOut == 0 && osState != nullptr)
                 {
                     if (*osState ==
                         "xyz.openbmc_project.State.OperatingSystem.Status.OSStatus.Inactive")
                     {
-                        taskData->state = "Running";
-                        taskData->messages.emplace_back(
+                        if(!chassisTaskAlreadyHappened)
+                        {
+                            taskData->state = "Running";
+                            taskData->messages.emplace_back(
                             messages::taskStarted(index));
-                        taskData->extendTimer(std::chrono::minutes(10));
+                        }
+                        taskData->extendTimer(std::chrono::minutes(15));
                         return !task::completed;
                     }
 
                     if (*osState ==
                         "xyz.openbmc_project.State.OperatingSystem.Status.OSStatus.Standby")
                     {
-                        taskData->messages.emplace_back(
+                        if(!chassisTaskAlreadyHappened)
+                        {
+                            taskData->messages.emplace_back(
                             messages::taskCompletedOK(index));
-                        taskData->state = "Completed";
-                        return task::completed;
+                            chassisTimerFlag = false;
+                            taskData->state = "Completed";
+                            return task::completed;
+                        }
                     }
                 }
                 taskData->extendTimer(
