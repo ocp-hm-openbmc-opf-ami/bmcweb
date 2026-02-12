@@ -200,12 +200,12 @@ inline void doPowerHeader(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("Power");
     asyncResp->res.jsonValue["Name"] = "Power";
     asyncResp->res.jsonValue["Id"] = "Power";
-    #if (BMCWEB_CHALUPA_AMD_MACRO)
+#ifdef ONETREE_AMD_CHALUPA
     {
         asyncResp->res.jsonValue["@odata.id"] =
            boost::urls::format("/redfish/v1/Chassis/{}/Power", chassisId);
     }
-    #endif    
+#endif
 }
 
 inline void requestRoutesNodeManagerPower(App& app)

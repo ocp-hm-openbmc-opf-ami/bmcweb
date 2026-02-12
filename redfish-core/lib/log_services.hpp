@@ -1305,8 +1305,8 @@ inline void requestRoutesSystemLogServiceCollection(App& app)
                 std::format("/redfish/v1/Systems/{}/LogServices/EventLog",
                             BMCWEB_REDFISH_SYSTEM_URI_NAME);
             logServiceArray.emplace_back(std::move(eventLog));
-         
-#if (BMCWEB_AMI_RAIDMSCC_MACRO) || (BMCWEB_AMI_RAIDBRCM_MACRO)
+
+#if (defined(ONETREE_MSCCRAID)) || (defined(ONETREE_BRCMRAID))
             nlohmann::json::object_t raid;
             raid["@odata.id"] =
                 std::format("/redfish/v1/Systems/{}/LogServices/Raid",
@@ -1314,7 +1314,7 @@ inline void requestRoutesSystemLogServiceCollection(App& app)
             logServiceArray.emplace_back(std::move(raid));
 #endif
 
-#if BMCWEB_DOT_URIS_MACRO
+#ifdef ONETREE_NVIDIASIPACK
             nlohmann::json::object_t debugToken;
             debugToken["@odata.id"] =
             	"/redfish/v1/Systems/system/LogServices/DebugTokenService";
@@ -3742,8 +3742,8 @@ inline void requestRoutesCrashdumpService(App& app)
             asyncResp->res.jsonValue["Id"] = "Crashdump";
             asyncResp->res.jsonValue["OverWritePolicy"] =
                 log_service::OverWritePolicy::WrapsWhenFull;
-#if (BMCWEB_AMI_BHS_MACRO)
-	    asyncResp->res.jsonValue["MaxNumberOfRecords"] = 1;
+#ifdef ONETREE_BHS
+            asyncResp->res.jsonValue["MaxNumberOfRecords"] = 1;
 #else
             asyncResp->res.jsonValue["MaxNumberOfRecords"] = 150;
 #endif

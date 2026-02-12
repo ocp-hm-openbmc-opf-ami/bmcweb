@@ -421,8 +421,8 @@ inline void handleLogin(const crow::Request& req,
             bool isRemote = getRemoteUserInfo(user, ipAddr);
             asyncResp->res.jsonValue["RemoteUser"] = isRemote;
 
-#if (BMCWEB_AMI_2FA_MACRO)
-#if (BMCWEB_AMI_REP_MACRO)
+#ifdef ONETREE_2FA
+#ifdef ONETREE_RTP
             dbus::utility::getProperty<bool>(
                 "xyz.openbmc_project.User.Manager",
                 "/xyz/openbmc_project/user/" + user,

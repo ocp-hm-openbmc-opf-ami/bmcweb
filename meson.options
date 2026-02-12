@@ -15,30 +15,6 @@ option(
     description: 'Enable Unit tests for bmcweb',
 )
 
-# BMCWEB_SBMR_EXT_MACRO
-option(
-    'sbmr-ext',
-    type: 'feature',
-    value: 'disabled',
-    description: 'Enable the SBMR extension pack.'
-)
-
-# BMCWEB_ARM_SBMR_MACRO
-option(
-    'arm-sbmr',
-    type: 'feature',
-    value: 'disabled',
-    description: 'Enable the ARM SBMR POST code enrichment feature.'
-)
-
-# BMCWEB_DOT_URIS_MACRO
-option(
-    'dot-uris',
-    type: 'feature',
-    value: 'disabled',
-    description: 'Enable the DOT Uris.'
-)
-
 # BMCWEB_VM_WEBSOCKET
 option(
     'vm-websocket',
@@ -74,46 +50,6 @@ option(
     description: 'Enable the Virtual Media WebSocket.',
 )
 
-# BMCWEB_AMI_REP_MACRO
-option(
-    'ami-rep',
-    type: 'feature',
-    value: 'disabled',
-    description: 'Enable the AMI redfish extension pack.'
-)
-
-# BMCWEB_SPDM_URIS_MACRO
-option(
-    'spdm-uris',
-    type: 'feature',
-    value: 'disabled',
-    description: 'Enable the SPDM Uris.'
-)
-
-# BMCWEB_CPER_URIS_MACRO
-option(
-    'cper-uris',
-    type: 'feature',
-    value: 'disabled',
-    description: 'Enable the cper Uris.'
-)
-
-#BMCWEB_NVIDIA_RESET_URIS_MACRO
-option(
-    'nvidia-reset-uris',
-    type: 'feature',
-    value: 'disabled',
-    description: 'Enable Nvidia Managers Reset Action'
-)
-
-# BMCWEB_NVIDIA_EROT_DUMP_MACRO
-option(
-    'nvidia-erot-dump',
-    type: 'feature',
-    value: 'disabled',
-    description: 'Enable Nvidia system Erot Dump'
-)
-
 # BMCWEB_AMI_THERMALEQUIPMENT_MACRO
 option(
     'ami-thermalequipment',
@@ -130,60 +66,28 @@ option(
     description: 'Enable the AMI Redfish Control extension pack.'
 )
 
-# BMCWEB_NVIDIA_AUX_RESET_URIS_MACRO
+# Extra_Image_Feature
 option(
-    'nvidia-aux-reset-uris',
-    type: 'feature',
-    value: 'disabled',
-    description: 'Enable Nvidia Managers Reset Action'
+     'extra_image_features',
+     type: 'string',
+     value: '',
+     description: 'List of enabled features'
 )
 
-# BMCWEB_AMI_NVME_MACRO
+# Bbfile_Collections
 option(
-    'ami-nvme',
-    type: 'feature',
-    value: 'disabled',
-    description: 'Enable the AMI NVME.'
+     'bbfile_collections',
+     type: 'string',
+     value: '',
+     description: 'list of Configured platforms'
 )
 
-# BMCWEB_GPGPU_URIS_MACRO
+# Image_fstypes
 option(
-    'gpgpu-uris',
-    type: 'feature',
-    value: 'disabled',
-    description: 'Enable the GPGPU Uris.'
-)
-
-# BMCWEB_AMI_RAIDMSCC_MACRO
-option(
-    'ami-raidmscc',
-    type: 'feature',
-    value: 'disabled',
-    description: 'Enable the AMI RAID MSCC.'
-)
-
-# BMCWEB_AMI_RAIDBRCM_MACRO
-option(
-    'ami-raidbrcm',
-    type: 'feature',
-    value: 'disabled',
-    description: 'Enable the AMI RAID BRCM.'
-)
-
-# BMCWEB_AMI_SL8_MACRO
-option(
-    'ami-sl8',
-    type: 'feature',
-    value: 'disabled',
-    description: 'Enable the AMI RAID SL8.'
-)
-
-# BMCWEB_AMI_NIC_MACRO
-option(
-    'ami-nic',
-    type: 'feature',
-    value: 'disabled',
-    description: 'Enable the AMI NIC.'
+     'image_fstypes',
+     type: 'string',
+     value: '',
+     description: 'list of FileSystems configured'
 )
 
 # BMCWEB_AMI_CXL_MACRO
@@ -194,116 +98,12 @@ option(
     description: 'Enable the AMI CXL.'
 )
 
-# BMCWEB_AMI_RM_MACRO
-option(
-    'ami-rm',
-    type: 'feature',
-    value: 'disabled',
-    description: 'Enable the AMI RM.'
-)
-
-# BMCWEB_AMI_PSM_MACRO
-option(
-    'ami-psm',
-    type: 'feature',
-    value: 'disabled',
-    description: 'Enable the AMI PSM.'
-)
-
-# BMCWEB_AMI_PCIESW_MACRO
-option(
-    'ami-pciesw',
-    type: 'feature',
-    value: 'disabled',
-    description: 'Enable the AMI PCIESW.'
-)
-
-# BMCWEB_AST2600_EVB_MACRO
-option(
-    'ast2600-evb',
-    type: 'feature',
-    value: 'disabled',
-    description: 'Enable the AST2600EVB Build.'
-)
-
-# BMCWEB_REST
-option(
-    'arbel-nuvoton',
-    type: 'feature',
-    value: 'disabled',
-    description: 'Enable the ARBEL_NUVOTON Build.'
-)
-
-option(
-    'ami-acd',
-    type: 'feature',
-    value: 'disabled',
-    description: 'Enable the AMI ACD.'
-)
-
-option(
-    'ami-asd',
-    type: 'feature',
-    value: 'disabled',
-    description: 'Enable the AMI ASD.'
-)
-
 option(
     'ami-redebug',
     type: 'feature',
     value: 'disabled',
     description: 'Enable the AMI redebug.'
 )
-
-option(
-    'ami-nm',
-    type: 'feature',
-    value: 'disabled',
-    description: 'Enable the AMI NM.'
-)
-
-option(
-    'intel-pfr',
-    type: 'feature',
-    value: 'disabled',
-    description: 'Enable the AST2600EVB Build.'
-)
-
-option(
-    'ami-2fa',
-    type: 'feature',
-    value: 'disabled',
-    description: 'Enable the AMI TWOFACTOR AUTHENTICATION.'
-)
-
-option(
-    'ami-egs',
-    type: 'feature',
-    value: 'disabled',
-    description: 'Enable the EGS build.'
-)
-
-option(
-    'ami-bhs',
-    type: 'feature',
-    value: 'disabled',
-    description: 'Enable the BHS build.'
-)
-
-option(
-    'ast2700-evb',
-    type: 'feature',
-    value: 'disabled',
-    description: 'Enable the EVB 2700 build.'
-)
-option(
-    'chalupa-amd',
-    type: 'feature',
-    value: 'disabled',
-    description: 'Enable the AMD Chalupa build.'
-)
-
-
 
 option(
     'rest',
@@ -599,14 +399,6 @@ option(
     description: '''Enable/disable the new PowerSubsystem, ThermalSubsystem,
                     and all children schemas. This includes displaying all
                     sensors in the SensorCollection.''',
-)
-
-# BMCWEB_REDFISH_INTEL_FEATURE
-option(
-    'redfish-intel-feature',
-    type: 'feature',
-    value: 'disabled',
-    description: '''Enable/disable the intel uri.'''
 )
 
 # BMCWEB_REDFISH_ALLOW_DEPRECATED_POWER_THERMAL

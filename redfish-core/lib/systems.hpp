@@ -4317,7 +4317,7 @@ inline void
     asyncResp->res.jsonValue["FabricAdapters"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Systems/{}/FabricAdapters",
                             BMCWEB_REDFISH_SYSTEM_URI_NAME);
-#if (BMCWEB_AMI_NIC_MACRO)
+#ifdef ONETREE_NIC
     asyncResp->res.jsonValue["NetworkInterfaces"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Systems/{}/NetworkInterfaces",
                             BMCWEB_REDFISH_SYSTEM_URI_NAME);
@@ -4360,7 +4360,7 @@ inline void
     asyncResp->res.jsonValue["VirtualMedia"] = {
         {"@odata.id", "/redfish/v1/Managers/bmc/VirtualMedia"}};
 #endif
-#if (!BMCWEB_AMI_RM_MACRO)
+#ifndef ONETREE_RM
     getMainChassisId(
         asyncResp, [](const std::string& chassisId,
                       const std::shared_ptr<bmcweb::AsyncResp>& aRsp) {

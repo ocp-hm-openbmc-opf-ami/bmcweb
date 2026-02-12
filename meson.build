@@ -384,48 +384,43 @@ srcfiles_bmcweb = files(
     'src/webserver_run.cpp',
 )
 
-if get_option('arm-sbmr').enabled()
-    srcfiles_bmcweb += 'ext/src/arm_redfish.cpp'
-endif
-
-if get_option('ami-rep').enabled()
-    srcfiles_bmcweb += files(
-        'ext/src/rep.cpp',
-        'ext/include/ami_errors.cpp',
-    )
-endif
-
-# enabled ami-acd
-if get_option('ami-acd').enabled()
-    srcfiles_bmcweb += 'ext/lib/acd/include/acd_errors.cpp'
-endif
-
-if get_option('sbmr-ext').enabled()
-    srcfiles_bmcweb += 'ext/sbmr/src/sbmr.cpp'
-endif
-
-if get_option('ami-nic').enabled()
-    srcfiles_bmcweb += 'ext/src/nic.cpp'
+grep_prog = find_program('grep', required: false)
+if grep_prog.found()
+    if run_command(grep_prog, '-q', '^#define ONETREE_NIC true', join_paths(meson.build_root(), 'config', 'bmcweb_config.h')).returncode() == 0
+        srcfiles_bmcweb += 'ext/src/nic.cpp'
+    endif
+    if run_command(grep_prog, '-q', '^#define ONETREE_RTP true', join_paths(meson.build_root(), 'config', 'bmcweb_config.h')).returncode() == 0
+        srcfiles_bmcweb += ['ext/src/rep.cpp', 'ext/include/ami_errors.cpp']
+    endif
+    if run_command(grep_prog, '-q', '^#define ONETREE_BRCMRAID true', join_paths(meson.build_root(), 'config', 'bmcweb_config.h')).returncode() == 0
+        srcfiles_bmcweb += 'ext/lib/brcm/raid_brcm.cpp'
+    endif
+    if run_command(grep_prog, '-q', '^#define ONETREE_BRCMRAID8 true', join_paths(meson.build_root(), 'config', 'bmcweb_config.h')).returncode() == 0
+        srcfiles_bmcweb += 'ext/lib/brcm/raid_brcm.cpp'
+    endif
+    if run_command(grep_prog, '-q', '^#define ONETREE_ACD true', join_paths(meson.build_root(), 'config', 'bmcweb_config.h')).returncode() == 0
+        srcfiles_bmcweb += 'ext/lib/acd/include/acd_errors.cpp'
+    endif
+    if run_command(grep_prog, '-q', '^#define ONETREE_RM true', join_paths(meson.build_root(), 'config', 'bmcweb_config.h')).returncode() == 0
+        srcfiles_bmcweb += 'ext/src/rm.cpp'
+    endif
+    if run_command(grep_prog, '-q', '^#define ONETREE_PSM true', join_paths(meson.build_root(), 'config', 'bmcweb_config.h')).returncode() == 0
+        srcfiles_bmcweb += 'ext/src/psm.cpp'
+    endif
+    if run_command(grep_prog, '-q', '^#define ONETREE_NVIDIASIPACK true', join_paths(meson.build_root(), 'config', 'bmcweb_config.h')).returncode() == 0
+        srcfiles_bmcweb += ['ext/cper/src/cper.cpp', 'ext/src/reset.cpp', 'ext/src/erot_dump.cpp', 'ext/src/auxreset.cpp', 
+        'ext/dot/src/dot.cpp', 'ext/spdm/src/spdm.cpp', 'ext/sbmr/src/sbmr.cpp']
+    endif
+    if run_command(grep_prog, '-q', '^#define ONETREE_GPGPU true', join_paths(meson.build_root(), 'config', 'bmcweb_config.h')).returncode() == 0
+        srcfiles_bmcweb += 'ext/src/gpgpu.cpp'
+    endif
+    if run_command(grep_prog, '-q', '^#define ONETREE_ARM_SBMR true', join_paths(meson.build_root(), 'config', 'bmcweb_config.h')).returncode() == 0
+        srcfiles_bmcweb += 'ext/src/arm_redfish.cpp'
+    endif
 endif
 
 if get_option('ami-cxl').enabled()
 	srcfiles_bmcweb += 'ext/src/cxl.cpp'
-endif
-
-if get_option('spdm-uris').enabled()
-    srcfiles_bmcweb += 'ext/spdm/src/spdm.cpp'
-endif
-
-if get_option('gpgpu-uris').enabled()
-    srcfiles_bmcweb += 'ext/src/gpgpu.cpp'
-endif
-
-if get_option('dot-uris').enabled()
-    srcfiles_bmcweb += 'ext/dot/src/dot.cpp'
-endif
-
-if get_option('cper-uris').enabled()
-    srcfiles_bmcweb += 'ext/cper/src/cper.cpp'
 endif
 
 if get_option('ami-thermalequipment').enabled()
@@ -439,30 +434,6 @@ if get_option('ami-controls').enabled()
     srcfiles_bmcweb += files(
       'ext/src/controls/controls.cpp',
     )
-endif
-
-if get_option('nvidia-reset-uris').enabled()
-    srcfiles_bmcweb += 'ext/src/reset.cpp'
-endif
-
-if get_option('nvidia-erot-dump').enabled()
-    srcfiles_bmcweb += 'ext/src/erot_dump.cpp'
-endif
-
-if get_option('ami-rm').enabled()
-    srcfiles_bmcweb += 'ext/src/rm.cpp'
-endif
-
-if get_option('ami-psm').enabled()
-    srcfiles_bmcweb += 'ext/src/psm.cpp'
-endif
-
-if get_option('ami-raidbrcm').enabled() or get_option('ami-sl8').enabled()
-    srcfiles_bmcweb += 'ext/lib/brcm/raid_brcm.cpp'
-endif
-
-if get_option('nvidia-aux-reset-uris').enabled()
-    srcfiles_bmcweb += 'ext/src/auxreset.cpp'
 endif
 
 bmcweblib = static_library(

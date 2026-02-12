@@ -39,7 +39,7 @@
 #include <event_service_manager.hpp>
 
 
-#if BMCWEB_AMI_REP_MACRO
+#ifdef ONETREE_RTP
     #include "ext/include/ami_errors.hpp"
 #endif
 
@@ -2578,16 +2578,16 @@ inline void handleAccountServiceGet(
     json["Roles"]["@odata.id"] = "/redfish/v1/AccountService/Roles";
     json["AdditionalExternalAccountProviders"]["@odata.id"] =
         "/redfish/v1/AccountService/ExternalAccountProviders";
-    if(!BMCWEB_AMI_PSM_MACRO){
+#ifndef ONETREE_PSM
     json["HTTPBasicAuth"] = authMethodsConfig.basic
-                                ? account_service::BasicAuthState::Enabled
-                                : account_service::BasicAuthState::Disabled;
+                                    ? account_service::BasicAuthState::Enabled
+                                    : account_service::BasicAuthState::Disabled;
 
     nlohmann::json::array_t allowed;
     allowed.emplace_back(account_service::BasicAuthState::Enabled);
     allowed.emplace_back(account_service::BasicAuthState::Disabled);
     json["HTTPBasicAuth@Redfish.AllowableValues"] = std::move(allowed);
-    }
+#endif
     nlohmann::json::object_t clientCertificate;
     clientCertificate["Enabled"] = authMethodsConfig.tls;
     clientCertificate["RespondToUnauthenticatedClients"] =
@@ -2611,9 +2611,10 @@ inline void handleAccountServiceGet(
     certificates["@odata.type"] =
         "#CertificateCollection.CertificateCollection";
     clientCertificate["Certificates"] = std::move(certificates);
-    if(!BMCWEB_AMI_PSM_MACRO){
-    json["MultiFactorAuth"]["ClientCertificate"] = std::move(clientCertificate);
-    }
+#ifndef ONETREE_PSM
+    json["MultiFactorAuth"]["ClientCertificate"] =
+            std::move(clientCertificate);
+#endif
     getClientCertificates(
         asyncResp,
         "/MultiFactorAuth/ClientCertificate/Certificates/Members"_json_pointer);
@@ -2693,19 +2694,21 @@ inline void handleAccountServiceGet(
                     *maxLoginAttemptBeforeLockout;
             }
 
-            if ((rememberOldPasswordTimes != nullptr) && (!BMCWEB_AMI_PSM_MACRO))
+#ifndef ONETREE_PSM
+            if (rememberOldPasswordTimes != nullptr)
             {
                 asyncResp->res
                     .jsonValue["Oem"]["OpenBMC"]["RememberOldPasswordTimes"] =
                     *rememberOldPasswordTimes;
             }
 
-            if ((passwordPolicyComplexity != nullptr) && (!BMCWEB_AMI_PSM_MACRO))
+            if (passwordPolicyComplexity != nullptr)
             {
                 asyncResp->res
                     .jsonValue["Oem"]["OpenBMC"]["PasswordPolicyComplexity"] =
                     *passwordPolicyComplexity;
             }
+#endif
         });
 
     auto callback = [asyncResp](bool success, const LDAPConfigData& confData,
@@ -2874,7 +2877,7 @@ inline void readRadiusSSLContext(const std::shared_ptr<bmcweb::AsyncResp>& async
         {
             if (formpart.content.empty())
             {
-                #if BMCWEB_AMI_REP_MACRO
+#ifdef ONETREE_RTP
                 {
                     messages::invalidFileContent(asyncResp->res, SSLFileName);
                     return;
@@ -2894,7 +2897,7 @@ inline void readRadiusSSLContext(const std::shared_ptr<bmcweb::AsyncResp>& async
 
     if (!fileUploaded)
     {
-        #if BMCWEB_AMI_REP_MACRO
+#ifdef ONETREE_RTP
         {
             messages::invalidFileContent(asyncResp->res, SSLFileName);
             return;

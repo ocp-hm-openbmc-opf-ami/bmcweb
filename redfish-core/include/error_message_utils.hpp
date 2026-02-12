@@ -11,7 +11,7 @@ namespace messages
 constexpr const char* messageVersionPrefix = "Base.1.19.0.";
 constexpr const char* messageAnnotation = "@Message.ExtendedInfo";
 
-#if (BMCWEB_AMI_REP_MACRO) || (BMCWEB_AMI_NIC_MACRO)
+#if defined(ONETREE_RTP) || defined(ONETREE_NIC)
 /**
  * @brief Add all error messages from the |source| JSON to |target|
  */

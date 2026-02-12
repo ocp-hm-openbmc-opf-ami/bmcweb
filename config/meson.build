@@ -34,7 +34,6 @@ feature_options = [
     'redfish-oem-manager-fan-data',
     'redfish-provisioning-feature',
     'redfish-updateservice-use-dbus',
-    'redfish-intel-feature',
     'redfish',
     'rest',
     'session-auth',
@@ -42,39 +41,10 @@ feature_options = [
     'tests',
     'vm-websocket',
     'xtoken-auth',
-    'ami-rep',
-    'ami-nvme',
-    'ami-nic',
     'ami-cxl',
-    'ami-raidmscc',
-    'ami-raidbrcm',
-    'ami-pciesw',
-    'ami-nm',
-    'ast2600-evb',
-    'ami-acd',
-    'ami-asd',
-    'arbel-nuvoton',
     'ami-redebug',
-    'intel-pfr',
-    'ami-2fa',
-    'ami-bhs',
-    'ami-egs',
-    'ast2700-evb',
-    'chalupa-amd',
-    'spdm-uris',
-    'sbmr-ext',
-    'gpgpu-uris',
-    'dot-uris',
-    'cper-uris',
-    'nvidia-reset-uris',
-    'nvidia-erot-dump',
-    'ami-rm',
-    'ami-psm',
-    'ami-sl8',
     'ami-thermalequipment',
-    'ami-controls',
-    'nvidia-aux-reset-uris',
-    'arm-sbmr'
+    'ami-controls'
 ]
 
 string_options = [
@@ -105,68 +75,14 @@ foreach option_key : feature_options + string_options + int_options
         int_options_string += 'constexpr const int         ' + option_key_config + ' = ' + opt.to_string() + ';\n'
     else
         feature_options_string += 'constexpr const bool        ' + option_key_config + ' = ' + opt.allowed().to_string() + ';\n'
-        if option_key.contains('ami-nvme') or option_key.contains('ami-raidbrcm') or option_key.contains(
-            'ami-raidmscc',
-        ) or option_key.contains(
-            'ami-rep',
-        ) or option_key.contains(
-            'ami-nic',
-        ) or option_key.contains(
+        if option_key.contains(
             'ami-cxl',
         ) or option_key.contains(
-            'ami-pciesw',
-        ) or option_key.contains(
-            'ast2600-evb',
-        ) or option_key.contains(
-            'ami-acd',
-        ) or option_key.contains(
-            'ami-asd',
-        ) or option_key.contains(
-            'arbel-nuvoton',
-        ) or option_key.contains(
             'ami-redebug',
-        ) or option_key.contains(
-            'ami-nm',
-        ) or option_key.contains(
-            'intel-pfr',
-        ) or option_key.contains(
-            'ami-2fa',
-        ) or option_key.contains(
-            'ami-egs',
-        ) or option_key.contains(
-            'ami-bhs',
-        ) or option_key.contains(
-            'ast2700-evb',
-        ) or option_key.contains(    
-             'chalupa-amd',
-        ) or option_key.contains(
-             'spdm-uris',
-        ) or option_key.contains(   
-             'sbmr-ext',
-        ) or option_key.contains(
-             'gpgpu-uris',
-        ) or option_key.contains(
-             'dot-uris',
-        ) or option_key.contains(
-             'cper-uris',
-        ) or option_key.contains(
-            'nvidia-reset-uris',
-        ) or option_key.contains(
-             'nvidia-erot-dump',
-        ) or option_key.contains(
-             'ami-rm',
-        ) or option_key.contains(
-             'ami-psm',
-        ) or option_key.contains(
-             'ami-sl8',
         ) or option_key.contains(
              'ami-thermalequipment',
         ) or option_key.contains(
               'ami-controls',
-        ) or option_key.contains(
-            'nvidia-aux-reset-uris',
-        ) or option_key.contains(
-             'arm-sbmr'
         )
             feature_options_string += '#define ' + option_macro_config + '  ' + opt.allowed().to_string() + '\n'
         endif
@@ -190,9 +106,29 @@ feature_options_string += 'constexpr const bool        BMCWEB_VM_NBDPROXY = ' + 
 
 conf_data.set_quoted('REDFISH_AGGREGATION_PREFIX', get_option('redfish-aggregation-prefix'))
 
+build_defs = ''
+build_defs_map = {
+  'extra_image_features': {'prefix': '', 'comment': '\n//Build time enabled Features \n'},
+  'bbfile_collections': {'prefix': 'ONETREE_', 'comment': '\n \n//Build time Platform Configure Lists \n'},
+  'image_fstypes': {'prefix': 'ONETREE_', 'comment': '\n \n//Build time FSTYPES Configure Lists \n'}
+}
+
+foreach option_name, params : build_defs_map
+  lines = []
+  str = get_option(option_name)
+  list = str.split()
+  foreach f : list
+    upper = f.to_upper()
+    env_var_name = upper.replace('-', '_')
+    lines += '#define ' + params['prefix'] + env_var_name + ' true'
+  endforeach
+  build_defs += params['comment']
+  build_defs += '\n'.join(lines)
+endforeach
+
 conf_data.set(
     'BMCWEB_OPTIONS',
-    string_options_string + int_options_string + feature_options_string,
+    string_options_string + int_options_string + feature_options_string + build_defs
 )
 
 conf_h_dep = declare_dependency(

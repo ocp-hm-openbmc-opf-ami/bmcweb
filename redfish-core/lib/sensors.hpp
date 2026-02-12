@@ -2038,7 +2038,7 @@ inline nlohmann::json& getPowerSupply(nlohmann::json& powerSupplyArray,
     nlohmann::json railValues, inputRanges, efficiencyRatings;
     nlohmann::json& powerSupply = powerSupplyArray.back();
 
-#if (BMCWEB_CHALUPA_AMD_MACRO)
+#ifdef ONETREE_AMD_CHALUPA
     {
         boost::urls::url url =
             boost::urls::format("/redfish/v1/Chassis/{}/Power", chassisId);
