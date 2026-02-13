@@ -119,7 +119,7 @@ foreach option_name, params : build_defs_map
   list = str.split()
   foreach f : list
     upper = f.to_upper()
-    env_var_name = upper.replace('-', '_')
+    env_var_name = upper.replace('-', '_').replace('.', '_')
     lines += '#define ' + params['prefix'] + env_var_name + ' true'
   endforeach
   build_defs += params['comment']
