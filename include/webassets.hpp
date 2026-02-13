@@ -30,7 +30,7 @@ inline std::string getStaticEtag(const std::filesystem::path& webpath)
     // Try to detect this, so we can use the hash as the ETAG
     std::vector<std::string> split;
     bmcweb::split(split, webpath.filename().string(), '.');
-    
+
     if (split.size() < 3)
     {
         return "";
@@ -187,6 +187,18 @@ inline void addFile(App& app, const std::filesystem::directory_entry& dir)
             webpath += "/";
             file.renamed = true;
         }
+    }
+
+    // Replace "/redfish/v1/schema/" -> "/redfish/v1/Schemas/"
+    std::string webpathStr = webpath.string();
+
+    constexpr std::string_view oldPrefix = "/redfish/v1/schema/";
+    constexpr std::string_view newPrefix = "/redfish/v1/Schemas/";
+
+    if (webpathStr.rfind(oldPrefix, 0) == 0)
+    {
+        webpathStr.replace(0, oldPrefix.size(), newPrefix);
+        webpath = webpathStr;
     }
 
     std::pair<boost::container::flat_set<std::string>::iterator, bool>

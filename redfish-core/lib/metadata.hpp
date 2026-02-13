@@ -30,7 +30,7 @@ inline std::string
         BMCWEB_LOG_ERROR("Failed to open XML file {}", pathStr);
         return "";
     }
-    xml += std::format("    <edmx:Reference Uri=\"/redfish/v1/schema/{}\">\n",
+    xml += std::format("    <edmx:Reference Uri=\"/redfish/v1/Schemas/{}\">\n",
                        filename.filename().string());
     // std::string edmx = "{http://docs.oasis-open.org/odata/ns/edmx}";
     // std::string edm = "{http://docs.oasis-open.org/odata/ns/edm}";
