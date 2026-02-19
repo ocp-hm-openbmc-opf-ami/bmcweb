@@ -160,6 +160,10 @@
 #include "ext/src/psm.hpp"
 #endif
 
+#ifdef ONETREE_RPC
+#include "ext/src/rackpowercontroller.hpp"
+#endif
+
 #ifdef ONETREE_ARM_SBMR
 #include "ext/src/arm_redfish.hpp"
 #endif
@@ -443,6 +447,9 @@ RedfishService::RedfishService(App& app)
 #endif
 #ifdef ONETREE_PSM
     redfish::psm::registerPsmRoutes(app);
+#endif
+#ifdef ONETREE_RPC
+        registerRackPowerControllerRoutes(app);
 #endif
 
 #ifdef ONETREE_GPGPU
