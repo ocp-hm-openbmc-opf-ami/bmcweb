@@ -30,8 +30,11 @@
 #include <boost/beast/http/write.hpp>
 #include <boost/beast/websocket.hpp>
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cctype>
+#include <filesystem>
 #include <memory>
 #include <vector>
 
@@ -267,6 +270,15 @@ class Connection :
         {
             return;
         }
+
+        // The parser is done. The full file has been received.
+        // We set isUploading to false so hardClose() doesn't delete it.
+        if (isUploading)
+        {
+            BMCWEB_LOG_DEBUG("File upload completed successfully.");
+            isUploading = false;
+        }
+
         req = std::make_shared<crow::Request>(parser->release(), reqEc);
         if (reqEc)
         {
@@ -385,6 +397,28 @@ class Connection :
             persistent_data::SessionStore::getInstance().removeSession(
                 mtlsSession);
         }
+        
+        if (isUploading)
+        {
+            BMCWEB_LOG_WARNING("{} Connection closed during active upload. Cleaning up residue file.", logPtr(this));
+            
+            std::error_code ec;
+            if (std::filesystem::exists(uploadFilePatheMMC, ec))
+            {
+                std::filesystem::remove(uploadFilePatheMMC, ec);
+                if (ec)
+                {
+                    BMCWEB_LOG_ERROR("Failed to remove residue file: {}", ec.message());
+                }
+                else
+                {
+                    BMCWEB_LOG_INFO("Residue file deleted successfully.");
+                }
+            }
+            // Reseting the flag
+            isUploading = false;
+        }
+
         BMCWEB_LOG_DEBUG("{} Closing socket", logPtr(this));
         boost::beast::get_lowest_layer(adaptor).close();
     }
@@ -458,6 +492,7 @@ class Connection :
     }
 
   private:
+    static constexpr std::uint64_t minDiskHeadroom = 1024UL * 1024UL; //minimun disk space
     uint64_t getMaxRequestBodySize(boost::beast::http::verb method,
                                    std::string_view target)
     {
@@ -477,38 +512,19 @@ class Connection :
                     std::filesystem::space_info spaceInfo = std::filesystem::space("/tmp/lmedia", ec);
                     if (ec) {
                         BMCWEB_LOG_ERROR("Failed to get space info for /tmp/lmedia: {}", ec.message());
-                    }
-
-                    // Get available system memory (RAM)
-                    long availableMem = -1;
-                    FILE* meminfo = fopen("/proc/meminfo", "r");
-                    if (meminfo)
+                    }       
+                    if (spaceInfo.available > minDiskHeadroom)
                     {
-                        char line[256];
-                        while (fgets(line, sizeof(line), meminfo))
-                        {
-                            if (sscanf(line, "MemAvailable: %ld kB", &availableMem) == 1)
-                            {
-                                break;
-                            }
-                        }
-                        fclose(meminfo);
-                    }
-                    uint64_t availableMemBytes = (availableMem > 0) ? (static_cast<uint64_t>(availableMem) * 1024UL) : UINT64_MAX;
-                    constexpr uint64_t memReserve = 50UL * 1024UL * 1024UL; // 50MB
-                    if (availableMemBytes > memReserve)
-                    {
-                        availableMemBytes -= memReserve;
-                    }
+                        maxBodySize = spaceInfo.available - minDiskHeadroom;
+                    }   
                     else
                     {
-                        availableMemBytes = 0;
+                        // If disk is full, stop the upload!
+                        // Without this, maxBodySize would stay at the default (e.g. 30MB)
+                        // and the upload would crash the filesystem.
+                        BMCWEB_LOG_WARNING("Insufficient disk space on /tmp/lmedia");
+                        maxBodySize = 0;
                     }
-
-                    std::uintmax_t availableSpace = spaceInfo.available;
-                    // min(availableMemBytes, availableSpace, limit)
-                    uint64_t minVal = std::min({availableMemBytes, static_cast<uint64_t>(availableSpace), limit});
-                    maxBodySize = minVal;
                 }
 
                 break;
@@ -651,6 +667,79 @@ class Connection :
         std::string_view target = parser->get().target();
 
         parser->body_limit(getContentLengthLimit(method, target));
+
+        if (target == localMediaUploadPath)
+        {
+            // Resolve destination filename before body streaming begins
+            std::string_view fileNameHeader = parser->get()["X-File-Name"];
+            std::string finalFileName = "uploaded_image.img";
+
+            if (!fileNameHeader.empty())
+            {
+                std::string name(fileNameHeader);
+                if (name.find('/') != std::string::npos ||
+                    name.find("..") != std::string::npos ||
+                    name.find('\\') != std::string::npos)
+                {
+                    res.result(boost::beast::http::status::bad_request);
+                    keepAlive = false;
+                    BMCWEB_LOG_WARNING("Rejecting upload due to unsafe filename: {}", name);
+                    doWrite();
+                    return;
+                }
+                finalFileName = std::move(name);
+            }
+            const std::vector<std::string> allowedExtensions{ ".nrg", ".img", ".iso", ".ima" };
+            std::filesystem::path destPath("/tmp/lmedia");
+            destPath /= finalFileName;
+
+            std::string extension = destPath.extension().string();
+            std::transform(extension.begin(), extension.end(), extension.begin(),
+                           [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+
+            if (extension.empty() ||
+                std::find(allowedExtensions.begin(), allowedExtensions.end(), extension) == allowedExtensions.end())
+            {
+                res.result(boost::beast::http::status::unsupported_media_type);
+                keepAlive = false;
+                BMCWEB_LOG_WARNING("Rejecting upload due to unsupported extension: {}", extension);
+                doWrite();
+                return;
+            }
+            std::error_code dirEc;
+            std::filesystem::create_directories(destPath.parent_path(), dirEc);
+            if (dirEc)
+            {
+                BMCWEB_LOG_ERROR("Failed to ensure upload directory: {}", dirEc.message());
+                res.result(boost::beast::http::status::internal_server_error);
+                keepAlive = false;
+                doWrite();
+                return;
+            }
+
+            uploadFilePatheMMC = destPath.string();
+            std::error_code rmEc;
+            if (std::filesystem::exists(uploadFilePatheMMC, rmEc))
+            {
+                std::filesystem::remove(uploadFilePatheMMC, rmEc);
+            }
+
+            boost::system::error_code fileEc;
+            isUploading = true;
+            // Open file for writing. This triggers the streaming logic in http_body.hpp
+            parser->get().body().open(uploadFilePatheMMC.c_str(),
+                                      boost::beast::file_mode::write, fileEc);
+
+                 if (fileEc)
+                 {
+                     BMCWEB_LOG_ERROR("Failed to open file for streaming: {}", fileEc.message());
+                     res.result(boost::beast::http::status::internal_server_error);
+                     isUploading = false;
+                     doWrite();
+                     return;
+                 }
+            BMCWEB_LOG_INFO("Large File Streaming Enabled for {} -> {}", target, uploadFilePatheMMC);
+            }
 
         if (parser->is_done())
         {
@@ -888,7 +977,7 @@ class Connection :
     // re-created on Connection reset
     std::optional<boost::beast::http::request_parser<bmcweb::HttpBody>> parser;
 
-    boost::beast::flat_static_buffer<8192> buffer;
+    boost::beast::flat_static_buffer<65536> buffer;
 
     std::shared_ptr<crow::Request> req;
     std::string accept;
@@ -902,7 +991,8 @@ class Connection :
     bool keepAlive = true;
 
     bool timerStarted = false;
-
+    bool isUploading = false;
+    std::string uploadFilePatheMMC = "/tmp/lmedia/temp_upload.img";
     std::function<std::string()>& getCachedDateStr;
 
     using std::enable_shared_from_this<

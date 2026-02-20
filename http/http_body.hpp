@@ -54,6 +54,11 @@ class HttpBody::value_type
     {
         return fileHandle.fileHandle;
     }
+    
+    boost::beast::file_posix& file()
+    {
+        return fileHandle.fileHandle;
+    }
 
     std::string& str()
     {
@@ -231,6 +236,7 @@ class HttpBody::writer
 class HttpBody::reader
 {
     value_type& value;
+    static constexpr std::uint64_t maxStringAllocSize = 128UL * 1024UL * 1024UL;
 
   public:
     template <bool IsRequest, class Fields>
@@ -245,7 +251,10 @@ class HttpBody::reader
         {
             if (!value.file().is_open())
             {
-                value.str().reserve(static_cast<size_t>(*contentLength));
+                if (*contentLength < maxStringAllocSize)
+                {
+                    value.str().reserve(static_cast<size_t>(*contentLength));
+                }
             }
         }
         ec = {};
@@ -256,10 +265,26 @@ class HttpBody::reader
                     boost::system::error_code& ec)
     {
         size_t extra = boost::beast::buffer_bytes(buffers);
-        for (const auto b : boost::beast::buffers_range_ref(buffers))
+        if (value.file().is_open())
         {
-            const char* ptr = static_cast<const char*>(b.data());
-            value.str() += std::string_view(ptr, b.size());
+            for (const auto b : boost::beast::buffers_range_ref(buffers))
+            {
+                // Write directly to the eMMC file
+                value.file().write(b.data(), b.size(), ec);
+                if (ec)
+                {
+                     BMCWEB_LOG_ERROR("Failed to write to file: {}", ec.message());
+                     return 0;
+                }
+            }
+        }
+        else
+        {
+            for (const auto b : boost::beast::buffers_range_ref(buffers))
+            {
+                const char* ptr = static_cast<const char*>(b.data());
+                value.str() += std::string_view(ptr, b.size());
+            }
         }
         ec = {};
         return extra;
