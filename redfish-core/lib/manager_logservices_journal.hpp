@@ -268,8 +268,16 @@ inline void handleManagersJournalLogEntryCollectionGet(
 
     if (OverWritePolicy == "WrapsWhenFull")
     {
-        skip = static_cast<size_t>(totalEntries - MaxNumberOfRecords);
-        top = static_cast<size_t>(MaxNumberOfRecords);
+        if(totalEntries > MaxNumberOfRecords)
+        {
+            skip = static_cast<size_t>(totalEntries - MaxNumberOfRecords);
+            top = static_cast<size_t>(MaxNumberOfRecords);
+        }
+        else
+        {
+            skip = 0;
+            top = static_cast<size_t>(totalEntries);
+        }
 
         if (sd_journal_next_skip(journal.get(), skip) < 0)
         {
