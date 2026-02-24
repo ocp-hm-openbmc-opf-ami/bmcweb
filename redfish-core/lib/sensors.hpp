@@ -3004,7 +3004,7 @@ inline void handleSensorThreshGet(
                     return;
                 }
                 asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
-                    "/redfish/v1/Chassis/{}/Sensors/Oem/Threshold/{}",
+                    "/redfish/v1/Chassis/{}/Sensors/Oem/Ami/Threshold/{}",
                     chassisId, sensorId);
                 getSensorFromDbus(asyncResp, sensorPath, subtree);
             });
