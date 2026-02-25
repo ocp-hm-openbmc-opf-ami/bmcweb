@@ -305,10 +305,6 @@ RedfishService::RedfishService(App& app)
         requestRoutesCrashdumpCollect(app);
     }
 
-    requestRoutesAcpiService(app);
-    requestRoutesAcpiEntryCollection(app);
-    requestRoutesAcpiEntry(app);
-    requestRoutesAcpiFile(app);
     requestRoutesSystemRsyslog(app);
 
     requestRoutesProcessorCollection(app);
