@@ -407,6 +407,9 @@ if grep_prog.found()
     if run_command(grep_prog, '-q', '^#define ONETREE_PSM true', join_paths(meson.build_root(), 'config', 'bmcweb_config.h')).returncode() == 0
         srcfiles_bmcweb += 'ext/src/psm.cpp'
     endif
+    if run_command(grep_prog, '-q', '^#define ONETREE_RPC true', join_paths(meson.build_root(), 'config', 'bmcweb_config.h')).returncode() == 0
+        srcfiles_bmcweb += 'ext/src/rackpowercontroller.cpp'
+    endif
     if run_command(grep_prog, '-q', '^#define ONETREE_NVIDIASIPACK true', join_paths(meson.build_root(), 'config', 'bmcweb_config.h')).returncode() == 0
         srcfiles_bmcweb += ['ext/cper/src/cper.cpp', 'ext/src/reset.cpp', 'ext/src/erot_dump.cpp', 'ext/src/auxreset.cpp', 
         'ext/dot/src/dot.cpp', 'ext/spdm/src/spdm.cpp', 'ext/sbmr/src/sbmr.cpp']

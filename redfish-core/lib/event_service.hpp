@@ -78,7 +78,6 @@ std::string sslSecondaryServerCRTFile(secodaryServerCRTFilePath);
 std::string sslSecondaryServerKeyFile(secodaryServerKeyFilePath);
 
 std::string SSLFileName("");
-const char* commandLine("systemctl restart mail-alert-manager.service");
 
 constexpr const char* snmpProtocolSevrice = "xyz.openbmc_project.Snmp.Conf";
 constexpr const char* snmpProtocolObject = "/xyz/openbmc_project/snmp/SnmpUtils";
@@ -393,14 +392,8 @@ inline void uploadSSLFile(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         }
         else
         {
-            int systemRet = system(commandLine);
-            if (systemRet == -1)
-            {
-                std::cerr << "Failed to restart the service " << systemRet
-                          << "\n";
-            }
-            else
-                messages::success(asyncResp->res);
+            messages::success(asyncResp->res);
+            return;
         }
     }
     else if (fileName == primaryServerCRTFileName)
@@ -419,14 +412,8 @@ inline void uploadSSLFile(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         }
         else
         {
-            int systemRet = system(commandLine);
-            if (systemRet == -1)
-            {
-                std::cerr << "Failed to restart the service " << systemRet
-                          << "\n";
-            }
-            else
-                messages::success(asyncResp->res);
+            messages::success(asyncResp->res);
+            return;
         }
     }
     else if (fileName == primaryServerKeyFileName)
@@ -445,14 +432,8 @@ inline void uploadSSLFile(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         }
         else
         {
-            int systemRet = system(commandLine);
-            if (systemRet == -1)
-            {
-                std::cerr << "Failed to restart the service " << systemRet
-                          << "\n";
-            }
-            else
-                messages::success(asyncResp->res);
+            messages::success(asyncResp->res);
+            return;
         }
     }
     else if (fileName == secondaryCacertFileName)
@@ -471,14 +452,8 @@ inline void uploadSSLFile(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         }
         else
         {
-            int systemRet = system(commandLine);
-            if (systemRet == -1)
-            {
-                std::cerr << "Failed to restart the service " << systemRet
-                          << "\n";
-            }
-            else
-                messages::success(asyncResp->res);
+            messages::success(asyncResp->res);
+            return;
         }
     }
     else if (fileName == secondaryServerCRTFileName)
@@ -497,14 +472,8 @@ inline void uploadSSLFile(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         }
         else
         {
-            int systemRet = system(commandLine);
-            if (systemRet == -1)
-            {
-                std::cerr << "Failed to restart the service " << systemRet
-                          << "\n";
-            }
-            else
-                messages::success(asyncResp->res);
+            messages::success(asyncResp->res);
+            return;
         }
     }
     else if (fileName == secondaryServerKeyFileName)
@@ -523,14 +492,8 @@ inline void uploadSSLFile(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         }
         else
         {
-            int systemRet = system(commandLine);
-            if (systemRet == -1)
-            {
-                std::cerr << "Failed to restart the service " << systemRet
-                          << "\n";
-            }
-            else
-                messages::success(asyncResp->res);
+            messages::success(asyncResp->res);
+            return;
         }
     }
     else

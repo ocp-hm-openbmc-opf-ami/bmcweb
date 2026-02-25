@@ -419,7 +419,7 @@ class SessionStore
 
     std::vector<std::string> getAllUniqueIds()
     {
-        //applySessionTimeouts();
+        applySessionTimeouts();
         std::vector<std::string> ret;
         ret.reserve(authTokens.size());
         for (auto& session : authTokens)

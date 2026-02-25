@@ -49,7 +49,6 @@
 #include "redfish_sessions.hpp"
 #include "redfish_v1.hpp"
 #include "roles.hpp"
-#include "sensor_patching.hpp"
 #include "sensors.hpp"
 #include "service_root.hpp"
 #include "storage.hpp"
@@ -155,12 +154,8 @@
 #include "ext/lib/redebugserv/redebugserv.hpp"
 #endif
 
-#ifdef ONETREE_RM
-#include "ext/src/rm.hpp"
-#endif
-
-#ifdef ONETREE_PSM
-#include "ext/src/psm.hpp"
+#ifdef ONETREE_RPC
+#include "ext/src/rackpowercontroller.hpp"
 #endif
 
 #ifdef ONETREE_ARM_SBMR
@@ -307,10 +302,6 @@ RedfishService::RedfishService(App& app)
         requestRoutesCrashdumpCollect(app);
     }
 
-    requestRoutesAcpiService(app);
-    requestRoutesAcpiEntryCollection(app);
-    requestRoutesAcpiEntry(app);
-    requestRoutesAcpiFile(app);
     requestRoutesSystemRsyslog(app);
 
     requestRoutesProcessorCollection(app);
@@ -373,7 +364,6 @@ RedfishService::RedfishService(App& app)
 #endif
     requestRoutesSensorCollection(app);
     requestRoutesSensor(app);
-    requestRoutesSensorPatching(app);
     requestRoutesSensorHistory(app);
 
     requestRoutesSensorThreshCollection(app);
@@ -444,6 +434,16 @@ RedfishService::RedfishService(App& app)
     registerCxlRoutes(app);
 #endif
 
+#ifdef ONETREE_RM
+    redfish::rm::registerRmRoutes(app);
+#endif
+#ifdef ONETREE_PSM
+    redfish::psm::registerPsmRoutes(app);
+#endif
+#ifdef ONETREE_RPC
+        registerRackPowerControllerRoutes(app);
+#endif
+
 #ifdef ONETREE_GPGPU
     registerGpgpuRoutes(app);
 #endif
@@ -498,12 +498,6 @@ RedfishService::RedfishService(App& app)
     registerResetRoutes(app);
     registerErotDumpRoutes(app);
     registerAuxResetRoutes(app);
-#endif
-#ifdef ONETREE_RM
-    redfish::rm::registerRmRoutes(app);
-#endif
-#ifdef ONETREE_PSM
-    redfish::psm::registerPsmRoutes(app);
 #endif
 #ifdef ONETREE_ARM_SBMR
     registerSystemExtensionRoutes(app);
