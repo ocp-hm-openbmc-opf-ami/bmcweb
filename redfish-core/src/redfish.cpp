@@ -50,7 +50,6 @@
 #include "redfish_sessions.hpp"
 #include "redfish_v1.hpp"
 #include "roles.hpp"
-#include "sensor_patching.hpp"
 #include "sensors.hpp"
 #include "service_root.hpp"
 #include "storage.hpp"
@@ -367,7 +366,6 @@ RedfishService::RedfishService(App& app)
 #endif
     requestRoutesSensorCollection(app);
     requestRoutesSensor(app);
-    requestRoutesSensorPatching(app);
     requestRoutesSensorHistory(app);
 
     requestRoutesSensorThreshCollection(app);

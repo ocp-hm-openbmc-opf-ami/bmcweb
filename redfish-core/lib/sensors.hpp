@@ -3423,7 +3423,7 @@ inline void handleSensorGet(App& app, const crow::Request& req,
     {
         return;
     }
-    asyncResp->res.addHeader("Allow", "GET, PATCH");
+    asyncResp->res.addHeader("Allow", "GET");
 
     auto respHandler = [asyncResp, chassisId, sensorId](
                            const std::optional<std::string>& chassisPath) {
@@ -3871,8 +3871,8 @@ inline void requestRoutesSensor(App& app)
             
     BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/Sensors/<str>/")
         .privileges(redfish::privileges::getSensor)
-        .methods(boost::beast::http::verb::post,
-                 boost::beast::http::verb::delete_)(
+        .methods(boost::beast::http::verb::post, boost::beast::http::verb::patch,
+                 boost::beast::http::verb::put, boost::beast::http::verb::delete_)(
             std::bind_front(sensors::handleSensorPost, std::ref(app)));
 }
 
