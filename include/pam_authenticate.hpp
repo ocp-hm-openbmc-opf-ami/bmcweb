@@ -120,20 +120,20 @@ inline int pamFunctionConversation(int numMsg, const struct pam_message** msgs,
 static bool pamMaxtriescheck(std::string& userName)
 {
     const char* userNameStr = userName.c_str();
-    const char* serviceName = "xyz.openbmc_project.User.Manager";
     std::string objPath = "/xyz/openbmc_project/user/";
-    objPath += userNameStr;
-    const char* UserObjPath = objPath.c_str();
-    std::string lockedUserIface = "xyz.openbmc_project.User.Attributes";
-    std::string lockedUserProperty = "UserLockedForFailedAttempt";
     std::variant<bool> lockedUserValue;
     bool UserMaxtriesReached;
-    sdbusplus::message::message getlockedUser =
-        crow::connections::systemBus->new_method_call(
-            serviceName, UserObjPath, "org.freedesktop.DBus.Properties", "Get");
-    getlockedUser.append(lockedUserIface, lockedUserProperty);
+    objPath += userNameStr;
+
     try
     {
+        sdbusplus::message::message getlockedUser =
+            crow::connections::systemBus->new_method_call(
+                "xyz.openbmc_project.User.Manager", objPath.c_str(), 
+                "org.freedesktop.DBus.Properties", "Get");
+        getlockedUser.append("xyz.openbmc_project.User.Attributes", 
+                            "UserLockedForFailedAttempt");
+
         sdbusplus::message::message getlockedUserResp =
             crow::connections::systemBus->call(getlockedUser);
         getlockedUserResp.read(lockedUserValue);
