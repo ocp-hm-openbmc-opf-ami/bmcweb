@@ -1,8 +1,38 @@
 {
     "$id": "/redfish/v1/JsonSchemas/AmiVirtualMedia/AmiVirtualMedia.v1_0_0.json",
+    "$ref": "#/definitions/AmiVirtualMedia",
     "$schema": "http://redfish.dmtf.org/schemas/v1/redfish-schema-v1.json",
     "copyright": "Copyright American Megatrends, Inc. (AMI).",
     "definitions": {
+        "Actions": {
+            "additionalProperties": false,
+            "patternProperties": {
+                "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
+                    "description": "This property shall specify a valid odata or Redfish property.",
+                    "type": [
+                        "array",
+                        "boolean",
+                        "integer",
+                        "number",
+                        "null",
+                        "object",
+                        "string"
+                    ]
+                }
+            },
+            "properties": {
+                "#AmiVirtualMedia.LocalMediaStopRedirect": {
+                    "$ref": "#/definitions/LocalMediaStopRedirect"
+                },
+                "#DataType.LocalMediaRedirect": {
+                    "$ref": "#/definitions/LocalMediaRedirect"
+                },
+                "#DataType.LocalMediaUpload": {
+                    "$ref": "#/definitions/LocalMediaUpload"
+                }
+            },
+            "type": "object"
+        },
         "AmiVirtualMedia": {
             "additionalProperties": false,
             "patternProperties": {
@@ -49,8 +79,131 @@
                 }
             },
             "type": "object"
+        },
+        "LocalMediaRedirect": {
+            "additionalProperties": false,
+            "description": "This action redirects local virtual media to the system.",
+            "longDescription": "This action shall initiate a local virtual media redirection session for the system.                                The service may require parameters such as image path or device type to complete the redirect.",
+            "parameters": {
+                "Name": {
+                    "description": "The type of virtual media device (CD, DVD, Floppy, USB).",
+                    "longDescription": "This parameter shall specify the type of virtual media device for redirection.",
+                    "requiredParameter": true,
+                    "type": "boolean"
+                },
+                "Required": {
+                    "description": "The type of virtual media device (CD, DVD, Floppy, USB).",
+                    "longDescription": "This parameter shall specify the type of virtual media device for redirection.",
+                    "requiredParameter": true,
+                    "type": "boolean"
+                }
+            },
+            "patternProperties": {
+                "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
+                    "description": "This property shall specify a valid odata or Redfish property.",
+                    "type": [
+                        "array",
+                        "boolean",
+                        "integer",
+                        "number",
+                        "null",
+                        "object",
+                        "string"
+                    ]
+                }
+            },
+            "properties": {
+                "target": {
+                    "description": "Link to invoke action",
+                    "format": "uri-reference",
+                    "type": "string"
+                },
+                "title": {
+                    "description": "Friendly action name",
+                    "type": "string"
+                }
+            },
+            "type": "object"
+        },
+        "LocalMediaStopRedirect": {
+            "additionalProperties": false,
+            "description": "This action stops an ongoing local virtual media redirection session.",
+            "longDescription": "This action shall terminate the local virtual media redirection session for the system.                                After invocation, the redirected image or device will no longer be accessible to the system.",
+            "parameters": {},
+            "patternProperties": {
+                "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
+                    "description": "This property shall specify a valid odata or Redfish property.",
+                    "type": [
+                        "array",
+                        "boolean",
+                        "integer",
+                        "number",
+                        "null",
+                        "object",
+                        "string"
+                    ]
+                }
+            },
+            "properties": {
+                "target": {
+                    "description": "Link to invoke action",
+                    "format": "uri-reference",
+                    "type": "string"
+                },
+                "title": {
+                    "description": "Friendly action name",
+                    "type": "string"
+                }
+            },
+            "type": "object"
+        },
+        "LocalMediaUpload": {
+            "additionalProperties": false,
+            "description": "This action uploads a local image for virtual media redirection.",
+            "longDescription": "This action shall upload an image (such as ISO or IMG) to the service for use as virtual media.                                The uploaded image can then be redirected to the system as a virtual device.",
+            "parameters": {
+                "Name": {
+                    "description": "The type of virtual media device (CD, DVD, Floppy, USB).",
+                    "longDescription": "This parameter shall specify the type of virtual media device for redirection.",
+                    "requiredParameter": true,
+                    "type": "boolean"
+                },
+                "Required": {
+                    "description": "The type of virtual media device (CD, DVD, Floppy, USB).",
+                    "longDescription": "This parameter shall specify the type of virtual media device for redirection.",
+                    "requiredParameter": true,
+                    "type": "boolean"
+                }
+            },
+            "patternProperties": {
+                "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
+                    "description": "This property shall specify a valid odata or Redfish property.",
+                    "type": [
+                        "array",
+                        "boolean",
+                        "integer",
+                        "number",
+                        "null",
+                        "object",
+                        "string"
+                    ]
+                }
+            },
+            "properties": {
+                "target": {
+                    "description": "Link to invoke action",
+                    "format": "uri-reference",
+                    "type": "string"
+                },
+                "title": {
+                    "description": "Friendly action name",
+                    "type": "string"
+                }
+            },
+            "type": "object"
         }
     },
     "owningEntity": "Ami",
+    "release": "1.0",
     "title": "#AmiVirtualMedia.v1_0_0"
 }

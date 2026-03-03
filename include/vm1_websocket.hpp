@@ -2,31 +2,46 @@
 // SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
+#include "bmcweb_config.h"
+
 #include "app.hpp"
+#include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
-#include "privileges.hpp"
-#include "virtual_media.hpp"
+#include "io_context_singleton.hpp"
+#include "logging.hpp"
 #include "websocket.hpp"
 
+#include <boost/asio/buffer.hpp>
+#include <boost/asio/error.hpp>
+#include <boost/asio/io_context.hpp>
 #include <boost/asio/local/stream_protocol.hpp>
 #include <boost/asio/readable_pipe.hpp>
 #include <boost/asio/writable_pipe.hpp>
-#include <boost/asio/write.hpp>
 #include <boost/beast/core/buffers_to_string.hpp>
+#include <boost/beast/core/error.hpp>
 #include <boost/beast/core/flat_static_buffer.hpp>
 #include <boost/container/flat_map.hpp>
 #include <boost/process/v2/process.hpp>
 #include <boost/process/v2/stdio.hpp>
-#include <registries/privilege_registry.hpp>
-#include <sdbusplus/asio/property.hpp>
+#include <sdbusplus/message/native_types.hpp>
+#include <sdbusplus/unpack_properties.hpp>
 
+#include <cerrno>
 #include <csignal>
+#include <cstddef>
+#include <filesystem>
+#include <format>
+#include <functional>
+#include <memory>
+#include <string>
 #include <string_view>
+#include <system_error>
+#include <utility>
 
 namespace crow
 {
 
-namespace obmc_vm
+namespace obmc_vm1
 {
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
@@ -36,7 +51,7 @@ static crow::websocket::Connection* session = nullptr;
 // for the message header:
 // https://github.com/NetworkBlockDevice/nbd/blob/master/doc/proto.md#simple-reply-message
 static constexpr auto nbdBufferSize = (128 * 1024 + 16) * 4;
-bool host1 = false;
+
 class Handler : public std::enable_shared_from_this<Handler>
 {
   public:
@@ -58,6 +73,7 @@ class Handler : public std::enable_shared_from_this<Handler>
     {
         // boost::process::child::terminate uses SIGKILL, need to send SIGTERM
         // to allow the proxy to stop nbd-client and the USB device gadget.
+        // NOLINTNEXTLINE(misc-include-cleaner)
         int rc = kill(proxy.id(), SIGTERM);
         if (rc != 0)
         {
@@ -65,7 +81,15 @@ class Handler : public std::enable_shared_from_this<Handler>
             return;
         }
 
-        proxy.wait();
+        boost::system::error_code ec;
+        do
+        {
+            proxy.wait(ec);
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("Error on proxy.wait(): {}", ec.message());
+            }
+        } while (ec == boost::system::errc::interrupted);
     }
 
     void connect()
@@ -174,7 +198,7 @@ static std::shared_ptr<Handler> handler;
 
 } // namespace obmc_vm
 
-namespace nbd_proxy
+namespace nbd_proxy1
 {
 using boost::asio::local::stream_protocol;
 
@@ -190,14 +214,10 @@ struct NbdProxyServer : std::enable_shared_from_this<NbdProxyServer>
                    const std::string& endpointIdIn, const std::string& pathIn) :
         socketId(socketIdIn), endpointId(endpointIdIn), path(pathIn),
 
-        peerSocket(connIn.getIoContext()),
-        acceptor(connIn.getIoContext(), stream_protocol::endpoint(socketId)),
+        peerSocket(getIoContext()),
+        acceptor(getIoContext(), stream_protocol::endpoint(socketId)),
         connection(connIn)
-    {
-        std::filesystem::path endpointPath(endpointIdIn);
-        endpointIndex = static_cast<unsigned int>(
-            std::stoul(endpointPath.filename().string()));
-    }
+    {}
 
     NbdProxyServer(const NbdProxyServer&) = delete;
     NbdProxyServer(NbdProxyServer&&) = delete;
@@ -220,19 +240,9 @@ struct NbdProxyServer : std::enable_shared_from_this<NbdProxyServer>
             BMCWEB_LOG_DEBUG("Failed to remove file, ignoring");
         }
 
-        redfish::powerSaveMode(POWER_SAVE_MODE_ENABLE);
-        if(crow::obmc_vm::host1)
-        {
-            crow::connections::systemBus->async_method_call(
-            dbus::utility::logError, "xyz.openbmc_project.VirtualMedia1", path,
-            "xyz.openbmc_project.VirtualMedia.Proxy", "Unmount");
-        }
-        else
-        {
-            crow::connections::systemBus->async_method_call(
+        crow::connections::systemBus->async_method_call(
             dbus::utility::logError, "xyz.openbmc_project.VirtualMedia", path,
             "xyz.openbmc_project.VirtualMedia.Proxy", "Unmount");
-        }
     }
 
     std::string getEndpointId() const
@@ -257,7 +267,6 @@ struct NbdProxyServer : std::enable_shared_from_this<NbdProxyServer>
             self->connection.close("Failed to mount media");
             return;
         }
-	self->connection.session->vmNbdActive[self->getEndpointIndex()] = true;
     }
 
     static void afterAccept(const std::weak_ptr<NbdProxyServer>& weak,
@@ -284,46 +293,18 @@ struct NbdProxyServer : std::enable_shared_from_this<NbdProxyServer>
         self->doRead();
     }
 
-    unsigned getEndpointIndex() const
-    {
-        return endpointIndex;
-    }
-
     void run()
     {
         acceptor.async_accept(
             std::bind_front(&NbdProxyServer::afterAccept, weak_from_this()));
 
-        redfish::powerSaveMode(POWER_SAVE_MODE_DISABLE);
-        std::string uniqueId = connection.session->uniqueId;
-        std::string sessionId;
-
-        if (connection.sessionMap.find(uniqueId) != connection.sessionMap.end())
-        {
-            sessionId = "session_" +
-                        std::to_string(connection.sessionMap[uniqueId]);
-        }
-	
-       if(crow::obmc_vm::host1)
-        {
-            crow::connections::systemBus->async_method_call(
-            [weak{weak_from_this()}](const boost::system::error_code& ec,
-                                     bool isBinary) {
-                afterMount(weak, ec, isBinary);
-            },
-            "xyz.openbmc_project.VirtualMedia1", path,
-            "xyz.openbmc_project.VirtualMedia.Proxy", "Mount",sessionId);
-        }
-        else
-        {
-            crow::connections::systemBus->async_method_call(
+        crow::connections::systemBus->async_method_call(
             [weak{weak_from_this()}](const boost::system::error_code& ec,
                                      bool isBinary) {
                 afterMount(weak, ec, isBinary);
             },
             "xyz.openbmc_project.VirtualMedia", path,
-            "xyz.openbmc_project.VirtualMedia.Proxy", "Mount",sessionId);
-        }
+            "xyz.openbmc_project.VirtualMedia.Proxy", "Mount");
     }
 
     void send(std::string_view buffer, std::function<void()>&& onDone)
@@ -432,7 +413,6 @@ struct NbdProxyServer : std::enable_shared_from_this<NbdProxyServer>
     const std::string socketId;
     const std::string endpointId;
     const std::string path;
-    unsigned endpointIndex; // endpoint id represented in unsigned int
 
     bool uxWriteInProgress = false;
 
@@ -456,11 +436,11 @@ using SessionMap = boost::container::flat_map<crow::websocket::Connection*,
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static SessionMap sessions;
 
-inline void
-    afterGetSocket(crow::websocket::Connection& conn,
-                   const sdbusplus::message::object_path& path,
-                   const boost::system::error_code& ec,
-                   const dbus::utility::DBusPropertiesMap& propertiesList)
+inline void afterGetSocket(
+    crow::websocket::Connection& conn,
+    const sdbusplus::message::object_path& path,
+    const boost::system::error_code& ec,
+    const dbus::utility::DBusPropertiesMap& propertiesList)
 {
     if (ec)
     {
@@ -498,25 +478,14 @@ inline void
     std::filesystem::remove(socket.c_str(), ec2);
     // Ignore failures.  File might not exist.
 
-    std::filesystem::path socketPath(socket);
-    std::error_code fsErr;
-    if (!std::filesystem::exists(socketPath.parent_path(), fsErr))
-    {
-        BMCWEB_LOG_ERROR("VirtualMedia socket directory not present. {}",
-                         socketPath.parent_path().string());
-        conn.close("Unable to create unix socket");
-        return;
-    }
-
     sessions[&conn] =
         std::make_shared<NbdProxyServer>(conn, socket, endpointId, path);
     sessions[&conn]->run();
-    conn.session->vmNbdActive[sessions[&conn]->getEndpointIndex()] = true;
 }
 
 inline void onOpen(crow::websocket::Connection& conn)
 {
-    BMCWEB_LOG_DEBUG("nbd-proxy.onopen({})", logPtr(&conn));
+    BMCWEB_LOG_ERROR("nbd-proxy.onopen({})", logPtr(&conn));
 
     if (conn.url().segments().size() < 2)
     {
@@ -526,34 +495,16 @@ inline void onOpen(crow::websocket::Connection& conn)
     }
 
     std::string index = conn.url().segments().back();
-    std::string path, service;
-    if (( index == "0" || index == "1"))
-    {
-        crow::obmc_vm::host1 = false;
-        service = "xyz.openbmc_project.VirtualMedia";
-        path = std::format("/xyz/openbmc_project/VirtualMedia/Proxy/Slot_{}", index);
-    }
-    else if ( index == "4" || index == "5")
-    {
-        crow::obmc_vm::host1 = true;
-        service = "xyz.openbmc_project.VirtualMedia1";
+    std::cerr<<"nbd proxy vm1 for index checking : "<<index<<"\n";
 
-        int slot = index[0] - '4';
-        path = std::format("/xyz/openbmc_project/VirtualMedia1/Proxy/Slot_{}", slot);
-    }
-    else
-    {
-        BMCWEB_LOG_ERROR("Invalid index - \"{}\"", index);
-        conn.close("Internal error");
-        return;
-    }
-    
-    
+    std::string path =
+        std::format("/xyz/openbmc_project/VirtualMedia/Proxy1/Slot_{}", index);
+
     dbus::utility::getAllProperties(
-        service, path,
+        "xyz.openbmc_project.VirtualMedia1", path,
         "xyz.openbmc_project.VirtualMedia.MountPoint",
         [&conn, path](const boost::system::error_code& ec,
-                    const dbus::utility::DBusPropertiesMap& propertiesList) {
+                      const dbus::utility::DBusPropertiesMap& propertiesList) {
             afterGetSocket(conn, path, ec, propertiesList);
         });
 
@@ -573,7 +524,6 @@ inline void onClose(crow::websocket::Connection& conn,
         BMCWEB_LOG_DEBUG("No session to close");
         return;
     }
-    conn.session->vmNbdActive[sessions[&conn]->getEndpointIndex()] = false;
     // Remove reference to session in global map
     sessions.erase(session);
 }
@@ -596,7 +546,7 @@ inline void onMessage(crow::websocket::Connection& conn, std::string_view data,
 }
 } // namespace nbd_proxy
 
-namespace obmc_vm
+namespace obmc_vm1
 {
 
 inline void requestRoutes(App& app)
@@ -607,25 +557,26 @@ inline void requestRoutes(App& app)
 
     if constexpr (BMCWEB_VM_NBDPROXY)
     {
+        std::cerr<<"BMCWEB_VM_NBDPROXY VM 1 is enabled\n";
         BMCWEB_ROUTE(app, "/nbd/<str>")
+            .privileges({{"ConfigureComponents", "ConfigureManager"}})
             .websocket()
-            .privileges(redfish::privileges::privilegeSetLoginConfigureManager)
             .onopen(nbd_proxy::onOpen)
             .onclose(nbd_proxy::onClose)
             .onmessageex(nbd_proxy::onMessage);
 
-        BMCWEB_ROUTE(app, "/vm/0/0")
+        BMCWEB_ROUTE(app, "/vm/1/0")
+            .privileges({{"ConfigureComponents", "ConfigureManager"}})
             .websocket()
-            .privileges(redfish::privileges::privilegeSetConfigureManager)
             .onopen(nbd_proxy::onOpen)
             .onclose(nbd_proxy::onClose)
             .onmessageex(nbd_proxy::onMessage);
     }
     if constexpr (BMCWEB_VM_WEBSOCKET)
     {
-        BMCWEB_ROUTE(app, "/vm/0/0")
+        BMCWEB_ROUTE(app, "/vm/1/0")
+            .privileges({{"ConfigureComponents", "ConfigureManager"}})
             .websocket()
-            .privileges(redfish::privileges::privilegeSetConfigureManager)
             .onopen([](crow::websocket::Connection& conn) {
                 BMCWEB_LOG_DEBUG("Connection {} opened", logPtr(&conn));
 
@@ -645,8 +596,8 @@ inline void requestRoutes(App& app)
 
                 // media is the last digit of the endpoint /vm/0/0. A future
                 // enhancement can include supporting different endpoint values.
-                const char* media = "0";
-                handler = std::make_shared<Handler>(media, conn.getIoContext());
+                const char* media = "8";
+                handler = std::make_shared<Handler>(media, getIoContext());
                 handler->connect();
             })
             .onclose([](crow::websocket::Connection& conn,

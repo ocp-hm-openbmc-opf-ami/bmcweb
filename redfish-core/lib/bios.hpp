@@ -7,6 +7,9 @@
 #include "registries/privilege_registry.hpp"
 #include "utils/sw_utils.hpp"
 
+// Validate multi-host vs single-host system name
+#include "system_utils.hpp"
+
 #include <boost/url/format.hpp>
 
 namespace redfish
@@ -768,26 +771,27 @@ static void
  * BiosService class supports handle get method for bios.
  */
 inline void handleBiosServiceGet(
-    crow::App& app, const crow::Request& req, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+    crow::App& app, const crow::Request& req, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& systemName)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
     }
 
-    asyncResp->res.jsonValue["@odata.id"] = "/redfish/v1/Systems/system/Bios";
+    asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
+        "/redfish/v1/Systems/{}/Bios", systemName);
     asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("Bios");
     asyncResp->res.jsonValue["Name"] = "BIOS Configuration";
     asyncResp->res.jsonValue["Description"] = "BIOS Configuration Service";
     asyncResp->res.jsonValue["Id"] = "BIOS";
     asyncResp->res.jsonValue["Actions"]["#Bios.ResetBios"] = {
-        {"target", "/redfish/v1/Systems/system/Bios/Actions/Bios.ResetBios"}};
+        {"target", boost::urls::format("/redfish/v1/Systems/{}/Bios/Actions/Bios.ResetBios", systemName)}};
     asyncResp->res.jsonValue["Actions"]["#Bios.ChangePassword"] = {
-        {"target", "/redfish/v1/Systems/system/Bios/Actions/"
-                   "Bios.ChangePassword"}};
+        {"target", boost::urls::format("/redfish/v1/Systems/{}/Bios/Actions/Bios.ChangePassword", systemName)}};
     asyncResp->res.jsonValue["@Redfish.Settings"]["@odata.type"] = json_util::odataType("Settings");
     asyncResp->res.jsonValue["@Redfish.Settings"]["SettingsObject"] = {
-        {"@odata.id", "/redfish/v1/Systems/system/Bios/Settings"}};
+        {"@odata.id", boost::urls::format("/redfish/v1/Systems/{}/Bios/Settings", systemName)}};
     // Get the ActiveSoftwareImage and SoftwareImages
     sw_util::populateSoftwareInformation(asyncResp, sw_util::biosPurpose, "",
                                          true);
@@ -799,7 +803,7 @@ inline void handleBiosServiceGet(
 }
 inline void requestRoutesBiosService(App& app)
 {
-    BMCWEB_ROUTE(app, "/redfish/v1/Systems/system/Bios/")
+    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Bios/")
         .privileges(redfish::privileges::getBios)
         .methods(boost::beast::http::verb::get)(std::bind_front(
             handleBiosServiceGet, std::ref(app)));
@@ -809,7 +813,8 @@ inline void requestRoutesBiosService(App& app)
  */
 inline void
     handleBiosSettingsPatch(const crow::Request& req,
-                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                            const std::string& systemName [[maybe_unused]])
 {
     nlohmann::json pendingAttrJson;
     if (!redfish::json_util::readJsonPatch( //
@@ -834,7 +839,8 @@ inline void
  * BiosSetting class supports handle get method for Bios Settings.
  */
 inline void handleBiosSettingsGet(
-    crow::App& app, const crow::Request& req, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+    crow::App& app, const crow::Request& req, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& systemName)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -842,7 +848,7 @@ inline void handleBiosSettingsGet(
     }
 
     asyncResp->res.jsonValue["@odata.id"] =
-        "/redfish/v1/Systems/system/Bios/Settings";
+        boost::urls::format("/redfish/v1/Systems/{}/Bios/Settings", systemName);
     asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("Bios");
     asyncResp->res.jsonValue["Name"] = "BIOS Configuration";
     asyncResp->res.jsonValue["Description"] = "BIOS Settings";
@@ -853,12 +859,12 @@ inline void handleBiosSettingsGet(
 }
 inline void requestRoutesBiosSettings(App& app)
 {
-    BMCWEB_ROUTE(app, "/redfish/v1/Systems/system/Bios/Settings/")
+    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Bios/Settings/")
         .privileges(redfish::privileges::getBios)
         .methods(boost::beast::http::verb::get)(std::bind_front(
             handleBiosSettingsGet, std::ref(app)));
         
-    BMCWEB_ROUTE(app, "/redfish/v1/Systems/system/Bios/Settings/")
+    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Bios/Settings/")
         .privileges(redfish::privileges::patchBios)
         .methods(boost::beast::http::verb::patch)(handleBiosSettingsPatch);
 }
@@ -869,11 +875,16 @@ inline void requestRoutesBiosSettings(App& app)
 inline void requestRoutesBiosChangePassword(App& app)
 {
     BMCWEB_ROUTE(app,
-                 "/redfish/v1/Systems/system/Bios/Actions/Bios.ChangePassword/")
+                 "/redfish/v1/Systems/<str>/Bios/Actions/Bios.ChangePassword/")
         .privileges(redfish::privileges::postBios)
         .methods(boost::beast::http::verb::post)(
             [](const crow::Request& req,
-               const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
+               const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+               const std::string& systemName) {
+                if (!system_utils::validateSystemName(asyncResp, systemName))
+                {
+                    return;
+                }
                 std::string currentPassword, newPassword, userName;
                 if (!json_util::readJsonPatch( //
                         req, asyncResp->res, //
@@ -944,28 +955,20 @@ inline void
         return;
     }
 
+    if (!system_utils::validateSystemName(asyncResp, systemName))
+    {
+        return;
+    }
+
     if (!req.body().empty() && req.body() != "{}")
     {
         nlohmann::json jsonBody = nlohmann::json::parse(req.body());
         std::string key = jsonBody.begin().key();
-        messages::actionParameterUnknown(
-            asyncResp->res,
-            "/redfish/v1/Systems/system/Bios/Actions/Bios.ResetBios/", key);
-        return;
-    }
-
-    /*if constexpr (bmcwebEnableMultiHost)
-    {
-        // Option currently returns no systems.  TBD
-        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                   systemName);
-        return;
-    }*/
-
-    if (systemName != "system")
-    {
-        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                   systemName);
+        auto actionUrl = boost::urls::format(
+            "/redfish/v1/Systems/{}/Bios/Actions/Bios.ResetBios/",
+            systemName);
+        std::string actionTarget(actionUrl.buffer());
+        messages::actionParameterUnknown(asyncResp->res, actionTarget, key);
         return;
     }
 

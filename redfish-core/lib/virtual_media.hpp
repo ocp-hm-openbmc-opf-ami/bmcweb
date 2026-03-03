@@ -25,6 +25,7 @@
 #include <regex>
 #include <string_view>
 #include "websocket.hpp"
+#include "system_utils.hpp"
 
 #define POWER_SAVE_MODE_ENABLE 1
 #define POWER_SAVE_MODE_DISABLE 0
@@ -47,6 +48,11 @@ static constexpr const char* rmediaInterfaceName =
     "xyz.openbmc_project.VirtualMedia.Reconnect";
 static constexpr const char* rmediaObjPath =
     "/xyz/openbmc_project/VirtualMedia";
+
+static constexpr const char* rmedia1ServiceName =
+    "xyz.openbmc_project.VirtualMedia1";
+static constexpr const char* rmedia1ObjPath =
+    "/xyz/openbmc_project/VirtualMedia1";
 
 inline bool validateImageUrl(const std::string& url)
 {
@@ -175,7 +181,7 @@ inline VmMode parseObjectPathAndGetMode(
         return VmMode::Invalid;
     }
 
-    if (type.filename() != "VirtualMedia")
+    if (type.filename() != "VirtualMedia" && type.filename() != "VirtualMedia1")
     {
         return VmMode::Invalid;
     }
@@ -200,9 +206,17 @@ using CheckItemHandler =
 inline void
     findAndParseObject(const std::string& service, const std::string& resName,
                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                       CheckItemHandler&& handler)
+                       const std::string& name, CheckItemHandler&& handler)
 {
-    sdbusplus::message::object_path path("/xyz/openbmc_project/VirtualMedia");
+    std::string path;
+    if(name == "system1")
+    {
+        path = "/xyz/openbmc_project/VirtualMedia1";
+    }
+    else
+    {
+        path = "/xyz/openbmc_project/VirtualMedia";
+    }
     dbus::utility::getManagedObjects(
         service, path,
         [service, resName, asyncResp, handler = std::move(handler)](
@@ -234,9 +248,17 @@ inline void
 inline void  findAndParsePostObject(
     const std::string& service, const std::string& resName,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    CheckItemHandler&& handler)
+    const std::string &name, CheckItemHandler&& handler)
 {
-    sdbusplus::message::object_path path("/xyz/openbmc_project/VirtualMedia");
+    std::string path;
+    if(name == "system1")
+    {
+        path = "/xyz/openbmc_project/VirtualMedia1";
+    }
+    else
+    {
+        path = "/xyz/openbmc_project/VirtualMedia";
+    }
     dbus::utility::getManagedObjects(
         service, path,
         [service, resName, asyncResp, handler = std::move(handler)](
@@ -279,12 +301,32 @@ inline void
                           const std::string& name, const std::string& resName,
                           CheckItemHandler&& handler, const crow::Request& req)
 {
-    if (name != "bmc")
+    if (system_utils::isDualHostEnabled())
     {
-        messages::resourceNotFound(aResp->res, "VirtualMedia.InsertMedia",
-                                   resName);
+        // For dual node, accept system and system1
+        if (name != "system" && name != "system1")
+        {
+            messages::resourceNotFound(aResp->res, "ComputerSystem", name);
+            return;
+        }
+    }
+    else
+    {
+        if (name != "system")
+        {
+            messages::resourceNotFound(aResp->res, "ComputerSystem", name);
+            return;
+        }
+    }
 
-        return;
+    std::string path;
+    if(name == "system1")
+    {
+        path = "/xyz/openbmc_project/VirtualMedia1";
+    }
+    else
+    {
+        path = "/xyz/openbmc_project/VirtualMedia";
     }
 
     if (req.session->username != "root")
@@ -301,7 +343,7 @@ inline void
     }
 
     crow::connections::systemBus->async_method_call(
-        [aResp, resName, handler = std::move(handler)](
+        [aResp, resName, handler = std::move(handler), name](
             const boost::system::error_code ec,
             const dbus::utility::MapperGetObject& getObjectType) mutable {
             if (ec)
@@ -323,12 +365,12 @@ inline void
             std::string service = getObjectType.begin()->first;
             BMCWEB_LOG_DEBUG("GetObjectType: {}", service);
 
-            findAndParseObject(service, resName, aResp, std::move(handler));
+            findAndParseObject(service, resName, aResp, name, std::move(handler));
         },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetObject",
-        "/xyz/openbmc_project/VirtualMedia", std::array<const char*, 0>());
+        path, std::array<const char*, 0>());
 }
 
 /**
@@ -360,8 +402,22 @@ inline std::string getTransferProtocolTypeFromUri(const std::string& imageUri)
 }
 
 inline void getRmediareconnectValues(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& name)
 {
+    std::string path;
+    if(name == "system1")
+    {
+        path = "/xyz/openbmc_project/VirtualMedia1";
+    }
+    else
+    {
+        path = "/xyz/openbmc_project/VirtualMedia";
+    }
+
+  std::string serviceName =
+      (name == "system1") ? rmedia1ServiceName : rmediaServiceName;
+
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code& ec,
                     const std::tuple<uint32_t, uint32_t>& result) {
@@ -376,7 +432,7 @@ inline void getRmediareconnectValues(
             asyncResp->res.jsonValue["Oem"]["Ami"]["RetryInterval"] =
                 std::get<1>(result);
         },
-        rmediaServiceName, rmediaObjPath, rmediaInterfaceName, "GetAll");
+        serviceName, path, rmediaInterfaceName, "GetAll");
 }
 
 /**
@@ -484,8 +540,21 @@ inline void
 
 inline void getBackedUpImageUrl(
     const std::string& resName,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& name)
 {
+    std::string ObjPath;
+    if(name == "system1")
+    {
+        ObjPath = "/xyz/openbmc_project/VirtualMedia1";
+    }
+    else
+    {
+        ObjPath = "/xyz/openbmc_project/VirtualMedia";
+    }
+    std::string serviceName =
+      (name == "system1") ? rmedia1ServiceName : rmediaServiceName;
+
     if (resName == "Slot_2" || resName == "Slot_3")
     {
         crow::connections::systemBus->async_method_call(
@@ -510,8 +579,8 @@ inline void getBackedUpImageUrl(
                         "";
                 }
             },
-            "xyz.openbmc_project.VirtualMedia",
-            "/xyz/openbmc_project/VirtualMedia",
+            serviceName,
+            ObjPath,
             "org.freedesktop.DBus.Properties", "Get",
             "xyz.openbmc_project.VirtualMedia.BackupImageURL", resName);
     }
@@ -525,7 +594,7 @@ inline nlohmann::json vmItemTemplate(const std::string& name,
 {
     nlohmann::json item;
     item["@odata.id"] = boost::urls::format(
-        "/redfish/v1/Managers/{}/VirtualMedia/{}", name, resName);
+        "/redfish/v1/Systems/{}/VirtualMedia/{}", name, resName);
 
     item["@odata.type"] = json_util::odataType("VirtualMedia");
     item["Name"] = "Virtual Removable Media";
@@ -537,12 +606,12 @@ inline nlohmann::json vmItemTemplate(const std::string& name,
     item["TransferMethod"] = virtual_media::TransferMethod::Stream;
     item["Oem"]["OpenBMC"]["@odata.type"] = json_util::odataType("OpenBMCVirtualMedia", "VirtualMedia");
     item["Oem"]["OpenBMC"]["@odata.id"] = boost::urls::format(
-        "/redfish/v1/Managers/{}/VirtualMedia/{}#/Oem/OpenBMC", name, resName);
+        "/redfish/v1/Systems/{}/VirtualMedia/{}#/Oem/OpenBMC", name, resName);
 
     item["Oem"]["Ami"]["@odata.type"] =
         json_util::odataType("AmiVirtualMedia");
     item["Oem"]["Ami"]["@odata.id"] = boost::urls::format(
-        "/redfish/v1/Managers/{}/VirtualMedia/{}#/Oem/Ami", name, resName);
+        "/redfish/v1/Systems/{}/VirtualMedia/{}#/Oem/Ami", name, resName);
     return item;
 }
 
@@ -554,8 +623,16 @@ inline void getVmResourceList(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
                               const std::string& name)
 {
     BMCWEB_LOG_DEBUG("Get available Virtual Media resources.");
-    sdbusplus::message::object_path objPath(
-        "/xyz/openbmc_project/VirtualMedia");
+    std::string objPath;
+    if(name == "system1")
+    {
+        objPath = "/xyz/openbmc_project/VirtualMedia1";
+    }
+    else
+    {
+        objPath = "/xyz/openbmc_project/VirtualMedia";
+    }
+
     dbus::utility::getManagedObjects(
         service, objPath,
         [name, asyncResp{std::move(asyncResp)}](
@@ -579,7 +656,7 @@ inline void getVmResourceList(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
                 }
 
                 item["@odata.id"] = boost::urls::format(
-                    "/redfish/v1/Managers/{}/VirtualMedia/{}", name, path);
+                    "/redfish/v1/Systems/{}/VirtualMedia/{}", name, path);
                 members.emplace_back(std::move(item));
             }
             asyncResp->res.jsonValue["Members@odata.count"] = members.size();
@@ -600,23 +677,23 @@ inline void
     }
 
     asyncResp->res.jsonValue = vmItemTemplate(name, resName);
-    getBackedUpImageUrl(resName, asyncResp);
+    getBackedUpImageUrl(resName, asyncResp, name);
 
     // Check if dbus path is Legacy type
     if (mode == VmMode::Legacy)
     {
         asyncResp->res.jsonValue["Actions"]["#VirtualMedia.InsertMedia"]
                                 ["target"] = boost::urls::format(
-            "/redfish/v1/Managers/{}/VirtualMedia/{}/Actions/VirtualMedia.InsertMedia",
+            "/redfish/v1/Systems/{}/VirtualMedia/{}/Actions/VirtualMedia.InsertMedia",
             name, resName);
-        getRmediareconnectValues(asyncResp);
+        getRmediareconnectValues(asyncResp, name);
     }
 
     vmParseInterfaceObject(item.second, asyncResp);
 
     asyncResp->res.jsonValue["Actions"]["#VirtualMedia.EjectMedia"]
                             ["target"] = boost::urls::format(
-        "/redfish/v1/Managers/{}/VirtualMedia/{}/Actions/VirtualMedia.EjectMedia",
+        "/redfish/v1/Systems/{}/VirtualMedia/{}/Actions/VirtualMedia.EjectMedia",
         name, resName);
 }
 
@@ -629,7 +706,7 @@ inline void getVmData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 {
     BMCWEB_LOG_DEBUG("Get Virtual Media resource data.");
 
-    findAndParseObject(service, resName, asyncResp,
+    findAndParseObject(service, resName, asyncResp, name,
                        std::bind_front(afterGetVmData, name));
 }
 
@@ -637,7 +714,7 @@ inline void getVmPostData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                           const std::string& service, const std::string& name,
                           const std::string& resName)
 {
-    findAndParsePostObject(service, resName, asyncResp,
+    findAndParsePostObject(service, resName, asyncResp, name,
                            std::bind_front(afterGetVmData, name));
 }
 
@@ -736,23 +813,44 @@ inline std::string getUriWithTransferProtocol(
     return imageUri;
 }
 
-inline void setUserName(std::shared_ptr<bmcweb::AsyncResp> asyncResp, const std::string& userName, const std::string& name)
+inline void setUserName(std::shared_ptr<bmcweb::AsyncResp> asyncResp, const std::string& userName, const std::string& name, const std::string& systemName)
 {
    sdbusplus::message::object_path path;
 
+    std::string serviceName = (systemName == "system1") ? rmedia1ServiceName : rmediaServiceName;
+    
     if (name == "Slot_0" || name == "Slot_1" )
     {
-        path = sdbusplus::message::object_path (
-        "/xyz/openbmc_project/VirtualMedia/Proxy");
+        if(systemName == "system")
+        {
+            path = sdbusplus::message::object_path (
+                "/xyz/openbmc_project/VirtualMedia/Proxy");
+        }
+        else if (systemName == "system1")
+        {
+            path = sdbusplus::message::object_path (
+                "/xyz/openbmc_project/VirtualMedia1/Proxy");
+        }
+       
     }
     else if(name == "Slot_2" || name == "Slot_3" )
     {
-        path = sdbusplus::message::object_path (
-        "/xyz/openbmc_project/VirtualMedia/Legacy");
+        if(systemName == "system")
+        {
+            path = sdbusplus::message::object_path (
+                 "/xyz/openbmc_project/VirtualMedia/Legacy");
+        }
+        else if (systemName == "system1")
+        {
+            path = sdbusplus::message::object_path (
+                "/xyz/openbmc_project/VirtualMedia1/Legacy");
+        }
+       
     }
+
     path /= name;
     sdbusplus::asio::setProperty(
-        *crow::connections::systemBus, rmediaServiceName,
+        *crow::connections::systemBus, serviceName,
         path, "xyz.openbmc_project.VirtualMedia.MountPoint", "UserName",
         userName, [asyncResp](const boost::system::error_code& ec) {
             if (ec)
@@ -797,7 +895,8 @@ static inline std::shared_ptr<MatchWrapper> doListenForCompletion(
     const std::string& name, const std::string& objectPath,
     const std::string& action, bool legacy,
     std::shared_ptr<bmcweb::AsyncResp> asyncResp,
-    std::string userName)
+    std::string userName,const std::string &systemName)
+
 {
     BMCWEB_LOG_DEBUG("Start Listening for completion : {}", action);
     std::string matcherString = sdbusplus::bus::match::rules::type::signal();
@@ -807,14 +906,23 @@ static inline std::shared_ptr<MatchWrapper> doListenForCompletion(
 
     matcherString += sdbusplus::bus::match::rules::interface(interface);
     matcherString += sdbusplus::bus::match::rules::member("Completion");
-    matcherString += sdbusplus::bus::match::rules::sender(
-        "xyz.openbmc_project.VirtualMedia");
+
+    if (systemName == "system1") 
+    {
+        matcherString += sdbusplus::bus::match::rules::sender(
+            "xyz.openbmc_project.VirtualMedia1");
+    }
+    else 
+    {
+        matcherString += sdbusplus::bus::match::rules::sender(
+            "xyz.openbmc_project.VirtualMedia");
+    }
     matcherString += sdbusplus::bus::match::rules::path(objectPath);
 
     auto matchWrapper = std::make_shared<MatchWrapper>();
     auto matchHandler = [asyncResp = std::move(asyncResp), name, action,
                          objectPath,
-                         matchWrapper, userName](sdbusplus::message::message& m) {
+                         matchWrapper, userName, systemName](sdbusplus::message::message& m) {
         int errorCode = 0;
         try
         {
@@ -826,7 +934,7 @@ static inline std::shared_ptr<MatchWrapper> doListenForCompletion(
             {
                 case 0: // success
                     BMCWEB_LOG_INFO("Signal received: Success");
-                    setUserName(asyncResp, userName, name);
+                    setUserName(asyncResp, userName, name, systemName);
                     messages::success(asyncResp->res);
                     break;
                 case EPERM:
@@ -893,7 +1001,9 @@ static inline std::shared_ptr<MatchWrapper> doListenForCompletion(
 inline void doMountVmLegacy(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                             const std::string& service, const std::string& name,
                             const std::string& imageUrl, bool rw,
-                            std::string&& userName, std::string&& password,const std::string& sessionId)
+                            std::string&& userName, std::string&& password,
+                            const std::string& sessionId,
+                            const std::string &systemName)
 {
     std::string userNameCopy = userName;
     int fd = -1;
@@ -927,11 +1037,20 @@ inline void doMountVmLegacy(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 }
             });
     }
-    const std::string objectPath =
-        "/xyz/openbmc_project/VirtualMedia/Legacy/" + name;
+    std::string objectPath;
+    if(systemName == "system1")
+    {
+        objectPath = "/xyz/openbmc_project/VirtualMedia1/Legacy/" + name;
+        BMCWEB_LOG_DEBUG("Mounting Virtual Media on system1 in Legacy mode");
+    }
+    else
+    {
+        objectPath = "/xyz/openbmc_project/VirtualMedia/Legacy/" + name;
+        BMCWEB_LOG_DEBUG("Mounting Virtual Media in Legacy mode");
+    }
     const std::string action = "VirtualMedia.InsertMedia";
     auto wrapper =
-        doListenForCompletion(name, objectPath, action, true, asyncResp, std::move(userNameCopy));
+        doListenForCompletion(name, objectPath, action, true, asyncResp, std::move(userNameCopy), systemName);
 
     if (imageUrl.find("nfs://") != 0)
     {
@@ -939,12 +1058,9 @@ inline void doMountVmLegacy(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             std::in_place_type<sdbusplus::message::unix_fd>, fd);
     }
 
-    sdbusplus::message::object_path path(
-        "/xyz/openbmc_project/VirtualMedia/Legacy");
-    path /= name;
     crow::connections::systemBus->async_method_call(
         [asyncResp, secretPipe, name, action, wrapper,
-         objectPath,sessionId](const boost::system::error_code& ec, bool success) {
+         objectPath,sessionId, systemName](const boost::system::error_code& ec, bool success) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("Bad D-Bus request error: {}", ec);
@@ -957,8 +1073,8 @@ inline void doMountVmLegacy(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                     messages::accessDenied(
                         asyncResp->res,
                         boost::urls::format(
-                            "/redfish/v1/Managers/bmc/VirtualMedia/{}/Actions/{}",
-                            name, action));
+                            "/redfish/v1/Systems/{}/VirtualMedia/{}/Actions/{}",
+                            systemName, name, action));
                 }
                 else
                 {
@@ -984,7 +1100,8 @@ inline void validateParams(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                            const std::string& service,
                            const std::string& resName,
                            InsertMediaActionParams& actionParams,
-                          const crow::Request& req)
+                           const crow::Request& req,
+                           const std::string &name)
 {
     BMCWEB_LOG_DEBUG("Validation started");
     // required param imageUrl must not be empty
@@ -993,8 +1110,8 @@ inline void validateParams(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         BMCWEB_LOG_ERROR("Request action parameter Image is empty.");
 
         boost::urls::url urlObj = boost::urls::format(
-            "/redfish/v1/Managers/bmc/VirtualMedia/{}/Actions/{}", resName,
-            "VirtualMedia.InsertMedia");
+            "/redfish/v1/Systems/{}/VirtualMedia/{}/Actions/{}", resName,
+            name, "VirtualMedia.InsertMedia");
         std::string Url = urlObj.buffer();
         messages::actionParameterMissing(asyncResp->res, Url, "Image");
         return;
@@ -1241,7 +1358,7 @@ inline void validateParams(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     doMountVmLegacy(asyncResp, service, resName, *actionParams.imageUrl,
                     !(actionParams.writeProtected.value_or(false)),
                     std::move(*actionParams.userName),
-                    std::move(*actionParams.password),sessionId);
+                    std::move(*actionParams.password),sessionId, name);
 }
 
 /**
@@ -1251,20 +1368,27 @@ inline void validateParams(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
  */
 inline void doEjectAction(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                           const std::string& service, const std::string& name,
-                          bool legacy)
+                          const std::string &systemName,bool legacy)
 {
     const std::string vmMode = getModeName(legacy);
-    const std::string objectPath =
-        "/xyz/openbmc_project/VirtualMedia/" + vmMode + "/" + name;
+    std::string objectPath;
+    if (systemName == "system1")
+    {
+        objectPath = "/xyz/openbmc_project/VirtualMedia1/" + vmMode + "/" + name;
+    }
+    else
+    {
+        objectPath = "/xyz/openbmc_project/VirtualMedia/" + vmMode + "/" + name;
+    }
     const std::string ifaceName = "xyz.openbmc_project.VirtualMedia." + vmMode;
     std::string action = "VirtualMedia.Eject";
 
     auto wrapper =
-        doListenForCompletion(name, objectPath, action, legacy, asyncResp, "");
+        doListenForCompletion(name, objectPath, action, legacy, asyncResp, "", systemName);
 
     crow::connections::systemBus->async_method_call(
         [asyncResp, name, action, objectPath,
-         wrapper](const boost::system::error_code ec, bool success) {
+         wrapper, systemName](const boost::system::error_code ec, bool success) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("Bad D-Bus request error: {}", ec);
@@ -1277,8 +1401,8 @@ inline void doEjectAction(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                     messages::accessDenied(
                         asyncResp->res,
                         boost::urls::format(
-                            "/redfish/v1/Managers/bmc/VirtualMedia/{}/Actions/{}",
-                            name, action));
+                            "/redfish/v1/Systems/{}/VirtualMedia/{}/Actions/{}",
+                            systemName, name, action));
                 }
                 else
                 {
@@ -1297,7 +1421,7 @@ inline void doEjectAction(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         service, objectPath, ifaceName, "Unmount");
 }
 
-inline void handleManagersVirtualMediaActionInsertPost(
+inline void handleSystemsVirtualMediaActionInsertPost(
     crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& name, const std::string& resName)
@@ -1308,12 +1432,12 @@ inline void handleManagersVirtualMediaActionInsertPost(
     }
 
     constexpr std::string_view action = "VirtualMedia.InsertMedia";
-    if (name != "bmc")
-    {
-        messages::resourceNotFound(asyncResp->res, action, resName);
 
+    if (!system_utils::validateSystemName(asyncResp, name))
+    {
         return;
     }
+
     if ((resName == "Slot_0") || (resName == "Slot_1"))
     {
         messages::resourceNotFound(asyncResp->res, "Virtual Media", resName);
@@ -1352,16 +1476,29 @@ inline void handleManagersVirtualMediaActionInsertPost(
         return;
     }
 
-    std::string objPath = "/xyz/openbmc_project/VirtualMedia/Legacy/" + resName;
+    std::string objPath, service, vmObjectPath;
+
+    if (name == "system1") 
+    {
+        objPath = "/xyz/openbmc_project/VirtualMedia1/Legacy/" + resName;
+        service = "xyz.openbmc_project.VirtualMedia1";
+        vmObjectPath = "/xyz/openbmc_project/VirtualMedia1";
+    }
+   else 
+    {
+        objPath = "/xyz/openbmc_project/VirtualMedia/Legacy/" + resName;
+        service = "xyz.openbmc_project.VirtualMedia";
+        vmObjectPath = "/xyz/openbmc_project/VirtualMedia";
+    }
     dbus::utility::getProperty<bool>(
-        "xyz.openbmc_project.VirtualMedia", objPath,
+        service, objPath,
         "xyz.openbmc_project.VirtualMedia.Process", "Active",
-        [asyncResp, action, actionParams, &req,
-                                 resName](const boost::system::error_code& ec1, bool present) {
-            BMCWEB_LOG_DEBUG("handleManagersVirtualMediaActionInsertPost ");
+        [asyncResp, action, actionParams, &req, resName, name,
+            vmObjectPath](const boost::system::error_code& ec1, bool present) {
+            BMCWEB_LOG_DEBUG("handleSystemsVirtualMediaActionInsertPost ");
             if (ec1) {
                 if (ec1.value() != EBADR) 
-		{
+		        {
                     messages::internalError(asyncResp->res);
                 }
 		return;
@@ -1376,9 +1513,9 @@ inline void handleManagersVirtualMediaActionInsertPost(
 	    else if (!present)
 	    {
     		dbus::utility::getDbusObject(
-        		"/xyz/openbmc_project/VirtualMedia", {},
+        		vmObjectPath, {},
 		        [&req,asyncResp, action, actionParams,
-		        resName](const boost::system::error_code& ec,
+		        resName, vmObjectPath, name](const boost::system::error_code& ec,
 	                const dbus::utility::MapperGetObject& getObjectType) mutable {
             		if (ec)
             		{	
@@ -1390,11 +1527,9 @@ inline void handleManagersVirtualMediaActionInsertPost(
             		std::string service = getObjectType.begin()->first;
             		BMCWEB_LOG_DEBUG("GetObjectType: {}", service);
 
-            		sdbusplus::message::object_path path(
-                		"/xyz/openbmc_project/VirtualMedia");
             		dbus::utility::getManagedObjects(
-                	service, path,
-			[&req,service, resName, action, actionParams, asyncResp](
+                	service, vmObjectPath,
+			[&req,service, resName, action, actionParams, asyncResp, name](
                     		const boost::system::error_code& ec2,
                     		const dbus::utility::ManagedObjectType& subtree) mutable {
                     	if (ec2)
@@ -1414,7 +1549,7 @@ inline void handleManagersVirtualMediaActionInsertPost(
                         	if (mode == VmMode::Legacy)
                         	{
                             	validateParams(asyncResp, service, resName,
-					       	actionParams,req);
+					       	actionParams,req, name);
 
                             	return;
                         	}
@@ -1428,10 +1563,10 @@ inline void handleManagersVirtualMediaActionInsertPost(
 	});
 }
 
-inline void handleManagersVirtualMediaActionEject(
+inline void handleSystemsVirtualMediaActionEject(
     crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& managerName, const std::string& resName)
+    const std::string& name, const std::string& resName)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -1439,12 +1574,12 @@ inline void handleManagersVirtualMediaActionEject(
     }
 
     constexpr std::string_view action = "VirtualMedia.EjectMedia";
-    if (managerName != "bmc")
-    {
-        messages::resourceNotFound(asyncResp->res, action, resName);
 
+    if (!system_utils::validateSystemName(asyncResp, name))
+    {
         return;
     }
+
     if (req.session->username != "root")
     {
         auto result = find(req.session->userGroups.begin(),
@@ -1458,26 +1593,45 @@ inline void handleManagersVirtualMediaActionEject(
             return;
         }
     }
-    std::string objectPathStr;
+    std::string objectPathStr, vmService;
     if (resName == "Slot_2" || resName == "Slot_3")
     {
-        objectPathStr =
-            std::string("/xyz/openbmc_project/VirtualMedia/Legacy/") +
-            std::string(resName);
-    }
-    else
+        if (name == "system1") 
+        {
+            vmService = "xyz.openbmc_project.VirtualMedia1";
+            objectPathStr =
+                std::string("/xyz/openbmc_project/VirtualMedia1/Legacy/") +
+                std::string(resName);
+        } else 
+        {
+            vmService = "xyz.openbmc_project.VirtualMedia";
+            objectPathStr = std::string("/xyz/openbmc_project/VirtualMedia/Legacy/") +
+                            std::string(resName);
+        }
+    } 
+    else 
     {
-        objectPathStr =
-            std::string("/xyz/openbmc_project/VirtualMedia/Proxy/") +
-            std::string(resName);
+        if (name == "system1") 
+        {
+            vmService = "xyz.openbmc_project.VirtualMedia1";
+            objectPathStr = std::string("/xyz/openbmc_project/VirtualMedia1/Proxy/") +
+                            std::string(resName);
+
+        } 
+        else 
+        {
+            vmService = "xyz.openbmc_project.VirtualMedia";
+            objectPathStr = std::string("/xyz/openbmc_project/VirtualMedia/Proxy/") +
+                            std::string(resName);
+        }
     }
-    const char* objectPath = objectPathStr.c_str();
+    std::string objectPath = std::move(objectPathStr);
 
     dbus::utility::getProperty<bool>(
-        *crow::connections::systemBus, "xyz.openbmc_project.VirtualMedia",
+        *crow::connections::systemBus, vmService,
         objectPath, "xyz.openbmc_project.VirtualMedia.Process", "Active",
         [asyncResp, action,
-         resName](const boost::system::error_code& ec1, bool ejectState) {
+         resName, name, objectPath](const boost::system::error_code& ec1, bool ejectState) {
             if (ec1)
             {
                 BMCWEB_LOG_ERROR("GetProperty call failed: {}", ec1);
@@ -1496,8 +1650,8 @@ inline void handleManagersVirtualMediaActionEject(
             else
             {
                 dbus::utility::getDbusObject(
-                    "/xyz/openbmc_project/VirtualMedia", {},
-                    [asyncResp, action, resName](
+                    objectPath, {},
+                    [asyncResp, action, resName, name](
                         const boost::system::error_code& ec2,
                         const dbus::utility::MapperGetObject& getObjectType) {
                         if (ec2)
@@ -1511,12 +1665,19 @@ inline void handleManagersVirtualMediaActionEject(
                         std::string service = getObjectType.begin()->first;
                         BMCWEB_LOG_DEBUG("GetObjectType: {}", service);
 
-                        sdbusplus::message::object_path path(
-                            "/xyz/openbmc_project/VirtualMedia");
+                        std::string path;
+                        if (name == "system1")
+                        {
+                            path = "/xyz/openbmc_project/VirtualMedia1";
+                        } 
+                        else 
+                        {
+                            path = "/xyz/openbmc_project/VirtualMedia";
+                        }
                         dbus::utility::getManagedObjects(
                             service, path,
                             [resName, service, action,
-                             asyncResp](const boost::system::error_code& ec,
+                             asyncResp, name](const boost::system::error_code& ec,
                                         const dbus::utility::ManagedObjectType&
                                             subtree) {
                                 if (ec)
@@ -1535,7 +1696,7 @@ inline void handleManagersVirtualMediaActionEject(
                                     if (mode != VmMode::Invalid)
                                     {
                                         doEjectAction(asyncResp, service,
-                                                      resName,
+                                                      resName, name,
                                                       mode == VmMode::Legacy);
                                         return;
                                     }
@@ -1549,7 +1710,7 @@ inline void handleManagersVirtualMediaActionEject(
         });
 }
 
-inline void handleManagersVirtualMediaCollectionGet(
+inline void handleSystemsVirtualMediaCollectionGet(
     crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& name)
@@ -1558,10 +1719,9 @@ inline void handleManagersVirtualMediaCollectionGet(
     {
         return;
     }
-    if (name != "bmc")
+    
+    if (!system_utils::validateSystemName(asyncResp, name))
     {
-        messages::resourceNotFound(asyncResp->res, "VirtualMedia", name);
-
         return;
     }
 
@@ -1571,10 +1731,20 @@ inline void handleManagersVirtualMediaCollectionGet(
     asyncResp->res.jsonValue["Description"] =
         "The Collection for Virtual Media Services";
     asyncResp->res.jsonValue["@odata.id"] =
-        boost::urls::format("/redfish/v1/Managers/{}/VirtualMedia", name);
+        boost::urls::format("/redfish/v1/Systems/{}/VirtualMedia", name);
+    
+    std::string path;
+    if(name == "system1")
+    {
+        path = "/xyz/openbmc_project/VirtualMedia1";
+    }
+    else
+    {
+        path = "/xyz/openbmc_project/VirtualMedia";
+    }
 
     dbus::utility::getDbusObject(
-        "/xyz/openbmc_project/VirtualMedia", {},
+        path, {},
         [asyncResp, name](const boost::system::error_code& ec,
                           const dbus::utility::MapperGetObject& getObjectType) {
             if (ec)
@@ -1602,10 +1772,8 @@ inline void
     {
         return;
     }
-    if (name != "bmc")
+    if (!system_utils::validateSystemName(asyncResp, name))
     {
-        messages::resourceNotFound(asyncResp->res, "VirtualMedia", resName);
-
         return;
     }
 
@@ -1634,8 +1802,18 @@ inline void
             return;
         }
     }
+
+    std::string path;
+    if(name == "system1")
+    {
+        path = "/xyz/openbmc_project/VirtualMedia1";
+    }
+    else
+    {
+        path = "/xyz/openbmc_project/VirtualMedia";
+    }
     dbus::utility::getDbusObject(
-        "/xyz/openbmc_project/VirtualMedia", {},
+        path, {},
         [asyncResp, name,
          resName](const boost::system::error_code& ec,
                   const dbus::utility::MapperGetObject& getObjectType) {
@@ -1664,16 +1842,16 @@ inline void handleVirtualMediaValueGet(
     }
 
     asyncResp->res.clearHeader(boost::beast::http::field::allow);
-    if (name != "bmc")
+
+    if (!system_utils::validateSystemName(asyncResp, name))
     {
-        messages::resourceNotFound(asyncResp->res, "VirtualMedia", name);
         return;
     }
 
     if (resName == "Slot_2" || resName == "Slot_3")
     {
         asyncResp->res.addHeader("Allow", "POST");
-	messages::operationNotAllowed(asyncResp->res);
+	    messages::operationNotAllowed(asyncResp->res);
         return;
     }
     else
@@ -1694,11 +1872,12 @@ inline void
     {
         return;
     }
-    if (name != "bmc")
+    
+    if (!system_utils::validateSystemName(asyncResp, name))
     {
-        messages::resourceNotFound(asyncResp->res, "VirtualMedia", name);
         return;
     }
+
     if (resName.empty())
     {
         messages::resourceNotFound(asyncResp->res, "Virtual Media", resName);
@@ -1709,11 +1888,22 @@ inline void
         return;
     }
 
-    sdbusplus::message::object_path path("/xyz/openbmc_project/VirtualMedia");
+    std::string path;
+    if(name == "system1")
+    {
+        path = "/xyz/openbmc_project/VirtualMedia1";
+    }
+    else
+    {
+        path = "/xyz/openbmc_project/VirtualMedia";
+    }
+    std::string serviceName =
+        (name == "system1") ? rmedia1ServiceName : rmediaServiceName;
+
     dbus::utility::getManagedObjects(
-            "xyz.openbmc_project.VirtualMedia", path,
+            serviceName, path,
             [asyncResp, resName,
-             &req](const boost::system::error_code& ec,
+             &req, serviceName, path](const boost::system::error_code& ec,
                    const dbus::utility::ManagedObjectType& slot) {
                 if (ec)
                 {
@@ -1802,7 +1992,7 @@ inline void
                                             messages::success(asyncResp->res);
                                         }
                                     },
-                                    rmediaServiceName, rmediaObjPath,
+                                    serviceName, path,
                                     rmediaInterfaceName, "SetAll", *retryCount,
                                     *retryInterval);
                             }
@@ -1841,13 +2031,13 @@ inline void insertMediaCheckMode(
 
 inline void requestNBDVirtualMediaRoutes(App& app)
 {
-    BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/VirtualMedia/<str>/Actions/"
+    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/VirtualMedia/<str>/Actions/"
                       "VirtualMedia.InsertMedia")
         .privileges(redfish::privileges::getVirtualMedia)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleVirtualMediaValueGet, std::ref(app)));
 
-    BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/VirtualMedia/<str>/Actions/"
+    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/VirtualMedia/<str>/Actions/"
                       "VirtualMedia.InsertMedia")
         .privileges(redfish::privileges::patchVirtualMedia)
         .methods(boost::beast::http::verb::patch)(
@@ -1863,7 +2053,7 @@ inline void requestNBDVirtualMediaRoutes(App& app)
                 findItemAndRunHandler(asyncResp, name, resName,
                                       insertMediaCheckMode, req);
             });
-    BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/VirtualMedia/<str>/Actions/"
+    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/VirtualMedia/<str>/Actions/"
                       "VirtualMedia.InsertMedia")
         .privileges(redfish::privileges::putVirtualMedia)
         .methods(boost::beast::http::verb::put)(
@@ -1879,7 +2069,7 @@ inline void requestNBDVirtualMediaRoutes(App& app)
                 findItemAndRunHandler(asyncResp, name, resName,
                                       insertMediaCheckMode, req);
             });
-    BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/VirtualMedia/<str>/Actions/"
+    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/VirtualMedia/<str>/Actions/"
                       "VirtualMedia.InsertMedia")
         .privileges(redfish::privileges::deleteVirtualMedia)
         .methods(boost::beast::http::verb::delete_)(
@@ -1897,34 +2087,34 @@ inline void requestNBDVirtualMediaRoutes(App& app)
             });
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Managers/<str>/VirtualMedia/<str>/Actions/VirtualMedia.InsertMedia")
+        "/redfish/v1/Systems/<str>/VirtualMedia/<str>/Actions/VirtualMedia.InsertMedia")
         .privileges(redfish::privileges::postVirtualMedia)
         .methods(boost::beast::http::verb::post)(std::bind_front(
-            handleManagersVirtualMediaActionInsertPost, std::ref(app)));
+            handleSystemsVirtualMediaActionInsertPost, std::ref(app)));
 
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Managers/<str>/VirtualMedia/<str>/Actions/VirtualMedia.EjectMedia")
+        "/redfish/v1/Systems/<str>/VirtualMedia/<str>/Actions/VirtualMedia.EjectMedia")
         .privileges(redfish::privileges::postVirtualMedia)
         .methods(boost::beast::http::verb::post)(std::bind_front(
-            handleManagersVirtualMediaActionEject, std::ref(app)));
+            handleSystemsVirtualMediaActionEject, std::ref(app)));
 
-    BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/VirtualMedia/")
+    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/VirtualMedia/")
         .privileges(redfish::privileges::getVirtualMediaCollection)
         .methods(boost::beast::http::verb::get)(std::bind_front(
-            handleManagersVirtualMediaCollectionGet, std::ref(app)));
+            handleSystemsVirtualMediaCollectionGet, std::ref(app)));
 
-    BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/VirtualMedia/<str>/")
+    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/VirtualMedia/<str>/")
         .privileges(redfish::privileges::getVirtualMedia)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleVirtualMediaGet, std::ref(app)));
 
-    BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/VirtualMedia/<str>/")
+    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/VirtualMedia/<str>/")
         .privileges(redfish::privileges::patchVirtualMedia)
         .methods(boost::beast::http::verb::patch)(
             std::bind_front(handleVirtualmediaPatch, std::ref(app)));
 
-    BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/VirtualMedia/<str>/")
+    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/VirtualMedia/<str>/")
         .privileges(redfish::privileges::getVirtualMedia)
         .methods(boost::beast::http::verb::post,
                  boost::beast::http::verb::delete_)(
@@ -1940,10 +2130,8 @@ inline void requestNBDVirtualMediaRoutes(App& app)
                 {
                     return;
                 }
-                if (name != "bmc")
+                if (!system_utils::validateSystemName(asyncResp, name))
                 {
-                    messages::resourceNotFound(asyncResp->res, "Manager",
-                                               name);
                     return;
                 }
                 // Block POST and DELETE for specific slots
@@ -1955,8 +2143,17 @@ inline void requestNBDVirtualMediaRoutes(App& app)
                     asyncResp->res.result(boost::beast::http::status::method_not_allowed);
                     return;
                 }
+                std::string path;
+                if(name == "system1")
+                {
+                    path = "/xyz/openbmc_project/VirtualMedia1";
+                }
+                else
+                {
+                    path = "/xyz/openbmc_project/VirtualMedia";
+                }
                 dbus::utility::getDbusObject(
-                    "/xyz/openbmc_project/VirtualMedia", {},
+                    path, {},
                     [asyncResp, name, resName](
                         const boost::system::error_code& ec,
                         const dbus::utility::MapperGetObject& getObjectType) {

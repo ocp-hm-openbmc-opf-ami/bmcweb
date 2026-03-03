@@ -3,6 +3,7 @@
 #pragma once
 #include "app.hpp"
 #include "async_resp.hpp"
+#include "system_utils.hpp"
 #include "websocket.hpp"
 
 #include <sys/socket.h>
@@ -15,8 +16,8 @@ namespace crow
 namespace obmc_kvm
 {
 
-static constexpr const uint maxSessions = 2;
 std::vector<std::string> csrfTokenlist;
+
 using PropertyValue = std::variant<uint8_t, uint16_t, std::string,
                                    std::vector<std::string>, bool>;
 
@@ -100,12 +101,12 @@ uint16_t getActiveKVMSessionsFromDBus()
 class KvmSession : public std::enable_shared_from_this<KvmSession>
 {
   public:
-    explicit KvmSession(crow::websocket::Connection& connIn) :
+    explicit KvmSession(crow::websocket::Connection& connIn, const std::uint16_t portIn = 5900) :
         conn(connIn), hostSocket(conn.getIoContext()),
         timeoutInSeconds(
             persistent_data::SessionStore::getInstance().getTimeoutInSeconds())
     {
-        uint16_t port = getPortNumberFromDBus();
+        uint16_t port = (portIn == 5900) ? getPortNumberFromDBus() : portIn;
         boost::asio::ip::tcp::endpoint endpoint(
             boost::asio::ip::make_address("127.0.0.1"), port);
         hostSocket.async_connect(
@@ -343,33 +344,38 @@ static SessionMap sessions;
 
 inline void requestRoutes(App& app)
 {
+    const uint maxSessions = redfish::system_utils::isDualHostEnabled() ? 4 : 2;
     sessions.reserve(maxSessions);
 
     BMCWEB_ROUTE(app, "/kvm/0")
         .websocket()
         .privileges(redfish::privileges::privilegeSetConfigureManager)
-        .onopen([](crow::websocket::Connection& conn) {
+        .onopen([maxSessions](crow::websocket::Connection& conn) {
         BMCWEB_LOG_DEBUG("Connection {} opened", logPtr(&conn));
 
-        sessions[&conn] = std::make_shared<KvmSession>(conn);
-        conn.session->kvmConnections++;
-        
-	if (conn.session->cookieAuth == 1)
+            sessions[&conn] = std::make_shared<KvmSession>(conn);
+            conn.session->kvmConnections++;
+
+            if (!redfish::system_utils::isDualHostEnabled())
             {
-                auto it = std::find(csrfTokenlist.begin(), csrfTokenlist.end(),
-                                    conn.session->csrfToken);
-                if (it != csrfTokenlist.end())
+                if (conn.session->cookieAuth == 1)
                 {
-                    csrfTokenlist.push_back(conn.session->csrfToken);
-                    conn.close("Already a session is running in this browser");
-                    return;
-                }
-                else
-                {
-                    csrfTokenlist.push_back(conn.session->csrfToken);
+                    auto it =
+                        std::find(csrfTokenlist.begin(), csrfTokenlist.end(),
+                                  conn.session->csrfToken);
+                    if (it != csrfTokenlist.end())
+                    {
+                        csrfTokenlist.push_back(conn.session->csrfToken);
+                        conn.close(
+                            "Already a session is running in this browser");
+                        return;
+                    }
+                    else
+                    {
+                        csrfTokenlist.push_back(conn.session->csrfToken);
+                    }
                 }
             }
-
         if (getActiveKVMSessionsFromDBus() >= maxSessions)
         {
             conn.close("Max sessions are already connected");
@@ -378,14 +384,17 @@ inline void requestRoutes(App& app)
 
     })
         .onclose([](crow::websocket::Connection& conn, const std::string&) {
-	if (conn.session->cookieAuth == 1)
+            if (!redfish::system_utils::isDualHostEnabled())
             {
-                auto it =
-                    std::find(csrfTokenlist.rbegin(), csrfTokenlist.rend(),
-                              conn.session->csrfToken);
-                if (it != csrfTokenlist.rend())
+                if (conn.session->cookieAuth == 1)
                 {
-                    csrfTokenlist.erase(std::next(it).base());
+                    auto it =
+                        std::find(csrfTokenlist.rbegin(), csrfTokenlist.rend(),
+                                  conn.session->csrfToken);
+                    if (it != csrfTokenlist.rend())
+                    {
+                        csrfTokenlist.erase(std::next(it).base());
+                    }
                 }
             }
         sessions.erase(&conn);
@@ -398,6 +407,38 @@ inline void requestRoutes(App& app)
             sessions[&conn]->onMessage(data);
         }
     });
+
+    if (redfish::system_utils::isDualHostEnabled())
+    {
+        BMCWEB_ROUTE(app, "/kvm/1")
+            .websocket()
+            .privileges(redfish::privileges::privilegeSetConfigureManager)
+            .onopen([maxSessions](crow::websocket::Connection& conn) {
+                BMCWEB_LOG_DEBUG("Connection {} opened", logPtr(&conn));
+
+        const std::uint16_t port = 5901;
+        sessions[&conn] = std::make_shared<KvmSession>(conn, port);
+        conn.session->kvmConnections++;
+
+        if (getActiveKVMSessionsFromDBus() >= maxSessions)
+        {
+            conn.close("Max sessions are already connected");
+            return;
+        }
+
+    })
+        .onclose([](crow::websocket::Connection& conn, const std::string&) {
+        sessions.erase(&conn);
+        conn.session->kvmConnections--;
+    })
+        .onmessage([](crow::websocket::Connection& conn,
+                      const std::string& data, bool) {
+        if (sessions[&conn])
+        {
+            sessions[&conn]->onMessage(data);
+        }
+    });
+    }
 }
 
 } // namespace obmc_kvm

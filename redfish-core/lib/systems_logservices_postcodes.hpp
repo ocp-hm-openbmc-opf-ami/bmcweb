@@ -7,6 +7,7 @@
 #include "query.hpp"
 #include "registries/openbmc_message_registry.hpp"
 #include "registries/privilege_registry.hpp"
+#include "system_utils.hpp"
 #include "utils/time_utils.hpp"
 
 #include <cstdint>
@@ -33,10 +34,8 @@ inline void handleSystemsLogServicesPostCodesGet(
                                    systemName);
         return;
     }
-    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    if (!system_utils::validateSystemName(asyncResp, systemName))
     {
-        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                   systemName);
         return;
     }
     asyncResp->res.jsonValue["@odata.id"] =
@@ -81,10 +80,8 @@ inline void handleSystemsLogServicesPostCodesPost(
                                    systemName);
         return;
     }
-    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    if (!system_utils::validateSystemName(asyncResp, systemName))
     {
-        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                   systemName);
         return;
     }
     BMCWEB_LOG_DEBUG("Do delete all postcodes entries.");
@@ -480,10 +477,8 @@ inline void handleSystemsLogServicesPostCodesEntriesGet(
         return;
     }
 
-    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    if (!system_utils::validateSystemName(asyncResp, systemName))
     {
-        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                   systemName);
         return;
     }
     asyncResp->res.jsonValue["@odata.type"] =
@@ -524,10 +519,8 @@ inline void handleSystemsLogServicesPostCodesEntriesEntryAdditionalDataGet(
                                    systemName);
         return;
     }
-    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    if (!system_utils::validateSystemName(asyncResp, systemName))
     {
-        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                   systemName);
         return;
     }
 
@@ -607,10 +600,8 @@ inline void handleSystemsLogServicesPostCodesEntriesEntryGet(
                                    systemName);
         return;
     }
-    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    if (!system_utils::validateSystemName(asyncResp, systemName))
     {
-        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                   systemName);
         return;
     }
     if (!membersResponseGet(asyncResp, targetID, "LogEntryCollection"))

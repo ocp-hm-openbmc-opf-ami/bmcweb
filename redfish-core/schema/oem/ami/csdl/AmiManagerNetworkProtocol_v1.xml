@@ -100,6 +100,10 @@
                     <Annotation Term="OData.Description" String="Encrypted NTP configuration settings."/>
                     <Annotation Term="OData.LongDescription" String="This property contains the encrypted Network Time Protocol (NTP) configuration settings used to securely synchronize time on the system."/>
                </Property>
+               <Property Name="LocalMedia" Type="AmiManagerNetworkProtocol.v1_1_0.LocalMedia" Nullable="false">
+	                <Annotation Term="OData.Description" String="TBD"/>
+		            <Annotation Term="OData.LongDescription" String="TBD"/>
+		       </Property>
             </ComplexType>
             <ComplexType Name="AmiManagerNetworkProtocol" BaseType="AmiManagerNetworkProtocol.v1_0_0.ManagerNetworkProtocol">
                 <Annotation Term="OData.AdditionalProperties" Bool="false"/>
@@ -292,6 +296,68 @@
                 <Annotation Term="OData.Description" String="smtp related properties"/>
                 </Member>
             </EnumType>
-        </Schema>
+    	</Schema>
+	<Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AmiManagerNetworkProtocol.v1_1_0">
+	    <Annotation Term="Redfish.OwningEntity" String="Ami"/>
+	    <Annotation Term="Redfish.Release" String="1.1"/>
+	    <ComplexType Name="ManagerNetworkProtocol" BaseType="AmiManagerNetworkProtocol.v1_0_0.ManagerNetworkProtocol">
+		<Property Name="LocalMedia" Type="AmiManagerNetworkProtocol.v1_1_0.LocalMedia" Nullable="false">
+	            <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+		    <Annotation Term="OData.Description" String="Local media configuration information."/>
+		    <Annotation Term="OData.LongDescription" String="This property contains local media configuration information including memory usage and redirection image details."/>
+		</Property>
+	    </ComplexType>
+		<ComplexType Name="Memory">
+            <Annotation Term="OData.Description" String="Memory usage information for local media."/>
+            <Annotation Term="OData.LongDescription" String="This type describes memory usage statistics for local media storage."/>
+            <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+            <Property Name="Free" Type="Edm.Int64" Nullable="false">
+                <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+                <Annotation Term="OData.Description" String="Free memory available."/>
+                <Annotation Term="OData.LongDescription" String="This property shall contain the amount of free memory available."/>
+            </Property>
+            <Property Name="FreeUnit" Type="Edm.String" Nullable="false">
+                <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+                <Annotation Term="OData.Description" String="Unit of measurement for free memory."/>
+                <Annotation Term="OData.LongDescription" String="This property shall contain the unit of measurement for free memory (e.g., KB, MB, GB)."/>
+            </Property>
+            <Property Name="Total" Type="Edm.Int64" Nullable="false">
+                <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+                <Annotation Term="OData.Description" String="Total memory capacity."/>
+                <Annotation Term="OData.LongDescription" String="This property shall contain the total memory capacity."/>
+            </Property>
+            <Property Name="TotalUnit" Type="Edm.String" Nullable="false">
+                <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+                <Annotation Term="OData.Description" String="Unit of measurement for total memory."/>
+                <Annotation Term="OData.LongDescription" String="This property shall contain the unit of measurement for total memory (e.g., KB, MB, GB)."/>
+            </Property>
+            <Property Name="Used" Type="Edm.Int64" Nullable="false">
+                <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+                <Annotation Term="OData.Description" String="Used memory amount."/>
+                <Annotation Term="OData.LongDescription" String="This property shall contain the amount of used memory."/>
+            </Property>
+            <Property Name="UsedUnit" Type="Edm.String" Nullable="false">
+                <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+                <Annotation Term="OData.Description" String="Unit of measurement for used memory."/>
+                <Annotation Term="OData.LongDescription" String="This property shall contain the unit of measurement for used memory (e.g., KB, MB, GB)."/>
+            </Property>
+        </ComplexType>
+        <ComplexType Name="LocalMedia">
+            <Annotation Term="OData.Description" String="Local media configuration information."/>
+            <Annotation Term="OData.LongDescription" String="This type describes local media configuration including memory usage and redirection image details."/>
+            <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+                <Property Name="Memory" Type="AmiManagerNetworkProtocol.v1_1_0.Memory" Nullable="false">
+                    <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+                    <Annotation Term="OData.Description" String="Memory usage information."/>
+                    <Annotation Term="OData.LongDescription" String="This property shall contain memory usage information for local media."/>
+                </Property>
+                <Property Name="RedirectionImage" Type="Edm.String" Nullable="true">
+                    <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+                    <Annotation Term="OData.Description" String="Redirection image path or identifier."/>
+                    <Annotation Term="OData.LongDescription" String="This property shall contain the path or identifier of the redirection image."/>
+                </Property>
+        </ComplexType>
+    </Schema> 
     </edmx:DataServices>
 </edmx:Edmx>
+

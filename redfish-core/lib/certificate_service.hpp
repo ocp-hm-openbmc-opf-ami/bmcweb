@@ -296,13 +296,15 @@ inline void updateCertIssuerOrSubject(nlohmann::json& out,
 inline void getCertificateList(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& basePath, const nlohmann::json::json_pointer& listPtr,
-    const nlohmann::json::json_pointer& countPtr)
+    const nlohmann::json::json_pointer& countPtr,
+    const std::optional<std::string>& dbName,
+    const std::string& systemName)
 {
     constexpr std::array<std::string_view, 1> interfaces = {
         certs::certPropIntf};
     dbus::utility::getSubTreePaths(
         basePath, 0, interfaces,
-        [asyncResp, listPtr, countPtr](
+        [asyncResp, listPtr, countPtr, dbName, systemName](
             const boost::system::error_code& ec,
             const dbus::utility::MapperGetSubTreePathsResponse& certPaths) {
             if (ec)
@@ -706,7 +708,7 @@ inline void handleCertificateLocationsGet(
 
     getCertificateList(asyncResp, certs::baseObjectPath,
                        "/Links/Certificates"_json_pointer,
-                       "/Links/Certificates@odata.count"_json_pointer);
+                       "/Links/Certificates@odata.count"_json_pointer, std::nullopt, std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME));
 }
 
 inline void handleError(const std::string_view dbusErrorName,
@@ -1394,7 +1396,7 @@ inline void handleHTTPSCertificateCollectionGet(
 
     getCertificateList(asyncResp, certs::httpsObjectPath,
                        "/Members"_json_pointer,
-                       "/Members@odata.count"_json_pointer);
+                       "/Members@odata.count"_json_pointer, std::nullopt, std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME));
 }
 
 inline void handleHTTPSCertificateCollectionPost(
@@ -1592,7 +1594,7 @@ inline void handleLDAPCertificateCollectionGet(
 
     getCertificateList(asyncResp, certs::ldapObjectPath,
                        "/Members"_json_pointer,
-                       "/Members@odata.count"_json_pointer);
+                       "/Members@odata.count"_json_pointer, std::nullopt, std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME));
 }
 
 inline void handleLDAPCertificateCollectionPost(
@@ -1786,7 +1788,7 @@ inline void handleTrustStoreCertificateCollectionGet(
 
     getCertificateList(asyncResp, certs::authorityObjectPath,
                        "/Members"_json_pointer,
-                       "/Members@odata.count"_json_pointer);
+                       "/Members@odata.count"_json_pointer, std::nullopt, std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME));
 }
 
 inline void handleTrustStoreCertificateCollectionPost(

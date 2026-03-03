@@ -8,7 +8,6 @@
 #include "aggregation_service.hpp"
 #include "app.hpp"
 #include "bios.hpp"
-#include "bsodjpeg.hpp"
 #include "cable.hpp"
 #include "certificate_service.hpp"
 #include "chassis.hpp"
@@ -66,6 +65,11 @@
 #include "virtual_media.hpp"
 #include "utils/json_utils.hpp"
 #include "dashboard.hpp"
+
+
+#if (!BMCWEB_ARBEL_NUVOTON_MACRO)
+#include "bsodjpeg.hpp"
+#endif
 
 #ifdef ONETREE_NIC
 #include "ext/src/nic.hpp"
@@ -237,9 +241,11 @@ RedfishService::RedfishService(App& app)
     requestRoutesManagerResetActionInfo(app);
     requestRoutesManagerResetToDefaults(app);
     requestRoutesManagerDiagnosticData(app);
-    requestRoutesBsodjpeg(app);
-    requestRoutesDeleteBsodjpeg(app);
-    requestRoutesTriggerBsodjpeg(app);
+    #if (!BMCWEB_ARBEL_NUVOTON_MACRO)
+        requestRoutesBsodjpeg(app);
+        requestRoutesDeleteBsodjpeg(app);
+        requestRoutesTriggerBsodjpeg(app);
+    #endif
     requestRoutesChassisCollection(app);
     requestRoutesChassis(app);
     requestRoutesChassisResetAction(app);

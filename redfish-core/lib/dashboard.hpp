@@ -11,6 +11,7 @@
 #include "managers.hpp"
 #include "led.hpp"
 #include "systems.hpp"
+#include "system_utils.hpp"
 
 #include <boost/url/format.hpp>
 
@@ -201,11 +202,14 @@ inline void OverviewPage (App& /*app*/, const crow::Request& /*req*/,
     //Inventory and LED Info
     getSystemLocationIndicatorActive(asyncResp);
     getPhysicalLedState(asyncResp);
-    getHostState(asyncResp);
+    getHostState(asyncResp, "system");
 
-    //erase led odataType
+    // Checking Dual Node support enable or not
+    asyncResp->res.jsonValue["DualNodeEnabled"] =
+        redfish::system_utils::isDualHostEnabled();
+
+    // erase led odataType
     asyncResp->res.jsonValue["Oem"]["Ami"]["PhysicalLED"].erase("@odata.type");
-
 }
 
 inline void requestRoutesDashboard (App& app)

@@ -1,5 +1,5 @@
 {
-    "$id": "/redfish/v1/JsonSchemas/AmiManagerNetworkProtocol/AmiManagerNetworkProtocol.v1_0_0.json",
+    "$id": "/redfish/v1/JsonSchemas/AmiManagerNetworkProtocol/AmiManagerNetworkProtocol.v1_1_0.json",
     "$ref": "#/definitions/AmiManagerNetworkProtocol",
     "$schema": "http://redfish.dmtf.org/schemas/v1/redfish-schema-v1.json",
     "copyright": "Copyright American Megatrends, Inc. (AMI).",
@@ -94,7 +94,7 @@
                 "Bios": {
                     "anyOf": [
                         {
-                            "$ref": "http://redfish.dmtf.org/schemas/v1/AmiBIOSInventoryCRC.v1_0_0.json#/definitions/Bios"
+                            "$ref": "/redfish/v1/schema/AmiBIOSInventoryCRC.v1_0_0.json#/definitions/Bios"
                         },
                         {
                             "type": "null"
@@ -112,7 +112,7 @@
                     "$ref": "#/definitions/EncryptedNTP",
                     "description": "Encrypted NTP configuration settings.",
                     "longDescription": "This property contains the encrypted Network Time Protocol (NTP) configuration settings used to securely synchronize time on the system."
-		},
+                },
                 "GraphicalConsole": {
                     "$ref": "#/definitions/GraphicalConsole",
                     "description": "The settings for this manager's GraphicalConsole protocol support.",
@@ -135,6 +135,11 @@
                     "description": "The settings for this manager's IPMI protocol support.",
                     "longDescription": "This object shall contain the IPMI protocol settings for this manager.  The default Port property value should be `443` for compatibility with established client implementations.",
                     "readonly": true
+                },
+                "LocalMedia": {
+                    "$ref": "#/definitions/LocalMedia",
+                    "description": "TBD",
+                    "longDescription": "TBD"
                 },
                 "PhysicalLED": {
                     "$ref": "#/definitions/PhysicalLED",
@@ -304,7 +309,7 @@
             },
             "type": "object"
         },
-	"GraphicalConsole": {
+        "GraphicalConsole": {
             "additionalProperties": false,
             "patternProperties": {
                 "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
@@ -329,6 +334,45 @@
                         "boolean",
                         "null"
                     ]
+                }
+            },
+            "type": "object"
+        },
+        "LocalMedia": {
+            "additionalProperties": false,
+            "description": "Local media configuration information.",
+            "longDescription": "This type describes local media configuration including memory usage and redirection image details.",
+            "patternProperties": {
+                "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
+                    "description": "This property shall specify a valid odata or Redfish property.",
+                    "type": [
+                        "array",
+                        "boolean",
+                        "integer",
+                        "number",
+                        "null",
+                        "object",
+                        "string"
+                    ]
+                }
+            },
+            "properties": {
+                "Memory": {
+                    "$ref": "#/definitions/Memory",
+                    "description": "Memory usage information.",
+                    "longDescription": "This property shall contain memory usage information for local media.",
+                    "readonly": true,
+                    "versionAdded": "v1_1_0"
+                },
+                "RedirectionImage": {
+                    "description": "Redirection image path or identifier.",
+                    "longDescription": "This property shall contain the path or identifier of the redirection image.",
+                    "readonly": true,
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "versionAdded": "v1_1_0"
                 }
             },
             "type": "object"
@@ -365,7 +409,7 @@
                     "description": "Indicates the primary/preferred channel for each platform. The privilege of the default channel should match the RoleId attribute when a Manager Account is created.",
                     "longDescription": "This property indicates the primary/preferred channel for each platform. The privilege of the default channel should match the RoleId attribute when a Manager Account is created."
                 },
-		"EncryptedNTP": {
+                "EncryptedNTP": {
                     "$ref": "#/definitions/EncryptedNTP",
                     "description": "Encrypted NTP configuration settings.",
                     "longDescription": "This property contains the encrypted Network Time Protocol (NTP) configuration settings used to securely synchronize time on the system."
@@ -393,6 +437,11 @@
                     "longDescription": "This object shall contain the IPMI protocol settings for this manager.  The default Port property value should be `443` for compatibility with established client implementations.",
                     "readonly": true
                 },
+                "LocalMedia": {
+                    "$ref": "#/definitions/LocalMedia",
+                    "description": "TBD",
+                    "longDescription": "TBD"
+                },
                 "PhysicalLED": {
                     "$ref": "#/definitions/PhysicalLED",
                     "description": "The settings for this manager's PhysicalLED protocol support.",
@@ -418,6 +467,70 @@
                     "$ref": "#/definitions/VirtualMediaConfig",
                     "description": "The settings for this manager's VirtualMediaConfig protocol support.",
                     "longDescription": "Have the details of VirtualMediaConfig."
+                }
+            },
+            "type": "object"
+        },
+        "Memory": {
+            "additionalProperties": false,
+            "description": "Memory usage information for local media.",
+            "longDescription": "This type describes memory usage statistics for local media storage.",
+            "patternProperties": {
+                "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
+                    "description": "This property shall specify a valid odata or Redfish property.",
+                    "type": [
+                        "array",
+                        "boolean",
+                        "integer",
+                        "number",
+                        "null",
+                        "object",
+                        "string"
+                    ]
+                }
+            },
+            "properties": {
+                "Free": {
+                    "description": "Free memory available.",
+                    "longDescription": "This property shall contain the amount of free memory available.",
+                    "readonly": true,
+                    "type": "integer",
+                    "versionAdded": "v1_1_0"
+                },
+                "FreeUnit": {
+                    "description": "Unit of measurement for free memory.",
+                    "longDescription": "This property shall contain the unit of measurement for free memory (e.g., KB, MB, GB).",
+                    "readonly": true,
+                    "type": "string",
+                    "versionAdded": "v1_1_0"
+                },
+                "Total": {
+                    "description": "Total memory capacity.",
+                    "longDescription": "This property shall contain the total memory capacity.",
+                    "readonly": true,
+                    "type": "integer",
+                    "versionAdded": "v1_1_0"
+                },
+                "TotalUnit": {
+                    "description": "Unit of measurement for total memory.",
+                    "longDescription": "This property shall contain the unit of measurement for total memory (e.g., KB, MB, GB).",
+                    "readonly": true,
+                    "type": "string",
+                    "versionAdded": "v1_1_0"
+                },
+                "Used": {
+                    "description": "Used memory amount.",
+                    "longDescription": "This property shall contain the amount of used memory.",
+                    "readonly": true,
+                    "type": "integer",
+                    "versionAdded": "v1_1_0"
+                },
+                "UsedUnit": {
+                    "description": "Unit of measurement for used memory.",
+                    "longDescription": "This property shall contain the unit of measurement for used memory (e.g., KB, MB, GB).",
+                    "readonly": true,
+                    "type": "string",
+                    "versionAdded": "v1_1_0"
                 }
             },
             "type": "object"
@@ -684,6 +797,6 @@
         }
     },
     "owningEntity": "Ami",
-    "release": "1.0",
-    "title": "#AmiManagerNetworkProtocol.v1_0_0.AmiManagerNetworkProtocol"
+    "release": "1.1",
+    "title": "#AmiManagerNetworkProtocol.v1_1_0"
 }
