@@ -23,6 +23,9 @@
 #include <memory>
 #include <string_view>
 
+#include <boost/asio/steady_timer.hpp>
+#include <chrono>
+
 namespace redfish
 {
 namespace certs
@@ -814,6 +817,42 @@ inline void getCertificateType(
         });
 }
 
+inline void restartBmcweb()
+{
+    constexpr std::chrono::milliseconds delay(800);
+    auto& ioc = crow::connections::systemBus->get_io_context();
+
+    auto timer = std::make_shared<boost::asio::steady_timer>(ioc);
+    timer->expires_after(delay);
+    timer->async_wait([timer](const boost::system::error_code& ec) {
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR("Restart timer canceled: {}", ec.message());
+            return;
+        }
+
+        crow::connections::systemBus->async_method_call(
+            [](const boost::system::error_code& dbusEc, sdbusplus::message_t&) {
+                if (dbusEc)
+                {
+                    BMCWEB_LOG_ERROR("RestartUnit(bmcweb.service) failed: {}",
+                                     dbusEc.message());
+                }
+                else
+                {
+                    BMCWEB_LOG_INFO("RestartUnit(bmcweb.service) triggered");
+                }
+            },
+            "org.freedesktop.systemd1",
+            "/org/freedesktop/systemd1",
+            "org.freedesktop.systemd1.Manager",
+            "RestartUnit",
+            "bmcweb.service",
+            "replace"
+        );
+    });
+}
+
 inline void handleReplaceCertificateAction(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
@@ -992,6 +1031,9 @@ inline void handleReplaceCertificateAction(
                             asyncResp->res.addHeader(boost::beast::http::field::location,
                                                         certURI);
                             asyncResp->res.result(boost::beast::http::status::no_content);
+
+                            // Restart bmcweb to ensure the new certificate is fully loaded
+                            if(service == certs::httpsServiceName) restartBmcweb();
                         },
                         service, objectPath, certs::certReplaceIntf, "Replace",
                         certFile->getCertFilePath());
