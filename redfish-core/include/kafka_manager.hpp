@@ -81,10 +81,9 @@ class KafkaManager : public std::enable_shared_from_this<KafkaManager>
     boost::container::flat_map<std::string, KafkaConfig> subscriptionsMap;
     bool configPmtResourceError;
 
-    bool parseAndValidateDestination(const std::string& dest,
-                                     std::shared_ptr<bmcweb::AsyncResp> aResp,
-                                     std::string_view fieldName,
-                                     std::string& authority)
+    bool parseAndValidateDestination(
+        const std::string& dest, std::shared_ptr<bmcweb::AsyncResp> aResp,
+        std::string_view fieldName, std::string& authority)
     {
         constexpr const char* defaultScheme = "ssl://";
         boost::system::result<boost::urls::url_view> url =
@@ -150,10 +149,11 @@ class KafkaManager : public std::enable_shared_from_this<KafkaManager>
             return false;
         }
 
-        ssize_t validCount = std::count_if(topic.begin(), topic.end(),
-                                           [](unsigned char c) {
-            return (std::isalnum(c) || (c == '-') || (c == '_') || (c == '.'));
-        });
+        ssize_t validCount =
+            std::count_if(topic.begin(), topic.end(), [](unsigned char c) {
+                return (std::isalnum(c) || (c == '-') || (c == '_') ||
+                        (c == '.'));
+            });
 
         if (validCount != static_cast<ssize_t>(topic.size()))
         {
@@ -369,43 +369,44 @@ class KafkaManager : public std::enable_shared_from_this<KafkaManager>
         // 2) There's no proper synchronization mechanism between this and the
         //    PMT service. For now it is assumed that subscriptions are still
         //    present on the latter, but this might not be true.
-        auto afterCertGet = [this, subId,
-                             subData](const boost::system::error_code& ec,
-                                      std::optional<std::string> certString) {
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR("Failed to get certificate from {}: {}",
-                                 subData.certUri, ec);
-                return;
-            }
-
-            std::vector<std::string> brokers;
-            brokers.push_back(subData.mainBroker);
-            brokers.insert(brokers.end(), subData.additionalBrokers.begin(),
-                           subData.additionalBrokers.end());
-
-            crow::connections::systemBus->async_method_call(
-                [this, subId, subData](const boost::system::error_code& ec2,
-                                       const bool result) {
-                if (ec2)
+        auto afterCertGet =
+            [this, subId, subData](const boost::system::error_code& ec,
+                                   std::optional<std::string> certString) {
+                if (ec)
                 {
-                    configPmtResourceError = true;
-                    BMCWEB_LOG_ERROR(
-                        "Failed to subscribe for Kafka streaming.");
+                    BMCWEB_LOG_ERROR("Failed to get certificate from {}: {}",
+                                     subData.certUri, ec);
                     return;
                 }
-                if (!result)
-                {
-                    BMCWEB_LOG_ERROR("PMT failed to add streaming destination");
-                    return;
-                }
-                subscriptionsMap.insert(std::pair(subId, subData));
-            },
-                "xyz.openbmc_project.Pmt", "/xyz/openbmc_project/Pmt",
-                "xyz.openbmc_project.Pmt.StreamingDestination",
-                "UpdateStreamingDestination", subId, brokers, subData.topic,
-                subData.schemaId, subData.sInterval, *certString);
-        };
+
+                std::vector<std::string> brokers;
+                brokers.push_back(subData.mainBroker);
+                brokers.insert(brokers.end(), subData.additionalBrokers.begin(),
+                               subData.additionalBrokers.end());
+
+                crow::connections::systemBus->async_method_call(
+                    [this, subId, subData](const boost::system::error_code& ec2,
+                                           const bool result) {
+                        if (ec2)
+                        {
+                            configPmtResourceError = true;
+                            BMCWEB_LOG_ERROR(
+                                "Failed to subscribe for Kafka streaming.");
+                            return;
+                        }
+                        if (!result)
+                        {
+                            BMCWEB_LOG_ERROR(
+                                "PMT failed to add streaming destination");
+                            return;
+                        }
+                        subscriptionsMap.insert(std::pair(subId, subData));
+                    },
+                    "xyz.openbmc_project.Pmt", "/xyz/openbmc_project/Pmt",
+                    "xyz.openbmc_project.Pmt.StreamingDestination",
+                    "UpdateStreamingDestination", subId, brokers, subData.topic,
+                    subData.schemaId, subData.sInterval, *certString);
+            };
 
         getCertificate(subData, std::move(afterCertGet));
 
@@ -514,23 +515,25 @@ class KafkaManager : public std::enable_shared_from_this<KafkaManager>
         {
             idList.emplace_back(it.first);
         }
-         // Add file-based subscriptions from /var/pmt/streamingdestinations
-         const std::string kafkaStore = "/var/pmt/streamingdestinations";
-         if (std::filesystem::exists(kafkaStore))
-         {
-             for (const auto& entry : std::filesystem::directory_iterator(kafkaStore))
-             {
-                 if (entry.is_regular_file())
-                 {
-                     std::string id = entry.path().filename().string();
-                     // Avoid duplicates (already in subscriptionsMap)
-                     if (std::find(idList.begin(), idList.end(), id) == idList.end())
-                     {
-                         idList.push_back(id);
-                     }
-                 }
-             }
-         }
+        // Add file-based subscriptions from /var/pmt/streamingdestinations
+        const std::string kafkaStore = "/var/pmt/streamingdestinations";
+        if (std::filesystem::exists(kafkaStore))
+        {
+            for (const auto& entry :
+                 std::filesystem::directory_iterator(kafkaStore))
+            {
+                if (entry.is_regular_file())
+                {
+                    std::string id = entry.path().filename().string();
+                    // Avoid duplicates (already in subscriptionsMap)
+                    if (std::find(idList.begin(), idList.end(), id) ==
+                        idList.end())
+                    {
+                        idList.push_back(id);
+                    }
+                }
+            }
+        }
         return idList;
     }
 
@@ -545,7 +548,7 @@ class KafkaManager : public std::enable_shared_from_this<KafkaManager>
     inline void getSubscription(const std::string& subId,
                                 std::shared_ptr<bmcweb::AsyncResp> aResp)
     {
-	BMCWEB_LOG_DEBUG("Kafka subscription GET request.");
+        BMCWEB_LOG_DEBUG("Kafka subscription GET request.");
         auto obj = subscriptionsMap.find(subId);
         KafkaConfig subData;
 
@@ -569,7 +572,9 @@ class KafkaManager : public std::enable_shared_from_this<KafkaManager>
                 std::ifstream file(kafkaPath);
                 if (!file)
                 {
-                    BMCWEB_LOG_ERROR("Failed to open file for Kafka subscription: {}", subId);
+                    BMCWEB_LOG_ERROR(
+                        "Failed to open file for Kafka subscription: {}",
+                        subId);
                     messages::internalError(aResp->res);
                     return;
                 }
@@ -585,19 +590,22 @@ class KafkaManager : public std::enable_shared_from_this<KafkaManager>
                 subData.mainBroker = kafkaJson["kafkaBrokers"].at(0);
                 for (size_t i = 1; i < kafkaJson["kafkaBrokers"].size(); ++i)
                 {
-                    subData.additionalBrokers.push_back(kafkaJson["kafkaBrokers"][i]);
+                    subData.additionalBrokers.push_back(
+                        kafkaJson["kafkaBrokers"][i]);
                 }
             }
             catch (const std::exception& e)
             {
-                BMCWEB_LOG_ERROR("Failed to parse Kafka subscription {}: {}", subId, e.what());
+                BMCWEB_LOG_ERROR("Failed to parse Kafka subscription {}: {}",
+                                 subId, e.what());
                 messages::internalError(aResp->res);
                 return;
             }
         }
 
         std::string refLink = "/redfish/v1/EventService/Subscriptions/" + subId;
-        aResp->res.jsonValue["@odata.type"] = json_util::odataType("EventDestination");
+        aResp->res.jsonValue["@odata.type"] =
+            json_util::odataType("EventDestination");
         aResp->res.jsonValue["@odata.id"] =
             "/redfish/v1/EventService/Subscriptions/" + subId;
         aResp->res.jsonValue["Id"] = subId;
@@ -608,8 +616,8 @@ class KafkaManager : public std::enable_shared_from_this<KafkaManager>
         aResp->res.jsonValue["OEMProtocol"] = "Avro";
         aResp->res.jsonValue["Oem"]["@odata.id"] = refLink + "#/Oem";
         aResp->res.jsonValue["Oem"]["@odata.type"] = "#OemEventDestination.Oem";
-        aResp->res.jsonValue["Oem"]["Intel"]["@odata.id"] = refLink +
-                                                            "#/Oem/Intel";
+        aResp->res.jsonValue["Oem"]["Intel"]["@odata.id"] =
+            refLink + "#/Oem/Intel";
         aResp->res.jsonValue["Oem"]["Intel"]["@odata.type"] =
             "#OemEventDestination.Intel";
         nlohmann::json& kafkaObj =
@@ -661,14 +669,14 @@ class KafkaManager : public std::enable_shared_from_this<KafkaManager>
         {
             return;
         }
-	kafkaObj = intelObj;
+        kafkaObj = intelObj;
         KafkaConfig subData;
         std::optional<std::vector<std::string>> addDest;
-        if (!json_util::readJson(kafkaObj, aResp->res, "AdditionalDestinations",
-                                 addDest, "KafkaTopic", subData.topic,
-                                 "AvroSchemaId", subData.schemaId,
-                                 "StreamingRateMs", subData.sInterval,
-				 "CertificateUri", subData.certUri))
+        if (!json_util::readJson(
+                kafkaObj, aResp->res, "AdditionalDestinations", addDest,
+                "KafkaTopic", subData.topic, "AvroSchemaId", subData.schemaId,
+                "StreamingRateMs", subData.sInterval, "CertificateUri",
+                subData.certUri))
         {
             return;
         }
@@ -749,25 +757,26 @@ class KafkaManager : public std::enable_shared_from_this<KafkaManager>
             crow::connections::systemBus->async_method_call(
                 [this, aResp, subId, subData, certString](
                     const boost::system::error_code& ec2, const bool result) {
-                if (ec2)
-                {
-                    BMCWEB_LOG_ERROR(
-                        "Failed to subscribe for Kafka streaming.");
-                    messages::internalError(aResp->res);
-                    return;
-                }
+                    if (ec2)
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "Failed to subscribe for Kafka streaming.");
+                        messages::internalError(aResp->res);
+                        return;
+                    }
 
-                if (!result)
-                {
-                    BMCWEB_LOG_ERROR("PMT failed to add streaming destination");
-                    messages::internalError(aResp->res);
-                    return;
-                }
+                    if (!result)
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "PMT failed to add streaming destination");
+                        messages::internalError(aResp->res);
+                        return;
+                    }
 
-                subscriptionsMap.insert(std::pair(subId, subData));
-                WriteToFile();
-                messages::success(aResp->res);
-            },
+                    subscriptionsMap.insert(std::pair(subId, subData));
+                    WriteToFile();
+                    messages::success(aResp->res);
+                },
                 "xyz.openbmc_project.Pmt", "/xyz/openbmc_project/Pmt",
                 "xyz.openbmc_project.Pmt.StreamingDestination",
                 "AddStreamingDestination", subId, brokers, subData.topic,
@@ -801,17 +810,17 @@ class KafkaManager : public std::enable_shared_from_this<KafkaManager>
 
         crow::connections::systemBus->async_method_call(
             [this, aResp, subId](const boost::system::error_code& ec) {
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR("No kafka subscription found");
-                aResp->res.result(boost::beast::http::status::not_found);
-                return;
-            }
-            subscriptionsMap.erase(subId);
-            WriteToFile();
-            messages::success(aResp->res);
-            aResp->res.result(boost::beast::http::status::ok);
-        },
+                if (ec)
+                {
+                    BMCWEB_LOG_ERROR("No kafka subscription found");
+                    aResp->res.result(boost::beast::http::status::not_found);
+                    return;
+                }
+                subscriptionsMap.erase(subId);
+                WriteToFile();
+                messages::success(aResp->res);
+                aResp->res.result(boost::beast::http::status::ok);
+            },
             "xyz.openbmc_project.Pmt", "/xyz/openbmc_project/Pmt",
             "xyz.openbmc_project.Pmt.StreamingDestination",
             "RemoveStreamingDestination", subId);
@@ -981,25 +990,26 @@ class KafkaManager : public std::enable_shared_from_this<KafkaManager>
             crow::connections::systemBus->async_method_call(
                 [this, aResp, subId, subData, certString](
                     const boost::system::error_code& ec2, const bool result) {
-                if (ec2)
-                {
-                    BMCWEB_LOG_ERROR("Failed to update Kafka subscription.");
-                    messages::internalError(aResp->res);
-                    return;
-                }
+                    if (ec2)
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "Failed to update Kafka subscription.");
+                        messages::internalError(aResp->res);
+                        return;
+                    }
 
-                if (!result)
-                {
-                    BMCWEB_LOG_ERROR(
-                        "PMT failed to update streaming destination");
-                    messages::internalError(aResp->res);
-                    return;
-                }
+                    if (!result)
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "PMT failed to update streaming destination");
+                        messages::internalError(aResp->res);
+                        return;
+                    }
 
-                subscriptionsMap.insert(std::pair(subId, subData));
-                WriteToFile();
-                messages::success(aResp->res);
-            },
+                    subscriptionsMap.insert(std::pair(subId, subData));
+                    WriteToFile();
+                    messages::success(aResp->res);
+                },
                 "xyz.openbmc_project.Pmt", "/xyz/openbmc_project/Pmt",
                 "xyz.openbmc_project.Pmt.StreamingDestination",
                 "UpdateStreamingDestination", subId, brokers, subData.topic,

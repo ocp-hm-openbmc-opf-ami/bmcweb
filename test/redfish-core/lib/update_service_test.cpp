@@ -136,7 +136,7 @@ TEST(UpdateService, ParseHTTPSNegative)
     ASSERT_EQ(parseSimpleUpdateUrl("1.1.1.1/path", std::nullopt, res),
               std::nullopt);
     // No host
-   ASSERT_EQ(parseSimpleUpdateUrl("/path", "HTTPS", res), std::nullopt);
+    ASSERT_EQ(parseSimpleUpdateUrl("/path", "HTTPS", res), std::nullopt);
 }
 } // namespace
 } // namespace redfish

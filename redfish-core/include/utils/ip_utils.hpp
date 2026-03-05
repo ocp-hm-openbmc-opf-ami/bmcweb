@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
+#include "syslog.h"
+
 #include <boost/asio/ip/address.hpp>
 #include <boost/asio/ip/address_v4.hpp>
 #include <boost/asio/ip/address_v6.hpp>
@@ -10,7 +12,6 @@
 #include <stdplus/numeric/str.hpp>
 #include <stdplus/str/conv.hpp>
 
-#include "syslog.h"
 #include <string>
 
 namespace redfish
@@ -207,7 +208,10 @@ inline bool validateIPv6address(std::string addr, Type type)
     }
     catch (const std::exception& e)
     {
-        syslog(LOG_WARNING, "validateIPv6address IP : %s is Invalid & Error Returned is : %s !!! \n", addr.c_str(), e.what());
+        syslog(
+            LOG_WARNING,
+            "validateIPv6address IP : %s is Invalid & Error Returned is : %s !!! \n",
+            addr.c_str(), e.what());
         return false;
     }
 }
@@ -216,13 +220,14 @@ inline std::string normalizeIPv6(const std::string& ipv6)
 {
     try
     {
-        boost::asio::ip::address_v6 addr(boost::asio::ip::make_address_v6(ipv6));
+        boost::asio::ip::address_v6 addr(
+            boost::asio::ip::make_address_v6(ipv6));
         return addr.to_string();
     }
     catch (const boost::system::system_error& e)
     {
         // Handle invalid IPv6 address format
-        BMCWEB_LOG_ERROR("invalid IPv6 address format: {}",ipv6);
+        BMCWEB_LOG_ERROR("invalid IPv6 address format: {}", ipv6);
         return ipv6; // Or throw a more specific error/log message
     }
 }
@@ -233,7 +238,7 @@ inline bool isValidIPv4Address(in_addr* addr, Type type)
     in_addr_t tmp = stdplus::ntoh(addr->s_addr);
     for (int i = 0; i < 4; i++)
     {
-        ip[i] = ( tmp >> (8 * (3 - i)) ) & 0xFF;
+        ip[i] = (tmp >> (8 * (3 - i))) & 0xFF;
     }
     if (type == Type::GATEWAY4_ADDRESS)
     {
@@ -254,28 +259,29 @@ inline bool isValidIPv4Address(in_addr* addr, Type type)
     return true;
 }
 
-inline std::string extractIPv4FromMappedIPv6(const boost::asio::ip::address& addr)
+inline std::string extractIPv4FromMappedIPv6(
+    const boost::asio::ip::address& addr)
 {
     if (addr.is_v4())
     {
-        return addr.to_string();  // Already an IPv4 address
+        return addr.to_string(); // Already an IPv4 address
     }
-    else if (addr.is_v6()) 
+    else if (addr.is_v6())
     {
         const auto& ipv6 = addr.to_v6();
-        if (ipv6.is_v4_mapped()) // ::ffff:XX.X.XX.XXX
+        if (ipv6.is_v4_mapped())          // ::ffff:XX.X.XX.XXX
         {
-            auto bytes = ipv6.to_bytes();  // 16 bytes
+            auto bytes = ipv6.to_bytes(); // 16 bytes
             std::ostringstream oss;
             oss << static_cast<int>(bytes[12]) << "."
                 << static_cast<int>(bytes[13]) << "."
                 << static_cast<int>(bytes[14]) << "."
                 << static_cast<int>(bytes[15]);
-            return oss.str();  // XX.X.XX.XXX
+            return oss.str(); // XX.X.XX.XXX
         }
         else
         {
-            return addr.to_string();  // Regular IPv6
+            return addr.to_string(); // Regular IPv6
         }
     }
     return {};
@@ -287,12 +293,16 @@ inline bool isValidIPv4Addr(std::string addr, Type type)
     {
         std::optional<stdplus::InAnyAddr> Addrs;
         Addrs.emplace(stdplus::fromStr<stdplus::In4Addr>(addr));
-        bool ValidIPv4Addrflag = isValidIPv4Address(reinterpret_cast<in_addr*> ((&Addrs.value())), type);
+        bool ValidIPv4Addrflag = isValidIPv4Address(
+            reinterpret_cast<in_addr*>((&Addrs.value())), type);
         return ValidIPv4Addrflag;
     }
     catch (const std::exception& e)
     {
-        syslog(LOG_WARNING, "isValidIPv4Addr IP : %s is Invalid & Error Returned is : %s !!! \n", addr.c_str(), e.what());
+        syslog(
+            LOG_WARNING,
+            "isValidIPv4Addr IP : %s is Invalid & Error Returned is : %s !!! \n",
+            addr.c_str(), e.what());
         return false;
     }
 }

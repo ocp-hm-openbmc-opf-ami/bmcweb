@@ -67,8 +67,7 @@ struct FormatString
     // NOLINTNEXTLINE(google-explicit-constructor)
     FormatString(const char* stringIn, const std::source_location& locIn =
                                            std::source_location::current()) :
-        str(stringIn),
-        loc(locIn)
+        str(stringIn), loc(locIn)
     {}
 };
 
@@ -105,10 +104,10 @@ inline void vlog(std::format_string<Args...>&& format, Args&&... args,
         // throw Based on the documentation, it shouldn't throw, so long as none
         // of the formatters throw, so unclear at this point why this try/catch
         // is required, but add it to silence the static analysis tools.
-        logLocation = std::format("[{} {}:{}] ", levelString, filename,
-                                  loc.line());
-        logLocation += std::format(std::move(format),
-                                   std::forward<Args>(args)...);
+        logLocation =
+            std::format("[{} {}:{}] ", levelString, filename, loc.line());
+        logLocation +=
+            std::format(std::move(format), std::forward<Args>(args)...);
     }
     catch (const std::format_error& /*error*/)
     {

@@ -41,7 +41,8 @@ inline void handleSystemsLogServicesPostCodesGet(
     asyncResp->res.jsonValue["@odata.id"] =
         std::format("/redfish/v1/Systems/{}/LogServices/PostCodes",
                     BMCWEB_REDFISH_SYSTEM_URI_NAME);
-    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("LogService");
+    asyncResp->res.jsonValue["@odata.type"] =
+        json_util::odataType("LogService");
     asyncResp->res.jsonValue["Name"] = "POST Code Log Service";
     asyncResp->res.jsonValue["Description"] = "POST Code Log Service";
     asyncResp->res.jsonValue["Id"] = "PostCodes";
@@ -209,11 +210,12 @@ static bool fillPostCodeEntry(
         hexCode << "0x";
         for (auto itr : std::get<1>(code.second))
         {
-                hexCode << std::setfill('0') << std::setw(2) << std::hex << static_cast<int>(itr);
+            hexCode << std::setfill('0') << std::setw(2) << std::hex
+                    << static_cast<int>(itr);
         }
 
 #else
-	hexCode << "0x" << std::setfill('0') << std::setw(2) << std::hex
+        hexCode << "0x" << std::setfill('0') << std::setw(2) << std::hex
                 << std::get<0>(code.second);
 #endif
         std::ostringstream timeOffsetStr;
@@ -226,7 +228,7 @@ static bool fillPostCodeEntry(
 
         std::string bootIndexStr = std::to_string(bootIndex);
         std::string timeOffsetString = timeOffsetStr.str();
-	std::string hexCodeStr = hexCode.str();
+        std::string hexCodeStr = hexCode.str();
 
         std::array<std::string_view, 3> messageArgs = {
             bootIndexStr, timeOffsetString, hexCodeStr};
@@ -285,21 +287,25 @@ static bool fillPostCodeEntry(
         }
 
 #ifdef ONETREE_NVIDIASIPACK
-        // Follow postcode log wrap policy with maximum entry of 150 
+        // Follow postcode log wrap policy with maximum entry of 150
         if (asyncResp->res.jsonValue["Members"].size() >= 150)
-	    {
-            asyncResp->res.jsonValue["Members"].erase(asyncResp->res.jsonValue["Members"].begin(),
-                                                   asyncResp->res.jsonValue["Members"].end() - 149);
-	    }
-        asyncResp->res.jsonValue["Members"].emplace_back(std::move(bmcLogEntry));
-        asyncResp->res.jsonValue["Members@odata.count"] = asyncResp->res.jsonValue["Members"].size();
+        {
+            asyncResp->res.jsonValue["Members"].erase(
+                asyncResp->res.jsonValue["Members"].begin(),
+                asyncResp->res.jsonValue["Members"].end() - 149);
+        }
+        asyncResp->res.jsonValue["Members"].emplace_back(
+            std::move(bmcLogEntry));
+        asyncResp->res.jsonValue["Members@odata.count"] =
+            asyncResp->res.jsonValue["Members"].size();
 #else
-        // Follow postcode log wrap policy with maximum entry of 150 
+        // Follow postcode log wrap policy with maximum entry of 150
         if (asyncResp->res.jsonValue["Members"].size() >= 150)
-	    {
-            asyncResp->res.jsonValue["Members"].erase(asyncResp->res.jsonValue["Members"].begin(),
-                                                   asyncResp->res.jsonValue["Members"].end() - 149);
-	    }
+        {
+            asyncResp->res.jsonValue["Members"].erase(
+                asyncResp->res.jsonValue["Members"].begin(),
+                asyncResp->res.jsonValue["Members"].end() - 149);
+        }
         nlohmann::json& logEntryArray = asyncResp->res.jsonValue["Members"];
         logEntryArray.emplace_back(std::move(bmcLogEntry));
 #endif
@@ -309,9 +315,9 @@ static bool fillPostCodeEntry(
     return false;
 }
 
-inline void
-    getPostCodeForEntry(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                        const std::string& entryId)
+inline void getPostCodeForEntry(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& entryId)
 {
     uint16_t bootIndex = 0;
     uint64_t codeIndex = 0;
@@ -360,10 +366,10 @@ inline void
         bootIndex);
 }
 
-inline void
-    getPostCodeForBoot(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                       const uint16_t bootIndex, const uint16_t bootCount,
-                       const uint64_t entryCount, size_t skip, size_t top)
+inline void getPostCodeForBoot(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const uint16_t bootIndex, const uint16_t bootCount,
+    const uint64_t entryCount, size_t skip, size_t top)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, bootIndex, bootCount, entryCount, skip,
@@ -402,7 +408,9 @@ inline void
                 // Apply skip
                 if (skip > 0 && skip < totalEntries)
                 {
-                    members.erase(members.begin(), members.begin() + static_cast<std::ptrdiff_t>(skip));
+                    members.erase(members.begin(),
+                                  members.begin() +
+                                      static_cast<std::ptrdiff_t>(skip));
                 }
                 else if (skip >= totalEntries)
                 {
@@ -412,7 +420,9 @@ inline void
                 // Apply top (limit results)
                 if (members.size() > top)
                 {
-                    members.erase(members.begin() + static_cast<std::ptrdiff_t>(top), members.end());
+                    members.erase(members.begin() +
+                                      static_cast<std::ptrdiff_t>(top),
+                                  members.end());
                 }
                 asyncResp->res.jsonValue["Members"] = members;
                 asyncResp->res.jsonValue["Members@odata.count"] = totalEntries;
@@ -433,9 +443,9 @@ inline void
         bootIndex);
 }
 
-inline void
-    getCurrentBootNumber(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                         size_t skip, size_t top)
+inline void getCurrentBootNumber(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, size_t skip,
+    size_t top)
 {
     uint64_t entryCount = 0;
     dbus::utility::getProperty<uint16_t>(
@@ -641,28 +651,32 @@ inline void requestRoutesSystemsLogServicesPostCode(App& app)
     BMCWEB_ROUTE(
         app, "/redfish/v1/Systems/<str>/LogServices/PostCodes/Entries/<str>/")
         .privileges(redfish::privileges::getLogEntry)
-        .methods(boost::beast::http::verb::patch,boost::beast::http::verb::post,boost::beast::http::verb::delete_)(
+        .methods(boost::beast::http::verb::patch,
+                 boost::beast::http::verb::post,
+                 boost::beast::http::verb::delete_)(
             [&app]([[maybe_unused]] const crow::Request& req,
-            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-            [[maybe_unused]] const std::string& systemName, const std::string& targetID)
-        {
-            asyncResp->res.clearHeader(boost::beast::http::field::allow);
-            if (!membersResponseGet(asyncResp, targetID, "LogEntryCollection"))
-            {
-                return;
-            }
-            uint16_t bootIndex = 0;
-            uint64_t codeIndex = 0;
-            if (!parsePostCode(targetID, codeIndex, bootIndex))
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   [[maybe_unused]] const std::string& systemName,
+                   const std::string& targetID) {
+                asyncResp->res.clearHeader(boost::beast::http::field::allow);
+                if (!membersResponseGet(asyncResp, targetID,
+                                        "LogEntryCollection"))
                 {
-                    // Requested ID was not found
-                    messages::resourceNotFound(asyncResp->res, "LogEntry", targetID);
                     return;
                 }
-            asyncResp->res.addHeader("Allow", "GET");
-            messages::operationNotAllowed(asyncResp->res);
-            return;
-        });
+                uint16_t bootIndex = 0;
+                uint64_t codeIndex = 0;
+                if (!parsePostCode(targetID, codeIndex, bootIndex))
+                {
+                    // Requested ID was not found
+                    messages::resourceNotFound(asyncResp->res, "LogEntry",
+                                               targetID);
+                    return;
+                }
+                asyncResp->res.addHeader("Allow", "GET");
+                messages::operationNotAllowed(asyncResp->res);
+                return;
+            });
 
     BMCWEB_ROUTE(
         app,

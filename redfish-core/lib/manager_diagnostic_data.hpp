@@ -54,10 +54,10 @@ inline bool checkErrors(
     return false;
 }
 
-inline void
-    setBytesProperty(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                     const nlohmann::json::json_pointer& jPtr,
-                     const boost::system::error_code& ec, double bytes)
+inline void setBytesProperty(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const nlohmann::json::json_pointer& jPtr,
+    const boost::system::error_code& ec, double bytes)
 {
     if (checkErrors(asyncResp, ec))
     {
@@ -93,10 +93,10 @@ inline void managerGetStorageStatistics(
                         nlohmann::json::json_pointer("/FreeStorageSpaceKiB")));
 }
 
-inline void
-    setPercentProperty(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                       const nlohmann::json::json_pointer& jPtr,
-                       const boost::system::error_code& ec, double userCPU)
+inline void setPercentProperty(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const nlohmann::json::json_pointer& jPtr,
+    const boost::system::error_code& ec, double userCPU)
 {
     if (checkErrors(asyncResp, ec))
     {
@@ -245,7 +245,8 @@ inline void handleManagerDiagnosticDataGet(
         return;
     }
 
-    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("ManagerDiagnosticData");
+    asyncResp->res.jsonValue["@odata.type"] =
+        json_util::odataType("ManagerDiagnosticData");
     asyncResp->res.jsonValue["@odata.id"] =
         boost::urls::format("/redfish/v1/Managers/{}/ManagerDiagnosticData",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);

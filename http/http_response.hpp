@@ -3,8 +3,8 @@
 #pragma once
 #include "http_body.hpp"
 #include "logging.hpp"
-#include "utils/hex_utils.hpp"
 #include "str_utility.hpp"
+#include "utils/hex_utils.hpp"
 
 #include <fcntl.h>
 
@@ -60,7 +60,7 @@ struct Response
 
     void addHeader(std::string_view key, std::string_view value)
     {
-        if(key == "OData-Version")
+        if (key == "OData-Version")
         {
             fields().set(key, value);
         }
@@ -72,7 +72,8 @@ struct Response
 
     void addHeader(http::field key, std::string_view value)
     {
-        if(to_string(key) == "Content-Type" || to_string(key) == "OData-Version")
+        if (to_string(key) == "Content-Type" ||
+            to_string(key) == "OData-Version")
         {
             fields().set(key, value);
         }
@@ -264,7 +265,7 @@ struct Response
 
     void addRequiredResponseHeaders()
     {
-        //include Link from odata-type
+        // include Link from odata-type
         if (jsonValue.contains("@odata.type"))
         {
             std::string odataType = jsonValue["@odata.type"];
@@ -272,24 +273,27 @@ struct Response
             // Remove '#' prefix
             if (odataType[0] == '#')
             {
-                odataType.erase(0,1);
+                odataType.erase(0, 1);
             }
 
             std::vector<std::string> split;
             bmcweb::split(split, odataType, '.');
 
-            std::string link = "</redfish/v1/JsonSchemas/" + split[0] + "/" + split[0];
-            
-            //append the schema version if available
-            if(split.size() > 2)
+            std::string link =
+                "</redfish/v1/JsonSchemas/" + split[0] + "/" + split[0];
+
+            // append the schema version if available
+            if (split.size() > 2)
             {
                 link += "." + split[1];
             }
-            
+
             link += ".json>; rel=describedby";
-            
-            //Update the 'Link' header if it exists; otherwise, add a new 'Link' header
-            if (fields().find(boost::beast::http::field::link) != fields().end())
+
+            // Update the 'Link' header if it exists; otherwise, add a new
+            // 'Link' header
+            if (fields().find(boost::beast::http::field::link) !=
+                fields().end())
             {
                 fields().set(boost::beast::http::field::link, link);
             }
@@ -299,13 +303,16 @@ struct Response
             }
         }
 
-        //include Access-Control-Allow-Origin
-        if (fields().find(boost::beast::http::field::access_control_allow_origin) == fields().end())
+        // include Access-Control-Allow-Origin
+        if (fields().find(
+                boost::beast::http::field::access_control_allow_origin) ==
+            fields().end())
         {
-            addHeader(boost::beast::http::field::access_control_allow_origin, "*");
+            addHeader(boost::beast::http::field::access_control_allow_origin,
+                      "*");
         }
 
-        //include OData-Version
+        // include OData-Version
         if (fields().find("OData-Version") == fields().end())
         {
             addHeader("OData-Version", "4.0");
@@ -314,7 +321,7 @@ struct Response
 
     void end()
     {
-        //adding required response headers
+        // adding required response headers
         addRequiredResponseHeaders();
         if (completed)
         {
@@ -374,14 +381,14 @@ struct Response
     }
 
     OpenCode openFile(const std::filesystem::path& path,
-                    bmcweb::EncodingType enc = bmcweb::EncodingType::Raw)
+                      bmcweb::EncodingType enc = bmcweb::EncodingType::Raw)
     {
         boost::beast::error_code ec;
         response.body().open(path.c_str(), boost::beast::file_mode::read, ec);
         response.body().encodingType = enc;
         if (ec)
         {
-           BMCWEB_LOG_ERROR("Failed to open file {}, ec={}", path.c_str(),
+            BMCWEB_LOG_ERROR("Failed to open file {}, ec={}", path.c_str(),
                              ec.value());
             if (ec.value() == boost::system::errc::no_such_file_or_directory)
             {

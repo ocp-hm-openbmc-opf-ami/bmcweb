@@ -196,7 +196,7 @@ class Handler : public std::enable_shared_from_this<Handler>
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static std::shared_ptr<Handler> handler;
 
-} // namespace obmc_vm
+} // namespace obmc_vm1
 
 namespace nbd_proxy1
 {
@@ -495,7 +495,7 @@ inline void onOpen(crow::websocket::Connection& conn)
     }
 
     std::string index = conn.url().segments().back();
-    std::cerr<<"nbd proxy vm1 for index checking : "<<index<<"\n";
+    std::cerr << "nbd proxy vm1 for index checking : " << index << "\n";
 
     std::string path =
         std::format("/xyz/openbmc_project/VirtualMedia/Proxy1/Slot_{}", index);
@@ -544,7 +544,7 @@ inline void onMessage(crow::websocket::Connection& conn, std::string_view data,
 
     session->second->send(data, std::move(whenComplete));
 }
-} // namespace nbd_proxy
+} // namespace nbd_proxy1
 
 namespace obmc_vm1
 {
@@ -557,7 +557,7 @@ inline void requestRoutes(App& app)
 
     if constexpr (BMCWEB_VM_NBDPROXY)
     {
-        std::cerr<<"BMCWEB_VM_NBDPROXY VM 1 is enabled\n";
+        std::cerr << "BMCWEB_VM_NBDPROXY VM 1 is enabled\n";
         BMCWEB_ROUTE(app, "/nbd/<str>")
             .privileges({{"ConfigureComponents", "ConfigureManager"}})
             .websocket()
@@ -633,6 +633,6 @@ inline void requestRoutes(App& app)
     }
 }
 
-} // namespace obmc_vm
+} // namespace obmc_vm1
 
 } // namespace crow

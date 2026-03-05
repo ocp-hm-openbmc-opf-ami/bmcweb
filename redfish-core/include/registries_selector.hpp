@@ -1,23 +1,23 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
-#include "registries/base_message_registry.hpp"
-#include "registries/heartbeat_event_message_registry.hpp"
-#include "registries/openbmc_message_registry.hpp"
-#include "registries/task_event_message_registry.hpp"
-#include "registries/security_message_registry.hpp"
-#include "registries/ipmi_message_registry.hpp"
-#include "registries/eventlog_message_registry.hpp"
-#include "registries/task_message_registry.hpp"
 #include "registries/ami_message_registry.hpp"
+#include "registries/base_message_registry.hpp"
+#include "registries/eventlog_message_registry.hpp"
+#include "registries/heartbeat_event_message_registry.hpp"
+#include "registries/ipmi_message_registry.hpp"
+#include "registries/openbmc_message_registry.hpp"
+#include "registries/security_message_registry.hpp"
+#include "registries/task_event_message_registry.hpp"
+#include "registries/task_message_registry.hpp"
 
 #include <span>
 #include <string_view>
 
 namespace redfish::registries
 {
-inline std::span<const MessageEntry>
-    getRegistryFromPrefix(std::string_view registryName)
+inline std::span<const MessageEntry> getRegistryFromPrefix(
+    std::string_view registryName)
 {
     if (task_event::header.registryPrefix == registryName)
     {
@@ -39,7 +39,7 @@ inline std::span<const MessageEntry>
     {
         return {security::registry};
     }
-	if (ipmi::header.registryPrefix == registryName)
+    if (ipmi::header.registryPrefix == registryName)
     {
         return {ipmi::registry};
     }
@@ -47,7 +47,7 @@ inline std::span<const MessageEntry>
     {
         return {task::registry};
     }
-	if (eventlog::header.registryPrefix == registryName)
+    if (eventlog::header.registryPrefix == registryName)
     {
         return {eventlog::registry};
     }

@@ -178,16 +178,16 @@ class ConfigFile
                                 continue;
                             }
 
-                            // Copy the ID before std::move, as newSub->id becomes unusable after the move
+                            // Copy the ID before std::move, as newSub->id
+                            // becomes unusable after the move
                             std::string id = newSub->id;
-                            BMCWEB_LOG_DEBUG("Restored subscription: {} {}",
-                                             id, newSub->customText);
+                            BMCWEB_LOG_DEBUG("Restored subscription: {} {}", id,
+                                             newSub->customText);
 
                             EventServiceStore::getInstance()
                                 .subscriptionsConfigMap.emplace(
-                                    id,
-                                    std::make_shared<UserSubscription>(
-                                        std::move(*newSub)));
+                                    id, std::make_shared<UserSubscription>(
+                                            std::move(*newSub)));
                         }
                     }
                     else

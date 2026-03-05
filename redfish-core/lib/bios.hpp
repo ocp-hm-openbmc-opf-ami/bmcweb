@@ -208,8 +208,8 @@ static std::string getBiosDefaultSettingsMode(const std::string& biosMode)
  *
  * @return None.
  */
-static void
-    getResetBiosSettings(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+static void getResetBiosSettings(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     BMCWEB_LOG_DEBUG("Get Reset Bios Settings to Defaults Pending Status");
     crow::connections::systemBus->async_method_call(
@@ -283,8 +283,8 @@ static void
  *
  * @return None.
  */
-static void
-    getBiosAttributes(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+static void getBiosAttributes(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code ec,
@@ -409,8 +409,8 @@ static void
  *
  * @return None.
  */
-static void
-    getBiosSettingsAttr(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+static void getBiosSettingsAttr(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code ec,
@@ -535,9 +535,9 @@ static void
  *
  * @return None.
  */
-static void
-    setBiosPendingAttr(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                       const nlohmann::json& pendingAttrJson)
+static void setBiosPendingAttr(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const nlohmann::json& pendingAttrJson)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, pendingAttrJson](const boost::system::error_code ec,
@@ -771,7 +771,8 @@ static void
  * BiosService class supports handle get method for bios.
  */
 inline void handleBiosServiceGet(
-    crow::App& app, const crow::Request& req, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    crow::App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& systemName)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
@@ -779,19 +780,26 @@ inline void handleBiosServiceGet(
         return;
     }
 
-    asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
-        "/redfish/v1/Systems/{}/Bios", systemName);
+    asyncResp->res.jsonValue["@odata.id"] =
+        boost::urls::format("/redfish/v1/Systems/{}/Bios", systemName);
     asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("Bios");
     asyncResp->res.jsonValue["Name"] = "BIOS Configuration";
     asyncResp->res.jsonValue["Description"] = "BIOS Configuration Service";
     asyncResp->res.jsonValue["Id"] = "BIOS";
     asyncResp->res.jsonValue["Actions"]["#Bios.ResetBios"] = {
-        {"target", boost::urls::format("/redfish/v1/Systems/{}/Bios/Actions/Bios.ResetBios", systemName)}};
+        {"target", boost::urls::format(
+                       "/redfish/v1/Systems/{}/Bios/Actions/Bios.ResetBios",
+                       systemName)}};
     asyncResp->res.jsonValue["Actions"]["#Bios.ChangePassword"] = {
-        {"target", boost::urls::format("/redfish/v1/Systems/{}/Bios/Actions/Bios.ChangePassword", systemName)}};
-    asyncResp->res.jsonValue["@Redfish.Settings"]["@odata.type"] = json_util::odataType("Settings");
+        {"target",
+         boost::urls::format(
+             "/redfish/v1/Systems/{}/Bios/Actions/Bios.ChangePassword",
+             systemName)}};
+    asyncResp->res.jsonValue["@Redfish.Settings"]["@odata.type"] =
+        json_util::odataType("Settings");
     asyncResp->res.jsonValue["@Redfish.Settings"]["SettingsObject"] = {
-        {"@odata.id", boost::urls::format("/redfish/v1/Systems/{}/Bios/Settings", systemName)}};
+        {"@odata.id", boost::urls::format(
+                          "/redfish/v1/Systems/{}/Bios/Settings", systemName)}};
     // Get the ActiveSoftwareImage and SoftwareImages
     sw_util::populateSoftwareInformation(asyncResp, sw_util::biosPurpose, "",
                                          true);
@@ -805,21 +813,21 @@ inline void requestRoutesBiosService(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Bios/")
         .privileges(redfish::privileges::getBios)
-        .methods(boost::beast::http::verb::get)(std::bind_front(
-            handleBiosServiceGet, std::ref(app)));
+        .methods(boost::beast::http::verb::get)(
+            std::bind_front(handleBiosServiceGet, std::ref(app)));
 }
 /**
  * BiosSetting class supports handle patch method for Bios Settings.
  */
-inline void
-    handleBiosSettingsPatch(const crow::Request& req,
-                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                            const std::string& systemName [[maybe_unused]])
+inline void handleBiosSettingsPatch(
+    const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& systemName [[maybe_unused]])
 {
     nlohmann::json pendingAttrJson;
     if (!redfish::json_util::readJsonPatch( //
-            req, asyncResp->res, //
-            "Attributes", pendingAttrJson //
+            req, asyncResp->res,            //
+            "Attributes", pendingAttrJson   //
             ))
     {
         BMCWEB_LOG_ERROR("No 'Attributes' found");
@@ -839,7 +847,8 @@ inline void
  * BiosSetting class supports handle get method for Bios Settings.
  */
 inline void handleBiosSettingsGet(
-    crow::App& app, const crow::Request& req, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    crow::App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& systemName)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
@@ -861,9 +870,9 @@ inline void requestRoutesBiosSettings(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Bios/Settings/")
         .privileges(redfish::privileges::getBios)
-        .methods(boost::beast::http::verb::get)(std::bind_front(
-            handleBiosSettingsGet, std::ref(app)));
-        
+        .methods(boost::beast::http::verb::get)(
+            std::bind_front(handleBiosSettingsGet, std::ref(app)));
+
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Bios/Settings/")
         .privileges(redfish::privileges::patchBios)
         .methods(boost::beast::http::verb::patch)(handleBiosSettingsPatch);
@@ -886,11 +895,11 @@ inline void requestRoutesBiosChangePassword(App& app)
                     return;
                 }
                 std::string currentPassword, newPassword, userName;
-                if (!json_util::readJsonPatch( //
-                        req, asyncResp->res, //
-                        "NewPassword", newPassword, //
+                if (!json_util::readJsonPatch(          //
+                        req, asyncResp->res,            //
+                        "NewPassword", newPassword,     //
                         "OldPassword", currentPassword, //
-                        "PasswordName", userName //
+                        "PasswordName", userName        //
                         ))
                 {
                     return;
@@ -945,10 +954,10 @@ inline void requestRoutesBiosChangePassword(App& app)
  * Function handles POST method request.
  * Analyzes POST body message before sends Reset request data to D-Bus.
  */
-inline void
-    handleBiosResetPost(crow::App& app, const crow::Request& req,
-                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                        const std::string& systemName)
+inline void handleBiosResetPost(
+    crow::App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& systemName)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -965,8 +974,7 @@ inline void
         nlohmann::json jsonBody = nlohmann::json::parse(req.body());
         std::string key = jsonBody.begin().key();
         auto actionUrl = boost::urls::format(
-            "/redfish/v1/Systems/{}/Bios/Actions/Bios.ResetBios/",
-            systemName);
+            "/redfish/v1/Systems/{}/Bios/Actions/Bios.ResetBios/", systemName);
         std::string actionTarget(actionUrl.buffer());
         messages::actionParameterUnknown(asyncResp->res, actionTarget, key);
         return;

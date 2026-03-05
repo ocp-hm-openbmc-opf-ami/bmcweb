@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: Copyright OpenBMC Authors
 // SPDX-FileCopyrightText: Copyright 2020 Intel Corporation
 #pragma once
+#include "account_service.hpp"
 #include "app.hpp"
 #include "event_service_manager.hpp"
 #include "generated/enums/event_service.hpp"
@@ -14,7 +15,6 @@
 #include "registries_selector.hpp"
 #include "snmp_trap_event_clients.hpp"
 #include "utils/json_utils.hpp"
-#include "account_service.hpp"
 
 #include <stdlib.h>
 
@@ -80,7 +80,8 @@ std::string sslSecondaryServerKeyFile(secodaryServerKeyFilePath);
 std::string SSLFileName("");
 
 constexpr const char* snmpProtocolSevrice = "xyz.openbmc_project.Snmp.Conf";
-constexpr const char* snmpProtocolObject = "/xyz/openbmc_project/snmp/SnmpUtils";
+constexpr const char* snmpProtocolObject =
+    "/xyz/openbmc_project/snmp/SnmpUtils";
 constexpr const char* snmpProtocolInterface =
     "xyz.openbmc_project.Snmp.SnmpUtils";
 constexpr const char* snmpProtocolProp = "SnmpTrapStatus";
@@ -95,7 +96,7 @@ std::string interfaceSecondary = "xyz.openbmc_project.mail.alert.secondary";
 
 inline size_t snmpCompletedOperations = 0;
 
-/* Holds SMTP configuration parameters for patching.*/ 
+/* Holds SMTP configuration parameters for patching.*/
 struct SmtpPatchParams
 {
     std::optional<bool> authentication;
@@ -107,14 +108,13 @@ struct SmtpPatchParams
     std::optional<std::string> sender;
     std::optional<bool> tlsenable;
     std::optional<std::string> username;
-    
+
     bool hasValue() const
     {
         return authentication.has_value() || enable.has_value() ||
-               host.has_value() || password.has_value() ||
-               port.has_value() || recipient.has_value() ||
-               sender.has_value() || tlsenable.has_value() ||
-               username.has_value();
+               host.has_value() || password.has_value() || port.has_value() ||
+               recipient.has_value() || sender.has_value() ||
+               tlsenable.has_value() || username.has_value();
     }
 };
 
@@ -229,8 +229,8 @@ inline void getSmtpConfig(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         });
 }
 
-inline void
-    getSmtpSSLCertificates(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void getSmtpSSLCertificates(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     bool isPrimaryCACERT = true;
     bool isPrimaryServerKey = true;
@@ -248,7 +248,8 @@ inline void
     std::cerr << "SSL Primary Key Context file= "
               << sslPrimaryServerKeyFile.c_str() << "\n";
 
-    isPrimaryCACERT = redfish::ensureOpensslKeyPresentAndValid(sslPrimaryCACERTFile);
+    isPrimaryCACERT =
+        redfish::ensureOpensslKeyPresentAndValid(sslPrimaryCACERTFile);
     asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]["PrimaryConfiguration"]
                             ["isCACERTExist"] = isPrimaryCACERT;
     isPrimaryServerCRT =
@@ -310,7 +311,8 @@ inline void
     std::cerr << "SSL Secondary Key Context file= "
               << sslSecondaryServerKeyFile.c_str() << "\n";
 
-    isSecondrayCACERT = redfish::ensureOpensslKeyPresentAndValid(sslSecondaryCACERTFile);
+    isSecondrayCACERT =
+        redfish::ensureOpensslKeyPresentAndValid(sslSecondaryCACERTFile);
     asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]["SecondaryConfiguration"]
                             ["isCACERTExist"] = isSecondrayCACERT;
     isSecondrayServerKey =
@@ -326,7 +328,8 @@ inline void
 
     if (isSecondrayCACERT)
     {
-        std::string modifiedDate = redfish::modifiedDateTime(sslSecondaryCACERTFile);
+        std::string modifiedDate =
+            redfish::modifiedDateTime(sslSecondaryCACERTFile);
 
         std::cerr << "Modified date and time for Primary CACERT "
                   << modifiedDate << "\n";
@@ -337,7 +340,8 @@ inline void
     }
     if (isSecondrayServerCRT)
     {
-        std::string modifiedDate = redfish::modifiedDateTime(sslSecondaryServerCRTFile);
+        std::string modifiedDate =
+            redfish::modifiedDateTime(sslSecondaryServerCRTFile);
 
         std::cerr << "Modified date and time for Primary CACERT "
                   << modifiedDate << "\n";
@@ -348,7 +352,8 @@ inline void
     }
     if (isSecondrayServerKey)
     {
-        std::string modifiedDate = redfish::modifiedDateTime(sslSecondaryServerKeyFile);
+        std::string modifiedDate =
+            redfish::modifiedDateTime(sslSecondaryServerKeyFile);
 
         std::cerr << "Modified date and time for Primary CACERT "
                   << modifiedDate << "\n";
@@ -630,7 +635,8 @@ bool validateMsgId(const std::string& messageId)
         const std::string& patchStr = fields[3];
         const std::string& msgSuffix = fields[4];
 
-        const auto registry = redfish::registries::getRegistryFromPrefix(msgPrefix);
+        const auto registry =
+            redfish::registries::getRegistryFromPrefix(msgPrefix);
         const auto* header = redfish::registries::resolveHeader(msgPrefix);
 
         if (!header)
@@ -642,13 +648,15 @@ bool validateMsgId(const std::string& messageId)
             std::to_string(header->versionMinor) == minorStr &&
             std::to_string(header->versionPatch) == patchStr)
         {
-            if(std::any_of(registry.begin(), registry.end(),
-                            [&msgSuffix](const redfish::registries::MessageEntry& messageEntry) {
+            if (std::any_of(
+                    registry.begin(), registry.end(),
+                    [&msgSuffix](
+                        const redfish::registries::MessageEntry& messageEntry) {
                         BMCWEB_LOG_DEBUG(
                             "msgSuffix : {}, messageEntry.first : {}",
                             msgSuffix, messageEntry.first);
-                                return msgSuffix == messageEntry.first;
-                               }))
+                        return msgSuffix == messageEntry.first;
+                    }))
             {
                 return true;
             }
@@ -742,11 +750,11 @@ const PropertyValue getSMTPProperty(const std::string& interface,
 {
     PropertyValue value;
     auto b = sdbusplus::bus::new_default_system();
-    auto method = b.new_method_call("xyz.openbmc_project.mail", 
+    auto method = b.new_method_call("xyz.openbmc_project.mail",
                                     "/xyz/openbmc_project/mail/alert",
                                     "org.freedesktop.DBus.Properties", "Get");
     method.append(interface, propertyName);
-    
+
     auto reply = b.call(method);
     reply.read(value);
     return value;
@@ -763,10 +771,8 @@ inline void setSMTPProperty(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     {
         auto bus = sdbusplus::bus::new_default();
         auto method = bus.new_method_call(
-            "xyz.openbmc_project.mail",
-            "/xyz/openbmc_project/mail/alert",
-            "org.freedesktop.DBus.Properties",
-            "Set");
+            "xyz.openbmc_project.mail", "/xyz/openbmc_project/mail/alert",
+            "org.freedesktop.DBus.Properties", "Set");
 
         method.append(interface, propertyName, std::variant<T>(propertyValue));
 
@@ -776,31 +782,32 @@ inline void setSMTPProperty(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     }
     catch (const sdbusplus::exception::exception& e)
     {
-        BMCWEB_LOG_ERROR("SetSMTPProperty: Failed to set {}: {}", propertyName, e.what());
+        BMCWEB_LOG_ERROR("SetSMTPProperty: Failed to set {}: {}", propertyName,
+                         e.what());
         messages::internalError(aResp->res);
     }
 }
 
-/* Applies SMTP patch parameters to the specified configuration (Primary/Secondary). */
+/* Applies SMTP patch parameters to the specified configuration
+ * (Primary/Secondary). */
 inline void handleSmtpPatch(SmtpPatchParams&& input,
                             const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                             const std::string& configType)
 {
-    const std::string& interface = (configType == "Primary") ? 
-                                    interfacePrimary : interfaceSecondary;
+    const std::string& interface =
+        (configType == "Primary") ? interfacePrimary : interfaceSecondary;
 
     if (input.port)
     {
         if (!isValidPort(*input.port))
         {
             anyFailure = true;
-            messages::propertyValueIncorrect(asyncResp->res,
-                        "Port", *input.port);
+            messages::propertyValueIncorrect(asyncResp->res, "Port",
+                                             *input.port);
         }
         else
         {
-            setSMTPProperty(asyncResp, interface,
-                    "Port", *input.port);
+            setSMTPProperty(asyncResp, interface, "Port", *input.port);
         }
     }
 
@@ -809,13 +816,12 @@ inline void handleSmtpPatch(SmtpPatchParams&& input,
         if (input.recipient->size() > 4)
         {
             anyFailure = true;
-            messages::arraySizeTooLong(asyncResp->res,
-                        "Recipient", 4);
+            messages::arraySizeTooLong(asyncResp->res, "Recipient", 4);
         }
         else
         {
-            setSMTPProperty(asyncResp, interface,
-                    "Recipient", *input.recipient);
+            setSMTPProperty(asyncResp, interface, "Recipient",
+                            *input.recipient);
         }
     }
 
@@ -828,37 +834,39 @@ inline void handleSmtpPatch(SmtpPatchParams&& input,
                 if (input.username->empty() && input.password->empty())
                 {
                     anyFailure = true;
-                    messages::propertyValueEmpty(asyncResp->res, 
-                                *input.username, "UserName and Password");
+                    messages::propertyValueEmpty(asyncResp->res,
+                                                 *input.username,
+                                                 "UserName and Password");
                 }
                 else if (input.username->empty())
                 {
                     anyFailure = true;
-                    messages::propertyValueEmpty(asyncResp->res, 
-                                *input.username, "UserName");
+                    messages::propertyValueEmpty(asyncResp->res,
+                                                 *input.username, "UserName");
                 }
                 else if (input.password->empty())
                 {
                     anyFailure = true;
-                    messages::propertyValueEmpty(asyncResp->res, 
-                                *input.password, "Password");
+                    messages::propertyValueEmpty(asyncResp->res,
+                                                 *input.password, "Password");
                 }
                 else
                 {
-                    setSMTPProperty(asyncResp, interface,
-                            "Authentication", *input.authentication);
+                    setSMTPProperty(asyncResp, interface, "Authentication",
+                                    *input.authentication);
                 }
             }
             else
             {
                 handleauthenticationpatch(asyncResp, interface,
-                        "Authentication", *input.authentication);
+                                          "Authentication",
+                                          *input.authentication);
             }
         }
         else
         {
-            setSMTPProperty(asyncResp, interface,
-                    "Authentication", *input.authentication);
+            setSMTPProperty(asyncResp, interface, "Authentication",
+                            *input.authentication);
         }
     }
 
@@ -871,19 +879,18 @@ inline void handleSmtpPatch(SmtpPatchParams&& input,
             if (serviceEnabled)
             {
                 anyFailure = true;
-                messages::propertyValueEmpty(asyncResp->res,
-                            *input.username,"UserName");
+                messages::propertyValueEmpty(asyncResp->res, *input.username,
+                                             "UserName");
             }
             else
             {
-                setSMTPProperty(asyncResp, interface,
-                        "UserName", *input.username);
+                setSMTPProperty(asyncResp, interface, "UserName",
+                                *input.username);
             }
         }
         else
         {
-            setSMTPProperty(asyncResp, interface,
-                    "UserName", *input.username);
+            setSMTPProperty(asyncResp, interface, "UserName", *input.username);
         }
     }
 
@@ -896,30 +903,32 @@ inline void handleSmtpPatch(SmtpPatchParams&& input,
             if (serviceEnabled)
             {
                 anyFailure = true;
-                messages::propertyValueEmpty(asyncResp->res,
-                            *input.password, "Password");
+                messages::propertyValueEmpty(asyncResp->res, *input.password,
+                                             "Password");
             }
             else
             {
-                setSMTPProperty(asyncResp, interface,
-                        "Password", *input.password);
+                setSMTPProperty(asyncResp, interface, "Password",
+                                *input.password);
             }
         }
         else
         {
-            setSMTPProperty(asyncResp, interface,
-                    "Password", *input.password);
+            setSMTPProperty(asyncResp, interface, "Password", *input.password);
         }
     }
 
     if (input.tlsenable)
     {
-        const std::string& cacertFile = (configType == "Primary") ? 
-                                        sslPrimaryCACERTFile : sslSecondaryCACERTFile;
-        const std::string& serverKeyFile = (configType == "Primary") ? 
-                                            sslPrimaryServerKeyFile : sslSecondaryServerKeyFile;
-        const std::string& serverCrtFile = (configType == "Primary") ? 
-                                            sslPrimaryServerCRTFile : sslSecondaryServerCRTFile;
+        const std::string& cacertFile =
+            (configType == "Primary") ? sslPrimaryCACERTFile
+                                      : sslSecondaryCACERTFile;
+        const std::string& serverKeyFile =
+            (configType == "Primary") ? sslPrimaryServerKeyFile
+                                      : sslSecondaryServerKeyFile;
+        const std::string& serverCrtFile =
+            (configType == "Primary") ? sslPrimaryServerCRTFile
+                                      : sslSecondaryServerCRTFile;
 
         if (*input.tlsenable)
         {
@@ -931,126 +940,124 @@ inline void handleSmtpPatch(SmtpPatchParams&& input,
             {
                 anyFailure = true;
                 messages::propertyValueEmpty(asyncResp->res,
-                            configType + " CACERT is missing", cacertFile);
+                                             configType + " CACERT is missing",
+                                             cacertFile);
             }
             else if (!isServerKey)
             {
                 anyFailure = true;
-                messages::propertyValueEmpty(asyncResp->res,
-                            configType + " Server Key is missing", serverKeyFile);
+                messages::propertyValueEmpty(
+                    asyncResp->res, configType + " Server Key is missing",
+                    serverKeyFile);
             }
             else if (!isServerCRT)
             {
                 anyFailure = true;
-                messages::propertyValueEmpty(asyncResp->res,
-                            configType + " Server CRT is missing", serverCrtFile);
+                messages::propertyValueEmpty(
+                    asyncResp->res, configType + " Server CRT is missing",
+                    serverCrtFile);
             }
             else
             {
-                setSMTPProperty(asyncResp, interface,
-                        "TLSEnable", *input.tlsenable);
+                setSMTPProperty(asyncResp, interface, "TLSEnable",
+                                *input.tlsenable);
             }
         }
         else
         {
-            setSMTPProperty(asyncResp, interface,
-                    "TLSEnable", *input.tlsenable);
+            setSMTPProperty(asyncResp, interface, "TLSEnable",
+                            *input.tlsenable);
         }
     }
 
     if (input.enable)
     {
-        setSMTPProperty(asyncResp, interface,
-                "Enable", *input.enable);
+        setSMTPProperty(asyncResp, interface, "Enable", *input.enable);
     }
 
     if (input.host)
     {
-        setSMTPProperty(asyncResp, interface,
-                "Host", *input.host);
+        setSMTPProperty(asyncResp, interface, "Host", *input.host);
     }
 
     if (input.sender)
     {
-        setSMTPProperty(asyncResp, interface,
-                "Sender", *input.sender);
+        setSMTPProperty(asyncResp, interface, "Sender", *input.sender);
     }
 }
 
 void getEventServiceInfo(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     asyncResp->res.jsonValue["@odata.id"] = "/redfish/v1/EventService";
-            asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("EventService");
-            asyncResp->res.jsonValue["Id"] = "EventService";
-            asyncResp->res.jsonValue["Name"] = "Event Service";
-            asyncResp->res.jsonValue["Description"] = "Event Service";
-            asyncResp->res.jsonValue["ServerSentEventUri"] =
-                "/redfish/v1/EventService/SSE";
+    asyncResp->res.jsonValue["@odata.type"] =
+        json_util::odataType("EventService");
+    asyncResp->res.jsonValue["Id"] = "EventService";
+    asyncResp->res.jsonValue["Name"] = "Event Service";
+    asyncResp->res.jsonValue["Description"] = "Event Service";
+    asyncResp->res.jsonValue["ServerSentEventUri"] =
+        "/redfish/v1/EventService/SSE";
 
-            asyncResp->res.jsonValue["Subscriptions"]["@odata.id"] =
-                "/redfish/v1/EventService/Subscriptions";
-            asyncResp->res.jsonValue["Actions"]["#EventService.SubmitTestEvent"]
-                                    ["target"] =
-                "/redfish/v1/EventService/Actions/EventService.SubmitTestEvent";
-            asyncResp->res.jsonValue["Actions"]["#EventService.SubmitTestEvent"]
-                                    ["@Redfish.ActionInfo"] =
-                boost::urls::format(
-                    "/redfish/v1/EventService/SubmitTestEventActionInfo");
+    asyncResp->res.jsonValue["Subscriptions"]["@odata.id"] =
+        "/redfish/v1/EventService/Subscriptions";
+    asyncResp->res
+        .jsonValue["Actions"]["#EventService.SubmitTestEvent"]["target"] =
+        "/redfish/v1/EventService/Actions/EventService.SubmitTestEvent";
+    asyncResp->res.jsonValue["Actions"]["#EventService.SubmitTestEvent"]
+                            ["@Redfish.ActionInfo"] = boost::urls::format(
+        "/redfish/v1/EventService/SubmitTestEventActionInfo");
 
-            const persistent_data::EventServiceConfig eventServiceConfig =
-                persistent_data::EventServiceStore::getInstance()
-                    .getEventServiceConfig();
+    const persistent_data::EventServiceConfig eventServiceConfig =
+        persistent_data::EventServiceStore::getInstance()
+            .getEventServiceConfig();
 
-            asyncResp->res.jsonValue["Status"]["State"] =
-                (eventServiceConfig.enabled ? "Enabled" : "Disabled");
-            asyncResp->res.jsonValue["ServiceEnabled"] =
-                eventServiceConfig.enabled;
-            asyncResp->res.jsonValue["DeliveryRetryAttempts"] =
-                eventServiceConfig.retryAttempts;
-            asyncResp->res.jsonValue["DeliveryRetryIntervalSeconds"] =
-                eventServiceConfig.retryTimeoutInterval;
-            asyncResp->res.jsonValue["EventFormatTypes"] =
-                supportedEvtFormatTypes;
-            asyncResp->res.jsonValue["RegistryPrefixes"] = supportedRegPrefixes;
-            asyncResp->res.jsonValue["ResourceTypes"] = supportedResourceTypes;
+    asyncResp->res.jsonValue["Status"]["State"] =
+        (eventServiceConfig.enabled ? "Enabled" : "Disabled");
+    asyncResp->res.jsonValue["ServiceEnabled"] = eventServiceConfig.enabled;
+    asyncResp->res.jsonValue["DeliveryRetryAttempts"] =
+        eventServiceConfig.retryAttempts;
+    asyncResp->res.jsonValue["DeliveryRetryIntervalSeconds"] =
+        eventServiceConfig.retryTimeoutInterval;
+    asyncResp->res.jsonValue["EventFormatTypes"] = supportedEvtFormatTypes;
+    asyncResp->res.jsonValue["RegistryPrefixes"] = supportedRegPrefixes;
+    asyncResp->res.jsonValue["ResourceTypes"] = supportedResourceTypes;
 
-            nlohmann::json::object_t supportedSSEFilters;
-            supportedSSEFilters["EventFormatType"] = true;
-            supportedSSEFilters["MessageId"] = true;
-            supportedSSEFilters["MetricReportDefinition"] = true;
-            supportedSSEFilters["RegistryPrefix"] = true;
-            supportedSSEFilters["OriginResource"] = false;
-            supportedSSEFilters["ResourceType"] = false;
+    nlohmann::json::object_t supportedSSEFilters;
+    supportedSSEFilters["EventFormatType"] = true;
+    supportedSSEFilters["MessageId"] = true;
+    supportedSSEFilters["MetricReportDefinition"] = true;
+    supportedSSEFilters["RegistryPrefix"] = true;
+    supportedSSEFilters["OriginResource"] = false;
+    supportedSSEFilters["ResourceType"] = false;
 
-            asyncResp->res.jsonValue["SSEFilterPropertiesSupported"] =
-                std::move(supportedSSEFilters);
-            getSmtpConfig(asyncResp, "xyz.openbmc_project.mail.alert.primary",
-                          "PrimaryConfiguration");
-            getSmtpConfig(asyncResp, "xyz.openbmc_project.mail.alert.secondary",
-                          "SecondaryConfiguration");
-            getSmtpSSLCertificates(asyncResp);
+    asyncResp->res.jsonValue["SSEFilterPropertiesSupported"] =
+        std::move(supportedSSEFilters);
+    getSmtpConfig(asyncResp, "xyz.openbmc_project.mail.alert.primary",
+                  "PrimaryConfiguration");
+    getSmtpConfig(asyncResp, "xyz.openbmc_project.mail.alert.secondary",
+                  "SecondaryConfiguration");
+    getSmtpSSLCertificates(asyncResp);
 
-            asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]
-                                    ["PrimaryConfiguration"]["@odata.type"] =
-                "#AMIEventService.PrimaryConfiguration";
-            asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]
-                                    ["SecondaryConfiguration"]["@odata.type"] =
-                "#AMIEventService.SecondaryConfiguration";
+    asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]["PrimaryConfiguration"]
+                            ["@odata.type"] =
+        "#AMIEventService.PrimaryConfiguration";
+    asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]["SecondaryConfiguration"]
+                            ["@odata.type"] =
+        "#AMIEventService.SecondaryConfiguration";
 
-            asyncResp->res
-                .jsonValue["Oem"]["OpenBmc"]["SMTP"]["PrimaryConfiguration"]
-                          ["Actions"]["#AMIEventService.PrimaryConfiguration"]
-                          ["target"] =
-                "/redfish/v1/EventService/Actions/Oem/Ami/SMTP.PrimarySSLCertificateUpload";
-            asyncResp->res
-                .jsonValue["Oem"]["OpenBmc"]["SMTP"]["SecondaryConfiguration"]
-                          ["Actions"]["#AMIEventService.SecondaryConfiguration"]
-                          ["target"] =
-                "/redfish/v1/EventService/Actions/Oem/Ami/SMTP.SecondarySSLCertificateUpload";
+    asyncResp->res
+        .jsonValue["Oem"]["OpenBmc"]["SMTP"]["PrimaryConfiguration"]["Actions"]
+                  ["#AMIEventService.PrimaryConfiguration"]["target"] =
+        "/redfish/v1/EventService/Actions/Oem/Ami/SMTP.PrimarySSLCertificateUpload";
+    asyncResp->res
+        .jsonValue["Oem"]["OpenBmc"]["SMTP"]["SecondaryConfiguration"]
+                  ["Actions"]["#AMIEventService.SecondaryConfiguration"]
+                  ["target"] =
+        "/redfish/v1/EventService/Actions/Oem/Ami/SMTP.SecondarySSLCertificateUpload";
 }
 
-inline void getEventServiceSubscriptionIdInfo(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   const std::string& param)
+inline void getEventServiceSubscriptionIdInfo(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& param)
 {
     std::shared_ptr<Subscription> subValue =
         EventServiceManager::getInstance().getSubscription(param);
@@ -1059,19 +1066,18 @@ inline void getEventServiceSubscriptionIdInfo(const std::shared_ptr<bmcweb::Asyn
     if (param.starts_with("snmp"))
     {
         getSnmpTrapClient(asyncResp, param);
-        //return;
+        // return;
     }
     else
     {
-         if (subValue == nullptr)
+        if (subValue == nullptr)
         {
             // Lookup in Kafka subscriptions
-            KafkaManager::getInstance().getSubscription(param,
-                                                        asyncResp);
+            KafkaManager::getInstance().getSubscription(param, asyncResp);
             return;
         }
         asyncResp->res.jsonValue["@odata.type"] =
-        "#EventDestination.v1_14_1.EventDestination";
+            "#EventDestination.v1_14_1.EventDestination";
         asyncResp->res.jsonValue["Protocol"] =
             event_destination::EventDestinationProtocol::Redfish;
         asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
@@ -1087,15 +1093,15 @@ inline void getEventServiceSubscriptionIdInfo(const std::shared_ptr<bmcweb::Asyn
     }
 
     asyncResp->res.jsonValue["Context"] =
-        ((subValue != nullptr) && !subValue->userSub->customText.empty()) ? subValue->userSub->customText : "Event_Sub_" + id;
-    asyncResp->res.jsonValue["HttpHeaders"] =
-        nlohmann::json::array();
+        ((subValue != nullptr) && !subValue->userSub->customText.empty())
+            ? subValue->userSub->customText
+            : "Event_Sub_" + id;
+    asyncResp->res.jsonValue["HttpHeaders"] = nlohmann::json::array();
     asyncResp->res.jsonValue["RegistryPrefixes"] =
         subValue->userSub->registryPrefixes;
     asyncResp->res.jsonValue["ResourceTypes"] =
         subValue->userSub->resourceTypes;
-    asyncResp->res.jsonValue["MessageIds"] =
-        subValue->userSub->registryMsgIds;
+    asyncResp->res.jsonValue["MessageIds"] = subValue->userSub->registryMsgIds;
     asyncResp->res.jsonValue["DeliveryRetryPolicy"] =
         subValue->userSub->retryPolicy;
     asyncResp->res.jsonValue["SendHeartbeat"] =
@@ -1105,37 +1111,31 @@ inline void getEventServiceSubscriptionIdInfo(const std::shared_ptr<bmcweb::Asyn
     asyncResp->res.jsonValue["VerifyCertificate"] =
         subValue->userSub->verifyCertificate;
     asyncResp->res.jsonValue["Status"]["Health"] = "OK";
-    asyncResp->res.jsonValue["Status"]["State"] =
-        subValue->userSub->state;
+    asyncResp->res.jsonValue["Status"]["State"] = subValue->userSub->state;
 
     nlohmann::json::array_t mrdJsonArray;
-    for (const auto& mdrUri :
-            subValue->userSub->metricReportDefinitions)
+    for (const auto& mdrUri : subValue->userSub->metricReportDefinitions)
     {
         nlohmann::json::object_t mdr;
         mdr["@odata.id"] = mdrUri;
         mrdJsonArray.emplace_back(std::move(mdr));
     }
-    asyncResp->res.jsonValue["MetricReportDefinitions"] =
-        mrdJsonArray;
-
+    asyncResp->res.jsonValue["MetricReportDefinitions"] = mrdJsonArray;
 }
 
 inline void requestRoutesEventService(App& app)
 {
-BMCWEB_ROUTE(app, "/redfish/v1/EventService/")
+    BMCWEB_ROUTE(app, "/redfish/v1/EventService/")
         .privileges(redfish::privileges::getEventService)
-        .methods(
-            boost::beast::http::verb::
-                get)([&app](
-                         const crow::Request& req,
-                         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
-            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-            {
-                return;
-            }
-            getEventServiceInfo(asyncResp);
-        });
+        .methods(boost::beast::http::verb::get)(
+            [&app](const crow::Request& req,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
+                getEventServiceInfo(asyncResp);
+            });
 
     BMCWEB_ROUTE(app, "/redfish/v1/EventService/")
         .privileges(redfish::privileges::patchEventService)
@@ -1147,7 +1147,7 @@ BMCWEB_ROUTE(app, "/redfish/v1/EventService/")
             {
                 return;
             }
-            
+
             anySuccess = false;
             anyFailure = false;
             std::optional<bool> serviceEnabled;
@@ -1156,30 +1156,47 @@ BMCWEB_ROUTE(app, "/redfish/v1/EventService/")
             SmtpPatchParams primarySmtpConfig;
             SmtpPatchParams secondarySmtpConfig;
 
-            if (!json_util::readJsonPatch( //
-                    req, asyncResp->res, //
-                    "ServiceEnabled", serviceEnabled, //
-                    "DeliveryRetryAttempts", retryAttemps, //
+            if (!json_util::readJsonPatch(                         //
+                    req, asyncResp->res,                           //
+                    "ServiceEnabled", serviceEnabled,              //
+                    "DeliveryRetryAttempts", retryAttemps,         //
                     "DeliveryRetryIntervalSeconds", retryInterval, //
-                    "Oem/OpenBmc/SMTP/PrimaryConfiguration/Authentication", primarySmtpConfig.authentication, //
-                    "Oem/OpenBmc/SMTP/PrimaryConfiguration/Enable", primarySmtpConfig.enable,
-                    "Oem/OpenBmc/SMTP/PrimaryConfiguration/Host", primarySmtpConfig.host,
-                    "Oem/OpenBmc/SMTP/PrimaryConfiguration/Password", primarySmtpConfig.password,
-                    "Oem/OpenBmc/SMTP/PrimaryConfiguration/Port", primarySmtpConfig.port,
-                    "Oem/OpenBmc/SMTP/PrimaryConfiguration/Recipient", primarySmtpConfig.recipient,
-                    "Oem/OpenBmc/SMTP/PrimaryConfiguration/Sender", primarySmtpConfig.sender,
-                    "Oem/OpenBmc/SMTP/PrimaryConfiguration/TLSEnable", primarySmtpConfig.tlsenable,
-                    "Oem/OpenBmc/SMTP/PrimaryConfiguration/UserName", primarySmtpConfig.username,
-                    "Oem/OpenBmc/SMTP/SecondaryConfiguration/Authentication", secondarySmtpConfig.authentication,
-                    "Oem/OpenBmc/SMTP/SecondaryConfiguration/Enable", secondarySmtpConfig.enable,
-                    "Oem/OpenBmc/SMTP/SecondaryConfiguration/Host", secondarySmtpConfig.host,
-                    "Oem/OpenBmc/SMTP/SecondaryConfiguration/Password", secondarySmtpConfig.password,
-                    "Oem/OpenBmc/SMTP/SecondaryConfiguration/Port", secondarySmtpConfig.port,
-                    "Oem/OpenBmc/SMTP/SecondaryConfiguration/Recipient", secondarySmtpConfig.recipient,
-                    "Oem/OpenBmc/SMTP/SecondaryConfiguration/Sender", secondarySmtpConfig.sender,
-                    "Oem/OpenBmc/SMTP/SecondaryConfiguration/TLSEnable", secondarySmtpConfig.tlsenable,
-                    "Oem/OpenBmc/SMTP/SecondaryConfiguration/UserName", secondarySmtpConfig.username
-                    ))
+                    "Oem/OpenBmc/SMTP/PrimaryConfiguration/Authentication",
+                    primarySmtpConfig.authentication,              //
+                    "Oem/OpenBmc/SMTP/PrimaryConfiguration/Enable",
+                    primarySmtpConfig.enable,
+                    "Oem/OpenBmc/SMTP/PrimaryConfiguration/Host",
+                    primarySmtpConfig.host,
+                    "Oem/OpenBmc/SMTP/PrimaryConfiguration/Password",
+                    primarySmtpConfig.password,
+                    "Oem/OpenBmc/SMTP/PrimaryConfiguration/Port",
+                    primarySmtpConfig.port,
+                    "Oem/OpenBmc/SMTP/PrimaryConfiguration/Recipient",
+                    primarySmtpConfig.recipient,
+                    "Oem/OpenBmc/SMTP/PrimaryConfiguration/Sender",
+                    primarySmtpConfig.sender,
+                    "Oem/OpenBmc/SMTP/PrimaryConfiguration/TLSEnable",
+                    primarySmtpConfig.tlsenable,
+                    "Oem/OpenBmc/SMTP/PrimaryConfiguration/UserName",
+                    primarySmtpConfig.username,
+                    "Oem/OpenBmc/SMTP/SecondaryConfiguration/Authentication",
+                    secondarySmtpConfig.authentication,
+                    "Oem/OpenBmc/SMTP/SecondaryConfiguration/Enable",
+                    secondarySmtpConfig.enable,
+                    "Oem/OpenBmc/SMTP/SecondaryConfiguration/Host",
+                    secondarySmtpConfig.host,
+                    "Oem/OpenBmc/SMTP/SecondaryConfiguration/Password",
+                    secondarySmtpConfig.password,
+                    "Oem/OpenBmc/SMTP/SecondaryConfiguration/Port",
+                    secondarySmtpConfig.port,
+                    "Oem/OpenBmc/SMTP/SecondaryConfiguration/Recipient",
+                    secondarySmtpConfig.recipient,
+                    "Oem/OpenBmc/SMTP/SecondaryConfiguration/Sender",
+                    secondarySmtpConfig.sender,
+                    "Oem/OpenBmc/SMTP/SecondaryConfiguration/TLSEnable",
+                    secondarySmtpConfig.tlsenable,
+                    "Oem/OpenBmc/SMTP/SecondaryConfiguration/UserName",
+                    secondarySmtpConfig.username))
             {
                 return;
             }
@@ -1226,15 +1243,17 @@ BMCWEB_ROUTE(app, "/redfish/v1/EventService/")
             }
 
             /* handle primary and secondary SMPT configuration */
-            if(primarySmtpConfig.hasValue())
+            if (primarySmtpConfig.hasValue())
             {
-                handleSmtpPatch(std::move(primarySmtpConfig),asyncResp,"Primary");
+                handleSmtpPatch(std::move(primarySmtpConfig), asyncResp,
+                                "Primary");
             }
-            if(secondarySmtpConfig.hasValue())
+            if (secondarySmtpConfig.hasValue())
             {
-                handleSmtpPatch(std::move(secondarySmtpConfig),asyncResp,"Secondary");
+                handleSmtpPatch(std::move(secondarySmtpConfig), asyncResp,
+                                "Secondary");
             }
-            
+
             if (anyFailure && !anySuccess)
             {
                 asyncResp->res.result(boost::beast::http::status::bad_request);
@@ -1259,12 +1278,14 @@ inline void handleSubmitTestEventActionGet(
     {
         return;
     }
-    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("ActionInfo");
+    asyncResp->res.jsonValue["@odata.type"] =
+        json_util::odataType("ActionInfo");
     asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
         "/redfish/v1/EventService/SubmitTestEventActionInfo");
     asyncResp->res.jsonValue["Name"] = "SubmitTestEvent Action Info";
     asyncResp->res.jsonValue["Id"] = "SubmitTestEventActionInfo";
-    asyncResp->res.jsonValue["Description"] = "This action is used to generate a test event.";
+    asyncResp->res.jsonValue["Description"] =
+        "This action is used to generate a test event.";
     nlohmann::json::object_t MessageId;
     MessageId["DataType"] = "String";
     MessageId["Name"] = "MessageId";
@@ -1461,26 +1482,25 @@ void handleEventServiceSubscriptionPost(
     std::optional<std::vector<nlohmann::json::object_t>> mrdJsonArray;
     std::optional<nlohmann::json> oemObj;
     std::optional<std::string> oemsnmpcommunitystring;
-    if (!json_util::readJsonPatch( //
-            req, asyncResp->res, //
-            "Destination", destUrl, //
-            "Context", context, //
-            "Protocol", protocol, //
-            "SubscriptionType", subscriptionType, //
-            "EventFormatType", eventFormatType2, //
+    if (!json_util::readJsonPatch(                         //
+            req, asyncResp->res,                           //
+            "Destination", destUrl,                        //
+            "Context", context,                            //
+            "Protocol", protocol,                          //
+            "SubscriptionType", subscriptionType,          //
+            "EventFormatType", eventFormatType2,           //
             "HeartbeatIntervalMinutes", hbIntervalMinutes, //
-            "HttpHeaders", headers, //
-            "RegistryPrefixes", regPrefixes, //
-            "MessageIds", msgIds, //
-            "OriginResources", originResources, //
-            "Id", vId, //
-            "DeliveryRetryPolicy", retryPolicy, //
-            "MetricReportDefinitions", mrdJsonArray, //
-            "ResourceTypes", resTypes, //
-            "SendHeartbeat", sendHeartbeat, //
-            "VerifyCertificate", verifyCertificate, //
-            "Oem", oemObj
-            ))
+            "HttpHeaders", headers,                        //
+            "RegistryPrefixes", regPrefixes,               //
+            "MessageIds", msgIds,                          //
+            "OriginResources", originResources,            //
+            "Id", vId,                                     //
+            "DeliveryRetryPolicy", retryPolicy,            //
+            "MetricReportDefinitions", mrdJsonArray,       //
+            "ResourceTypes", resTypes,                     //
+            "SendHeartbeat", sendHeartbeat,                //
+            "VerifyCertificate", verifyCertificate,        //
+            "Oem", oemObj))
     {
         BMCWEB_LOG_ERROR("bmcweb: JSON Patch reading failed");
         return;
@@ -1492,7 +1512,7 @@ void handleEventServiceSubscriptionPost(
         return;
     }
 
-    if (protocol == "SNMPv1" || protocol == "SNMPv2c" )
+    if (protocol == "SNMPv1" || protocol == "SNMPv2c")
     {
         std::optional<nlohmann::json> openBmc;
         if (!oemObj || oemObj.value().empty())
@@ -1512,10 +1532,11 @@ void handleEventServiceSubscriptionPost(
             return;
         }
 
-        if (!json_util::readJson(*openBmc, asyncResp->res,
-                             "CommunityString", oemsnmpcommunitystring))
+        if (!json_util::readJson(*openBmc, asyncResp->res, "CommunityString",
+                                 oemsnmpcommunitystring))
         {
-            BMCWEB_LOG_ERROR("bmcweb: OpenBmc/CommunityString JSON Patch reading failed");
+            BMCWEB_LOG_ERROR(
+                "bmcweb: OpenBmc/CommunityString JSON Patch reading failed");
             return;
         }
     }
@@ -1886,7 +1907,7 @@ void handleEventServiceSubscriptionPost(
 
             if (!json_util::readJsonObject( //
                     mrdObj, asyncResp->res, //
-                    "@odata.id", mrdUri //
+                    "@odata.id", mrdUri     //
                     ))
 
             {
@@ -1906,15 +1927,17 @@ void handleEventServiceSubscriptionPost(
     if (protocol == "SNMPv2c" || protocol == "SNMPv3" || protocol == "SNMPv1")
     {
         // Check for duplicate destination before creating SNMP subscription
-        if (EventServiceManager::getInstance().isDuplicateDestination(normalizedUrl))
+        if (EventServiceManager::getInstance().isDuplicateDestination(
+                normalizedUrl))
         {
-            messages::resourceAlreadyExists(asyncResp->res, "EventDestination", "Destination", normalizedUrl);
+            messages::resourceAlreadyExists(asyncResp->res, "EventDestination",
+                                            "Destination", normalizedUrl);
             return;
         }
         auto subId = std::make_shared<std::string>();
         snmpCompletedOperations = 0;
         auto snmpCompletionHandler = [asyncResp, subId, oemsnmpcommunitystring,
-                                    protocol](bool success) {
+                                      protocol](bool success) {
             if (success)
             {
                 snmpCompletedOperations++;
@@ -1950,41 +1973,45 @@ void handleEventServiceSubscriptionPost(
                     "xyz.openbmc_project.Snmp.CommunityStrManager",
                     "CommunityString",
                     [asyncResp, oemsnmpcommunitystring, hostaddress, portnumber,
-                    protocol, user_name, subValue, subId,
-                    snmpCompletionHandler](const boost::system::error_code& ec,
+                     protocol, user_name, subValue, subId,
+                     snmpCompletionHandler](const boost::system::error_code& ec,
                                             std::string communitystring) {
                         if (ec)
                         {
-                            BMCWEB_LOG_ERROR("Error fetching community string property. Error code: {}", ec.message());
-                            messages::propertyValueNotInList(asyncResp->res,
-                                                            *oemsnmpcommunitystring,
-                                                            "Oem/OpenBmc/CommunityString");
-                            asyncResp->res.result(boost::beast::http::status::bad_request);
+                            BMCWEB_LOG_ERROR(
+                                "Error fetching community string property. Error code: {}",
+                                ec.message());
+                            messages::propertyValueNotInList(
+                                asyncResp->res, *oemsnmpcommunitystring,
+                                "Oem/OpenBmc/CommunityString");
+                            asyncResp->res.result(
+                                boost::beast::http::status::bad_request);
                             return;
                         }
                         else if (communitystring.empty())
                         {
-                            messages::propertyValueNotInList(asyncResp->res,
-                                                            *oemsnmpcommunitystring,
-                                                            "Oem/OpenBmc/CommunityString");
-                            asyncResp->res.result(boost::beast::http::status::bad_request);
+                            messages::propertyValueNotInList(
+                                asyncResp->res, *oemsnmpcommunitystring,
+                                "Oem/OpenBmc/CommunityString");
+                            asyncResp->res.result(
+                                boost::beast::http::status::bad_request);
                             return;
                         }
                         else
                         {
                             // Log the retrieved community string
                             snmpCompletionHandler(true);
-                            addSnmpTrapClient(asyncResp, hostaddress, portnumber, protocol,
-                                            user_name, subValue,
-                                            *oemsnmpcommunitystring, subId,
-                                            snmpCompletionHandler);
+                            addSnmpTrapClient(asyncResp, hostaddress,
+                                              portnumber, protocol, user_name,
+                                              subValue, *oemsnmpcommunitystring,
+                                              subId, snmpCompletionHandler);
                         }
                     });
             }
             else
             {
                 messages::propertyMissing(asyncResp->res,
-                                        "Oem/OpenBmc/CommunityString");
+                                          "Oem/OpenBmc/CommunityString");
                 return;
             }
         }
@@ -1994,22 +2021,24 @@ void handleEventServiceSubscriptionPost(
             if (protocol == "SNMPv3" && url->has_userinfo() == false)
             {
                 messages::propertyValueFormatError(asyncResp->res, destUrl,
-                                                "Destination");
+                                                   "Destination");
                 return;
             }
 
             addSnmpTrapClient(asyncResp, url->host_address(),
-                            url->port_number(), protocol, url->user(),
-                            subValue, *oemsnmpcommunitystring, subId,
-                            snmpCompletionHandler);
+                              url->port_number(), protocol, url->user(),
+                              subValue, *oemsnmpcommunitystring, subId,
+                              snmpCompletionHandler);
         }
         return;
     }
 
     // Check for duplicate destination before creating Redfish subscription
-    if (EventServiceManager::getInstance().isDuplicateDestination(normalizedUrl))
+    if (EventServiceManager::getInstance().isDuplicateDestination(
+            normalizedUrl))
     {
-        messages::resourceAlreadyExists(asyncResp->res, "EventDestination", "Destination", normalizedUrl);
+        messages::resourceAlreadyExists(asyncResp->res, "EventDestination",
+                                        "Destination", normalizedUrl);
         return;
     }
 
@@ -2161,7 +2190,7 @@ inline void requestRoutesEventDestination(App& app)
                     return;
                 }
                 asyncResp->res.addHeader("Allow", "GET, PATCH, DELETE");
-                getEventServiceSubscriptionIdInfo(asyncResp,param);
+                getEventServiceSubscriptionIdInfo(asyncResp, param);
             });
     BMCWEB_ROUTE(app, "/redfish/v1/EventService/Subscriptions/<str>/")
         .privileges(redfish::privileges::patchEventDestination)
@@ -2201,14 +2230,14 @@ inline void requestRoutesEventDestination(App& app)
                 std::optional<bool> verifyCertificate;
                 std::optional<std::vector<nlohmann::json::object_t>> headers;
 
-                if (!json_util::readJsonPatch( //
-                        req, asyncResp->res, //
-                        "Context", context, //
-                        "DeliveryRetryPolicy", retryPolicy, //
+                if (!json_util::readJsonPatch(                         //
+                        req, asyncResp->res,                           //
+                        "Context", context,                            //
+                        "DeliveryRetryPolicy", retryPolicy,            //
                         "HeartbeatIntervalMinutes", hbIntervalMinutes, //
-                        "HttpHeaders", headers, //
-                        "SendHeartbeat", sendHeartbeat, //
-                        "VerifyCertificate", verifyCertificate //
+                        "HttpHeaders", headers,                        //
+                        "SendHeartbeat", sendHeartbeat,                //
+                        "VerifyCertificate", verifyCertificate         //
                         ))
                 {
                     return;
@@ -2290,7 +2319,7 @@ inline void requestRoutesEventDestination(App& app)
                 }
 
                 EventServiceManager::getInstance().updateSubscription(param);
-                getEventServiceSubscriptionIdInfo(asyncResp,param);
+                getEventServiceSubscriptionIdInfo(asyncResp, param);
                 asyncResp->res.result(boost::beast::http::status::ok);
             });
     BMCWEB_ROUTE(app, "/redfish/v1/EventService/Subscriptions/<str>/")
@@ -2332,14 +2361,17 @@ inline void requestRoutesEventDestination(App& app)
                     return;
                 }
 
-                if(EventServiceManager::getInstance().deleteSubscription(param))
-		{
-		    asyncResp->res.result(boost::beast::http::status::no_content);
-		}
-		else
-		{
-		    messages::resourceNotFound(asyncResp->res, "Subscriptions", param);
-		}
+                if (EventServiceManager::getInstance().deleteSubscription(
+                        param))
+                {
+                    asyncResp->res.result(
+                        boost::beast::http::status::no_content);
+                }
+                else
+                {
+                    messages::resourceNotFound(asyncResp->res, "Subscriptions",
+                                               param);
+                }
             });
 
     BMCWEB_ROUTE(app, "/redfish/v1/EventService/Subscriptions/<str>/")
@@ -2361,7 +2393,7 @@ inline void requestRoutesEventDestination(App& app)
                 }
                 asyncResp->res.addHeader("Allow", "GET, PATCH, DELETE");
                 messages::operationNotAllowed(asyncResp->res);
-            });            
+            });
 }
 
 } // namespace redfish

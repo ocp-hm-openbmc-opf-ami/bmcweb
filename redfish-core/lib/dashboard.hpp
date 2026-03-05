@@ -4,14 +4,15 @@
 #include "error_messages.hpp"
 #include "http_request.hpp"
 #include "http_response.hpp"
+#include "led.hpp"
+#include "log_services.hpp"
+#include "managers.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
+#include "system_utils.hpp"
+#include "systems.hpp"
 #include "utility.hpp"
 #include "utils/json_utils.hpp"
-#include "managers.hpp"
-#include "led.hpp"
-#include "systems.hpp"
-#include "system_utils.hpp"
 
 #include <boost/url/format.hpp>
 
@@ -31,8 +32,7 @@ inline void getEventLogSeverityCounts(
         "xyz.openbmc_project.Logging", path,
         [asyncResp, severityCount = std::move(severityCount)](
             const boost::system::error_code& ec,
-            const dbus::utility::ManagedObjectType& resp) mutable
-        {
+            const dbus::utility::ManagedObjectType& resp) mutable {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("EventLog Count Failed: {}", ec);
@@ -52,7 +52,8 @@ inline void getEventLogSeverityCounts(
                     {
                         if (propName == "Severity")
                         {
-                            const auto* severity = std::get_if<std::string>(&propValue);
+                            const auto* severity =
+                                std::get_if<std::string>(&propValue);
                             if (severity != nullptr)
                             {
                                 severityCount[*severity]++;
@@ -65,11 +66,11 @@ inline void getEventLogSeverityCounts(
                 }
             }
 
-            nlohmann::json& severityJson = asyncResp->res.jsonValue["SeverityCounts"];
+            nlohmann::json& severityJson =
+                asyncResp->res.jsonValue["SeverityCounts"];
             uint16_t critical = 0, warning = 0, ok = 0;
             for (const auto& [sev, count] : severityCount)
             {
-
                 if (translateSeverityDbusToRedfish(sev) == "Critical")
                 {
                     critical += count;
@@ -89,8 +90,7 @@ inline void getEventLogSeverityCounts(
         });
 }
 
-
-inline void getDateTime ( const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void getDateTime(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     dbus::utility::getProperty<std::string>(
         "org.freedesktop.timedate1", "/org/freedesktop/timedate1",
@@ -115,9 +115,9 @@ inline void getSeverInfo(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 
     dbus::utility::getSubTreePaths(
         "/xyz/openbmc_project/inventory", 0, interfaces,
-        [asyncResp](const boost::system::error_code& ec,
-                    const dbus::utility::MapperGetSubTreePathsResponse& chassisList) {
-            
+        [asyncResp](
+            const boost::system::error_code& ec,
+            const dbus::utility::MapperGetSubTreePathsResponse& chassisList) {
             if (ec)
             {
                 // No chassis paths found — bail out immediately
@@ -134,14 +134,16 @@ inline void getSeverInfo(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
                 dbus::utility::getAllProperties(
                     "xyz.openbmc_project.EntityManager", chassis,
                     "xyz.openbmc_project.Inventory.Decorator.Asset",
-                    [asyncResp, chassis, foundPtr](const boost::system::error_code& propEc,
-                                                   const dbus::utility::DBusPropertiesMap& properties) {
+                    [asyncResp, chassis, foundPtr](
+                        const boost::system::error_code& propEc,
+                        const dbus::utility::DBusPropertiesMap& properties) {
                         if (*foundPtr)
                             return;
 
                         if (propEc)
                         {
-                            BMCWEB_LOG_DEBUG("No Asset interface at {}", chassis);
+                            BMCWEB_LOG_DEBUG("No Asset interface at {}",
+                                             chassis);
                             return;
                         }
 
@@ -156,11 +158,9 @@ inline void getSeverInfo(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 
                         const bool success = sdbusplus::unpackPropertiesNoThrow(
                             dbus_utils::UnpackErrorPrinter(), properties,
-                            "PartNumber", partNumber,
-                            "SerialNumber", serialNumber,
-                            "Manufacturer", manufacturer,
-                            "Model", model,
-                            "SubModel", subModel);
+                            "PartNumber", partNumber, "SerialNumber",
+                            serialNumber, "Manufacturer", manufacturer, "Model",
+                            model, "SubModel", subModel);
 
                         if (!success)
                         {
@@ -168,11 +168,14 @@ inline void getSeverInfo(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
                             return;
                         }
                         if (partNumber)
-                            asyncResp->res.jsonValue["PartNumber"] = *partNumber;
+                            asyncResp->res.jsonValue["PartNumber"] =
+                                *partNumber;
                         if (serialNumber)
-                            asyncResp->res.jsonValue["SerialNumber"] = *serialNumber;
+                            asyncResp->res.jsonValue["SerialNumber"] =
+                                *serialNumber;
                         if (manufacturer)
-                            asyncResp->res.jsonValue["Manufacturer"] = *manufacturer;
+                            asyncResp->res.jsonValue["Manufacturer"] =
+                                *manufacturer;
                         if (model)
                             asyncResp->res.jsonValue["Model"] = *model;
                         if (subModel)
@@ -182,24 +185,24 @@ inline void getSeverInfo(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
         });
 }
 
-inline void OverviewPage (App& /*app*/, const crow::Request& /*req*/,
-                      const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void OverviewPage(App& /*app*/, const crow::Request& /*req*/,
+                         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     asyncResp->res.jsonValue["@odata.id"] = "/redfish/v1/Oem/Ami/Dashboard";
-    //Date and Time Info
+    // Date and Time Info
     getDateTime(asyncResp);
 
-    //System Info
+    // System Info
     getSeverInfo(asyncResp);
 
-    //Firmware Info
+    // Firmware Info
 
-    //Network Info
+    // Network Info
 
-    //Event Info
+    // Event Info
     getEventLogSeverityCounts(asyncResp);
 
-    //Inventory and LED Info
+    // Inventory and LED Info
     getSystemLocationIndicatorActive(asyncResp);
     getPhysicalLedState(asyncResp);
     getHostState(asyncResp, "system");
@@ -212,7 +215,7 @@ inline void OverviewPage (App& /*app*/, const crow::Request& /*req*/,
     asyncResp->res.jsonValue["Oem"]["Ami"]["PhysicalLED"].erase("@odata.type");
 }
 
-inline void requestRoutesDashboard (App& app)
+inline void requestRoutesDashboard(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/Oem/Ami/Dashboard")
         .privileges(redfish::privileges::privilegeSetLogin)

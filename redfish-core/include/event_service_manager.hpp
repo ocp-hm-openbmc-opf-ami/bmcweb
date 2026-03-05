@@ -74,11 +74,11 @@ inline bool isFilterQuerySpecialChar(char c)
     }
 }
 
-inline bool
-    readSSEQueryParams(std::string sseFilter, std::string& formatType,
-                       std::vector<std::string>& messageIds,
-                       std::vector<std::string>& registryPrefixes,
-                       std::vector<std::string>& metricReportDefinitions)
+inline bool readSSEQueryParams(
+    std::string sseFilter, std::string& formatType,
+    std::vector<std::string>& messageIds,
+    std::vector<std::string>& registryPrefixes,
+    std::vector<std::string>& metricReportDefinitions)
 {
     auto remove = std::ranges::remove_if(sseFilter, isFilterQuerySpecialChar);
     sseFilter.erase(std::ranges::begin(remove), sseFilter.end());
@@ -238,8 +238,8 @@ class EventServiceManager
         redfish::KafkaManager::getInstance(&ioc);
     }
 
-    static EventServiceManager&
-        getInstance(boost::asio::io_context* ioc = nullptr)
+    static EventServiceManager& getInstance(
+        boost::asio::io_context* ioc = nullptr)
     {
         static EventServiceManager handler(*ioc);
         return handler;
@@ -697,15 +697,16 @@ class EventServiceManager
             {
                 continue;
             }
-            
-            std::string existingDest = subscription->userSub->destinationUrl.buffer();
-            
+
+            std::string existingDest =
+                subscription->userSub->destinationUrl.buffer();
+
             if (existingDest == destUrl)
             {
                 return true;
             }
         }
-        
+
         return false;
     }
 
@@ -871,8 +872,8 @@ class EventServiceManager
         return true;
     }
 
-    static void
-        sendEventsToSubs(const std::vector<EventLogObjectsType>& eventRecords)
+    static void sendEventsToSubs(
+        const std::vector<EventLogObjectsType>& eventRecords)
     {
         for (const auto& it :
              EventServiceManager::getInstance().subscriptionsMap)
@@ -1012,7 +1013,9 @@ class EventServiceManager
         {
             std::shared_ptr<Subscription> entry = it.second;
             std::string prot = entry->userSub->protocol;
-            if (entry->userSub->eventFormatType == "Event" && messageID != "EventSubscriptionRemoved" && messageID != "EventSubscriptionAdded")
+            if (entry->userSub->eventFormatType == "Event" &&
+                messageID != "EventSubscriptionRemoved" &&
+                messageID != "EventSubscriptionAdded")
             {
                 if (prot != "SNMPv1" && prot != "SNMPv2c" && prot != "SNMPv3")
                 {
@@ -1073,10 +1076,10 @@ class EventServiceManager
 
         sdbusplus::asio::getProperty<std::vector<std::string>>(
             *crow::connections::systemBus,
-            "xyz.openbmc_project.Logging", // D-Bus service name
-            path.str.c_str(), // Object path
+            "xyz.openbmc_project.Logging",       // D-Bus service name
+            path.str.c_str(),                    // Object path
             "xyz.openbmc_project.Logging.Entry", // Interface
-            "AdditionalData", // Property name
+            "AdditionalData",                    // Property name
             [messages, timestampStr](
                 const boost::system::error_code& ec,
                 const std::vector<std::string>& additionalData) mutable {
@@ -1091,15 +1094,16 @@ class EventServiceManager
                 std::optional<std::string> redfishMsgId;
                 std::optional<std::string> redfishMsgArgs;
 
-		        //Extract SENSOR_TYPE, SENSOR_PATH, REDFISH_MESSAGE_ID and
-                //REDFISH_MESSAGE_ARGS from AdditionalData
+                // Extract SENSOR_TYPE, SENSOR_PATH, REDFISH_MESSAGE_ID and
+                // REDFISH_MESSAGE_ARGS from AdditionalData
 
                 for (const auto& entry : additionalData)
                 {
                     if (entry.find("SENSOR_TYPE=") == 0)
                     {
                         // Extract value after "SENSOR_TYPE="
-                        sensorType = std::stoi(entry.substr(strlen("SENSOR_TYPE=")));
+                        sensorType =
+                            std::stoi(entry.substr(strlen("SENSOR_TYPE=")));
                         continue;
                     }
 
@@ -1113,14 +1117,16 @@ class EventServiceManager
                     if (entry.find("REDFISH_MESSAGE_ID=") == 0)
                     {
                         // Extract value after "REDFISH_MESSAGE_ID="
-                        redfishMsgId = entry.substr(strlen("REDFISH_MESSAGE_ID="));
+                        redfishMsgId =
+                            entry.substr(strlen("REDFISH_MESSAGE_ID="));
                         continue;
                     }
 
                     if (entry.find("REDFISH_MESSAGE_ARGS=") == 0)
                     {
                         // Extract value after "REDFISH_MESSAGE_ARGS="
-                        redfishMsgArgs = entry.substr(strlen("REDFISH_MESSAGE_ARGS="));
+                        redfishMsgArgs =
+                            entry.substr(strlen("REDFISH_MESSAGE_ARGS="));
                         continue;
                     }
                 }
@@ -1166,12 +1172,13 @@ class EventServiceManager
                     size_t lastDot = redfishMsgId->rfind('.');
                     if (lastDot != std::string::npos)
                     {
-                         *redfishMsgId = redfishMsgId->substr(lastDot + 1);
+                        *redfishMsgId = redfishMsgId->substr(lastDot + 1);
                     }
                     logEntry = *redfishMsgId;
                     if (redfishMsgArgs && !redfishMsgArgs->empty())
                     {
-                        // Use colon separator to match getDbusEventLogParams() parsing logic
+                        // Use colon separator to match getDbusEventLogParams()
+                        // parsing logic
                         logEntry += ":";
                         logEntry += *redfishMsgArgs;
                     }
@@ -1199,48 +1206,57 @@ class EventServiceManager
     }
 
     // Below Function is to log events in dbus for propertychange operations
-    void propertyModifiedEventLog(nlohmann::json::object_t& propertyModified, nlohmann::json::object_t& propertyOriginal, const std::string& URI){ 
- 
+    void propertyModifiedEventLog(nlohmann::json::object_t& propertyModified,
+                                  nlohmann::json::object_t& propertyOriginal,
+                                  const std::string& URI)
+    {
         std::string arg1;
         std::string arg2 = URI;
         std::string arg3;
         std::string arg4;
-        bool firstModified = true;  // To track if it's the first key
+        bool firstModified = true; // To track if it's the first key
         bool firstOriginal = true;
         if (propertyModified.size() > 0)
         {
             for (const auto& [key, value] : propertyModified)
             {
- 
                 if (!firstModified)
                 {
-                    arg1 += ", ";  // Add a comma before the next key
+                    arg1 += ", "; // Add a comma before the next key
                     arg4 += ", ";
                 }
- 
+
                 arg1 += key;
- 
+
                 // Handle value type (string, boolean, or array of strings)
-                if (value.is_string()) {
+                if (value.is_string())
+                {
                     arg4 += value.get<std::string>();
                 }
-                else if (value.is_boolean()) {
+                else if (value.is_boolean())
+                {
                     arg4 += value.get<bool>() ? "true" : "false";
                 }
-                else if (value.is_number_integer()) {
+                else if (value.is_number_integer())
+                {
                     arg4 += std::to_string(value.get<uint64_t>());
                 }
-                else if (value.is_number_float()) {
+                else if (value.is_number_float())
+                {
                     arg4 += std::to_string(value.get<double>());
                 }
-                else if (value.is_array()) {
+                else if (value.is_array())
+                {
                     std::string arrayStr = "[";
                     bool firstInArray = true;
-                    for (const auto& item : value) {
-                        if (!firstInArray) {
+                    for (const auto& item : value)
+                    {
+                        if (!firstInArray)
+                        {
                             arrayStr += ", ";
                         }
-                        if (item.is_string()) {
+                        if (item.is_string())
+                        {
                             arrayStr += item.get<std::string>();
                         }
                         firstInArray = false;
@@ -1248,49 +1264,68 @@ class EventServiceManager
                     arrayStr += "]";
                     arg4 += arrayStr;
                 }
-                else if (value.is_null()) {
+                else if (value.is_null())
+                {
                     arg4 += "null";
-                } 
-                else if (value.is_object()) {
+                }
+                else if (value.is_object())
+                {
                     arg4 += "{object}"; // Or serialize the object
                 }
- 
+
                 firstModified = false;
- 
+
                 auto it = propertyOriginal.find(key);
-                if (it != propertyOriginal.end()) {
+                if (it != propertyOriginal.end())
+                {
                     if (!firstOriginal)
                     {
-                        arg3 += ", ";  // Add a comma before the next key
+                        arg3 += ", "; // Add a comma before the next key
                     }
-                    if (it->second.is_string()) {
+                    if (it->second.is_string())
+                    {
                         arg3 += it->second.get<std::string>();
-                    } else if (it->second.is_boolean()) {
+                    }
+                    else if (it->second.is_boolean())
+                    {
                         arg3 += it->second.get<bool>() ? "true" : "false";
-                    } else if (it->second.is_number_integer()) {
+                    }
+                    else if (it->second.is_number_integer())
+                    {
                         arg3 += std::to_string(it->second.get<uint64_t>());
-                    } else if (it->second.is_number_float()) {
+                    }
+                    else if (it->second.is_number_float())
+                    {
                         arg3 += std::to_string(it->second.get<double>());
-                    } else if (it->second.is_array()) {
+                    }
+                    else if (it->second.is_array())
+                    {
                         std::string arrayStr = "[";
                         bool firstInArray = true;
-                        for (const auto& item : it->second) {
-                            if (!firstInArray) {
+                        for (const auto& item : it->second)
+                        {
+                            if (!firstInArray)
+                            {
                                 arrayStr += ", ";
                             }
-                            if (item.is_string()) {
+                            if (item.is_string())
+                            {
                                 arrayStr += item.get<std::string>();
                             }
                             firstInArray = false;
                         }
                         arrayStr += "]";
                         arg3 += arrayStr;
-                    } else if (it->second.is_null()) {
+                    }
+                    else if (it->second.is_null())
+                    {
                         arg3 += "null";
-                    } else if (it->second.is_object()) {
+                    }
+                    else if (it->second.is_object())
+                    {
                         arg3 += "{object}"; // Or serialize the object
                     }
- 
+
                     firstOriginal = false;
                 }
             }
@@ -1302,8 +1337,9 @@ class EventServiceManager
         sdbusplus::message::message m = bus.new_method_call(
             "xyz.openbmc_project.Logging", "/xyz/openbmc_project/logging",
             "xyz.openbmc_project.Logging.Create", "Create");
-        std::string journalMsg = "ResourceModified:" + arg1 + "," + arg2 + "," + arg3 + "," + arg4;
- 
+        std::string journalMsg =
+            "ResourceModified:" + arg1 + "," + arg2 + "," + arg3 + "," + arg4;
+
         // Append the arguments to the method call
         m.append(journalMsg, severity, std::map<std::string, std::string>());
         try
@@ -1313,11 +1349,12 @@ class EventServiceManager
         catch (const sdbusplus::exception_t& e)
         {
             std::cerr << "Failed to create log entry: " << e.what()
-                        << std::endl;
+                      << std::endl;
         }
     }
 
-    // Below Function is to log events in dbus for resource creation and deletion
+    // Below Function is to log events in dbus for resource creation and
+    // deletion
     void resourceCreationDeletion(const std::string& eventLogMessageId)
     {
         std::string severity =
@@ -1337,7 +1374,7 @@ class EventServiceManager
         catch (const sdbusplus::exception_t& e)
         {
             std::cerr << "Failed to create log entry: " << e.what()
-                        << std::endl;
+                      << std::endl;
         }
     }
     void alertSystem(const std::string& managerMessageID)
@@ -1359,10 +1396,9 @@ class EventServiceManager
         catch (const sdbusplus::exception_t& e)
         {
             std::cerr << "Failed to create log entry: " << e.what()
-                        << std::endl;
+                      << std::endl;
         }
     }
- 
 };
 
 } // namespace redfish

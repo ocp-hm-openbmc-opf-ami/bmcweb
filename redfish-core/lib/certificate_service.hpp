@@ -13,6 +13,7 @@
 #include "utils/json_utils.hpp"
 #include "utils/time_utils.hpp"
 
+#include <boost/asio/steady_timer.hpp>
 #include <boost/system/linux_error.hpp>
 #include <boost/url/format.hpp>
 #include <sdbusplus/asio/property.hpp>
@@ -20,11 +21,9 @@
 #include <sdbusplus/unpack_properties.hpp>
 
 #include <array>
+#include <chrono>
 #include <memory>
 #include <string_view>
-
-#include <boost/asio/steady_timer.hpp>
-#include <chrono>
 
 namespace redfish
 {
@@ -81,8 +80,7 @@ constexpr std::string_view PrivateKeyNotFound =
  * are installed.
  */
 
-inline std::string detectCertificateType(
-    const std::string& str)
+inline std::string detectCertificateType(const std::string& str)
 {
     if (str.empty())
     {
@@ -136,9 +134,9 @@ inline std::string getCertificateFromReqBody(
     std::string certificate;
     std::string certificateType;
 
-    if (!json_util::readJsonPatch( //
-            req, asyncResp->res, //
-            "CertificateString", certificate, //
+    if (!json_util::readJsonPatch(             //
+            req, asyncResp->res,               //
+            "CertificateString", certificate,  //
             "CertificateType", certificateType //
             ))
     {
@@ -156,7 +154,8 @@ inline std::string getCertificateFromReqBody(
     if (detectCertificateType(certificate) != certificateType)
     {
         // If the CertificateString does not match the certificateType
-        messages::invalidTypeForCertificateString(asyncResp->res, certificateType);
+        messages::invalidTypeForCertificateString(asyncResp->res,
+                                                  certificateType);
         BMCWEB_LOG_ERROR("invalidTypeForCertificateString");
         return {};
     }
@@ -300,8 +299,7 @@ inline void getCertificateList(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& basePath, const nlohmann::json::json_pointer& listPtr,
     const nlohmann::json::json_pointer& countPtr,
-    const std::optional<std::string>& dbName,
-    const std::string& systemName)
+    const std::optional<std::string>& dbName, const std::string& systemName)
 {
     constexpr std::array<std::string_view, 1> interfaces = {
         certs::certPropIntf};
@@ -416,8 +414,10 @@ inline void getCertificateProperties(
                 certificateType, "ChainCertString", chainCertString, "KeyUsage",
                 keyUsage, "Issuer", issuer, "Subject", subject, "ValidNotAfter",
                 validNotAfter, "ValidNotBefore", validNotBefore,
-                "UefiSignatureOwner", uefiSignatureOwner, "CertificateVersion", certificateVersion, "SerialNumber", serialNumber,
-                "SignatureAlgorithm", signatureAlgorithm, "PublicKey", publicKey);
+                "UefiSignatureOwner", uefiSignatureOwner, "CertificateVersion",
+                certificateVersion, "SerialNumber", serialNumber,
+                "SignatureAlgorithm", signatureAlgorithm, "PublicKey",
+                publicKey);
 
             if (!success)
             {
@@ -426,7 +426,8 @@ inline void getCertificateProperties(
             }
 
             asyncResp->res.jsonValue["@odata.id"] = certURL;
-            asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("Certificate");
+            asyncResp->res.jsonValue["@odata.type"] =
+                json_util::odataType("Certificate");
             asyncResp->res.jsonValue["Id"] = certId;
             asyncResp->res.jsonValue["Name"] = name;
             asyncResp->res.jsonValue["Description"] = name;
@@ -520,39 +521,43 @@ inline void getCertificateProperties(
 
             if (certificateVersion != nullptr)
             {
-                asyncResp->res.jsonValue["Oem"]["Ami"]["CertificateVersion"] = *certificateVersion;
+                asyncResp->res.jsonValue["Oem"]["Ami"]["CertificateVersion"] =
+                    *certificateVersion;
             }
 
             if (serialNumber != nullptr)
-	    {
-		std::string rawHex = *serialNumber;
+            {
+                std::string rawHex = *serialNumber;
                 if (!rawHex.empty())
                 {
-                        std::string formatted;
-                        for (size_t i = 0; i < rawHex.size(); i += 2)
+                    std::string formatted;
+                    for (size_t i = 0; i < rawHex.size(); i += 2)
+                    {
+                        formatted += rawHex.substr(i, 2);
+                        if (i + 2 < rawHex.size())
                         {
-                                formatted += rawHex.substr(i, 2);
-                                if(i + 2 < rawHex.size())
-                                {
-                                        formatted += ":";
-                                }
+                            formatted += ":";
                         }
-                        asyncResp->res.jsonValue["SerialNumber"] = formatted;
+                    }
+                    asyncResp->res.jsonValue["SerialNumber"] = formatted;
                 }
             }
 
             if (signatureAlgorithm != nullptr)
             {
-                asyncResp->res.jsonValue["SignatureAlgorithm"] = *signatureAlgorithm;
+                asyncResp->res.jsonValue["SignatureAlgorithm"] =
+                    *signatureAlgorithm;
             }
 
             if (publicKey != nullptr)
             {
-                asyncResp->res.jsonValue["Oem"]["Ami"]["PublicKey"] = *publicKey;
+                asyncResp->res.jsonValue["Oem"]["Ami"]["PublicKey"] =
+                    *publicKey;
             }
             asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.id"] =
                 boost::urls::format("{}/#Oem/Ami", certURL.buffer());
-            asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] = json_util::odataType("AMICertificate", "Ami");
+            asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] =
+                json_util::odataType("AMICertificate", "Ami");
 
             asyncResp->res.addHeader(
                 boost::beast::http::field::location,
@@ -560,10 +565,10 @@ inline void getCertificateProperties(
         });
 }
 
-inline void
-    deleteCertificate(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                      const std::string& service,
-                      const sdbusplus::message::object_path& objectPath)
+inline void deleteCertificate(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& service,
+    const sdbusplus::message::object_path& objectPath)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp,
@@ -588,10 +593,10 @@ inline void
  * @param[in] value value of certificate property
  * @return None
  */
-inline void
-    errorMessageHandler(const crow::Request& req,
-                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                        const sd_bus_error* e, const std::string& value)
+inline void errorMessageHandler(
+    const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, const sd_bus_error* e,
+    const std::string& value)
 {
     if (e == nullptr)
     {
@@ -663,7 +668,8 @@ inline void handleCertificateServiceGet(
         return;
     }
 
-    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("CertificateService");
+    asyncResp->res.jsonValue["@odata.type"] =
+        json_util::odataType("CertificateService");
     asyncResp->res.jsonValue["@odata.id"] = "/redfish/v1/CertificateService";
     asyncResp->res.jsonValue["Id"] = "CertificateService";
     asyncResp->res.jsonValue["Name"] = "Certificate Service";
@@ -702,16 +708,18 @@ inline void handleCertificateLocationsGet(
     }
     asyncResp->res.jsonValue["@odata.id"] =
         "/redfish/v1/CertificateService/CertificateLocations";
-    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("CertificateLocations");
+    asyncResp->res.jsonValue["@odata.type"] =
+        json_util::odataType("CertificateLocations");
     asyncResp->res.jsonValue["Name"] = "Certificate Locations";
     asyncResp->res.jsonValue["Id"] = "CertificateLocations";
     asyncResp->res.jsonValue["Description"] =
         "Defines a resource that an administrator can use in order to "
         "locate all certificates installed on a given service";
 
-    getCertificateList(asyncResp, certs::baseObjectPath,
-                       "/Links/Certificates"_json_pointer,
-                       "/Links/Certificates@odata.count"_json_pointer, std::nullopt, std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME));
+    getCertificateList(
+        asyncResp, certs::baseObjectPath, "/Links/Certificates"_json_pointer,
+        "/Links/Certificates@odata.count"_json_pointer, std::nullopt,
+        std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME));
 }
 
 inline void handleError(const std::string_view dbusErrorName,
@@ -771,16 +779,13 @@ inline void handleError(const std::string_view dbusErrorName,
 }
 
 inline void setCertificateType(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    std::string service,
-    std::string objectPath,
-    std::string certificateType)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, std::string service,
+    std::string objectPath, std::string certificateType)
 {
     sdbusplus::asio::setProperty(
-        *crow::connections::systemBus,
-        service, objectPath,
-        certs::certPropIntf, "CertificateType",
-        certificateType, [asyncResp](const boost::system::error_code& ec) {
+        *crow::connections::systemBus, service, objectPath, certs::certPropIntf,
+        "CertificateType", certificateType,
+        [asyncResp](const boost::system::error_code& ec) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("set property failed.",
@@ -796,17 +801,14 @@ inline void setCertificateType(
 }
 
 inline void getCertificateType(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    std::string service,
-    std::string objectPath,
-    std::function<void(std::string)> callback)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, std::string service,
+    std::string objectPath, std::function<void(std::string)> callback)
 {
     sdbusplus::asio::getProperty<std::string>(
-        *crow::connections::systemBus,
-        service, objectPath,
-        certs::certPropIntf, "CertificateType",
+        *crow::connections::systemBus, service, objectPath, certs::certPropIntf,
+        "CertificateType",
         [asyncResp, callback](const boost::system::error_code& ec,
-                    const std::string &certificateType) {
+                              const std::string& certificateType) {
             if (ec)
             {
                 callback("");
@@ -843,13 +845,9 @@ inline void restartBmcweb()
                     BMCWEB_LOG_INFO("RestartUnit(bmcweb.service) triggered");
                 }
             },
-            "org.freedesktop.systemd1",
-            "/org/freedesktop/systemd1",
-            "org.freedesktop.systemd1.Manager",
-            "RestartUnit",
-            "bmcweb.service",
-            "replace"
-        );
+            "org.freedesktop.systemd1", "/org/freedesktop/systemd1",
+            "org.freedesktop.systemd1.Manager", "RestartUnit", "bmcweb.service",
+            "replace");
     });
 }
 
@@ -865,12 +863,9 @@ inline void handleReplaceCertificateAction(
     std::string certURI;
     std::optional<std::string> certificateType;
 
-    if (!json_util::readJsonAction(
-            req, asyncResp->res,
-            "CertificateString", certificate,
-            "CertificateUri/@odata.id", certURI,
-            "CertificateType", certificateType
-            ))
+    if (!json_util::readJsonAction(req, asyncResp->res, "CertificateString",
+                                   certificate, "CertificateUri/@odata.id",
+                                   certURI, "CertificateType", certificateType))
     {
         BMCWEB_LOG_ERROR("Required parameters are missing");
         return;
@@ -938,7 +933,7 @@ inline void handleReplaceCertificateAction(
     else
     {
         messages::actionParameterValueError(asyncResp->res, "CertificateUri",
-                                              "ReplaceCertificate");
+                                            "ReplaceCertificate");
         return;
     }
 
@@ -976,46 +971,58 @@ inline void handleReplaceCertificateAction(
 
     dbus::utility::getDbusObject(
         objectPath, {},
-        [asyncResp, service, objectPath, certificateType, parsedUrl, id, name, certURI, certificate](
-            const boost::system::error_code& ec,
-            const dbus::utility::MapperGetObject&) {
-            if (ec) {
+        [asyncResp, service, objectPath, certificateType, parsedUrl, id, name,
+         certURI, certificate](const boost::system::error_code& ec,
+                               const dbus::utility::MapperGetObject&) {
+            if (ec)
+            {
                 BMCWEB_LOG_ERROR("invalidCertificateUri");
-                messages::actionParameterValueError(asyncResp->res, "CertificateUri", "ReplaceCertificate");
+                messages::actionParameterValueError(
+                    asyncResp->res, "CertificateUri", "ReplaceCertificate");
                 return;
             }
             /**
-             * Since the backend validates the certificate only after the Replace operation,
-             * this mechanism ensures that when replacing a certificate via Redfish,
-             * the system correctly restores the original CertificateType if the
-             * backend determines that the new certificate is invalid and has changed the CertificateType.
+             * Since the backend validates the certificate only after the
+             * Replace operation, this mechanism ensures that when replacing a
+             * certificate via Redfish, the system correctly restores the
+             * original CertificateType if the backend determines that the new
+             * certificate is invalid and has changed the CertificateType.
              *
-             * 1. getCertificateType -> Retrieve the current CertificateType (pre_certificateType).
-             * 2. setCertificateType -> If the certificate is invalid and the CertificateType has changed, restore it to pre_certificateType.
+             * 1. getCertificateType -> Retrieve the current CertificateType
+             * (pre_certificateType).
+             * 2. setCertificateType -> If the certificate is invalid and the
+             * CertificateType has changed, restore it to pre_certificateType.
              */
-            getCertificateType(asyncResp, service, objectPath,
-                [asyncResp, service, objectPath, certificateType, parsedUrl, id, name, certURI, certificate]
-                (std::string pre_certificateType)
-                {
-                    setCertificateType(asyncResp, service, objectPath, *certificateType);
+            getCertificateType(
+                asyncResp, service, objectPath,
+                [asyncResp, service, objectPath, certificateType, parsedUrl, id,
+                 name, certURI, certificate](std::string pre_certificateType) {
+                    setCertificateType(asyncResp, service, objectPath,
+                                       *certificateType);
 
                     std::shared_ptr<CertificateFile> certFile =
                         std::make_shared<CertificateFile>(certificate);
                     crow::connections::systemBus->async_method_call(
-                        [asyncResp, certFile, objectPath, service, url{*parsedUrl}, id, name,
-                            certURI, certificate, certificateType, pre_certificateType](const boost::system::error_code& ec,
-                                                sdbusplus::message_t& m) {
+                        [asyncResp, certFile, objectPath, service,
+                         url{*parsedUrl}, id, name, certURI, certificate,
+                         certificateType, pre_certificateType](
+                            const boost::system::error_code& ec,
+                            sdbusplus::message_t& m) {
                             if (ec)
                             {
                                 BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
                                 const sd_bus_error* dbusError = m.get_error();
-                                if ((dbusError != nullptr) && (dbusError->name != nullptr))
+                                if ((dbusError != nullptr) &&
+                                    (dbusError->name != nullptr))
                                 {
-                                    handleError(dbusError->name, id, certificate, asyncResp);
+                                    handleError(dbusError->name, id,
+                                                certificate, asyncResp);
 
                                     if (certificateType != pre_certificateType)
                                     {
-                                        setCertificateType(asyncResp, service, objectPath, pre_certificateType);
+                                        setCertificateType(asyncResp, service,
+                                                           objectPath,
+                                                           pre_certificateType);
                                     }
 
                                     return;
@@ -1026,14 +1033,17 @@ inline void handleReplaceCertificateAction(
                                     return;
                                 }
                             }
-                            BMCWEB_LOG_DEBUG("HTTPS certificate install file={}",
-                                                certFile->getCertFilePath());
-                            asyncResp->res.addHeader(boost::beast::http::field::location,
-                                                        certURI);
-                            asyncResp->res.result(boost::beast::http::status::no_content);
-
-                            // Restart bmcweb to ensure the new certificate is fully loaded
-                            if(service == certs::httpsServiceName) restartBmcweb();
+                            BMCWEB_LOG_DEBUG(
+                                "HTTPS certificate install file={}",
+                                certFile->getCertFilePath());
+                            asyncResp->res.addHeader(
+                                boost::beast::http::field::location, certURI);
+                            asyncResp->res.result(
+                                boost::beast::http::status::no_content);
+                            // Restart bmcweb to ensure the new certificate is
+                            // fully loaded
+                            if (service == certs::httpsServiceName)
+                                restartBmcweb();
                         },
                         service, objectPath, certs::certReplaceIntf, "Replace",
                         certFile->getCertFilePath());
@@ -1082,9 +1092,9 @@ inline void getCSR(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         service, csrObjPath, "xyz.openbmc_project.Certs.CSR", "CSR");
 }
 
-inline void
-    handleGenerateCSRAction(App& app, const crow::Request& req,
-                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void handleGenerateCSRAction(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -1116,27 +1126,27 @@ inline void
         std::vector<std::string>();
     std::optional<std::string> optSurname = "";
     std::optional<std::string> optUnstructuredName = "";
-    if (!json_util::readJsonAction( //
-            req, asyncResp->res, //
-            "City", city, //
-            "CommonName", commonName, //
-            "ContactPerson", optContactPerson, //
-            "Country", country, //
-            "Organization", organization, //
-            "OrganizationalUnit", organizationalUnit, //
-            "State", state, //
+    if (!json_util::readJsonAction(                     //
+            req, asyncResp->res,                        //
+            "City", city,                               //
+            "CommonName", commonName,                   //
+            "ContactPerson", optContactPerson,          //
+            "Country", country,                         //
+            "Organization", organization,               //
+            "OrganizationalUnit", organizationalUnit,   //
+            "State", state,                             //
             "CertificateCollection/@odata.id", certURI, //
-            "AlternativeNames", optAlternativeNames, //
-            "ChallengePassword", optChallengePassword, //
-            "Email", optEmail, //
-            "GivenName", optGivenName, //
-            "Initials", optInitials, //
-            "KeyBitLength", optKeyBitLength, //
-            "KeyCurveId", optKeyCurveId, //
-            "KeyPairAlgorithm", optKeyPairAlgorithm, //
-            "KeyUsage", optKeyUsage, //
-            "Surname", optSurname, //
-            "UnstructuredName", optUnstructuredName //
+            "AlternativeNames", optAlternativeNames,    //
+            "ChallengePassword", optChallengePassword,  //
+            "Email", optEmail,                          //
+            "GivenName", optGivenName,                  //
+            "Initials", optInitials,                    //
+            "KeyBitLength", optKeyBitLength,            //
+            "KeyCurveId", optKeyCurveId,                //
+            "KeyPairAlgorithm", optKeyPairAlgorithm,    //
+            "KeyUsage", optKeyUsage,                    //
+            "Surname", optSurname,                      //
+            "UnstructuredName", optUnstructuredName     //
             ))
     {
         return;
@@ -1155,7 +1165,8 @@ inline void
 
     std::string objectPath;
     std::string service;
-    if (certURI == std::format(
+    if (certURI ==
+        std::format(
             "/redfish/v1/Managers/{}/NetworkProtocol/HTTPS/Certificates",
             BMCWEB_REDFISH_MANAGER_URI_NAME))
     {
@@ -1200,7 +1211,8 @@ inline void
     }
 
     // validate KeyUsage supporting only 1 type based on URL
-    if (certURI == std::format(
+    if (certURI ==
+        std::format(
             "/redfish/v1/Managers/{}/NetworkProtocol/HTTPS/Certificates",
             BMCWEB_REDFISH_MANAGER_URI_NAME))
     {
@@ -1343,7 +1355,8 @@ inline void handleCertificateReplaceCertificateActionInfo(
     }
     asyncResp->res.jsonValue["@odata.id"] =
         "/redfish/v1/CertificateService/CertificateService.ReplaceCertificateActionInfo";
-    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("ActionInfo");
+    asyncResp->res.jsonValue["@odata.type"] =
+        json_util::odataType("ActionInfo");
     asyncResp->res.jsonValue["Name"] = "CertificateService.ReplaceCertificate";
     asyncResp->res.jsonValue["Id"] = "CertificateService.ReplaceCertificate";
     asyncResp->res.jsonValue["Description"] =
@@ -1438,7 +1451,8 @@ inline void handleHTTPSCertificateCollectionGet(
 
     getCertificateList(asyncResp, certs::httpsObjectPath,
                        "/Members"_json_pointer,
-                       "/Members@odata.count"_json_pointer, std::nullopt, std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME));
+                       "/Members@odata.count"_json_pointer, std::nullopt,
+                       std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME));
 }
 
 inline void handleHTTPSCertificateCollectionPost(
@@ -1569,12 +1583,11 @@ inline void requestRoutesHTTPSCertificate(App& app)
                                            managerId);
                 return;
             }
-            membersResponse result =
-                membersResponsePost(req, asyncResp, id);
+            membersResponse result = membersResponsePost(req, asyncResp, id);
             if (result == membersResponse::postAllowed)
             {
                 handleHTTPSCertificateCollectionPost(app, req, asyncResp,
-                                                         managerId);
+                                                     managerId);
                 return;
             }
             else if (result == membersResponse::postNotAllowed)
@@ -1636,7 +1649,8 @@ inline void handleLDAPCertificateCollectionGet(
 
     getCertificateList(asyncResp, certs::ldapObjectPath,
                        "/Members"_json_pointer,
-                       "/Members@odata.count"_json_pointer, std::nullopt, std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME));
+                       "/Members@odata.count"_json_pointer, std::nullopt,
+                       std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME));
 }
 
 inline void handleLDAPCertificateCollectionPost(
@@ -1753,54 +1767,59 @@ inline void requestRoutesLDAPCertificate(App& app)
         .methods(boost::beast::http::verb::delete_)(
             std::bind_front(handleLDAPCertificateDelete, std::ref(app)));
 
-    BMCWEB_ROUTE(app,"/redfish/v1/AccountService/LDAP/Certificates/<str>/")
-        .methods(boost::beast::http::verb::post, boost::beast::http::verb::patch,
-            boost::beast::http::verb::put)(
-                [&app](const crow::Request& req,
-                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                const std::string& certId) {
+    BMCWEB_ROUTE(app, "/redfish/v1/AccountService/LDAP/Certificates/<str>/")
+        .methods(boost::beast::http::verb::post,
+                 boost::beast::http::verb::patch,
+                 boost::beast::http::verb::put)(
+            [&app](const crow::Request& req,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const std::string& certId) {
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+                membersResponse result =
+                    membersResponsePost(req, asyncResp, certId);
+                if (result == membersResponse::postAllowed)
+                {
+                    handleLDAPCertificateCollectionPost(app, req, asyncResp);
+                    return;
+                }
+                else if (result == membersResponse::postNotAllowed)
+                {
+                    return;
+                }
+                const boost::urls::url certURL = boost::urls::format(
+                    "/redfish/v1/AccountService/LDAP/Certificates/{}",
+                    BMCWEB_REDFISH_MANAGER_URI_NAME, certId);
+                const boost::urls::url objPath = boost::urls::format(
+                    "/xyz/openbmc_project/certs/client/ldap/{}", certId);
+                std::string objectPath = objPath.data();
 
-                    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-                    {
-                        messages::internalError(asyncResp->res);
-                        return;
-                    }
-                    membersResponse result =
-                        membersResponsePost(req, asyncResp, certId);
-                    if (result == membersResponse::postAllowed)
-                    {
-                        handleLDAPCertificateCollectionPost(app, req, asyncResp);
-                        return;
-                    }
-                    else if (result == membersResponse::postNotAllowed)
-                    {
-                        return;
-                    }
-                    const boost::urls::url certURL = boost::urls::format("/redfish/v1/AccountService/LDAP/Certificates/{}", BMCWEB_REDFISH_MANAGER_URI_NAME, certId);
-                    const boost::urls::url objPath = boost::urls::format("/xyz/openbmc_project/certs/client/ldap/{}", certId);
-                    std::string objectPath = objPath.data();
-
-                    sdbusplus::asio::getAllProperties(
-                        *crow::connections::systemBus, certs::ldapServiceName, objectPath, certs::certPropIntf,
-                        [asyncResp, certId](const boost::system::error_code ec,
-                                            const dbus::utility::DBusPropertiesMap &)
+                sdbusplus::asio::getAllProperties(
+                    *crow::connections::systemBus, certs::ldapServiceName,
+                    objectPath, certs::certPropIntf,
+                    [asyncResp,
+                     certId](const boost::system::error_code ec,
+                             const dbus::utility::DBusPropertiesMap&) {
+                        if (ec)
                         {
-                            if (ec)
-                            {
-                                BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
-                                messages::resourceNotFound(asyncResp->res, "Certificate", certId);
-                                return;
-                            }
-                            else
-                            {
-                                BMCWEB_LOG_ERROR("Method Not Allowed");
-                                messages::operationNotAllowed(asyncResp->res);
-                                return;
-                            }
-                        });
+                            BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
+                            messages::resourceNotFound(asyncResp->res,
+                                                       "Certificate", certId);
+                            return;
+                        }
+                        else
+                        {
+                            BMCWEB_LOG_ERROR("Method Not Allowed");
+                            messages::operationNotAllowed(asyncResp->res);
+                            return;
+                        }
+                    });
 
-                       asyncResp->res.addHeader("Allow", "GET, DELETE");
-                });
+                asyncResp->res.addHeader("Allow", "GET, DELETE");
+            });
 } // requestRoutesLDAPCertificate
 
 inline void handleTrustStoreCertificateCollectionGet(
@@ -1830,7 +1849,8 @@ inline void handleTrustStoreCertificateCollectionGet(
 
     getCertificateList(asyncResp, certs::authorityObjectPath,
                        "/Members"_json_pointer,
-                       "/Members@odata.count"_json_pointer, std::nullopt, std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME));
+                       "/Members@odata.count"_json_pointer, std::nullopt,
+                       std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME));
 }
 
 inline void handleTrustStoreCertificateCollectionPost(
@@ -1973,61 +1993,68 @@ inline void requestRoutesTrustStoreCertificate(App& app)
             std::bind_front(handleTrustStoreCertificateDelete, std::ref(app)));
 
     BMCWEB_ROUTE(app,
-                "/redfish/v1/Managers/<str>/Truststore/Certificates/<str>/")
-        .methods(boost::beast::http::verb::post, boost::beast::http::verb::patch,
-            boost::beast::http::verb::put)(
-                [&app](const crow::Request& req,
-                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                const std::string& managerId, const std::string& certId) {
+                 "/redfish/v1/Managers/<str>/Truststore/Certificates/<str>/")
+        .methods(boost::beast::http::verb::post,
+                 boost::beast::http::verb::patch,
+                 boost::beast::http::verb::put)(
+            [&app](const crow::Request& req,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const std::string& managerId, const std::string& certId) {
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+                membersResponse result =
+                    membersResponsePost(req, asyncResp, certId);
+                if (result == membersResponse::postAllowed)
+                {
+                    handleTrustStoreCertificateCollectionPost(
+                        app, req, asyncResp, managerId);
+                    return;
+                }
+                else if (result == membersResponse::postNotAllowed)
+                {
+                    return;
+                }
+                if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
+                {
+                    messages::resourceNotFound(asyncResp->res, "Manager",
+                                               managerId);
+                    return;
+                }
 
-                    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-                    {
-                        messages::internalError(asyncResp->res);
-                        return;
-                    }
-                    membersResponse result =
-                        membersResponsePost(req, asyncResp, certId);
-                    if (result == membersResponse::postAllowed)
-                    {
-                        handleTrustStoreCertificateCollectionPost(
-                            app, req, asyncResp, managerId);
-                        return;
-                    }
-                    else if (result == membersResponse::postNotAllowed)
-                    {
-                        return;
-                    }
-                    if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
-                    {
-                        messages::resourceNotFound(asyncResp->res, "Manager", managerId);
-                        return;
-                    }
+                const boost::urls::url certURL = boost::urls::format(
+                    "/redfish/v1/Managers/{}/Truststore/Certificates/{}",
+                    BMCWEB_REDFISH_MANAGER_URI_NAME, certId);
+                const boost::urls::url objPath = boost::urls::format(
+                    "/xyz/openbmc_project/certs/authority/truststore/{}",
+                    certId);
+                std::string objectPath = objPath.data();
 
-                    const boost::urls::url certURL = boost::urls::format("/redfish/v1/Managers/{}/Truststore/Certificates/{}", BMCWEB_REDFISH_MANAGER_URI_NAME, certId);
-                    const boost::urls::url objPath = boost::urls::format("/xyz/openbmc_project/certs/authority/truststore/{}", certId);
-                    std::string objectPath = objPath.data();
-
-                    sdbusplus::asio::getAllProperties(
-                        *crow::connections::systemBus, certs::authorityServiceName, objectPath, certs::certPropIntf,
-                        [asyncResp, certId](const boost::system::error_code ec,
-                                            const dbus::utility::DBusPropertiesMap &)
+                sdbusplus::asio::getAllProperties(
+                    *crow::connections::systemBus, certs::authorityServiceName,
+                    objectPath, certs::certPropIntf,
+                    [asyncResp,
+                     certId](const boost::system::error_code ec,
+                             const dbus::utility::DBusPropertiesMap&) {
+                        if (ec)
                         {
-                            if (ec)
-                            {
-                                BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
-                                messages::resourceNotFound(asyncResp->res, "Certificate", certId);
-                                return;
-                            }
-                            else
-                            {
-                                BMCWEB_LOG_ERROR("Method Not Allowed");
-                                messages::operationNotAllowed(asyncResp->res);
-                                return;
-                            }
-                        });
+                            BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
+                            messages::resourceNotFound(asyncResp->res,
+                                                       "Certificate", certId);
+                            return;
+                        }
+                        else
+                        {
+                            BMCWEB_LOG_ERROR("Method Not Allowed");
+                            messages::operationNotAllowed(asyncResp->res);
+                            return;
+                        }
+                    });
 
-                       asyncResp->res.addHeader("Allow", "GET, DELETE");
-                });
+                asyncResp->res.addHeader("Allow", "GET, DELETE");
+            });
 
 } // requestRoutesTrustStoreCertificate
 } // namespace redfish

@@ -3,15 +3,15 @@
 
 namespace redfish
 {
-    inline bool ishandleManagersInstanceGet = false;
-    void handleManagersInstanceGet(
-        App& app, const crow::Request& req,
-        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-        const std::string& managerId);
+inline bool ishandleManagersInstanceGet = false;
+void handleManagersInstanceGet(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& managerId);
 
-    void doBMCGracefulRestart(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp);
-    void handleManagerCollectionGet(
-    	App& app, const crow::Request& req,
-    	const std::shared_ptr<bmcweb::AsyncResp>& asyncResp);
+void doBMCGracefulRestart(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp);
+void handleManagerCollectionGet(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp);
 
-}
+} // namespace redfish

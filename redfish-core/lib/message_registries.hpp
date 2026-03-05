@@ -9,6 +9,7 @@
 #include "registries/base_message_registry.hpp"
 #include "registries/certificate_service_message_registry.hpp"
 #include "registries/heartbeat_event_message_registry.hpp"
+#include "registries/license_message_registry.hpp"
 #include "registries/nm_message_registry.hpp"
 #include "registries/openbmc_message_registry.hpp"
 #include "registries/privilege_mapping.hpp"
@@ -16,7 +17,6 @@
 #include "registries/resource_event_message_registry.hpp"
 #include "registries/task_event_message_registry.hpp"
 #include "registries/telemetry_message_registry.hpp"
-#include "registries/license_message_registry.hpp"
 
 #ifdef ONETREE_RTP
 #include "ext/include/registries/ami_certificate_service_message_registry.hpp"
@@ -55,8 +55,8 @@ inline void handleMessageRegistryFileCollectionGet(
 
     nlohmann::json& members = asyncResp->res.jsonValue["Members"];
     static constexpr const auto registryFiles = std::to_array(
-        {"Base", "TaskEvent", "License", "NodeManager", "ResourceEvent", "OpenBMC",
-         "Telemetry", "PrivilegeRegistry", "HeartbeatEvent",
+        {"Base", "TaskEvent", "License", "NodeManager", "ResourceEvent",
+         "OpenBMC", "Telemetry", "PrivilegeRegistry", "HeartbeatEvent",
          "CertificateService"});
     for (const char* memberName : registryFiles)
     {
@@ -96,7 +96,7 @@ inline void requestRoutesMessageRegistryFileCollection(App& app)
  */
 template <typename EntityMapType>
 inline void addEntitiesToMappings(nlohmann::json& mappings,
-                                   const EntityMapType& entities)
+                                  const EntityMapType& entities)
 {
     for (const auto& entity : entities)
     {
@@ -124,9 +124,9 @@ inline void addEntitiesToMappings(nlohmann::json& mappings,
     }
 }
 
-inline void
-    fillPrivilegeRegistry(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                          const registries::Header* header)
+inline void fillPrivilegeRegistry(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const registries::Header* header)
 {
     // asyncResp->res.jsonValue["@Redfish.Copyright"] = header->copyright;
     std::vector<std::string> split;
@@ -193,8 +193,10 @@ inline void
         }
 
         // Check for PropertyOverrides for this entity
-        const auto propertyOverrideIt = registries::PrivilegeRegistry::propertyOverrides.find(entityName);
-        if (propertyOverrideIt != registries::PrivilegeRegistry::propertyOverrides.end())
+        const auto propertyOverrideIt =
+            registries::PrivilegeRegistry::propertyOverrides.find(entityName);
+        if (propertyOverrideIt !=
+            registries::PrivilegeRegistry::propertyOverrides.end())
         {
             mappingObj["PropertyOverrides"] = nlohmann::json::array();
             for (const auto& propOverride : propertyOverrideIt->second)
@@ -206,11 +208,13 @@ inline void
                 {
                     const std::string& opMethod = op.first;
                     const auto& privileges = op.second;
-                    propOverrideObj["OperationMap"][opMethod] = nlohmann::json::array();
+                    propOverrideObj["OperationMap"][opMethod] =
+                        nlohmann::json::array();
                     for (const auto& privilege : privileges)
                     {
                         propOverrideObj["OperationMap"][opMethod].push_back(
-                            {{"Privilege", nlohmann::json::array({privilege})}});
+                            {{"Privilege",
+                              nlohmann::json::array({privilege})}});
                     }
                 }
                 mappingObj["PropertyOverrides"].push_back(propOverrideObj);
@@ -225,7 +229,8 @@ inline void
 
 #ifdef ONETREE_RTP
     // Add AMI-specific entities to PrivilegeRegistry
-    addEntitiesToMappings(mappings, redfish::registries::AMIPrivilegeMapping::AMIEntities);
+    addEntitiesToMappings(
+        mappings, redfish::registries::AMIPrivilegeMapping::AMIEntities);
 #endif
 }
 
@@ -240,7 +245,8 @@ inline void handleMessageRoutesMessageRegistryFileGet(
     {
         return;
     }
-    if (!membersResponseGet(asyncResp, registry, "MessageRegistryFileCollection"))
+    if (!membersResponseGet(asyncResp, registry,
+                            "MessageRegistryFileCollection"))
     {
         return;
     }
@@ -287,9 +293,9 @@ inline void handleMessageRoutesMessageRegistryFileGet(
     else if (registry == "License" || registryName == "License")
     {
         header = &registries::license::header;
-        Val =  std::format(
-            "{}.{}.{}.{}", header->registryPrefix, header->versionMajor,
-            header->versionMinor, header->versionPatch);
+        Val = std::format("{}.{}.{}.{}", header->registryPrefix,
+                          header->versionMajor, header->versionMinor,
+                          header->versionPatch);
         if (registry == "License")
         {
             registryVal = 0;
@@ -313,9 +319,9 @@ inline void handleMessageRoutesMessageRegistryFileGet(
     else if (registry == "TaskEvent" || registryName == "TaskEvent")
     {
         header = &registries::task_event::header;
-        Val =  std::format(
-            "{}.{}.{}.{}", header->registryPrefix, header->versionMajor,
-            header->versionMinor, header->versionPatch);
+        Val = std::format("{}.{}.{}.{}", header->registryPrefix,
+                          header->versionMajor, header->versionMinor,
+                          header->versionPatch);
         if (registry == "TaskEvent")
         {
             registryVal = 0;
@@ -339,9 +345,9 @@ inline void handleMessageRoutesMessageRegistryFileGet(
     else if (registry == "OpenBMC" || registryName == "OpenBMC")
     {
         header = &registries::openbmc::header;
-        Val =  std::format(
-            "{}.{}.{}.{}", header->registryPrefix, header->versionMajor,
-            header->versionMinor, header->versionPatch);
+        Val = std::format("{}.{}.{}.{}", header->registryPrefix,
+                          header->versionMajor, header->versionMinor,
+                          header->versionPatch);
         if (registry == "OpenBMC")
         {
             dmtf.clear();
@@ -366,9 +372,9 @@ inline void handleMessageRoutesMessageRegistryFileGet(
     else if (registry == "NodeManager" || registryName == "NodeManager")
     {
         header = &registries::nm::header;
-        Val =  std::format(
-            "{}.{}.{}.{}", header->registryPrefix, header->versionMajor,
-            header->versionMinor, header->versionPatch);
+        Val = std::format("{}.{}.{}.{}", header->registryPrefix,
+                          header->versionMajor, header->versionMinor,
+                          header->versionPatch);
         if (registry == "NodeManager")
         {
             dmtf.clear();
@@ -393,9 +399,9 @@ inline void handleMessageRoutesMessageRegistryFileGet(
     else if (registry == "ResourceEvent" || registryName == "ResourceEvent")
     {
         header = &registries::resource_event::header;
-        Val =  std::format(
-            "{}.{}.{}.{}", header->registryPrefix, header->versionMajor,
-            header->versionMinor, header->versionPatch);
+        Val = std::format("{}.{}.{}.{}", header->registryPrefix,
+                          header->versionMajor, header->versionMinor,
+                          header->versionPatch);
         if (registry == "ResourceEvent")
         {
             registryVal = 0;
@@ -419,9 +425,9 @@ inline void handleMessageRoutesMessageRegistryFileGet(
     else if (registry == "Telemetry" || registryName == "Telemetry")
     {
         header = &registries::telemetry::header;
-        Val =  std::format(
-            "{}.{}.{}.{}", header->registryPrefix, header->versionMajor,
-            header->versionMinor, header->versionPatch);
+        Val = std::format("{}.{}.{}.{}", header->registryPrefix,
+                          header->versionMajor, header->versionMinor,
+                          header->versionPatch);
         if (registry == "Telemetry")
         {
             registryVal = 0;
@@ -445,9 +451,9 @@ inline void handleMessageRoutesMessageRegistryFileGet(
     else if (registry == "HeartbeatEvent" || registryName == "HeartbeatEvent")
     {
         header = &registries::heartbeat_event::header;
-        Val =  std::format(
-            "{}.{}.{}.{}", header->registryPrefix, header->versionMajor,
-            header->versionMinor, header->versionPatch);
+        Val = std::format("{}.{}.{}.{}", header->registryPrefix,
+                          header->versionMajor, header->versionMinor,
+                          header->versionPatch);
         if (registry == "HeartbeatEvent")
         {
             registryVal = 0;
@@ -493,9 +499,9 @@ inline void handleMessageRoutesMessageRegistryFileGet(
              registryName == "CertificateService")
     {
         header = &registries::certificate::header;
-        Val =  std::format(
-            "{}.{}.{}.{}", header->registryPrefix, header->versionMajor,
-            header->versionMinor, header->versionPatch);
+        Val = std::format("{}.{}.{}.{}", header->registryPrefix,
+                          header->versionMajor, header->versionMinor,
+                          header->versionPatch);
         if (registry == "CertificateService")
         {
             registryVal = 0;
@@ -530,9 +536,9 @@ inline void handleMessageRoutesMessageRegistryFileGet(
         header = &registries::acd::header;
         dmtf.clear();
 
-        Val =  std::format(
-            "{}.{}.{}.{}", header->registryPrefix, header->versionMajor,
-            header->versionMinor, header->versionPatch);
+        Val = std::format("{}.{}.{}.{}", header->registryPrefix,
+                          header->versionMajor, header->versionMinor,
+                          header->versionPatch);
         if (registry == "ACD")
         {
             registryVal = 0;
@@ -564,16 +570,17 @@ inline void handleMessageRoutesMessageRegistryFileGet(
     {
         asyncResp->res.jsonValue["@odata.id"] =
             boost::urls::format("/redfish/v1/Registries/{}", registry);
-        asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("MessageRegistryFile");
+        asyncResp->res.jsonValue["@odata.type"] =
+            json_util::odataType("MessageRegistryFile");
         asyncResp->res.jsonValue["Name"] = registry + " Message Registry File";
         asyncResp->res.jsonValue["Description"] =
             dmtf + registry + " Message Registry File Location";
         asyncResp->res.jsonValue["Id"] = header->registryPrefix;
-        if(registry != "PrivilegeRegistry")
+        if (registry != "PrivilegeRegistry")
         {
-        asyncResp->res.jsonValue["Registry"] =
-            std::format("{}.{}.{}", header->registryPrefix,
-                        header->versionMajor, header->versionMinor);
+            asyncResp->res.jsonValue["Registry"] =
+                std::format("{}.{}.{}", header->registryPrefix,
+                            header->versionMajor, header->versionMinor);
         }
         else
         {
@@ -600,7 +607,8 @@ inline void handleMessageRoutesMessageRegistryFileGet(
         std::vector<std::string> split;
         bmcweb::split(split, header->type, '.');
         asyncResp->res.jsonValue["@Redfish.Copyright"] = header->copyright;
-        asyncResp->res.jsonValue["@odata.type"] = json_util::odataType(split[2]);
+        asyncResp->res.jsonValue["@odata.type"] =
+            json_util::odataType(split[2]);
         asyncResp->res.jsonValue["Id"] = std::format(
             "{}.{}.{}.{}", header->registryPrefix, header->versionMajor,
             header->versionMinor, header->versionPatch);
@@ -649,155 +657,178 @@ inline void requestRoutesMessageRegistryFile(App& app)
         .methods(boost::beast::http::verb::get)(std::bind_front(
             handleMessageRoutesMessageRegistryFileGet, std::ref(app)));
 
-   BMCWEB_ROUTE(app, "/redfish/v1/Registries/<str>/")
+    BMCWEB_ROUTE(app, "/redfish/v1/Registries/<str>/")
         .privileges(redfish::privileges::getMessageRegistryFile)
-        .methods(boost::beast::http::verb::post,boost::beast::http::verb::patch,boost::beast::http::verb::delete_,boost::beast::http::verb::put)(
-            [&app](const crow::Request& req,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& registry)
-  {
-    asyncResp->res.clearHeader(boost::beast::http::field::allow);
-    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-    {
-        return;
-    }
-    if (!membersResponseGet(asyncResp, registry, "MessageRegistryFileCollection"))
-    {
-        return;
-    }
-    size_t pos = registry.find('.');
-    std::string registryName;
-    if (pos != std::string::npos)
-    {
-        // Retrieve the substring before the first full stop
-        registryName = registry.substr(0, pos);
-    }
-    std::string Val;
-    static constexpr const auto registryFiles = std::to_array(
-        {"Base", "TaskEvent", "License", "NodeManager", "ResourceEvent", "OpenBMC",
-         "Telemetry", "PrivilegeRegistry", "HeartbeatEvent",
-         "CertificateService","Ami"});
-    for (const char* memberName : registryFiles) {
-        if (registry == memberName || registryName == memberName) {
-            asyncResp->res.addHeader("Allow", "GET");
-            messages::operationNotAllowed(asyncResp->res);
-            return;
-        }
-    }
-
-#ifdef ONETREE_ACD
-    if (registry == "ACD" || registryName == "ACD")
-    {
-        asyncResp->res.addHeader("Allow", "GET");
-        messages::operationNotAllowed(asyncResp->res);
-        return;
-    }
-#endif
-
-#ifdef ONETREE_RTP
-    sdbusplus::asio::getAllProperties(
-    *crow::connections::systemBus,
-    "xyz.openbmc_project.OOBInventoryConfig",
-    "/xyz/openbmc_project/OOBInventoryConfig",
-    "xyz.openbmc_project.OobBiosConfigInventory.OobBiosConfigInventory",
-    [asyncResp, registry](const boost::system::error_code& ec,
-                         const std::vector<std::pair<std::string, dbus::utility::DbusVariantType>>& properties) 
-    {
-        if (ec)
-        {
-            messages::resourceNotFound(asyncResp->res, "MessageRegistryFile", registry);
-            return;
-        }
-
-        // Extract properties from the response
-        std::string registryVersion;
-        std::vector<std::string> languageInfo;
-
-        for (const auto& [key, value] : properties)
-        {
-            if (key == "BiosAttributeRegistryVersion")
+        .methods(
+            boost::beast::http::verb::post, boost::beast::http::verb::patch,
+            boost::beast::http::verb::delete_,
+            boost::beast::http::verb::
+                put)([&app](const crow::Request& req,
+                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                            const std::string& registry) {
+            asyncResp->res.clearHeader(boost::beast::http::field::allow);
+            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
             {
-                const std::string* strValue = std::get_if<std::string>(&value);
-                if (strValue)
-                {
-                    registryVersion = *strValue;
-                }
-            }
-            else if (key == "LanguageInfo")
-            {
-                const std::vector<std::string>* vecValue = std::get_if<std::vector<std::string>>(&value);
-                if (vecValue)
-                {
-                    languageInfo = *vecValue;
-                }
-            }
-        }
-
-        if (registryVersion.empty())
-        {
-            messages::resourceNotFound(asyncResp->res, "MessageRegistryFile", registry);
-            return;
-        }
-
-        if (registry == registryVersion)
-        {
-            asyncResp->res.addHeader("Allow", "GET");
-            messages::operationNotAllowed(asyncResp->res);
-            return;
-        }
-
-        // Check for .json file variant
-        if (registry.ends_with(".json"))
-        {
-            if (languageInfo.empty())
-            {
-                BMCWEB_LOG_ERROR("languages not available");
-                messages::resourceNotFound(asyncResp->res, "MessageRegistryFile", registry);
                 return;
             }
-
-            bool registryFound = false;
-
-            // Parse registryVersion: "BiosAttributeRegistry0ACQZ.0.72.0"
-            // Extract: registryId = "BiosAttributeRegistry0ACQZ", version = "0.72.0"
-            
-	    size_t dotPos = registryVersion.find('.');
-            std::string registryId = registryVersion.substr(0, dotPos);
-            std::string version = registryVersion.substr(dotPos + 1);
-
-            for (const auto& language : languageInfo)
+            if (!membersResponseGet(asyncResp, registry,
+                                    "MessageRegistryFileCollection"))
             {
-                std::string expectedFilename = registryId + "." + language + "." + version + ".json";
-                if (expectedFilename == registry)
+                return;
+            }
+            size_t pos = registry.find('.');
+            std::string registryName;
+            if (pos != std::string::npos)
+            {
+                // Retrieve the substring before the first full stop
+                registryName = registry.substr(0, pos);
+            }
+            std::string Val;
+            static constexpr const auto registryFiles = std::to_array(
+                {"Base", "TaskEvent", "License", "NodeManager", "ResourceEvent",
+                 "OpenBMC", "Telemetry", "PrivilegeRegistry", "HeartbeatEvent",
+                 "CertificateService", "Ami"});
+            for (const char* memberName : registryFiles)
+            {
+                if (registry == memberName || registryName == memberName)
                 {
-                    registryFound = true;
-                    break;
+                    asyncResp->res.addHeader("Allow", "GET");
+                    messages::operationNotAllowed(asyncResp->res);
+                    return;
                 }
             }
 
-            if (registryFound)
+#ifdef ONETREE_ACD
+            if (registry == "ACD" || registryName == "ACD")
             {
                 asyncResp->res.addHeader("Allow", "GET");
                 messages::operationNotAllowed(asyncResp->res);
                 return;
             }
-            else
-            {
-                messages::resourceNotFound(asyncResp->res, "MessageRegistryFile", registry);
-                return;
-            }
-        }
-        else
-        {
-            messages::resourceNotFound(asyncResp->res, "MessageRegistryFile", registry);
-            return;
-        }
-    });
-#else
-    messages::resourceNotFound(asyncResp->res, "MessageRegistryFile", registry);
-    return;
 #endif
-  });
+
+#ifdef ONETREE_RTP
+            sdbusplus::asio::getAllProperties(
+                *crow::connections::systemBus,
+                "xyz.openbmc_project.OOBInventoryConfig",
+                "/xyz/openbmc_project/OOBInventoryConfig",
+                "xyz.openbmc_project.OobBiosConfigInventory.OobBiosConfigInventory",
+                [asyncResp, registry](
+                    const boost::system::error_code& ec,
+                    const std::vector<
+                        std::pair<std::string, dbus::utility::DbusVariantType>>&
+                        properties) {
+                    if (ec)
+                    {
+                        messages::resourceNotFound(
+                            asyncResp->res, "MessageRegistryFile", registry);
+                        return;
+                    }
+
+                    // Extract properties from the response
+                    std::string registryVersion;
+                    std::vector<std::string> languageInfo;
+
+                    for (const auto& [key, value] : properties)
+                    {
+                        if (key == "BiosAttributeRegistryVersion")
+                        {
+                            const std::string* strValue =
+                                std::get_if<std::string>(&value);
+                            if (strValue)
+                            {
+                                registryVersion = *strValue;
+                            }
+                        }
+                        else if (key == "LanguageInfo")
+                        {
+                            const std::vector<std::string>* vecValue =
+                                std::get_if<std::vector<std::string>>(&value);
+                            if (vecValue)
+                            {
+                                languageInfo = *vecValue;
+                            }
+                        }
+                    }
+
+                    if (registryVersion.empty())
+                    {
+                        messages::resourceNotFound(
+                            asyncResp->res, "MessageRegistryFile", registry);
+                        return;
+                    }
+
+                    if (registry == registryVersion)
+                    {
+                        asyncResp->res.addHeader("Allow", "GET");
+                        messages::operationNotAllowed(asyncResp->res);
+                        return;
+                    }
+
+                    // Check for .json file variant
+                    if (registry.ends_with(".json"))
+                    {
+                        if (languageInfo.empty())
+                        {
+                            BMCWEB_LOG_ERROR("languages not available");
+                            messages::resourceNotFound(asyncResp->res,
+                                                       "MessageRegistryFile",
+                                                       registry);
+                            return;
+                        }
+
+                        bool registryFound = false;
+
+                        // Parse registryVersion:
+                        // "BiosAttributeRegistry0ACQZ.0.72.0" Extract:
+                        // registryId = "BiosAttributeRegistry0ACQZ", version =
+                        // "0.72.0"
+
+                        size_t dotPos = registryVersion.find('.');
+                        std::string registryId =
+                            registryVersion.substr(0, dotPos);
+                        std::string version =
+                            registryVersion.substr(dotPos + 1);
+
+                        for (const auto& language : languageInfo)
+                        {
+                            std::string expectedFilename =
+                                registryId + "." + language + "." + version +
+                                ".json";
+                            if (expectedFilename == registry)
+                            {
+                                registryFound = true;
+                                break;
+                            }
+                        }
+
+                        if (registryFound)
+                        {
+                            asyncResp->res.addHeader("Allow", "GET");
+                            messages::operationNotAllowed(asyncResp->res);
+                            return;
+                        }
+                        else
+                        {
+                            messages::resourceNotFound(asyncResp->res,
+                                                       "MessageRegistryFile",
+                                                       registry);
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        messages::resourceNotFound(
+                            asyncResp->res, "MessageRegistryFile", registry);
+                        return;
+                    }
+                });
+#else
+            messages::resourceNotFound(asyncResp->res, "MessageRegistryFile",
+                                       registry);
+            return;
+#endif
+        });
 }
 
 } // namespace redfish

@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
+#include "error_messages.hpp"
 #include "http_request.hpp"
 #include "http_response.hpp"
 #include "http_utility.hpp"
-#include "error_messages.hpp"
 
 #include <boost/url/format.hpp>
 #include <boost/url/url.hpp>
@@ -27,8 +27,8 @@ inline void sendUnauthorized(std::string_view url,
         // If we have a webui installed, redirect to that login page
         if (hasWebuiRoute)
         {
-            boost::urls::url forward = boost::urls::format("/?next={}#/login",
-                                                           url);
+            boost::urls::url forward =
+                boost::urls::format("/?next={}#/login", url);
             res.result(boost::beast::http::status::temporary_redirect);
             res.addHeader(boost::beast::http::field::location,
                           forward.buffer());
@@ -42,12 +42,11 @@ inline void sendUnauthorized(std::string_view url,
         return;
     }
 
-
-        boost::urls::url result=boost::urls::format("{}",url);
-        redfish::messages::resourceAtUriUnauthorized(res,result,"Attempt to ensure that the URI is correct and that the service has the appropriate credentials.");
-        res.addHeader(boost::beast::http::field::content_type, "application/json");
-
-
+    boost::urls::url result = boost::urls::format("{}", url);
+    redfish::messages::resourceAtUriUnauthorized(
+        res, result,
+        "Attempt to ensure that the URI is correct and that the service has the appropriate credentials.");
+    res.addHeader(boost::beast::http::field::content_type, "application/json");
 
     // XHR requests from a browser will set the X-Requested-With header when
     // doing their requests, even though they might not be requesting html.

@@ -25,7 +25,8 @@ inline void handleTelemetryServiceGet(
     {
         return;
     }
-    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("TelemetryService");
+    asyncResp->res.jsonValue["@odata.type"] =
+        json_util::odataType("TelemetryService");
     asyncResp->res.jsonValue["@odata.id"] = "/redfish/v1/TelemetryService";
     asyncResp->res.jsonValue["Id"] = "TelemetryService";
     asyncResp->res.jsonValue["Name"] = "Telemetry Service";

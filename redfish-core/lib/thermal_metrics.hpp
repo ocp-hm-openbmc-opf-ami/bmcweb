@@ -14,10 +14,10 @@
 
 namespace redfish
 {
-inline void
-    doThermalMetrics(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                     const std::string& chassisId,
-                     const std::optional<std::string>& validChassisPath)
+inline void doThermalMetrics(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId,
+    const std::optional<std::string>& validChassisPath)
 {
     if (!validChassisPath)
     {
@@ -28,7 +28,8 @@ inline void
     asyncResp->res.addHeader(
         boost::beast::http::field::link,
         "</redfish/v1/JsonSchemas/ThermalMetrics/ThermalMetrics.json>; rel=describedby");
-    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("ThermalMetrics");
+    asyncResp->res.jsonValue["@odata.type"] =
+        json_util::odataType("ThermalMetrics");
     asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
         "/redfish/v1/Chassis/{}/ThermalSubsystem/ThermalMetrics", chassisId);
     asyncResp->res.jsonValue["Id"] = "ThermalMetrics";
@@ -61,10 +62,10 @@ inline void handleThermalMetricsHead(
         });
 }
 
-inline void
-    handleThermalMetricsGet(App& app, const crow::Request& req,
-                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                            const std::string& chassisId)
+inline void handleThermalMetricsGet(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {

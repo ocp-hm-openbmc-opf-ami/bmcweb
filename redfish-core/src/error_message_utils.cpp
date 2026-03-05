@@ -14,7 +14,7 @@ namespace messages
 {
 
 void addMessageToErrorJson(nlohmann::json& target,
-                                  const nlohmann::json& message)
+                           const nlohmann::json& message)
 {
     auto& error = target["error"];
 
@@ -42,11 +42,13 @@ void addMessageToErrorJson(nlohmann::json& target,
     else
     {
         // More than 1 error occurred, so the message has to be generic
-        if (error["code"] != message["MessageId"] || error["message"] != message["Message"])
+        if (error["code"] != message["MessageId"] ||
+            error["message"] != message["Message"])
         {
             error["code"] = std::string(messageVersionPrefix) + "GeneralError";
-            error["message"] = "A general error has occurred. See Resolution for "
-                            "information on how to resolve the error.";
+            error["message"] =
+                "A general error has occurred. See Resolution for "
+                "information on how to resolve the error.";
         }
     }
 
@@ -116,8 +118,7 @@ void moveErrorsToErrorJson(nlohmann::json& target, nlohmann::json& source)
     source.erase(errorIt);
 }
 
-void addMessageToJsonRoot(nlohmann::json& target,
-                                 const nlohmann::json& message)
+void addMessageToJsonRoot(nlohmann::json& target, const nlohmann::json& message)
 {
     if (!target[messages::messageAnnotation].is_array())
     {
@@ -128,9 +129,8 @@ void addMessageToJsonRoot(nlohmann::json& target,
     target[messages::messageAnnotation].push_back(message);
 }
 
-void addMessageToJson(nlohmann::json& target,
-                             const nlohmann::json& message,
-                             std::string_view fieldPath)
+void addMessageToJson(nlohmann::json& target, const nlohmann::json& message,
+                      std::string_view fieldPath)
 {
     std::string extendedInfo(fieldPath);
     extendedInfo += messages::messageAnnotation;
@@ -145,7 +145,6 @@ void addMessageToJson(nlohmann::json& target,
     // Object exists and it is an array so we can just push in the message
     field.push_back(message);
 }
-
 
 } // namespace messages
 } // namespace redfish

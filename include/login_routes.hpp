@@ -96,12 +96,14 @@ inline bool getRemoteUserInfo(std::string user, std::string ipAddr)
         }
         else
         {
-            BMCWEB_LOG_ERROR("RemoteUser found for user {} but not of type bool.", user);
+            BMCWEB_LOG_ERROR(
+                "RemoteUser found for user {} but not of type bool.", user);
         }
     }
     else
     {
-        BMCWEB_LOG_ERROR("RemoteUser not found in user info for user: {}", user);
+        BMCWEB_LOG_ERROR("RemoteUser not found in user info for user: {}",
+                         user);
     }
 
     return false; // Default fallback
@@ -243,7 +245,7 @@ inline void handleLogin(const crow::Request& req,
     if (!username.empty() && !password.empty())
     {
         // Check for special characters before proceeding
-	const std::regex usernameRegex("^[a-zA-Z0-9_]+$");
+        const std::regex usernameRegex("^[a-zA-Z0-9_]+$");
         if (!std::regex_match(username.begin(), username.end(), usernameRegex))
         {
             BMCWEB_LOG_ERROR("Username contains invalid special characters");
@@ -251,7 +253,8 @@ inline void handleLogin(const crow::Request& req,
             return;
         }
 
-        int pamrc = pamAuthenticateUser(username, password, std::nullopt,req.ipAddress);
+        int pamrc = pamAuthenticateUser(username, password, std::nullopt,
+                                        req.ipAddress);
         bool isConfigureSelfOnly = pamrc == PAM_NEW_AUTHTOK_REQD;
         if (pamrc == PAM_MAXTRIES)
         {
@@ -269,22 +272,24 @@ inline void handleLogin(const crow::Request& req,
                     .generateUserSession(username, req.ipAddress, std::nullopt,
                                          persistent_data::SessionType::Session,
                                          isConfigureSelfOnly, "WebUI");
-            std::string ipAddr   =  redfish::ip_util::extractIPv4FromMappedIPv6(req.serverIPAddress);
+            std::string ipAddr = redfish::ip_util::extractIPv4FromMappedIPv6(
+                req.serverIPAddress);
 
             if (session && session->userRole.empty())
             {
                 std::string username = session->username;
-                std::string userPath = "/xyz/openbmc_project/user/" + session->username;
+                std::string userPath =
+                    "/xyz/openbmc_project/user/" + session->username;
                 try
                 {
                     auto bus = sdbusplus::bus::new_default_system();
 
                     // Prepare the GetUserInfo method call
                     auto method = bus.new_method_call(
-                        "xyz.openbmc_project.User.Manager",         // Service name
-                        "/xyz/openbmc_project/user",                // Object path
-                        "xyz.openbmc_project.User.Manager",         // Interface
-                        "GetUserInfo");                             // Method
+                        "xyz.openbmc_project.User.Manager", // Service name
+                        "/xyz/openbmc_project/user",        // Object path
+                        "xyz.openbmc_project.User.Manager", // Interface
+                        "GetUserInfo");                     // Method
 
                     method.append(username, ipAddr);
 
@@ -292,7 +297,8 @@ inline void handleLogin(const crow::Request& req,
                     auto reply = bus.call(method);
 
                     // Expected return type: a{sv}
-                    using VariantType = std::variant<bool, std::string, std::vector<std::string>>;
+                    using VariantType = std::variant<bool, std::string,
+                                                     std::vector<std::string>>;
                     std::map<std::string, VariantType> result;
 
                     reply.read(result);
@@ -305,25 +311,31 @@ inline void handleLogin(const crow::Request& req,
                         {
                             std::string privilege = std::get<std::string>(var);
                             session->userRole = privilege;
-                            BMCWEB_LOG_ERROR("Fetched userRole from D-Bus: {}", session->userRole);
+                            BMCWEB_LOG_ERROR("Fetched userRole from D-Bus: {}",
+                                             session->userRole);
                         }
                         else
                         {
-                            BMCWEB_LOG_DEBUG("UserPrivilege is not a string type.\n");
-                            redfish::messages::insufficientPrivilege(asyncResp->res);
+                            BMCWEB_LOG_DEBUG(
+                                "UserPrivilege is not a string type.\n");
+                            redfish::messages::insufficientPrivilege(
+                                asyncResp->res);
                             return;
                         }
                     }
                     else
                     {
-                        BMCWEB_LOG_DEBUG("UserPrivilege not found in GetUserInfo Output.\n");
-                        redfish::messages::insufficientPrivilege(asyncResp->res);
+                        BMCWEB_LOG_DEBUG(
+                            "UserPrivilege not found in GetUserInfo Output.\n");
+                        redfish::messages::insufficientPrivilege(
+                            asyncResp->res);
                         return;
                     }
                 }
                 catch (const sdbusplus::exception::SdBusError& e)
                 {
-                    BMCWEB_LOG_ERROR("Failed to get UserPrivilege from D-Bus: {}", e.what());
+                    BMCWEB_LOG_ERROR(
+                        "Failed to get UserPrivilege from D-Bus: {}", e.what());
                 }
             }
 
@@ -352,16 +364,16 @@ inline void handleLogin(const crow::Request& req,
                 {"priv-operator", 3},
                 {"OEM Proprietary", 5}};
             uint8_t priv = roleToPriv.contains(session->userRole)
-                            ? roleToPriv[session->userRole]
-                            : 4;
+                               ? roleToPriv[session->userRole]
+                               : 4;
 
             auto b = sdbusplus::bus::new_default_system();
             auto method = b.new_method_call(
                 "xyz.openbmc_project.SessionManager",
                 "/xyz/openbmc_project/SessionManager",
                 "xyz.openbmc_project.SessionManager", "SessionRegister");
-            method.append(sessionId, session->clientIp, session->username, sessionType,
-                        priv, static_cast<uint8_t>(userId), "");
+            method.append(sessionId, session->clientIp, session->username,
+                          sessionType, priv, static_cast<uint8_t>(userId), "");
             try
             {
                 auto reply = b.call(method);
@@ -369,7 +381,8 @@ inline void handleLogin(const crow::Request& req,
 
                 if (!result)
                 {
-                    BMCWEB_LOG_DEBUG("back-end return false while call method ");
+                    BMCWEB_LOG_DEBUG(
+                        "back-end return false while call method ");
                     return;
                 }
             }
@@ -381,24 +394,26 @@ inline void handleLogin(const crow::Request& req,
 
             // Get session ID
             auto bus = sdbusplus::bus::new_default_system();
-            auto m = bus.new_method_call("xyz.openbmc_project.SessionManager",
-                                        "/xyz/openbmc_project/SessionManager",
-                                        "org.freedesktop.DBus.Properties", "Get");
+            auto m =
+                bus.new_method_call("xyz.openbmc_project.SessionManager",
+                                    "/xyz/openbmc_project/SessionManager",
+                                    "org.freedesktop.DBus.Properties", "Get");
 
-            m.append("xyz.openbmc_project.SessionManager.Web", "WebSessionInfo");
+            m.append("xyz.openbmc_project.SessionManager.Web",
+                     "WebSessionInfo");
             try
             {
                 sdbusplus::message::message r = bus.call(m);
 
-                std::variant<
-                    std::vector<std::tuple<uint8_t, std::string, std::string, uint8_t,
-                                        uint8_t, uint8_t, std::string>>>
+                std::variant<std::vector<
+                    std::tuple<uint8_t, std::string, std::string, uint8_t,
+                               uint8_t, uint8_t, std::string>>>
                     val;
                 r.read(val);
 
-                auto sessionArray = std::get<
-                    std::vector<std::tuple<uint8_t, std::string, std::string, uint8_t,
-                                        uint8_t, uint8_t, std::string>>>(val);
+                auto sessionArray = std::get<std::vector<
+                    std::tuple<uint8_t, std::string, std::string, uint8_t,
+                               uint8_t, uint8_t, std::string>>>(val);
 
                 if (!sessionArray.empty())
                 {
@@ -415,12 +430,12 @@ inline void handleLogin(const crow::Request& req,
             }
             catch (const sdbusplus::exception::SdBusError& e)
             {
-                BMCWEB_LOG_ERROR("Failed to fetch WebSessionInfo from D-Bus: {}",
-                                e.what());
+                BMCWEB_LOG_ERROR(
+                    "Failed to fetch WebSessionInfo from D-Bus: {}", e.what());
                 return;
             }
 
-            // For User Privilege 
+            // For User Privilege
             std::string roleId;
             std::string user(username);
             auto value = getRolePrivilege(user, ipAddr);
@@ -459,7 +474,6 @@ inline void handleLogin(const crow::Request& req,
         BMCWEB_LOG_DEBUG("Couldn't interpret password");
         asyncResp->res.result(boost::beast::http::status::bad_request);
     }
-
 }
 
 inline void handleLogout(const crow::Request& req,
@@ -482,35 +496,38 @@ inline void handleLogout(const crow::Request& req,
         {
             uint8_t sessionId = it->second;
 
-        crow::connections::systemBus->async_method_call(
-        [asyncResp,session,it](const boost::system::error_code ec,bool success) {
-	    if (ec)
-            {
-            BMCWEB_LOG_ERROR("handleLogout D-Bus call failed: {}", ec.message());
-            redfish::messages::internalError(asyncResp->res);
-               return;
-            }
-            if(!success)
-            {
-               BMCWEB_LOG_ERROR("handleLogout: SessionUnregister returned false");
-               redfish::messages::internalError(asyncResp->res);
-               return;
-            }
-            BMCWEB_LOG_INFO("SessionUnregister succeeded");
-	    persistent_data::sessionMap.erase(it);
-            bmcweb::clearSessionCookies(asyncResp->res);
-            persistent_data::SessionStore::getInstance().removeSession(session);
-            },
-            "xyz.openbmc_project.SessionManager", "/xyz/openbmc_project/SessionManager",
-            "xyz.openbmc_project.SessionManager", "SessionUnregister",
-             sessionId,
-             sessionType,
-             1);
+            crow::connections::systemBus->async_method_call(
+                [asyncResp, session,
+                 it](const boost::system::error_code ec, bool success) {
+                    if (ec)
+                    {
+                        BMCWEB_LOG_ERROR("handleLogout D-Bus call failed: {}",
+                                         ec.message());
+                        redfish::messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    if (!success)
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "handleLogout: SessionUnregister returned false");
+                        redfish::messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    BMCWEB_LOG_INFO("SessionUnregister succeeded");
+                    persistent_data::sessionMap.erase(it);
+                    bmcweb::clearSessionCookies(asyncResp->res);
+                    persistent_data::SessionStore::getInstance().removeSession(
+                        session);
+                },
+                "xyz.openbmc_project.SessionManager",
+                "/xyz/openbmc_project/SessionManager",
+                "xyz.openbmc_project.SessionManager", "SessionUnregister",
+                sessionId, sessionType, 1);
         }
     }
 }
-void generateOTP (const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                     const std::string& username)
+void generateOTP(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                 const std::string& username)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code& ec, bool response) {
@@ -521,25 +538,24 @@ void generateOTP (const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             }
             if (!response)
             {
-
-                asyncResp->res.jsonValue["error"] = "Failed to generate OTP code";
+                asyncResp->res.jsonValue["error"] =
+                    "Failed to generate OTP code";
                 asyncResp->res.result(boost::beast::http::status::bad_request);
             }
         },
-        "xyz.openbmc_project.User.Manager",
-        "/xyz/openbmc_project/user",
-        "xyz.openbmc_project.User.Manager",
-        "OTPGeneration", username);
+        "xyz.openbmc_project.User.Manager", "/xyz/openbmc_project/user",
+        "xyz.openbmc_project.User.Manager", "OTPGeneration", username);
 }
 
 void checkSMTPMailId(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                      std::string username, bool smtpDisabled = false)
 {
     dbus::utility::getProperty<std::string>(
-        "xyz.openbmc_project.User.Manager", "/xyz/openbmc_project/user/" + username,
+        "xyz.openbmc_project.User.Manager",
+        "/xyz/openbmc_project/user/" + username,
         "xyz.openbmc_project.User.Attributes", "SMTPMailID",
         [asyncResp, username, smtpDisabled](const boost::system::error_code& ec,
-                        const std::string& SMTPMailId) {
+                                            const std::string& SMTPMailId) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
@@ -570,8 +586,9 @@ void checkSMTPMailId(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         });
 }
 
-inline void handleGenerateOTP(const crow::Request& req,
-                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void handleGenerateOTP(
+    const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     std::string_view contentType = req.getHeaderValue("content-type");
     std::string username;
@@ -591,7 +608,7 @@ inline void handleGenerateOTP(const crow::Request& req,
         if (userIt != loginCredentials.end())
         {
             const std::string* userStr = userIt->get_ptr<const std::string*>();
-   
+
             if (userStr != nullptr)
             {
                 username = *userStr;
@@ -637,45 +654,52 @@ inline void handleGenerateOTP(const crow::Request& req,
                 else
                 {
                     dbus::utility::getProperty<bool>(
-                    "xyz.openbmc_project.mail", "/xyz/openbmc_project/mail/alert",
-                    "xyz.openbmc_project.mail.alert.primary", "Enable",
-                    [asyncResp,username](const boost::system::error_code& ec,
-                                    const bool primarySMTPEnable) {
-                        if (ec)
-                        {
-                            BMCWEB_LOG_ERROR("DBUS response error {}", ec);
-                            return;
-                        }
-                        if (primarySMTPEnable)
-                        {
-                            checkSMTPMailId(asyncResp, username);
-                        }   
-                        else
-                        {
-                            dbus::utility::getProperty<bool>(
-                            "xyz.openbmc_project.mail", "/xyz/openbmc_project/mail/alert",
-                            "xyz.openbmc_project.mail.alert.secondary", "Enable",
-                            [asyncResp, username](const boost::system::error_code& ec,
-                                            const bool secondarySMTPEnable) {
-                                if (ec)
-                                {
-                                    BMCWEB_LOG_ERROR("DBUS response error {}", ec);
-                                    return;
-                                }
-                                if (!secondarySMTPEnable)
-                                {
-                                    BMCWEB_LOG_ERROR("SMTP servers disabled, checking mail configuration");
-                                    checkSMTPMailId(asyncResp, username, true);
-                                }
-                                else
-                                {
-                                    checkSMTPMailId(asyncResp, username);
-                                }
-                                
-                            });
-
-                        } 
-                    });
+                        "xyz.openbmc_project.mail",
+                        "/xyz/openbmc_project/mail/alert",
+                        "xyz.openbmc_project.mail.alert.primary", "Enable",
+                        [asyncResp,
+                         username](const boost::system::error_code& ec,
+                                   const bool primarySMTPEnable) {
+                            if (ec)
+                            {
+                                BMCWEB_LOG_ERROR("DBUS response error {}", ec);
+                                return;
+                            }
+                            if (primarySMTPEnable)
+                            {
+                                checkSMTPMailId(asyncResp, username);
+                            }
+                            else
+                            {
+                                dbus::utility::getProperty<bool>(
+                                    "xyz.openbmc_project.mail",
+                                    "/xyz/openbmc_project/mail/alert",
+                                    "xyz.openbmc_project.mail.alert.secondary",
+                                    "Enable",
+                                    [asyncResp, username](
+                                        const boost::system::error_code& ec,
+                                        const bool secondarySMTPEnable) {
+                                        if (ec)
+                                        {
+                                            BMCWEB_LOG_ERROR(
+                                                "DBUS response error {}", ec);
+                                            return;
+                                        }
+                                        if (!secondarySMTPEnable)
+                                        {
+                                            BMCWEB_LOG_ERROR(
+                                                "SMTP servers disabled, checking mail configuration");
+                                            checkSMTPMailId(asyncResp, username,
+                                                            true);
+                                        }
+                                        else
+                                        {
+                                            checkSMTPMailId(asyncResp,
+                                                            username);
+                                        }
+                                    });
+                            }
+                        });
                 }
             });
     }
@@ -686,81 +710,85 @@ inline void handleGenerateOTP(const crow::Request& req,
     }
 }
 
-inline void handleValidateOTP(const crow::Request& req,
-                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void handleValidateOTP(
+    const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-        std::string_view contentType = req.getHeaderValue("content-type");
-        std::string username;
-        std::string verificationcode;
-        std::string password;
+    std::string_view contentType = req.getHeaderValue("content-type");
+    std::string username;
+    std::string verificationcode;
+    std::string password;
 
-        nlohmann::json loginCredentials;
-       
-        if (contentType.starts_with("application/json"))
-        {
-            loginCredentials = nlohmann::json::parse(req.body(), nullptr, false);
-            if (loginCredentials.is_discarded())
-            {
-                BMCWEB_LOG_DEBUG("Bad json in request");
-                asyncResp->res.result(boost::beast::http::status::bad_request);
-                return;
-            }
+    nlohmann::json loginCredentials;
 
-            nlohmann::json::iterator userIt = loginCredentials.find("username");
-            nlohmann::json::iterator verificationcodeIt =
-                loginCredentials.find("verificationcode");
-            nlohmann::json::iterator passwordIt =
-                loginCredentials.find("password");
-    
-            if (userIt != loginCredentials.end() &&
-                verificationcodeIt != loginCredentials.end() && passwordIt != loginCredentials.end())
-            {
-                const std::string* userStr = userIt->get_ptr<const std::string*>();
-                const std::string* verificationcodeStr =
-                    verificationcodeIt->get_ptr<const std::string*>();
-                const std::string* passwordStr =
-                    passwordIt->get_ptr<const std::string*>();
-    
-                if (userStr != nullptr && verificationcodeStr != nullptr && passwordStr != nullptr)
-                {
-                    username = *userStr;
-                    verificationcode = *verificationcodeStr;
-                    password = *passwordStr;
-                }
-            }
-        }
-        else
+    if (contentType.starts_with("application/json"))
+    {
+        loginCredentials = nlohmann::json::parse(req.body(), nullptr, false);
+        if (loginCredentials.is_discarded())
         {
-            username = req.getHeaderValue("username");
-            verificationcode = req.getHeaderValue("verificationcode");
-            password = req.getHeaderValue("password");
-        }
-    
-        if (!username.empty() && !verificationcode.empty() && !password.empty())
-        {
-              crow::connections::systemBus->async_method_call(
-                [asyncResp](const boost::system::error_code& ec, bool response) {
-                    if (ec)
-                    {
-                        BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
-                        return;
-                    }
-                    if (!response)
-                    {
-                        asyncResp->res.jsonValue["error"] = "Failed to validate OTP code";
-                        asyncResp->res.result(boost::beast::http::status::bad_request);
-                    }
-                },
-                "xyz.openbmc_project.User.Manager",
-                "/xyz/openbmc_project/user",
-                "xyz.openbmc_project.User.Manager",
-                "OTPValidationPasswordUpdate", username , verificationcode ,password); 
-        }
-        else
-        {
-            asyncResp->res.jsonValue["error"] = "Required properties are missing from the request";
+            BMCWEB_LOG_DEBUG("Bad json in request");
             asyncResp->res.result(boost::beast::http::status::bad_request);
+            return;
         }
+
+        nlohmann::json::iterator userIt = loginCredentials.find("username");
+        nlohmann::json::iterator verificationcodeIt =
+            loginCredentials.find("verificationcode");
+        nlohmann::json::iterator passwordIt = loginCredentials.find("password");
+
+        if (userIt != loginCredentials.end() &&
+            verificationcodeIt != loginCredentials.end() &&
+            passwordIt != loginCredentials.end())
+        {
+            const std::string* userStr = userIt->get_ptr<const std::string*>();
+            const std::string* verificationcodeStr =
+                verificationcodeIt->get_ptr<const std::string*>();
+            const std::string* passwordStr =
+                passwordIt->get_ptr<const std::string*>();
+
+            if (userStr != nullptr && verificationcodeStr != nullptr &&
+                passwordStr != nullptr)
+            {
+                username = *userStr;
+                verificationcode = *verificationcodeStr;
+                password = *passwordStr;
+            }
+        }
+    }
+    else
+    {
+        username = req.getHeaderValue("username");
+        verificationcode = req.getHeaderValue("verificationcode");
+        password = req.getHeaderValue("password");
+    }
+
+    if (!username.empty() && !verificationcode.empty() && !password.empty())
+    {
+        crow::connections::systemBus->async_method_call(
+            [asyncResp](const boost::system::error_code& ec, bool response) {
+                if (ec)
+                {
+                    BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
+                    return;
+                }
+                if (!response)
+                {
+                    asyncResp->res.jsonValue["error"] =
+                        "Failed to validate OTP code";
+                    asyncResp->res.result(
+                        boost::beast::http::status::bad_request);
+                }
+            },
+            "xyz.openbmc_project.User.Manager", "/xyz/openbmc_project/user",
+            "xyz.openbmc_project.User.Manager", "OTPValidationPasswordUpdate",
+            username, verificationcode, password);
+    }
+    else
+    {
+        asyncResp->res.jsonValue["error"] =
+            "Required properties are missing from the request";
+        asyncResp->res.result(boost::beast::http::status::bad_request);
+    }
 }
 inline void requestRoutes(App& app)
 {
@@ -772,7 +800,7 @@ inline void requestRoutes(App& app)
 
     BMCWEB_ROUTE(app, "/generate_otp")
         .methods(boost::beast::http::verb::post)(handleGenerateOTP);
-        
+
     BMCWEB_ROUTE(app, "/validate_otp")
         .methods(boost::beast::http::verb::post)(handleValidateOTP);
 }

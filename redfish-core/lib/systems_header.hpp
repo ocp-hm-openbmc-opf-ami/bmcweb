@@ -1,6 +1,7 @@
 #pragma once
 
 #include "system_utils.hpp"
+
 #include <string>
 
 namespace redfish
@@ -78,7 +79,8 @@ void afterPortRequest(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const boost::system::error_code& ec,
     const std::vector<std::tuple<std::string, std::string, bool>>& socketData);
-void getHostState(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, const std::string& systemType);
+void getHostState(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                  const std::string& systemType);
 void getBootProperties(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp);
 void getBootOverrideSource(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp);
 void getBootOverrideType(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp);
@@ -92,7 +94,8 @@ void getPowerRestorePolicy(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp);
 void getStopBootOnFault(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp);
 void getAutomaticRetryPolicy(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp);
-void getLastResetTime(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, const std::string& systemType);
+void getLastResetTime(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                      const std::string& systemType);
 void getTrustedModuleRequiredToBoot(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp);
 void getPowerMode(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp);
@@ -142,7 +145,8 @@ void handleComputerSystemGet(
     crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& systemName);
-void handleComputerSystemPostDelete(App& app, const crow::Request& req,
-                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                       const std::string& systemName);
+void handleComputerSystemPostDelete(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& systemName);
 } // namespace redfish

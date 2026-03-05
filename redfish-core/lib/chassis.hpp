@@ -533,7 +533,8 @@ inline void handleDecoratorAssetProperties(
     // FRU Device
     asyncResp->res.jsonValue["Oem"]["AMI"]["FRU"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Chassis/{}/FRU", chassisId);
-    asyncResp->res.jsonValue["Oem"]["AMI"]["@odata.type"] = json_util::odataType("OemAMIChassis");
+    asyncResp->res.jsonValue["Oem"]["AMI"]["@odata.type"] =
+        json_util::odataType("OemAMIChassis");
     asyncResp->res.jsonValue["Oem"]["AMI"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Chassis/{}#/Oem/AMI", chassisId);
     // SensorCollection
@@ -545,7 +546,8 @@ inline void handleDecoratorAssetProperties(
     asyncResp->res.jsonValue["Oem"]["AMI"]["SensorThreshold"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Chassis/{}/Sensors/Oem/Ami/Threshold",
                             chassisId);
-    asyncResp->res.jsonValue["Oem"]["AMI"]["SensorThreshold"]["@odata.type"] = json_util::odataType("OemAMISensor");
+    asyncResp->res.jsonValue["Oem"]["AMI"]["SensorThreshold"]["@odata.type"] =
+        json_util::odataType("OemAMISensor");
 #endif
 #ifndef ONETREE_PSM
     nlohmann::json::array_t computerSystems;
@@ -560,11 +562,12 @@ inline void handleDecoratorAssetProperties(
     nlohmann::json::object_t manager;
     manager["@odata.id"] = boost::urls::format("/redfish/v1/Managers/{}",
                                                BMCWEB_REDFISH_MANAGER_URI_NAME);
-                                               
+
     managedBy.emplace_back(std::move(manager));
 #ifdef ONETREE_PSM
     nlohmann::json::array_t managersInChassis = managedBy;
-    asyncResp->res.jsonValue["Links"]["ManagersInChassis"] = std::move(managersInChassis);
+    asyncResp->res.jsonValue["Links"]["ManagersInChassis"] =
+        std::move(managersInChassis);
 #endif
     asyncResp->res.jsonValue["Links"]["ManagedBy"] = std::move(managedBy);
     getChassisState(asyncResp);
@@ -601,8 +604,9 @@ inline void handleChassisProperties(
 
 inline void handleChassisSubTree(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& chassisId, const boost::system::error_code& ec,const std::optional<std::string>& methodName,
-    const dbus::utility::MapperGetSubTreeResponse& subtree )
+    const std::string& chassisId, const boost::system::error_code& ec,
+    const std::optional<std::string>& methodName,
+    const dbus::utility::MapperGetSubTreeResponse& subtree)
 {
     if (ec)
     {
@@ -612,26 +616,26 @@ inline void handleChassisSubTree(
     }
     // Iterate over all retrieved ObjectPaths.
     for (const std::pair<
-        std::string,
-        std::vector<std::pair<std::string, std::vector<std::string>>>>&
-        object : subtree)
+             std::string,
+             std::vector<std::pair<std::string, std::vector<std::string>>>>&
+             object : subtree)
     {
         const std::string& path = object.first;
         std::string methodNameVal = methodName.value_or("");
         const std::vector<std::pair<std::string, std::vector<std::string>>>&
-        connectionNames = object.second;
+            connectionNames = object.second;
 
         sdbusplus::message::object_path objPath(path);
         if (objPath.filename() != chassisId)
         {
-                continue;
+            continue;
         }
         if (connectionNames.empty())
         {
             BMCWEB_LOG_ERROR("Got 0 Connection names");
             continue;
         }
-        if(methodNameVal=="patch")
+        if (methodNameVal == "patch")
         {
             checkinvalidURIPatch = false;
             return;
@@ -642,9 +646,9 @@ inline void handleChassisSubTree(
             messages::operationNotAllowed(asyncResp->res);
             return;
         }
-        }
-        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
-        return;
+    }
+    messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
+    return;
 }
 
 inline void getMinMaxValues(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
@@ -655,12 +659,12 @@ inline void getMinMaxValues(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
         *crow::connections::systemBus,
         "xyz.openbmc_project.IntelCPUSensor", // Service
         sensorPath,
-        "xyz.openbmc_project.Sensor.Value", // Interface
+        "xyz.openbmc_project.Sensor.Value",   // Interface
         [asyncResp](const boost::system::error_code& ec,
                     const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
             {
-                BMCWEB_LOG_DEBUG("DBUS response error: {}",ec);
+                BMCWEB_LOG_DEBUG("DBUS response error: {}", ec);
                 return;
             }
             const double* minValue = nullptr;
@@ -721,7 +725,8 @@ inline void handleChassisGetSubTree(
 
         constexpr std::array<std::string_view, 1> interfaces3 = {
             "xyz.openbmc_project.Chassis.Intrusion"};
-        asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("Chassis");
+        asyncResp->res.jsonValue["@odata.type"] =
+            json_util::odataType("Chassis");
         asyncResp->res.jsonValue["@odata.id"] =
             boost::urls::format("/redfish/v1/Chassis/{}", chassisId);
         asyncResp->res.jsonValue["Name"] = "Chassis Collection";
@@ -817,7 +822,7 @@ inline void handleChassisGetSubTree(
                             BMCWEB_LOG_ERROR(
                                 "DBus response error for HotPluggable: {}",
                                 ec2);
-                            //messages::internalError(asyncResp->res);
+                            // messages::internalError(asyncResp->res);
                             return;
                         }
                         asyncResp->res.jsonValue["HotPluggable"] = property;
@@ -889,17 +894,18 @@ inline void handleChassisGetSubTree(
     messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
 }
 
-inline void handleChassisGet(App& app, const crow::Request& req,
-                      const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                      const std::string& chassisId)
-{ 
+inline void handleChassisGet(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId)
+{
     asyncResp->res.clearHeader(boost::beast::http::field::allow);
 
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
     }
-    if (!membersResponseGet(asyncResp, chassisId,"ChassisCollection"))
+    if (!membersResponseGet(asyncResp, chassisId, "ChassisCollection"))
     {
         return;
     }
@@ -913,10 +919,10 @@ inline void handleChassisGet(App& app, const crow::Request& req,
         std::bind_front(handleChassisGetSubTree, asyncResp, chassisId));
 }
 
-inline void
-    handleChassisPatch(App& app, const crow::Request& req,
-                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                       const std::string& param)
+inline void handleChassisPatch(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& param)
 {
     asyncResp->res.clearHeader(boost::beast::http::field::allow);
 
@@ -934,147 +940,155 @@ inline void
 
     dbus::utility::getSubTree(
         "/xyz/openbmc_project/inventory", 0, interfaces,
-        [asyncResp,
-            param,req,interfaces](const boost::system::error_code& ecs,
-                const dbus::utility::MapperGetSubTreeResponse& subtrees) 
-  {
-    handleChassisSubTree(asyncResp, param, ecs, "patch",subtrees);
-       
-   if (!checkinvalidURIPatch)
-   {
-    checkinvalidURIPatch = true;
+        [asyncResp, param, req,
+         interfaces](const boost::system::error_code& ecs,
+                     const dbus::utility::MapperGetSubTreeResponse& subtrees) {
+            handleChassisSubTree(asyncResp, param, ecs, "patch", subtrees);
 
-    std::optional<bool> locationIndicatorActive;
-    std::optional<std::string> indicatorLed;
-    std::optional<std::string> vId;
-
-    if (param.empty())
-    {
-        return;
-    }
-
-    if (!json_util::readJsonPatch(                              //
-            req, asyncResp->res,                                //
-            "LocationIndicatorActive", locationIndicatorActive, //
-            "IndicatorLED", indicatorLed,                       //
-            "Id", vId                                           //
-            ))
-    {
-        return;
-    }
-
-    if (vId)
-    {
-        messages::propertyNotWritable(asyncResp->res, "Id");
-        asyncResp->res.result(boost::beast::http::status::bad_request);
-        return;
-    }
-
-    asyncResp->res.result(boost::beast::http::status::no_content);
-
-    // TODO (Gunnar): Remove IndicatorLED after enough time has passed
-    if (!locationIndicatorActive && !indicatorLed)
-    {
-        return; // delete this when we support more patch properties
-    }
-    if (indicatorLed)
-    {
-        asyncResp->res.addHeader(
-            boost::beast::http::field::warning,
-            "299 - \"IndicatorLED is deprecated. Use LocationIndicatorActive instead.\"");
-    }
-
-    const std::string& chassisId = param;
-
-    dbus::utility::getSubTree(
-        "/xyz/openbmc_project/inventory", 0, interfaces,
-        [asyncResp, chassisId, locationIndicatorActive,
-         indicatorLed](const boost::system::error_code& ec,
-                       const dbus::utility::MapperGetSubTreeResponse& subtree) {
-            if (ec)
+            if (!checkinvalidURIPatch)
             {
-                BMCWEB_LOG_ERROR("DBUS response error {}", ec);
-                messages::internalError(asyncResp->res);
-                return;
-            }
+                checkinvalidURIPatch = true;
 
-            // Iterate over all retrieved ObjectPaths.
-            for (const std::pair<std::string,
-                                 std::vector<std::pair<
-                                     std::string, std::vector<std::string>>>>&
-                     object : subtree)
-            {
-                const std::string& path = object.first;
-                const std::vector<
-                    std::pair<std::string, std::vector<std::string>>>&
-                    connectionNames = object.second;
+                std::optional<bool> locationIndicatorActive;
+                std::optional<std::string> indicatorLed;
+                std::optional<std::string> vId;
 
-                sdbusplus::message::object_path objPath(path);
-                if (objPath.filename() != chassisId)
+                if (param.empty())
                 {
-                    continue;
+                    return;
                 }
 
-                if (connectionNames.empty())
+                if (!json_util::readJsonPatch(                              //
+                        req, asyncResp->res,                                //
+                        "LocationIndicatorActive", locationIndicatorActive, //
+                        "IndicatorLED", indicatorLed,                       //
+                        "Id", vId                                           //
+                        ))
                 {
-                    BMCWEB_LOG_ERROR("Got 0 Connection names");
-                    continue;
+                    return;
                 }
 
-                const std::vector<std::string>& interfaces3 =
-                    connectionNames[0].second;
-
-                const std::array<const char*, 3> hasIndicatorLed = {
-                    "xyz.openbmc_project.Inventory.Item.Chassis",
-                    "xyz.openbmc_project.Inventory.Item.Panel",
-                    "xyz.openbmc_project.Inventory.Item.Board.Motherboard"};
-                bool indicatorChassis = false;
-                for (const char* interface : hasIndicatorLed)
+                if (vId)
                 {
-                    if (std::ranges::find(interfaces3, interface) !=
-                        interfaces3.end())
-                    {
-                        indicatorChassis = true;
-                        break;
-                    }
+                    messages::propertyNotWritable(asyncResp->res, "Id");
+                    asyncResp->res.result(
+                        boost::beast::http::status::bad_request);
+                    return;
                 }
-                if (locationIndicatorActive)
+
+                asyncResp->res.result(boost::beast::http::status::no_content);
+
+                // TODO (Gunnar): Remove IndicatorLED after enough time has
+                // passed
+                if (!locationIndicatorActive && !indicatorLed)
                 {
-                    if (indicatorChassis)
-                    {
-                        setSystemLocationIndicatorActive(
-                            asyncResp, *locationIndicatorActive);
-                    }
-                    else
-                    {
-                        messages::propertyUnknown(asyncResp->res,
-                                                  "LocationIndicatorActive");
-                    }
+                    return; // delete this when we support more patch properties
                 }
                 if (indicatorLed)
                 {
-                    if (indicatorChassis)
-                    {
-                        setIndicatorLedState(asyncResp, *indicatorLed);
-                    }
-                    else
-                    {
-                        messages::propertyUnknown(asyncResp->res,
-                                                  "IndicatorLED");
-                    }
+                    asyncResp->res.addHeader(
+                        boost::beast::http::field::warning,
+                        "299 - \"IndicatorLED is deprecated. Use LocationIndicatorActive instead.\"");
                 }
-                return;
-            }
 
-            messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
+                const std::string& chassisId = param;
+
+                dbus::utility::getSubTree(
+                    "/xyz/openbmc_project/inventory", 0, interfaces,
+                    [asyncResp, chassisId, locationIndicatorActive,
+                     indicatorLed](
+                        const boost::system::error_code& ec,
+                        const dbus::utility::MapperGetSubTreeResponse&
+                            subtree) {
+                        if (ec)
+                        {
+                            BMCWEB_LOG_ERROR("DBUS response error {}", ec);
+                            messages::internalError(asyncResp->res);
+                            return;
+                        }
+
+                        // Iterate over all retrieved ObjectPaths.
+                        for (const std::pair<
+                                 std::string,
+                                 std::vector<std::pair<
+                                     std::string, std::vector<std::string>>>>&
+                                 object : subtree)
+                        {
+                            const std::string& path = object.first;
+                            const std::vector<std::pair<
+                                std::string, std::vector<std::string>>>&
+                                connectionNames = object.second;
+
+                            sdbusplus::message::object_path objPath(path);
+                            if (objPath.filename() != chassisId)
+                            {
+                                continue;
+                            }
+
+                            if (connectionNames.empty())
+                            {
+                                BMCWEB_LOG_ERROR("Got 0 Connection names");
+                                continue;
+                            }
+
+                            const std::vector<std::string>& interfaces3 =
+                                connectionNames[0].second;
+
+                            const std::array<const char*, 3> hasIndicatorLed = {
+                                "xyz.openbmc_project.Inventory.Item.Chassis",
+                                "xyz.openbmc_project.Inventory.Item.Panel",
+                                "xyz.openbmc_project.Inventory.Item.Board.Motherboard"};
+                            bool indicatorChassis = false;
+                            for (const char* interface : hasIndicatorLed)
+                            {
+                                if (std::ranges::find(interfaces3, interface) !=
+                                    interfaces3.end())
+                                {
+                                    indicatorChassis = true;
+                                    break;
+                                }
+                            }
+                            if (locationIndicatorActive)
+                            {
+                                if (indicatorChassis)
+                                {
+                                    setSystemLocationIndicatorActive(
+                                        asyncResp, *locationIndicatorActive);
+                                }
+                                else
+                                {
+                                    messages::propertyUnknown(
+                                        asyncResp->res,
+                                        "LocationIndicatorActive");
+                                }
+                            }
+                            if (indicatorLed)
+                            {
+                                if (indicatorChassis)
+                                {
+                                    setIndicatorLedState(asyncResp,
+                                                         *indicatorLed);
+                                }
+                                else
+                                {
+                                    messages::propertyUnknown(asyncResp->res,
+                                                              "IndicatorLED");
+                                }
+                            }
+                            return;
+                        }
+
+                        messages::resourceNotFound(asyncResp->res, "Chassis",
+                                                   chassisId);
+                    });
+            }
         });
-       }
-    });
 }
 
-inline void handleChassisPostDelete(App& app, const crow::Request& req,
-                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                       const std::string& chassisId)
+inline void handleChassisPostDelete(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId)
 {
     asyncResp->res.clearHeader(boost::beast::http::field::allow);
 
@@ -1082,7 +1096,7 @@ inline void handleChassisPostDelete(App& app, const crow::Request& req,
     {
         return;
     }
-    if (!membersResponseGet(asyncResp, chassisId,"ChassisCollection"))
+    if (!membersResponseGet(asyncResp, chassisId, "ChassisCollection"))
     {
         return;
     }
@@ -1090,15 +1104,13 @@ inline void handleChassisPostDelete(App& app, const crow::Request& req,
         "xyz.openbmc_project.Inventory.Item.Board",
         "xyz.openbmc_project.Inventory.Item.Chassis"};
     dbus::utility::getSubTree(
-    "/xyz/openbmc_project/inventory", 0, interfaces,
-    [asyncResp,
-        chassisId,req,interfaces](const boost::system::error_code& ecs,
-            const dbus::utility::MapperGetSubTreeResponse& subtrees) 
-    {
-        handleChassisSubTree(asyncResp, chassisId, ecs, "post",subtrees);
-    });
+        "/xyz/openbmc_project/inventory", 0, interfaces,
+        [asyncResp, chassisId, req,
+         interfaces](const boost::system::error_code& ecs,
+                     const dbus::utility::MapperGetSubTreeResponse& subtrees) {
+            handleChassisSubTree(asyncResp, chassisId, ecs, "post", subtrees);
+        });
 }
-
 
 /**
  * Chassis override class for delivering Chassis Schema
@@ -1116,9 +1128,10 @@ inline void requestRoutesChassis(App& app)
         .methods(boost::beast::http::verb::patch)(
             std::bind_front(handleChassisPatch, std::ref(app)));
 
-   BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/")
+    BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/")
         .privileges(redfish::privileges::getChassis)
-        .methods(boost::beast::http::verb::post,boost::beast::http::verb::delete_)(
+        .methods(boost::beast::http::verb::post,
+                 boost::beast::http::verb::delete_)(
             std::bind_front(handleChassisPostDelete, std::ref(app)));
 }
 
@@ -1624,12 +1637,12 @@ inline void handleChassisResetActionInfoPost(
                 auto reqchassisHostTransitionTimeOut =
                     std::get<uint64_t>(timeOut_value);
 
-                if (!json_util::readJsonAction( //
-                        req, asyncResp->res, //
-                        "ResetType", resetType, //
+                if (!json_util::readJsonAction(                   //
+                        req, asyncResp->res,                      //
+                        "ResetType", resetType,                   //
                         "OperationApplyTime", operationApplyTime, //
                         "MaintenanceWindowStartTime",
-                        maintenanceWindowStartTime //
+                        maintenanceWindowStartTime                //
                         ))
                 {
                     return;
@@ -1647,7 +1660,7 @@ inline void handleChassisResetActionInfoPost(
                     return;
                 }
 
-	       if (reqHostState !=
+                if (reqHostState !=
                     "xyz.openbmc_project.State.Host.HostState.Running")
                 {
                     NoOperation(asyncResp);
@@ -1786,13 +1799,15 @@ inline void handleChassisResetActionInfoGet(
     {
         return;
     }
-    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("ActionInfo");
+    asyncResp->res.jsonValue["@odata.type"] =
+        json_util::odataType("ActionInfo");
     asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
         "/redfish/v1/Chassis/{}/ResetActionInfo", chassisId);
     asyncResp->res.jsonValue["Name"] = "Reset Action Info";
 
     asyncResp->res.jsonValue["Id"] = "ResetActionInfo";
-    asyncResp->res.jsonValue["Description"] = "Reset Action Information for Chassis";
+    asyncResp->res.jsonValue["Description"] =
+        "Reset Action Information for Chassis";
     nlohmann::json::array_t parameters;
     nlohmann::json::object_t parameter;
     parameter["Name"] = "ResetType";

@@ -7,7 +7,6 @@
 #include "generated/enums/resource.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
-
 #include "utils/chassis_utils.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/json_utils.hpp"
@@ -493,7 +492,8 @@ inline void doPowerSupplyGet(
             asyncResp->res.addHeader(
                 boost::beast::http::field::link,
                 "</redfish/v1/JsonSchemas/PowerSupply/PowerSupply.json>; rel=describedby");
-            asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("PowerSupply");
+            asyncResp->res.jsonValue["@odata.type"] =
+                json_util::odataType("PowerSupply");
             std::string powerSupplyName = powerSupplyId;
             std::replace(powerSupplyName.begin(), powerSupplyName.end(), '_',
                          ' ');

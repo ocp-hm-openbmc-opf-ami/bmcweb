@@ -17,6 +17,7 @@ limitations under the License.
 
 #include "logging.hpp"
 #include "registries.hpp"
+#include "registries/openbmc_message_registry.hpp"
 #include "str_utility.hpp"
 
 #include <nlohmann/json.hpp>
@@ -31,8 +32,6 @@ limitations under the License.
 #include <string_view>
 #include <utility>
 #include <vector>
-
-#include "registries/openbmc_message_registry.hpp"
 
 namespace redfish
 {
@@ -80,16 +79,17 @@ int getDbusEventLogParams(const std::string& logEntry, std::string& messageID,
     else
     {
         messageID = logEntry.substr(0, colonPos);
-	std::string input = logEntry.substr(colonPos + 1);
-        if(input.find('|') != std::string::npos)
+        std::string input = logEntry.substr(colonPos + 1);
+        if (input.find('|') != std::string::npos)
         {
-	    std::stringstream ss(input);
+            std::stringstream ss(input);
             std::string token;
-            while (std::getline(ss, token, '|')) { 
+            while (std::getline(ss, token, '|'))
+            {
                 messageArgs.push_back(token);
             }
         }
-        else if(input.find(',') != std::string::npos)
+        else if (input.find(',') != std::string::npos)
         {
             std::string argsStr = logEntry.substr(colonPos + 1);
             size_t start = 0;
@@ -165,7 +165,7 @@ inline std::string removeSpaces(const std::string& input)
 {
     std::string output;
     std::copy_if(input.begin(), input.end(), std::back_inserter(output),
-                 [](char c){ return !std::isspace(c); });
+                 [](char c) { return !std::isspace(c); });
     return output;
 }
 
@@ -173,7 +173,8 @@ int formatEventLogEntry(
     const std::string& logEntryID, const std::string& messageID,
     const std::span<std::string_view> messageArgs, std::string timestamp,
     const std::string& customText, const std::string& origin,
-    const std::string& memberId, const std::string& registryName, nlohmann::json::object_t& logEntryJson)
+    const std::string& memberId, const std::string& registryName,
+    nlohmann::json::object_t& logEntryJson)
 {
     // Get the MessageRegistry Version
     const registries::Header* header = nullptr;
@@ -181,12 +182,11 @@ int formatEventLogEntry(
     if (registryName == "OpenBMC")
     {
         header = &registries::openbmc::header;
-        registryVersion =  std::format(
+        registryVersion = std::format(
             "{}.{}.{}.{}", header->registryPrefix, header->versionMajor,
             header->versionMinor, header->versionPatch);
     }
 
-    
     // Get the Message from the MessageRegistry
     const registries::Message* message = registries::formatMessage(messageID);
 

@@ -216,8 +216,8 @@ class ErrorVerificator
     const sdbusplus::message_t& msg;
 };
 
-inline metric_report_definition::ReportActionsEnum
-    toRedfishReportAction(std::string_view dbusValue)
+inline metric_report_definition::ReportActionsEnum toRedfishReportAction(
+    std::string_view dbusValue)
 {
     if (dbusValue ==
         "xyz.openbmc_project.Telemetry.Report.ReportActions.EmitsReadingsUpdate")
@@ -322,8 +322,8 @@ inline std::string toDbusCollectionTimeScope(std::string_view redfishValue)
     return "";
 }
 
-inline metric_report_definition::ReportUpdatesEnum
-    toRedfishReportUpdates(std::string_view dbusValue)
+inline metric_report_definition::ReportUpdatesEnum toRedfishReportUpdates(
+    std::string_view dbusValue)
 {
     if (dbusValue ==
         "xyz.openbmc_project.Telemetry.Report.ReportUpdates.Overwrite")
@@ -523,7 +523,8 @@ inline void fillReportDefinition(
     asyncResp->res.jsonValue["Name"] = name;
     asyncResp->res.jsonValue["Schedule"]["RecurrenceInterval"] =
         time_utils::toDurationString(std::chrono::milliseconds(interval));
-    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("MetricReportDefinition");
+    asyncResp->res.jsonValue["@odata.type"] =
+        json_util::odataType("MetricReportDefinition");
     asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
         "/redfish/v1/TelemetryService/MetricReportDefinitions/{}", id);
     asyncResp->res.jsonValue["Id"] = id;
@@ -581,12 +582,12 @@ inline bool getUserMetric(crow::Response& res, nlohmann::json::object_t& metric,
     std::optional<std::string> collectionFunction;
     std::optional<std::string> collectionTimeScopeStr;
 
-    if (!json_util::readJsonObject( //
-            metric, res, //
-            "MetricProperties", uris, //
-            "CollectionFunction", collectionFunction, //
+    if (!json_util::readJsonObject(                        //
+            metric, res,                                   //
+            "MetricProperties", uris,                      //
+            "CollectionFunction", collectionFunction,      //
             "CollectionTimeScope", collectionTimeScopeStr, //
-            "CollectionDuration", collectionDurationStr //
+            "CollectionDuration", collectionDurationStr    //
             ))
     {
         return false;
@@ -642,21 +643,21 @@ inline bool getUserMetric(crow::Response& res, nlohmann::json::object_t& metric,
     return true;
 }
 
-inline bool
-    getValidationDuration(crow::Response& res, nlohmann::json::object_t& metric,
-                          std::optional<std::string> scheduleDurationStr)
+inline bool getValidationDuration(
+    crow::Response& res, nlohmann::json::object_t& metric,
+    std::optional<std::string> scheduleDurationStr)
 {
     std::optional<std::vector<std::string>> uris;
     std::optional<std::string> collectionDurationStr;
     std::optional<std::string> collectionFunction;
     std::optional<std::string> collectionTimeScopeStr;
 
-    if (!json_util::readJsonObject( //
-            metric, res, //
-            "MetricProperties", uris, //
-            "CollectionFunction", collectionFunction, //
+    if (!json_util::readJsonObject(                        //
+            metric, res,                                   //
+            "MetricProperties", uris,                      //
+            "CollectionFunction", collectionFunction,      //
             "CollectionTimeScope", collectionTimeScopeStr, //
-            "CollectionDuration", collectionDurationStr //
+            "CollectionDuration", collectionDurationStr    //
             ))
     {
         return false;
@@ -717,18 +718,18 @@ class ReportUserArgs
     bool getUserParameters(crow::Response& res, const crow::Request& req,
                            AddReportArgs& args)
     {
-        if (!json_util::readJsonPatch( //
-                req, res, //
-                "Id", id, //
-                "Name", name, //
-                "Metrics", metrics, //
-                "MetricReportDefinitionType", reportingTypeStr, //
-                "ReportUpdates", reportUpdatesStr, //
-                "AppendLimit", appendLimit, //
-                "ReportActions", reportActionsStr, //
+        if (!json_util::readJsonPatch(                              //
+                req, res,                                           //
+                "Id", id,                                           //
+                "Name", name,                                       //
+                "Metrics", metrics,                                 //
+                "MetricReportDefinitionType", reportingTypeStr,     //
+                "ReportUpdates", reportUpdatesStr,                  //
+                "AppendLimit", appendLimit,                         //
+                "ReportActions", reportActionsStr,                  //
                 "Schedule/RecurrenceInterval", scheduleDurationStr, //
                 "MetricReportDefinitionEnabled",
-                metricReportDefinitionEnabled //
+                metricReportDefinitionEnabled                       //
                 ))
         {
             return false;
@@ -949,8 +950,10 @@ class AddReport
                 if (type == AddReportType::create)
                 {
                     messages::created(asyncResp->res);
-                    asyncResp->res.addHeader("Location",
-                             "/redfish/v1/TelemetryService/MetricReportDefinitions/" + id);
+                    asyncResp->res.addHeader(
+                        "Location",
+                        "/redfish/v1/TelemetryService/MetricReportDefinitions/" +
+                            id);
                 }
                 else
                 {
@@ -1139,9 +1142,9 @@ class UpdateMetrics
     std::vector<nlohmann::json::object_t> redfishMetrics;
 };
 
-inline void
-    setReportEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                     std::string_view id, bool enabled)
+inline void setReportEnabled(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, std::string_view id,
+    bool enabled)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, id = std::string(id)](const boost::system::error_code& ec,
@@ -1207,9 +1210,9 @@ inline void setReportTypeAndInterval(
         dbusReportingType, recurrenceInterval);
 }
 
-inline void
-    setReportUpdates(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                     std::string_view id, const std::string& reportUpdates)
+inline void setReportUpdates(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, std::string_view id,
+    const std::string& reportUpdates)
 {
     std::string dbusReportUpdates = toDbusReportUpdates(reportUpdates);
     if (dbusReportUpdates.empty())
@@ -1424,13 +1427,13 @@ inline void handleReportPatch(
     std::optional<std::vector<std::string>> reportActionsStr;
     std::optional<std::string> scheduleDurationStr;
 
-    if (!json_util::readJsonPatch( //
-            req, asyncResp->res, //
-            "Metrics", metrics, //
-            "MetricReportDefinitionType", reportingTypeStr, //
-            "ReportUpdates", reportUpdatesStr, //
-            "ReportActions", reportActionsStr, //
-            "Schedule/RecurrenceInterval", scheduleDurationStr, //
+    if (!json_util::readJsonPatch(                                         //
+            req, asyncResp->res,                                           //
+            "Metrics", metrics,                                            //
+            "MetricReportDefinitionType", reportingTypeStr,                //
+            "ReportUpdates", reportUpdatesStr,                             //
+            "ReportActions", reportActionsStr,                             //
+            "Schedule/RecurrenceInterval", scheduleDurationStr,            //
             "MetricReportDefinitionEnabled", metricReportDefinitionEnabled //
             ))
     {
@@ -1604,10 +1607,10 @@ inline void handleMetricReportDefinitionsPost(
     }
 }
 
-inline void
-    handleMetricReportHead(App& app, const crow::Request& req,
-                           const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                           const std::string& /*id*/)
+inline void handleMetricReportHead(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& /*id*/)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {

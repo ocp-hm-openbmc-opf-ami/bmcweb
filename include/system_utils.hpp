@@ -2,10 +2,11 @@
 
 #include "async_resp.hpp"
 #include "error_messages.hpp"
+
 #include <sdbusplus/asio/connection.hpp>
 #include <sdbusplus/bus.hpp>
-#include <optional>
 
+#include <optional>
 #include <string>
 
 namespace redfish
@@ -47,23 +48,28 @@ inline bool validateSystemName(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& systemName)
 {
-    if(!isDualHostEnabled()) {
+    if (!isDualHostEnabled())
+    {
         // For single node, accept only "system"
-        if (systemName != "system") {
-            messages::resourceNotFound(asyncResp->res, "ComputerSystem", systemName);
+        if (systemName != "system")
+        {
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
             return false;
         }
-    } else {
+    }
+    else
+    {
         // For dual node, accept system and system1
-        if (systemName != "system" && systemName != "system1") {
-            messages::resourceNotFound(asyncResp->res, "ComputerSystem", systemName);
+        if (systemName != "system" && systemName != "system1")
+        {
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
             return false;
         }
     }
     return true;
-  
 }
 
 } // namespace system_utils
 } // namespace redfish
-

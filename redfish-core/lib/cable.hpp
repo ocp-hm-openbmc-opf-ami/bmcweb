@@ -80,10 +80,10 @@ inline void fillCableProperties(
  * @param[in]       serviceMap      A map to hold Service and corresponding
  * interface list for the given cable id.
  */
-inline void
-    getCableProperties(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                       const std::string& cableObjectPath,
-                       const dbus::utility::MapperServiceMap& serviceMap)
+inline void getCableProperties(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& cableObjectPath,
+    const dbus::utility::MapperServiceMap& serviceMap)
 {
     BMCWEB_LOG_DEBUG("Get Properties for cable {}", cableObjectPath);
 
@@ -176,7 +176,8 @@ inline void requestRoutesCable(App& app)
                                 continue;
                             }
 
-                            asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("Cable");
+                            asyncResp->res.jsonValue["@odata.type"] =
+                                json_util::odataType("Cable");
                             asyncResp->res.jsonValue["@odata.id"] =
                                 boost::urls::format("/redfish/v1/Cables/{}",
                                                     cableId);

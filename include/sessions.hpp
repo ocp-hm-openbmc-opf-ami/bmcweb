@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
+#include "dbus_singleton.hpp"
 #include "logging.hpp"
 #include "ossl_random.hpp"
 #include "utility.hpp"
@@ -19,7 +20,6 @@
 #include <random>
 #include <string>
 #include <vector>
-#include "dbus_singleton.hpp"
 
 namespace persistent_data
 {
@@ -88,8 +88,8 @@ struct UserSession
      * @return a shared pointer if data has been loaded properly, nullptr
      * otherwise
      */
-    static std::shared_ptr<UserSession>
-        fromJson(const nlohmann::json::object_t& j)
+    static std::shared_ptr<UserSession> fromJson(
+        const nlohmann::json::object_t& j)
     {
         std::shared_ptr<UserSession> userSession =
             std::make_shared<UserSession>();
@@ -367,7 +367,9 @@ class SessionStore
         return it.first->second;
     }
 
-    std::shared_ptr<UserSession> SessionLessBasicAuth(std::string user, const boost::asio::ip::address& clientIp, bool isConfigureSelfOnly)
+    std::shared_ptr<UserSession> SessionLessBasicAuth(
+        std::string user, const boost::asio::ip::address& clientIp,
+        bool isConfigureSelfOnly)
     {
         auto tempSession = std::make_shared<persistent_data::UserSession>();
         tempSession->username = user;
@@ -524,7 +526,6 @@ class SessionStore
         lastTimeoutUpdate = timeNow;
     }
 
-
     std::size_t getMaxWebuiSessions()
     {
         return maxWebuiSessions;
@@ -554,7 +555,8 @@ class SessionStore
             auto authTokensIt = authTokens.begin();
             while (authTokensIt != authTokens.end())
             {
-                if (timeNow - authTokensIt->second->lastUpdated >= timeoutInSeconds)
+                if (timeNow - authTokensIt->second->lastUpdated >=
+                    timeoutInSeconds)
                 {
                     std::shared_ptr<UserSession> session = authTokensIt->second;
                     std::string uniqueId = session->uniqueId;
@@ -577,28 +579,28 @@ class SessionStore
                                 {
                                     return;
                                 }
-				sessionMap.erase(mapIt);
-                                SessionStore::getInstance().removeSession(session);
+                                sessionMap.erase(mapIt);
+                                SessionStore::getInstance().removeSession(
+                                    session);
                             },
                             "xyz.openbmc_project.SessionManager",
                             "/xyz/openbmc_project/SessionManager",
                             "xyz.openbmc_project.SessionManager",
-                            "SessionUnregister",
-                            sessionId,
-                            sessionType,
-                            1);
+                            "SessionUnregister", sessionId, sessionType, 1);
                     }
                     for (size_t i = 0; i < 2; ++i)
                     {
                         if (session->vmNbdActive[i])
                         {
                             std::string vmPath =
-                                "/xyz/openbmc_project/VirtualMedia/Proxy/Slot_" + std::to_string(i);
+                                "/xyz/openbmc_project/VirtualMedia/Proxy/Slot_" +
+                                std::to_string(i);
                             crow::connections::systemBus->async_method_call(
-                                [](const boost::system::error_code ec, bool success) {
+                                [](const boost::system::error_code ec,
+                                   bool success) {
                                     if (ec)
                                     {
-				    	return;
+                                        return;
                                     }
                                     if (!success)
                                     {
@@ -606,7 +608,8 @@ class SessionStore
                                     }
                                 },
                                 "xyz.openbmc_project.VirtualMedia", vmPath,
-                                "xyz.openbmc_project.VirtualMedia.Proxy", "Unmount");
+                                "xyz.openbmc_project.VirtualMedia.Proxy",
+                                "Unmount");
                         }
                     }
                     authTokensIt = authTokens.erase(authTokensIt);
@@ -631,7 +634,7 @@ class SessionStore
             "member='PropertiesChanged',"
             "path='/xyz/openbmc_project/control/service/bmcweb'",
             [this](sdbusplus::message_t& msg) {
-            handleSessionTimeoutPropertyChanged(msg);
+                handleSessionTimeoutPropertyChanged(msg);
             });
     }
 
@@ -679,7 +682,8 @@ class SessionStore
                     std::size_t value = service["max_session_limit"];
                     return value;
                 }
-                else if (ServiceName == "redfish" && service["name"] == "bmcweb")
+                else if (ServiceName == "redfish" &&
+                         service["name"] == "bmcweb")
                 {
                     std::size_t value = service["redfish_max_session_limit"];
                     return value;
@@ -705,7 +709,7 @@ class SessionStore
     ~SessionStore() = default;
 
     std::unordered_map<std::string, std::shared_ptr<UserSession>,
-                        std::hash<std::string>, bmcweb::ConstantTimeCompare>
+                       std::hash<std::string>, bmcweb::ConstantTimeCompare>
         authTokens;
 
     std::chrono::time_point<std::chrono::steady_clock> lastTimeoutUpdate;
@@ -720,7 +724,6 @@ class SessionStore
   private:
     SessionStore() : timeoutInSeconds(1800)
     {
-
         initializeDbus(); // Initialize D-Bus matchers
     }
     std::unique_ptr<sdbusplus::bus::match_t> sessionTimeoutMatcher;

@@ -18,8 +18,8 @@
 namespace redfish
 {
 
-inline void
-    getPSUMonitorProperties(std::shared_ptr<bmcweb::AsyncResp> asyncResp)
+inline void getPSUMonitorProperties(
+    std::shared_ptr<bmcweb::AsyncResp> asyncResp)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp](
@@ -129,10 +129,10 @@ inline void getCollectionOfPSUMembers(
                 redundancyGroup);
         });
 }
-inline void
-    getPSURedundancy(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                     const std::string& chassisId,
-                     const std::optional<std::string>& validChassisPath)
+inline void getPSURedundancy(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId,
+    const std::optional<std::string>& validChassisPath)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, chassisId, validChassisPath](
@@ -173,7 +173,8 @@ inline void doPowerSubsystemCollection(
     asyncResp->res.addHeader(
         boost::beast::http::field::link,
         "</redfish/v1/JsonSchemas/PowerSubsystem/PowerSubsystem.json>; rel=describedby");
-    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("PowerSubsystem");
+    asyncResp->res.jsonValue["@odata.type"] =
+        json_util::odataType("PowerSubsystem");
     asyncResp->res.jsonValue["Name"] = "Power Subsystem";
     asyncResp->res.jsonValue["Description"] =
         "The Collection of Power Subsystem";

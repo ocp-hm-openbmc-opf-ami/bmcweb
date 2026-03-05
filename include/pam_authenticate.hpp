@@ -36,7 +36,6 @@ struct PasswordData
 
     int makeResponse(const pam_message& msg, pam_response& response)
     {
-      
         switch (msg.msg_style)
         {
             case PAM_PROMPT_ECHO_ON:
@@ -129,10 +128,10 @@ static bool pamMaxtriescheck(std::string& userName)
     {
         sdbusplus::message::message getlockedUser =
             crow::connections::systemBus->new_method_call(
-                "xyz.openbmc_project.User.Manager", objPath.c_str(), 
+                "xyz.openbmc_project.User.Manager", objPath.c_str(),
                 "org.freedesktop.DBus.Properties", "Get");
-        getlockedUser.append("xyz.openbmc_project.User.Attributes", 
-                            "UserLockedForFailedAttempt");
+        getlockedUser.append("xyz.openbmc_project.User.Attributes",
+                             "UserLockedForFailedAttempt");
 
         sdbusplus::message::message getlockedUserResp =
             crow::connections::systemBus->call(getlockedUser);
@@ -156,15 +155,16 @@ static bool pamMaxtriescheck(std::string& userName)
  * @param password The provided password.
  * @param token The provided MFA token.
  * @returns PAM error code or PAM_SUCCESS for success. */
-inline int pamAuthenticateUser(std::string_view username,
-                               std::string_view password,
-                               std::optional<std::string> token, 
-                               const boost::asio::ip::address &ip = boost::asio::ip::address(),
-                               bool serviceWebserver = true)
+inline int pamAuthenticateUser(
+    std::string_view username, std::string_view password,
+    std::optional<std::string> token,
+    const boost::asio::ip::address& ip = boost::asio::ip::address(),
+    bool serviceWebserver = true)
 {
     std::string userStr(username);
     PasswordData data;
-    const std::string serviceType = serviceWebserver ? "webserver" : "web-silent";
+    const std::string serviceType =
+        serviceWebserver ? "webserver" : "web-silent";
 
     if (int ret = data.addPrompt("Password: ", password); ret != PAM_SUCCESS)
     {
@@ -183,8 +183,8 @@ inline int pamAuthenticateUser(std::string_view username,
 
     bool pamMaxerror;
 
-    int retval = pam_start(serviceType.c_str(), userStr.c_str(), &localConversation,
-                           &localAuthHandle);
+    int retval = pam_start(serviceType.c_str(), userStr.c_str(),
+                           &localConversation, &localAuthHandle);
     if (retval != PAM_SUCCESS)
     {
         return retval;
@@ -196,20 +196,24 @@ inline int pamAuthenticateUser(std::string_view username,
     {
         if (serviceWebserver)
         {
-            std::string severity = "xyz.openbmc_project.Logging.Entry.Level.Warning";
+            std::string severity =
+                "xyz.openbmc_project.Logging.Entry.Level.Warning";
             auto bus = sdbusplus::bus::new_default_system();
-            sdbusplus::message::message m = bus.new_method_call("xyz.openbmc_project.Logging", "/xyz/openbmc_project/logging",
-                    "xyz.openbmc_project.Logging.Create", "Create" );
+            sdbusplus::message::message m = bus.new_method_call(
+                "xyz.openbmc_project.Logging", "/xyz/openbmc_project/logging",
+                "xyz.openbmc_project.Logging.Create", "Create");
             std::string journalMsg = "InvalidLoginAttempted:HTTPS";
 
-            m.append(journalMsg, severity, std::map<std::string, std::string>());
+            m.append(journalMsg, severity,
+                     std::map<std::string, std::string>());
             try
             {
                 bus.call(m);
             }
             catch (const sdbusplus::exception_t& e)
             {
-                std::cerr << "Failed to create log entry: " << e.what() << std::endl;
+                std::cerr << "Failed to create log entry: " << e.what()
+                          << std::endl;
             }
 
             sd_journal_send("MESSAGE= %s", "Invalid login attempted on HTTPS",
@@ -232,7 +236,9 @@ inline int pamAuthenticateUser(std::string_view username,
         auto ipaddr = ip.to_string();
         if (ip.is_v6() && ip.to_v6().is_v4_mapped())
         {
-            ipaddr = boost::asio::ip::make_address_v4(boost::asio::ip::v4_mapped,ip.to_v6()).to_string();
+            ipaddr = boost::asio::ip::make_address_v4(
+                         boost::asio::ip::v4_mapped, ip.to_v6())
+                         .to_string();
         }
         retval = pam_set_item(localAuthHandle, PAM_RHOST, ipaddr.c_str());
         if (retval != PAM_SUCCESS)
@@ -261,15 +267,19 @@ inline int pamUpdatePassword(const std::string& username,
     if (int ret = data.addPrompt("New password: ", password);
         ret != PAM_SUCCESS)
     {
-        BMCWEB_LOG_ERROR("pamUpdatePassword: addPrompt 'New password' failed with ret={}", ret);
+        BMCWEB_LOG_ERROR(
+            "pamUpdatePassword: addPrompt 'New password' failed with ret={}",
+            ret);
         return ret;
     }
 
     if (int ret = data.addPrompt("Retype new password: ", password);
         ret != PAM_SUCCESS)
     {
-         BMCWEB_LOG_ERROR("pamUpdatePassword: addPrompt 'Retype new password' failed with ret={}", ret);
-         return ret;
+        BMCWEB_LOG_ERROR(
+            "pamUpdatePassword: addPrompt 'Retype new password' failed with ret={}",
+            ret);
+        return ret;
     }
     const struct pam_conv localConversation = {pamFunctionConversation, &data};
     pam_handle_t* localAuthHandle = nullptr; // this gets set by pam_start
@@ -279,7 +289,8 @@ inline int pamUpdatePassword(const std::string& username,
 
     if (retval != PAM_SUCCESS)
     {
-        BMCWEB_LOG_ERROR("pamUpdatePassword: pam_start failed with retval={}", retval);
+        BMCWEB_LOG_ERROR("pamUpdatePassword: pam_start failed with retval={}",
+                         retval);
         return retval;
     }
 
@@ -288,11 +299,15 @@ inline int pamUpdatePassword(const std::string& username,
     {
         if (retval == PAM_AUTHTOK_RECOVERY_ERR)
         {
-            BMCWEB_LOG_ERROR("pamUpdatePassword: Password corruption detected, retval={}", retval);
+            BMCWEB_LOG_ERROR(
+                "pamUpdatePassword: Password corruption detected, retval={}",
+                retval);
         }
         else
         {
-            BMCWEB_LOG_ERROR("pamUpdatePassword: pam_chauthtok failed with retval={}", retval);
+            BMCWEB_LOG_ERROR(
+                "pamUpdatePassword: pam_chauthtok failed with retval={}",
+                retval);
         }
         pam_end(localAuthHandle, PAM_SUCCESS);
         return retval;

@@ -50,7 +50,7 @@ struct Connection : std::enable_shared_from_this<Connection>
     virtual boost::urls::url_view url() = 0;
     std::shared_ptr<persistent_data::UserSession> session;
     std::unordered_map<std::string, uint8_t>& sessionMap =
-	    persistent_data::sessionMap;
+        persistent_data::sessionMap;
 };
 
 template <typename Adaptor>
@@ -101,36 +101,37 @@ class ConnectionImpl : public Connection
         ws.set_option(boost::beast::websocket::stream_base::decorator(
             [session{session},
              protocolHeader](boost::beast::websocket::response_type& m) {
-            if constexpr (!BMCWEB_INSECURE_DISABLE_CSRF)
-            {
-                if (session != nullptr)
+                if constexpr (!BMCWEB_INSECURE_DISABLE_CSRF)
                 {
-                    // use protocol for csrf checking
-                    if (session->cookieAuth &&
-                        !bmcweb::constantTimeStringCompare(protocolHeader,
-                                                           session->csrfToken))
+                    if (session != nullptr)
                     {
-                        BMCWEB_LOG_ERROR("Websocket CSRF error");
-                        m.result(boost::beast::http::status::unauthorized);
-                        return;
+                        // use protocol for csrf checking
+                        if (session->cookieAuth &&
+                            !bmcweb::constantTimeStringCompare(
+                                protocolHeader, session->csrfToken))
+                        {
+                            BMCWEB_LOG_ERROR("Websocket CSRF error");
+                            m.result(boost::beast::http::status::unauthorized);
+                            return;
+                        }
                     }
                 }
-            }
-            if (!protocolHeader.empty())
-            {
-                m.insert(bf::sec_websocket_protocol, protocolHeader);
-            }
+                if (!protocolHeader.empty())
+                {
+                    m.insert(bf::sec_websocket_protocol, protocolHeader);
+                }
 
-            m.insert(bf::strict_transport_security, "max-age=31536000; "
-                                                    "includeSubdomains; "
-                                                    "preload");
-            m.insert(bf::pragma, "no-cache");
-            m.insert(bf::cache_control, "no-Store,no-Cache");
-            m.insert("Content-Security-Policy", "default-src 'self'");
-            m.insert("X-XSS-Protection", "1; "
-                                         "mode=block");
-            m.insert("X-Content-Type-Options", "nosniff");
-        }));
+                m.insert(bf::strict_transport_security,
+                         "max-age=31536000; "
+                         "includeSubdomains; "
+                         "preload");
+                m.insert(bf::pragma, "no-cache");
+                m.insert(bf::cache_control, "no-Store,no-Cache");
+                m.insert("Content-Security-Policy", "default-src 'self'");
+                m.insert("X-XSS-Protection", "1; "
+                                             "mode=block");
+                m.insert("X-Content-Type-Options", "nosniff");
+            }));
 
         // Make a pointer to keep the req alive while we accept it.
         using Body = boost::beast::http::request<bmcweb::HttpBody>;
@@ -165,23 +166,24 @@ class ConnectionImpl : public Connection
         ws.async_write(boost::asio::buffer(msg),
                        [weak(weak_from_this()), onDone{std::move(onDone)}](
                            const boost::beast::error_code& ec, size_t) {
-            std::shared_ptr<Connection> self = weak.lock();
-            if (!self)
-            {
-                BMCWEB_LOG_ERROR("Connection went away");
-                return;
-            }
+                           std::shared_ptr<Connection> self = weak.lock();
+                           if (!self)
+                           {
+                               BMCWEB_LOG_ERROR("Connection went away");
+                               return;
+                           }
 
-            // Call the done handler regardless of whether we
-            // errored, but before we close things out
-            onDone();
+                           // Call the done handler regardless of whether we
+                           // errored, but before we close things out
+                           onDone();
 
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR("Error in ws.async_write {}", ec);
-                self->close("write error");
-            }
-        });
+                           if (ec)
+                           {
+                               BMCWEB_LOG_ERROR("Error in ws.async_write {}",
+                                                ec);
+                               self->close("write error");
+                           }
+                       });
     }
 
     void sendText(std::string_view msg) override
@@ -197,16 +199,16 @@ class ConnectionImpl : public Connection
         ws.async_close(
             {boost::beast::websocket::close_code::normal, msg},
             [self(shared_from_this())](const boost::system::error_code& ec) {
-            if (ec == boost::asio::error::operation_aborted)
-            {
-                return;
-            }
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR("Error closing websocket {}", ec);
-                return;
-            }
-        });
+                if (ec == boost::asio::error::operation_aborted)
+                {
+                    return;
+                }
+                if (ec)
+                {
+                    BMCWEB_LOG_ERROR("Error closing websocket {}", ec);
+                    return;
+                }
+            });
     }
 
     boost::urls::url_view url() override
@@ -325,16 +327,16 @@ class ConnectionImpl : public Connection
             // this message handler overrides the normal message handler
             messageExHandler(*this, inString, MessageType::Binary,
                              [this, self(shared_from_this()), bytesRead]() {
-                if (self == nullptr)
-                {
-                    return;
-                }
+                                 if (self == nullptr)
+                                 {
+                                     return;
+                                 }
 
-                inBuffer.consume(bytesRead);
-                inString.clear();
+                                 inBuffer.consume(bytesRead);
+                                 inString.clear();
 
-                doRead();
-            });
+                                 doRead();
+                             });
             return;
         }
 

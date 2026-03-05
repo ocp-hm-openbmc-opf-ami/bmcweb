@@ -37,10 +37,10 @@ enum class membersResponse
 
 namespace redfish
 {
-inline membersResponse
-    membersResponsePost(const crow::Request& req,
-                           const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                           const std::string param)
+inline membersResponse membersResponsePost(
+    const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string param)
 {
     asyncResp->res.clearHeader(boost::beast::http::field::allow);
     if (param == "Members")
@@ -169,8 +169,8 @@ inline bool handleIfMatch(crow::App& app, const crow::Request& req,
     std::string_view odataHeader = req.getHeaderValue("OData-Version");
     if (!odataHeader.empty() && odataHeader != "4.0")
     {
-        messages::headerInvalid(asyncResp->res,"OData-Version");
-	return false;
+        messages::headerInvalid(asyncResp->res, "OData-Version");
+        return false;
     }
 
     asyncResp->res.addHeader("OData-Version", "4.0");
@@ -191,8 +191,9 @@ inline bool handleIfMatch(crow::App& app, const crow::Request& req,
 
     if constexpr (BMCWEB_REDFISH_AGGREGATION)
     {
-        needToCallHandlers = RedfishAggregator::beginAggregation(
-                                 req, asyncResp) == Result::LocalHandle;
+        needToCallHandlers =
+            RedfishAggregator::beginAggregation(req, asyncResp) ==
+            Result::LocalHandle;
 
         // If the request should be forwarded to a satellite BMC then we don't
         // want to write anything to the asyncResp since it will get overwritten
@@ -212,17 +213,17 @@ inline bool handleIfMatch(crow::App& app, const crow::Request& req,
     asyncResp->res.setCompleteRequestHandler(
         [&app, req, handler(std::move(handler)), query{std::move(*queryOpt)},
          delegated{delegated}](crow::Response& resIn) mutable {
-        processAllParams(app, query, delegated, handler, resIn, req);
-    });
+            processAllParams(app, query, delegated, handler, resIn, req);
+        });
 
     return needToCallHandlers;
 }
 
 // Sets up the Redfish Route. All parameters are handled by the default handler.
-[[nodiscard]] inline bool
-    setUpRedfishRoute(crow::App& app, const crow::Request& req,
-                      const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
-{    
+[[nodiscard]] inline bool setUpRedfishRoute(
+    crow::App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
     query_param::Query delegated;
     return setUpRedfishRouteWithDelegation(app, req, asyncResp, delegated,
                                            query_param::QueryCapabilities{});

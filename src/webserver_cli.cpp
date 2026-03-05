@@ -79,14 +79,14 @@ int main(int argc, char** argv) noexcept(false)
     // Attempt to async_call to set logging level
     conn->async_method_call(
         [&io, &loglevel](boost::system::error_code& ec) mutable {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("SetLogLevel returned error with {}", ec);
-            return;
-        }
-        BMCWEB_LOG_INFO("logging level changed to: {}", loglevel);
-        io.stop();
-    },
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("SetLogLevel returned error with {}", ec);
+                return;
+            }
+            BMCWEB_LOG_INFO("logging level changed to: {}", loglevel);
+            io.stop();
+        },
         service, path, iface, method, loglevel);
 
     io.run();

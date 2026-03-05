@@ -11,10 +11,10 @@
 #include "persistent_data.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
+#include "utils/json_utils.hpp"
 #include "utils/systemd_utils.hpp"
-#include "utils/json_utils.hpp"
+
 #include <nlohmann/json.hpp>
-#include "utils/json_utils.hpp"
 
 namespace redfish
 {
@@ -41,7 +41,8 @@ inline void handleServiceRootGetImpl(
         "</redfish/v1/JsonSchemas/ServiceRoot/ServiceRoot.json>; rel=describedby");
 
     std::string uuid = persistent_data::getConfig().systemUuid;
-    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("ServiceRoot");
+    asyncResp->res.jsonValue["@odata.type"] =
+        json_util::odataType("ServiceRoot");
     asyncResp->res.jsonValue["@odata.id"] = "/redfish/v1";
     asyncResp->res.jsonValue["Id"] = "RootService";
     asyncResp->res.jsonValue["Name"] = "Root Service";
@@ -83,16 +84,19 @@ inline void handleServiceRootGetImpl(
 #if (!defined(ONETREE_RM)) && (!defined(ONETREE_PSM))
     asyncResp->res.jsonValue["Oem"]["OpenBmc"]["Pef"]["@odata.id"] =
         "/redfish/v1/#Oem/OpenBmc";
-    asyncResp->res.jsonValue["Oem"]["OpenBmc"]["Pef"]["@odata.type"] = json_util::odataType("OemPefServiceRoot", "OpenBmc");
+    asyncResp->res.jsonValue["Oem"]["OpenBmc"]["Pef"]["@odata.type"] =
+        json_util::odataType("OemPefServiceRoot", "OpenBmc");
     asyncResp->res.jsonValue["Oem"]["OpenBmc"]["Pef"]["PefService"] = {
         {"@odata.id", "/redfish/v1/PefService"}};
-    asyncResp->res.jsonValue["Oem"]["Intel"]["@odata.type"] = json_util::odataType("OemServiceRoot", "Intel");
+    asyncResp->res.jsonValue["Oem"]["Intel"]["@odata.type"] =
+        json_util::odataType("OemServiceRoot", "Intel");
     asyncResp->res.jsonValue["Oem"]["Intel"]["@odata.id"] =
         "/redfish/v1/#Oem/Intel";
     asyncResp->res.jsonValue["Oem"]["Intel"]["CupsService"] = {
         {"@odata.id", "/redfish/v1/Oem/Intel/CupsService"}};
 
-    asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] = json_util::odataType("OemServiceRoot", "Ami");
+    asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] =
+        json_util::odataType("OemServiceRoot", "Ami");
     asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.id"] =
         "/redfish/v1/#Oem/Ami";
 #ifdef ONETREE_EVB_AST2600
@@ -127,7 +131,8 @@ inline void handleServiceRootGetImpl(
 #endif
 
 #if BMCWEB_AMI_THERMALEQUIPMENT_MACRO
-    asyncResp->res.jsonValue["ThermalEquipment"]["@odata.id"] = "/redfish/v1/ThermalEquipment";
+    asyncResp->res.jsonValue["ThermalEquipment"]["@odata.id"] =
+        "/redfish/v1/ThermalEquipment";
 #endif
 
 #endif

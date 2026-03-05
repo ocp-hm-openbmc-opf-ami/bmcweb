@@ -230,7 +230,7 @@ inline void getPCIeDeviceSlotPath(
             if (endpoints.size() > 1)
             {
                 BMCWEB_LOG_ERROR(
-                   "PCIeDevice {} is associated with more than one PCIeSlot: {}",
+                    "PCIeDevice {} is associated with more than one PCIeSlot: {}",
                     pcieDevicePath, endpoints.size());
                 messages::internalError(asyncResp->res);
                 return;
@@ -285,7 +285,7 @@ inline void getPCIeDeviceHealth(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& pcieDevicePath, const std::string& service)
 {
-     dbus::utility::getProperty<bool>(
+    dbus::utility::getProperty<bool>(
         service, pcieDevicePath,
         "xyz.openbmc_project.State.Decorator.OperationalStatus", "Functional",
         [asyncResp](const boost::system::error_code& ec, const bool value) {
@@ -312,9 +312,9 @@ inline void getPCIeDeviceState(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& pcieDevicePath, const std::string& service)
 {
-     dbus::utility::getProperty<bool>(
-        service, pcieDevicePath,
-        "xyz.openbmc_project.Inventory.Item", "Present",
+    dbus::utility::getProperty<bool>(
+        service, pcieDevicePath, "xyz.openbmc_project.Inventory.Item",
+        "Present",
         [asyncResp](const boost::system::error_code& ec, bool value) {
             if (ec)
             {
@@ -338,7 +338,7 @@ inline void getPCIeDeviceAsset(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& pcieDevicePath, const std::string& service)
 {
-     dbus::utility::getAllProperties(
+    dbus::utility::getAllProperties(
         service, pcieDevicePath,
         "xyz.openbmc_project.Inventory.Decorator.Asset",
         [pcieDevicePath, asyncResp{asyncResp}](
@@ -501,7 +501,7 @@ inline void getPCIeDeviceProperties(
     const std::function<void(
         const dbus::utility::DBusPropertiesMap& pcieDevProperties)>&& callback)
 {
-     dbus::utility::getAllProperties(
+    dbus::utility::getAllProperties(
         service, pcieDevicePath,
         "xyz.openbmc_project.Inventory.Item.PCIeDevice",
         [asyncResp,
@@ -527,7 +527,8 @@ inline void addPCIeDeviceCommonProperties(
     asyncResp->res.addHeader(
         boost::beast::http::field::link,
         "</redfish/v1/JsonSchemas/PCIeDevice/PCIeDevice.json>; rel=describedby");
-    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("PCIeDevice");
+    asyncResp->res.jsonValue["@odata.type"] =
+        json_util::odataType("PCIeDevice");
     asyncResp->res.jsonValue["@odata.id"] =
         boost::urls::format("/redfish/v1/Systems/{}/PCIeDevices/{}",
                             BMCWEB_REDFISH_SYSTEM_URI_NAME, pcieDeviceId);
@@ -593,15 +594,14 @@ inline void requestRoutesSystemPCIeDevice(App& app)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handlePCIeDeviceGet, std::ref(app)));
 
-    BMCWEB_ROUTE(
-        app, "/redfish/v1/Systems/<str>/PCIeDevices/<str>/")
+    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/PCIeDevices/<str>/")
         .methods(boost::beast::http::verb::post,
                  boost::beast::http::verb::patch, boost::beast::http::verb::put,
                  boost::beast::http::verb::delete_)(
             [&app](const crow::Request& /* req */,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& /* systemName */,
-                   const std::string&  pcieDeviceId ) {
+                   const std::string& pcieDeviceId) {
                 asyncResp->res.clearHeader(boost::beast::http::field::allow);
                 if (!membersResponseGet(asyncResp, pcieDeviceId,
                                         "PCIeDeviceCollection"))
@@ -824,7 +824,8 @@ inline void handlePCIeFunctionGet(
     {
         return;
     }
-    if (!membersResponseGet(asyncResp, pcieFunctionIdStr, "PCIeFunctionCollection"))
+    if (!membersResponseGet(asyncResp, pcieFunctionIdStr,
+                            "PCIeFunctionCollection"))
     {
         return;
     }

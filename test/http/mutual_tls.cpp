@@ -122,8 +122,8 @@ TEST(MutualTLS, GoodCert)
 
     boost::asio::ip::address ip;
     boost::asio::ssl::verify_context ctx(x509Store.get());
-    std::shared_ptr<persistent_data::UserSession> session = verifyMtlsUser(ip,
-                                                                           ctx);
+    std::shared_ptr<persistent_data::UserSession> session =
+        verifyMtlsUser(ip, ctx);
     ASSERT_THAT(session, NotNull());
     EXPECT_THAT(session->username, "user");
 }
@@ -136,8 +136,8 @@ TEST(MutualTLS, MissingKeyUsage)
         OSSLX509 x509;
         x509.setSubjectName();
 
-        X509_EXTENSION* ex = X509V3_EXT_conf_nid(nullptr, nullptr,
-                                                 NID_key_usage, usageString);
+        X509_EXTENSION* ex =
+            X509V3_EXT_conf_nid(nullptr, nullptr, NID_key_usage, usageString);
 
         ASSERT_THAT(ex, NotNull());
         ASSERT_EQ(X509_add_ext(x509.get(), ex, -1), 1);
@@ -166,8 +166,8 @@ TEST(MutualTLS, MissingCert)
 
     boost::asio::ip::address ip;
     boost::asio::ssl::verify_context ctx(x509Store.get());
-    std::shared_ptr<persistent_data::UserSession> session = verifyMtlsUser(ip,
-                                                                           ctx);
+    std::shared_ptr<persistent_data::UserSession> session =
+        verifyMtlsUser(ip, ctx);
     ASSERT_THAT(session, IsNull());
 }
 } // namespace

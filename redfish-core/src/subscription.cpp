@@ -396,7 +396,7 @@ bool Subscription::sendTestEventLog(TestEvent& testEvent)
     // MemberId is 0 : since we are sending one event record.
     logEntryJson["MemberId"] = "0";
     //  Adding EventType property as "Other" since it is deprecated but a
-    //  required property 
+    //  required property
     logEntryJson["EventType"] = "Other";
     logEntryJson["Context"] = "Test_Event_Subcription";
 
@@ -429,7 +429,8 @@ bool Subscription::sendTestSNMPTrap()
 
     try
     {
-        this->sendSNMPTrap(static_cast<uint32_t>(eventSeqNum), timeString, "Ok", msg);
+        this->sendSNMPTrap(static_cast<uint32_t>(eventSeqNum), timeString, "Ok",
+                           msg);
     }
     catch (const std::exception& e)
     {
@@ -609,7 +610,7 @@ std::string Subscription::getOrigin(const int& sensorTypeCode)
     {
         return "/redfish/v1/Systems/system/Processors";
     }
-    else if (sensorTypeCode == 6  || sensorTypeCode == 10 ||
+    else if (sensorTypeCode == 6 || sensorTypeCode == 10 ||
              sensorTypeCode == 11 || sensorTypeCode == 13 ||
              sensorTypeCode == 14 || sensorTypeCode == 16 ||
              sensorTypeCode == 17 || sensorTypeCode == 19 ||

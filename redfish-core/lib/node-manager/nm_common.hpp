@@ -46,7 +46,7 @@ class FinalCallback
 
   public:
     FinalCallback(const std::function<void(void)> callback) :
-        runCompleteCallback(callback){};
+        runCompleteCallback(callback) {};
 
     ~FinalCallback()
     {
@@ -63,14 +63,14 @@ std::optional<T> getPropertyValue(
         properties,
     const std::string& name)
 {
-    auto property = std::find_if(properties.begin(), properties.end(),
-                                 [&name](auto element) {
-        if (name == element.first)
-        {
-            return true;
-        }
-        return false;
-    });
+    auto property = std::find_if(
+        properties.begin(), properties.end(), [&name](auto element) {
+            if (name == element.first)
+            {
+                return true;
+            }
+            return false;
+        });
 
     if (properties.end() != property)
     {
@@ -88,14 +88,14 @@ T convertStringToEnum(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                       const std::string& string, const std::string& name,
                       const boost::container::flat_map<T, std::string>& map)
 {
-    auto property = std::find_if(map.begin(), map.end(),
-                                 [&string](auto element) {
-        if (string == element.second)
-        {
-            return true;
-        }
-        return false;
-    });
+    auto property =
+        std::find_if(map.begin(), map.end(), [&string](auto element) {
+            if (string == element.second)
+            {
+                return true;
+            }
+            return false;
+        });
 
     if (map.end() != property)
     {
@@ -331,9 +331,8 @@ static std::string getDomainDbusPath(const std::string& domainName)
  * @return PolicyAttributesPredicate
  */
 template <class T>
-static PolicyAttributesPredicate
-    createAttributePredicate(const std::string& attributeName,
-                             const T& expectedValue)
+static PolicyAttributesPredicate createAttributePredicate(
+    const std::string& attributeName, const T& expectedValue)
 {
     return [attributeName,
             expectedValue](const nmDbus::DBusPropertiesMap& propMap) {
@@ -351,76 +350,77 @@ static PolicyAttributesPredicate
     };
 }
 
-static void asyncFindPolicies(FindPoliciesCallback callback,
-                              PolicyAttributesPredicate predicate =
-                                  createAttributePredicate("Owner",
-                                                           kPolicyOwnerBmc))
+static void asyncFindPolicies(
+    FindPoliciesCallback callback,
+    PolicyAttributesPredicate predicate =
+        createAttributePredicate("Owner", kPolicyOwnerBmc))
 {
     crow::connections::systemBus->async_method_call(
         [callback, predicate](const boost::system::error_code& ec,
                               nmDbus::ManagedObjectType& managedObj) {
-        std::vector<sdbusplus::message::object_path> ret;
-        if (ec)
-        {
-            callback(ec, ret);
-            return;
-        }
-        for (auto& [path, ifMap] : managedObj)
-        {
-            for (auto& [ifName, propMap] : ifMap)
+            std::vector<sdbusplus::message::object_path> ret;
+            if (ec)
             {
-                if (ifName !=
-                    "xyz.openbmc_project.NodeManager.PolicyAttributes")
-                {
-                    continue;
-                }
-                if (predicate && !predicate(propMap))
-                {
-                    BMCWEB_LOG_DEBUG("Policy filtered: {}", path.str);
-                    continue;
-                }
-                ret.push_back(path);
+                callback(ec, ret);
+                return;
             }
-        }
-        callback(ec, ret);
+            for (auto& [path, ifMap] : managedObj)
+            {
+                for (auto& [ifName, propMap] : ifMap)
+                {
+                    if (ifName !=
+                        "xyz.openbmc_project.NodeManager.PolicyAttributes")
+                    {
+                        continue;
+                    }
+                    if (predicate && !predicate(propMap))
+                    {
+                        BMCWEB_LOG_DEBUG("Policy filtered: {}", path.str);
+                        continue;
+                    }
+                    ret.push_back(path);
+                }
+            }
+            callback(ec, ret);
         },
         kNodeManagerService, "/xyz/openbmc_project/NodeManager",
         "org.freedesktop.DBus.ObjectManager", "GetManagedObjects");
 }
 
-[[maybe_unused]] static void
-    getEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-               const std::string& dbusPath)
+[[maybe_unused]] static void getEnabled(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& dbusPath)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp](
             const boost::system::error_code ec,
             const boost::container::flat_map<std::string, std::variant<bool>>&
                 response) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("respHandler DBus error: {}", ec.message());
-            messages::internalError(asyncResp->res);
-            return;
-        }
-
-        const bool* enabled = nullptr;
-        for (const auto& [key, value] : response)
-        {
-            if ("Enabled" == key)
+            if (ec)
             {
-                enabled = std::get_if<bool>(&value);
+                BMCWEB_LOG_ERROR("respHandler DBus error: {}", ec.message());
+                messages::internalError(asyncResp->res);
+                return;
             }
-        }
 
-        if (!enabled)
-        {
-            BMCWEB_LOG_ERROR("Property type mismatch or property is missing");
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        asyncResp->res.jsonValue["Status"]["State"] = (*enabled ? "Enabled"
-                                                                : "Disabled");
+            const bool* enabled = nullptr;
+            for (const auto& [key, value] : response)
+            {
+                if ("Enabled" == key)
+                {
+                    enabled = std::get_if<bool>(&value);
+                }
+            }
+
+            if (!enabled)
+            {
+                BMCWEB_LOG_ERROR(
+                    "Property type mismatch or property is missing");
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            asyncResp->res.jsonValue["Status"]["State"] =
+                (*enabled ? "Enabled" : "Disabled");
         },
         kNodeManagerService, dbusPath, "org.freedesktop.DBus.Properties",
         "GetAll", "xyz.openbmc_project.Object.Enable");
@@ -437,43 +437,44 @@ static void getStatistics(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 boost::container::flat_map<
                     std::string,
                     std::variant<double, uint32_t, uint64_t, bool>>>& stats) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("respHandler DBus error: {}", ec.message());
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        if (!asyncResp->res.jsonValue.contains("Statistics"))
-        {
-            asyncResp->res.jsonValue["Statistics"] = nlohmann::json::array();
-        }
-        auto& statisticsJson = asyncResp->res.jsonValue["Statistics"];
-        for (const auto& [statName, statsMap] : stats)
-        {
-            nlohmann::json statJson;
-            statJson["Name"] = statName;
-            for (const auto& [valueName, valueVar] : statsMap)
+            if (ec)
             {
-                std::visit(
-                    [&statJson, &valueName](auto& val) {
-                    if (valueName == "StatisticsReportingPeriod")
-                    {
-                        statJson["AveragingInterval"] =
-                            time_utils::toDurationString(
-                                std::chrono::duration_cast<
-                                    std::chrono::milliseconds>(
-                                    std::chrono::seconds(
-                                        static_cast<uint32_t>(val))));
-                    }
-                    else
-                    {
-                        statJson[valueName] = val;
-                    }
-                    },
-                    valueVar);
+                BMCWEB_LOG_ERROR("respHandler DBus error: {}", ec.message());
+                messages::internalError(asyncResp->res);
+                return;
             }
-            statisticsJson.push_back(statJson);
-        }
+            if (!asyncResp->res.jsonValue.contains("Statistics"))
+            {
+                asyncResp->res.jsonValue["Statistics"] =
+                    nlohmann::json::array();
+            }
+            auto& statisticsJson = asyncResp->res.jsonValue["Statistics"];
+            for (const auto& [statName, statsMap] : stats)
+            {
+                nlohmann::json statJson;
+                statJson["Name"] = statName;
+                for (const auto& [valueName, valueVar] : statsMap)
+                {
+                    std::visit(
+                        [&statJson, &valueName](auto& val) {
+                            if (valueName == "StatisticsReportingPeriod")
+                            {
+                                statJson["AveragingInterval"] =
+                                    time_utils::toDurationString(
+                                        std::chrono::duration_cast<
+                                            std::chrono::milliseconds>(
+                                            std::chrono::seconds(
+                                                static_cast<uint32_t>(val))));
+                            }
+                            else
+                            {
+                                statJson[valueName] = val;
+                            }
+                        },
+                        valueVar);
+                }
+                statisticsJson.push_back(statJson);
+            }
         },
         kNodeManagerService, dbusPath,
         "xyz.openbmc_project.NodeManager.Statistics", "GetStatistics");
@@ -484,13 +485,13 @@ static void resetStatistics(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code ec) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("respHandler DBus error: {}", ec.message());
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        asyncResp->res.result(boost::beast::http::status::no_content);
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("respHandler DBus error: {}", ec.message());
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            asyncResp->res.result(boost::beast::http::status::no_content);
         },
         kNodeManagerService, dbusPath,
         "xyz.openbmc_project.NodeManager.Statistics", "ResetStatistics");
@@ -610,22 +611,22 @@ void changeDbusObjectState(const crow::Request& req,
     crow::connections::systemBus->async_method_call(
         [asyncResp, objectPath,
          actionName](const boost::system::error_code ec) {
-        if (ec)
-        {
-            BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
-            if (static_cast<nmDbus::ErrorCodes>(ec.value()) ==
-                nmDbus::ErrorCodes::OperationNotPermitted)
+            if (ec)
             {
-                messages::queryNotSupportedOnResource(asyncResp->res);
+                BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
+                if (static_cast<nmDbus::ErrorCodes>(ec.value()) ==
+                    nmDbus::ErrorCodes::OperationNotPermitted)
+                {
+                    messages::queryNotSupportedOnResource(asyncResp->res);
+                }
+                else
+                {
+                    messages::internalError(asyncResp->res);
+                }
+                return;
             }
-            else
-            {
-                messages::internalError(asyncResp->res);
-            }
-            return;
-        }
-        BMCWEB_LOG_DEBUG("{} done.", actionName);
-        asyncResp->res.result(boost::beast::http::status::no_content);
+            BMCWEB_LOG_DEBUG("{} done.", actionName);
+            asyncResp->res.result(boost::beast::http::status::no_content);
         },
         kNodeManagerService, objectPath, "org.freedesktop.DBus.Properties",
         "Set", "xyz.openbmc_project.Object.Enable", "Enabled",

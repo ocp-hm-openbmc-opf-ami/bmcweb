@@ -232,8 +232,8 @@ inline void getLoadFactorsProperty(
         });
 }
 
-inline void
-    getCupsServiceJson(const std::shared_ptr<bmcweb::AsyncResp> asyncResp)
+inline void getCupsServiceJson(
+    const std::shared_ptr<bmcweb::AsyncResp> asyncResp)
 {
     asyncResp->res.jsonValue = {
         {"@odata.type", "#CupsService.v1_0_0.CupsService"},
@@ -344,8 +344,8 @@ inline void requestRoutesCupsService(App& app)
     BMCWEB_ROUTE(app, "/redfish/v1/Oem/Intel/CupsService/")
         .privileges({{"Login"}})
         .methods(boost::beast::http::verb::get)(
-            [&app](const crow::Request& req,                
-               const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
+            [&app](const crow::Request& req,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
                     return;
@@ -363,11 +363,11 @@ inline void requestRoutesCupsService(App& app)
                 std::optional<std::string> loadFactorConfiguration;
                 std::optional<nlohmann::json> staticLoadFactorsCollection;
 
-                if (!json_util::readJsonPatch( //
-                        req, asyncResp->res, //
-                        "StaticLoadFactors", staticLoadFactorsCollection, //
-                        "AveragingPeriod", averagingPeriodStr, //
-                        "Interval", intervalStr, //
+                if (!json_util::readJsonPatch(                             //
+                        req, asyncResp->res,                               //
+                        "StaticLoadFactors", staticLoadFactorsCollection,  //
+                        "AveragingPeriod", averagingPeriodStr,             //
+                        "Interval", intervalStr,                           //
                         "LoadFactorConfiguration", loadFactorConfiguration //
                         ))
                 {
@@ -433,11 +433,11 @@ inline void requestRoutesCupsService(App& app)
                     double coreLoadFactor;
                     double iioLoadFactor;
                     double memoryLoadFactor;
-                    if (!json_util::readJson( //
+                    if (!json_util::readJson(                             //
                             *staticLoadFactorsCollection, asyncResp->res, //
-                            "CoreLoadFactor", coreLoadFactor, //
-                            "IioLoadFactor", iioLoadFactor, //
-                            "MemoryLoadFactor", memoryLoadFactor //
+                            "CoreLoadFactor", coreLoadFactor,             //
+                            "IioLoadFactor", iioLoadFactor,               //
+                            "MemoryLoadFactor", memoryLoadFactor          //
                             ))
                     {
                         return;
@@ -494,8 +494,8 @@ inline const std::vector<std::tuple<std::string, std::string, std::string>>*
     return nullptr;
 }
 
-inline std::optional<std::string>
-    getName(const sdbusplus::message::object_path& path)
+inline std::optional<std::string> getName(
+    const sdbusplus::message::object_path& path)
 {
     std::string name = path.filename();
     return name.empty() ? std::nullopt : std::make_optional(std::move(name));
@@ -570,7 +570,7 @@ inline void requestRoutesCupsSensors(App& app)
         .privileges({{"Login"}})
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
-               const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
                     return;

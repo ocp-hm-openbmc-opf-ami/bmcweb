@@ -32,8 +32,8 @@
 
 #include <algorithm>
 #include <atomic>
-#include <chrono>
 #include <cctype>
+#include <chrono>
 #include <filesystem>
 #include <memory>
 #include <vector>
@@ -51,8 +51,10 @@ constexpr uint64_t maxPayloadLimit =
 constexpr uint64_t smallPayloadLimit = 1024UL * 1024UL;
 constexpr uint64_t peciCmdsReqBodyLimit = smallPayloadLimit * 2; // 2 MiB
 constexpr uint64_t telemetryBodyLimit = 1024UL * 128UL;
-constexpr uint64_t localMediaUploadLimit = 1024UL * 1024UL * BMCWEB_LOCAL_MEDIA_UPLOAD_LIMIT;
-constexpr std::string_view localMediaUploadPath = "/redfish/v1/Managers/bmc/Actions/Oem/AMIManager.LocalMediaUpload";
+constexpr uint64_t localMediaUploadLimit =
+    1024UL * 1024UL * BMCWEB_LOCAL_MEDIA_UPLOAD_LIMIT;
+constexpr std::string_view localMediaUploadPath =
+    "/redfish/v1/Managers/bmc/Actions/Oem/AMIManager.LocalMediaUpload";
 // clang-format off
 constexpr static auto perRouteReqBodyLimit =
   std::to_array<std::tuple<std::string_view, uint64_t,boost::beast::http::verb>>({
@@ -74,10 +76,12 @@ constexpr uint64_t loggedOutPostBodyLimit = 4096U;
 
 constexpr uint32_t httpHeaderLimit = 8192U;
 
-template <typename> struct IsTls : std::false_type
+template <typename>
+struct IsTls : std::false_type
 {};
 
-template <typename T> struct IsTls<boost::asio::ssl::stream<T>> : std::true_type
+template <typename T>
+struct IsTls<boost::asio::ssl::stream<T>> : std::true_type
 {};
 
 template <typename Adaptor, typename Handler>
@@ -306,7 +310,7 @@ class Connection :
         }
 
         auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
-        
+
         BMCWEB_LOG_INFO("Request:  {} HTTP/{}.{} {} {} {}", logPtr(this),
                         req->version() / 10, req->version() % 10,
                         req->methodString(), req->target(),
@@ -339,7 +343,7 @@ class Connection :
                 }
             }
         }
-        
+
         BMCWEB_LOG_DEBUG("Setting completion handler");
         asyncResp->res.setCompleteRequestHandler(
             [self(shared_from_this())](crow::Response& thisRes) {
@@ -397,18 +401,21 @@ class Connection :
             persistent_data::SessionStore::getInstance().removeSession(
                 mtlsSession);
         }
-        
+
         if (isUploading)
         {
-            BMCWEB_LOG_WARNING("{} Connection closed during active upload. Cleaning up residue file.", logPtr(this));
-            
+            BMCWEB_LOG_WARNING(
+                "{} Connection closed during active upload. Cleaning up residue file.",
+                logPtr(this));
+
             std::error_code ec;
             if (std::filesystem::exists(uploadFilePatheMMC, ec))
             {
                 std::filesystem::remove(uploadFilePatheMMC, ec);
                 if (ec)
                 {
-                    BMCWEB_LOG_ERROR("Failed to remove residue file: {}", ec.message());
+                    BMCWEB_LOG_ERROR("Failed to remove residue file: {}",
+                                     ec.message());
                 }
                 else
                 {
@@ -482,17 +489,17 @@ class Connection :
                 return;
             }
             ip = endpoint.address();
-            BMCWEB_LOG_DEBUG(
-                "Client IP Address : {}", ip.to_string());
-            boost::asio::ip::tcp::endpoint localEp = boost::beast::get_lowest_layer(adaptor).local_endpoint();
+            BMCWEB_LOG_DEBUG("Client IP Address : {}", ip.to_string());
+            boost::asio::ip::tcp::endpoint localEp =
+                boost::beast::get_lowest_layer(adaptor).local_endpoint();
             serverIp = localEp.address();
-            BMCWEB_LOG_DEBUG(
-                "Server IP Address : {}", serverIp.to_string());
+            BMCWEB_LOG_DEBUG("Server IP Address : {}", serverIp.to_string());
         }
     }
 
   private:
-    static constexpr std::uint64_t minDiskHeadroom = 1024UL * 1024UL; //minimun disk space
+    static constexpr std::uint64_t minDiskHeadroom =
+        1024UL * 1024UL; // minimun disk space
     uint64_t getMaxRequestBodySize(boost::beast::http::verb method,
                                    std::string_view target)
     {
@@ -509,20 +516,26 @@ class Connection :
                     std::error_code ec;
 
                     // Get available disk space on /tmp/lmedia
-                    std::filesystem::space_info spaceInfo = std::filesystem::space("/tmp/lmedia", ec);
-                    if (ec) {
-                        BMCWEB_LOG_ERROR("Failed to get space info for /tmp/lmedia: {}", ec.message());
-                    }       
+                    std::filesystem::space_info spaceInfo =
+                        std::filesystem::space("/tmp/lmedia", ec);
+                    if (ec)
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "Failed to get space info for /tmp/lmedia: {}",
+                            ec.message());
+                    }
                     if (spaceInfo.available > minDiskHeadroom)
                     {
                         maxBodySize = spaceInfo.available - minDiskHeadroom;
-                    }   
+                    }
                     else
                     {
                         // If disk is full, stop the upload!
-                        // Without this, maxBodySize would stay at the default (e.g. 30MB)
-                        // and the upload would crash the filesystem.
-                        BMCWEB_LOG_WARNING("Insufficient disk space on /tmp/lmedia");
+                        // Without this, maxBodySize would stay at the default
+                        // (e.g. 30MB) and the upload would crash the
+                        // filesystem.
+                        BMCWEB_LOG_WARNING(
+                            "Insufficient disk space on /tmp/lmedia");
                         maxBodySize = 0;
                     }
                 }
@@ -646,7 +659,8 @@ class Connection :
         {
             boost::beast::http::verb method = parser->get().method();
             userSession = crow::authentication::authenticate(
-                ip, res, method, parser->get().target(), parser->get().base(), mtlsSession);
+                ip, res, method, parser->get().target(), parser->get().base(),
+                mtlsSession);
         }
 
         std::string_view expect =
@@ -683,26 +697,33 @@ class Connection :
                 {
                     res.result(boost::beast::http::status::bad_request);
                     keepAlive = false;
-                    BMCWEB_LOG_WARNING("Rejecting upload due to unsafe filename: {}", name);
+                    BMCWEB_LOG_WARNING(
+                        "Rejecting upload due to unsafe filename: {}", name);
                     doWrite();
                     return;
                 }
                 finalFileName = std::move(name);
             }
-            const std::vector<std::string> allowedExtensions{ ".nrg", ".img", ".iso", ".ima" };
+            const std::vector<std::string> allowedExtensions{".nrg", ".img",
+                                                             ".iso", ".ima"};
             std::filesystem::path destPath("/tmp/lmedia");
             destPath /= finalFileName;
 
             std::string extension = destPath.extension().string();
-            std::transform(extension.begin(), extension.end(), extension.begin(),
-                           [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+            std::transform(extension.begin(), extension.end(),
+                           extension.begin(), [](unsigned char c) {
+                               return static_cast<char>(std::tolower(c));
+                           });
 
             if (extension.empty() ||
-                std::find(allowedExtensions.begin(), allowedExtensions.end(), extension) == allowedExtensions.end())
+                std::find(allowedExtensions.begin(), allowedExtensions.end(),
+                          extension) == allowedExtensions.end())
             {
                 res.result(boost::beast::http::status::unsupported_media_type);
                 keepAlive = false;
-                BMCWEB_LOG_WARNING("Rejecting upload due to unsupported extension: {}", extension);
+                BMCWEB_LOG_WARNING(
+                    "Rejecting upload due to unsupported extension: {}",
+                    extension);
                 doWrite();
                 return;
             }
@@ -710,7 +731,8 @@ class Connection :
             std::filesystem::create_directories(destPath.parent_path(), dirEc);
             if (dirEc)
             {
-                BMCWEB_LOG_ERROR("Failed to ensure upload directory: {}", dirEc.message());
+                BMCWEB_LOG_ERROR("Failed to ensure upload directory: {}",
+                                 dirEc.message());
                 res.result(boost::beast::http::status::internal_server_error);
                 keepAlive = false;
                 doWrite();
@@ -726,20 +748,23 @@ class Connection :
 
             boost::system::error_code fileEc;
             isUploading = true;
-            // Open file for writing. This triggers the streaming logic in http_body.hpp
+            // Open file for writing. This triggers the streaming logic in
+            // http_body.hpp
             parser->get().body().open(uploadFilePatheMMC.c_str(),
                                       boost::beast::file_mode::write, fileEc);
 
-                 if (fileEc)
-                 {
-                     BMCWEB_LOG_ERROR("Failed to open file for streaming: {}", fileEc.message());
-                     res.result(boost::beast::http::status::internal_server_error);
-                     isUploading = false;
-                     doWrite();
-                     return;
-                 }
-            BMCWEB_LOG_INFO("Large File Streaming Enabled for {} -> {}", target, uploadFilePatheMMC);
+            if (fileEc)
+            {
+                BMCWEB_LOG_ERROR("Failed to open file for streaming: {}",
+                                 fileEc.message());
+                res.result(boost::beast::http::status::internal_server_error);
+                isUploading = false;
+                doWrite();
+                return;
             }
+            BMCWEB_LOG_INFO("Large File Streaming Enabled for {} -> {}", target,
+                            uploadFilePatheMMC);
+        }
 
         if (parser->is_done())
         {

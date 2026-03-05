@@ -21,7 +21,7 @@
 #include "redfish_aggregator.hpp"
 #include "user_monitor.hpp"
 #include "vm_websocket.hpp"
-#include "vm1_websocket.hpp"
+#include "vm_websocket1.hpp"
 #include "webassets.hpp"
 
 #include <boost/asio/io_context.hpp>
@@ -85,7 +85,8 @@ int run()
         // /home/root/bmcweb_persistent_data.json
         persistent_data::getConfig().readData();
 
-        // Create EventServiceManager instance and initialize Config after loading data from bmcweb_persistent_data.json
+        // Create EventServiceManager instance and initialize Config after
+        // loading data from bmcweb_persistent_data.json
         redfish::EventServiceManager::getInstance(&*io);
 
         if constexpr (BMCWEB_REDFISH_AGGREGATION)

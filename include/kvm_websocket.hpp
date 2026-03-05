@@ -21,12 +21,12 @@ std::vector<std::string> csrfTokenlist;
 using PropertyValue = std::variant<uint8_t, uint16_t, std::string,
                                    std::vector<std::string>, bool>;
 
-using KvmSessionInfoEntry = std::tuple<uint8_t, std::string, std::string, uint8_t, uint8_t, uint8_t, std::string>;
+using KvmSessionInfoEntry = std::tuple<uint8_t, std::string, std::string,
+                                       uint8_t, uint8_t, uint8_t, std::string>;
 using KvmSessionInfoType = std::vector<KvmSessionInfoEntry>;
 
 uint16_t getPortNumberFromDBus()
 {
-
     PropertyValue property;
     uint16_t portNumber = 5900; // Default port number
     try
@@ -101,7 +101,8 @@ uint16_t getActiveKVMSessionsFromDBus()
 class KvmSession : public std::enable_shared_from_this<KvmSession>
 {
   public:
-    explicit KvmSession(crow::websocket::Connection& connIn, const std::uint16_t portIn = 5900) :
+    explicit KvmSession(crow::websocket::Connection& connIn,
+                        const std::uint16_t portIn = 5900) :
         conn(connIn), hostSocket(conn.getIoContext()),
         timeoutInSeconds(
             persistent_data::SessionStore::getInstance().getTimeoutInSeconds())
@@ -111,20 +112,20 @@ class KvmSession : public std::enable_shared_from_this<KvmSession>
             boost::asio::ip::make_address("127.0.0.1"), port);
         hostSocket.async_connect(
             endpoint, [this, &connIn](const boost::system::error_code& ec) {
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR(
-                    "conn:{}, Couldn't connect to KVM socket port: {}",
-                    logPtr(&conn), ec);
-                if (ec != boost::asio::error::operation_aborted)
+                if (ec)
                 {
-                    connIn.close("Error in connecting to KVM port");
+                    BMCWEB_LOG_ERROR(
+                        "conn:{}, Couldn't connect to KVM socket port: {}",
+                        logPtr(&conn), ec);
+                    if (ec != boost::asio::error::operation_aborted)
+                    {
+                        connIn.close("Error in connecting to KVM port");
+                    }
+                    return;
                 }
-                return;
-            }
 
-            doRead();
-        });
+                doRead();
+            });
         startTimeoutTimer(); // Invoke the timer function when the KVM WebSocket
                              // is opened.
     }
@@ -169,41 +170,41 @@ class KvmSession : public std::enable_shared_from_this<KvmSession>
             outputBuffer.prepare(outputBuffer.capacity() - outputBuffer.size()),
             [this, weak(weak_from_this())](const boost::system::error_code& ec,
                                            std::size_t bytesRead) {
-            auto self = weak.lock();
-            if (self == nullptr)
-            {
-                return;
-            }
-            BMCWEB_LOG_DEBUG("conn:{}, read done.  Read {} bytes",
-                             logPtr(&conn), bytesRead);
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR(
-                    "conn:{}, Couldn't read from KVM socket port: {}",
-                    logPtr(&conn), ec);
-                if (ec != boost::asio::error::operation_aborted)
+                auto self = weak.lock();
+                if (self == nullptr)
                 {
-                    conn.close("Error in connecting to KVM port");
+                    return;
                 }
-                return;
-            }
+                BMCWEB_LOG_DEBUG("conn:{}, read done.  Read {} bytes",
+                                 logPtr(&conn), bytesRead);
+                if (ec)
+                {
+                    BMCWEB_LOG_ERROR(
+                        "conn:{}, Couldn't read from KVM socket port: {}",
+                        logPtr(&conn), ec);
+                    if (ec != boost::asio::error::operation_aborted)
+                    {
+                        conn.close("Error in connecting to KVM port");
+                    }
+                    return;
+                }
 
-            outputBuffer.commit(bytesRead);
-            std::string_view payload(
-                static_cast<const char*>(outputBuffer.data().data()),
-                bytesRead);
-            BMCWEB_LOG_DEBUG("conn:{}, Sending payload size {}", logPtr(&conn),
-                             payload.size());
-            conn.sendBinary(payload);
-            outputBuffer.consume(bytesRead);
+                outputBuffer.commit(bytesRead);
+                std::string_view payload(
+                    static_cast<const char*>(outputBuffer.data().data()),
+                    bytesRead);
+                BMCWEB_LOG_DEBUG("conn:{}, Sending payload size {}",
+                                 logPtr(&conn), payload.size());
+                conn.sendBinary(payload);
+                outputBuffer.consume(bytesRead);
 
-            // closing KVM when web session deleted
-            if (!conn.session->kvmConnections)
-            {
-                closeWebSocket();
-            }
-            doRead();
-        });
+                // closing KVM when web session deleted
+                if (!conn.session->kvmConnections)
+                {
+                    closeWebSocket();
+                }
+                doRead();
+            });
     }
 
     void doWrite()
@@ -226,36 +227,36 @@ class KvmSession : public std::enable_shared_from_this<KvmSession>
             inputBuffer.data(),
             [this, weak(weak_from_this())](const boost::system::error_code& ec,
                                            std::size_t bytesWritten) {
-            auto self = weak.lock();
-            if (self == nullptr)
-            {
-                return;
-            }
-            BMCWEB_LOG_DEBUG("conn:{}, Wrote {}bytes", logPtr(&conn),
-                             bytesWritten);
-            doingWrite = false;
-            inputBuffer.consume(bytesWritten);
-
-            if (ec == boost::asio::error::eof)
-            {
-                conn.close("KVM socket port closed");
-                return;
-            }
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR("conn:{}, Error in KVM socket write {}",
-                                 logPtr(&conn), ec);
-                if (ec != boost::asio::error::operation_aborted)
+                auto self = weak.lock();
+                if (self == nullptr)
                 {
-                    conn.close("Error in reading to host port");
+                    return;
                 }
-                return;
-            }
+                BMCWEB_LOG_DEBUG("conn:{}, Wrote {}bytes", logPtr(&conn),
+                                 bytesWritten);
+                doingWrite = false;
+                inputBuffer.consume(bytesWritten);
 
-            persistent_data::SessionStore::getInstance()
-                .updatelastSessionTime();
-            doWrite();
-        });
+                if (ec == boost::asio::error::eof)
+                {
+                    conn.close("KVM socket port closed");
+                    return;
+                }
+                if (ec)
+                {
+                    BMCWEB_LOG_ERROR("conn:{}, Error in KVM socket write {}",
+                                     logPtr(&conn), ec);
+                    if (ec != boost::asio::error::operation_aborted)
+                    {
+                        conn.close("Error in reading to host port");
+                    }
+                    return;
+                }
+
+                persistent_data::SessionStore::getInstance()
+                    .updatelastSessionTime();
+                doWrite();
+            });
     }
 
     void startTimeoutTimer()
@@ -351,7 +352,7 @@ inline void requestRoutes(App& app)
         .websocket()
         .privileges(redfish::privileges::privilegeSetConfigureManager)
         .onopen([maxSessions](crow::websocket::Connection& conn) {
-        BMCWEB_LOG_DEBUG("Connection {} opened", logPtr(&conn));
+            BMCWEB_LOG_DEBUG("Connection {} opened", logPtr(&conn));
 
             sessions[&conn] = std::make_shared<KvmSession>(conn);
             conn.session->kvmConnections++;
@@ -376,13 +377,12 @@ inline void requestRoutes(App& app)
                     }
                 }
             }
-        if (getActiveKVMSessionsFromDBus() >= maxSessions)
-        {
-            conn.close("Max sessions are already connected");
-            return;
-        }
-
-    })
+            if (getActiveKVMSessionsFromDBus() >= maxSessions)
+            {
+                conn.close("Max sessions are already connected");
+                return;
+            }
+        })
         .onclose([](crow::websocket::Connection& conn, const std::string&) {
             if (!redfish::system_utils::isDualHostEnabled())
             {
@@ -397,16 +397,16 @@ inline void requestRoutes(App& app)
                     }
                 }
             }
-        sessions.erase(&conn);
-        conn.session->kvmConnections--;
-    })
+            sessions.erase(&conn);
+            conn.session->kvmConnections--;
+        })
         .onmessage([](crow::websocket::Connection& conn,
                       const std::string& data, bool) {
-        if (sessions[&conn])
-        {
-            sessions[&conn]->onMessage(data);
-        }
-    });
+            if (sessions[&conn])
+            {
+                sessions[&conn]->onMessage(data);
+            }
+        });
 
     if (redfish::system_utils::isDualHostEnabled())
     {
@@ -416,28 +416,27 @@ inline void requestRoutes(App& app)
             .onopen([maxSessions](crow::websocket::Connection& conn) {
                 BMCWEB_LOG_DEBUG("Connection {} opened", logPtr(&conn));
 
-        const std::uint16_t port = 5901;
-        sessions[&conn] = std::make_shared<KvmSession>(conn, port);
-        conn.session->kvmConnections++;
+                const std::uint16_t port = 5901;
+                sessions[&conn] = std::make_shared<KvmSession>(conn, port);
+                conn.session->kvmConnections++;
 
-        if (getActiveKVMSessionsFromDBus() >= maxSessions)
-        {
-            conn.close("Max sessions are already connected");
-            return;
-        }
-
-    })
-        .onclose([](crow::websocket::Connection& conn, const std::string&) {
-        sessions.erase(&conn);
-        conn.session->kvmConnections--;
-    })
-        .onmessage([](crow::websocket::Connection& conn,
-                      const std::string& data, bool) {
-        if (sessions[&conn])
-        {
-            sessions[&conn]->onMessage(data);
-        }
-    });
+                if (getActiveKVMSessionsFromDBus() >= maxSessions)
+                {
+                    conn.close("Max sessions are already connected");
+                    return;
+                }
+            })
+            .onclose([](crow::websocket::Connection& conn, const std::string&) {
+                sessions.erase(&conn);
+                conn.session->kvmConnections--;
+            })
+            .onmessage([](crow::websocket::Connection& conn,
+                          const std::string& data, bool) {
+                if (sessions[&conn])
+                {
+                    sessions[&conn]->onMessage(data);
+                }
+            });
     }
 }
 

@@ -234,7 +234,8 @@ inline void doFanGet(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                                 const std::vector<std::string>& interfaces) {
         asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("Fan");
         asyncResp->res.jsonValue["Name"] = fanId;
-        asyncResp->res.jsonValue["Description"] = "Fan " + fanId + " Information";
+        asyncResp->res.jsonValue["Description"] =
+            "Fan " + fanId + " Information";
         asyncResp->res.jsonValue["Id"] = fanId;
         asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
             "/redfish/v1/Chassis/{}/ThermalSubsystem/Fans/{}", chassisId,
@@ -270,10 +271,10 @@ inline void doFanGet(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     getValidfanId(asyncResp, chassisId, fanId, std::move(getFanIdFunc));
 }
 
-inline void
-    handleFanCollectionGet(App& app, const crow::Request& req,
-                           const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                           const std::string& chassisId)
+inline void handleFanCollectionGet(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {

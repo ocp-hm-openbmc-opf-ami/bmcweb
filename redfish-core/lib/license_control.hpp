@@ -54,8 +54,8 @@ inline void getGlobalLicenseValidity(
         "xyz.openbmc_project.License.LicenseControl", "GlobalLicenseValidity");
 }
 
-inline void
-    getServicesUpCountDays(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void getServicesUpCountDays(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code ec,
@@ -92,12 +92,11 @@ inline void getAlertMessage(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
         });
 }
 
-inline void
-    getUserAlertCount(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void getUserAlertCount(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     dbus::utility::getProperty<uint32_t>(
-        "xyz.openbmc_project.License",
-        "/xyz/openbmc_project/License",
+        "xyz.openbmc_project.License", "/xyz/openbmc_project/License",
         "xyz.openbmc_project.License.LicenseControl", "UserAlertCount",
         [asyncResp](const boost::system::error_code& ec,
                     const uint32_t userAlertCount) {
@@ -113,9 +112,9 @@ inline void
         });
 }
 
-inline void
-    handleLicenseControlGet(App& app, const crow::Request& req,
-                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void handleLicenseControlGet(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -124,7 +123,8 @@ inline void
 
     asyncResp->res.jsonValue["@odata.id"] =
         "/redfish/v1/Oem/Ami/LicenseControl";
-    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("AmiLicenseControl");
+    asyncResp->res.jsonValue["@odata.type"] =
+        json_util::odataType("AmiLicenseControl");
     asyncResp->res.jsonValue["Name"] = "License Control";
     asyncResp->res.jsonValue["Id"] = "License Control";
 
@@ -135,9 +135,9 @@ inline void
     getUserAlertCount(asyncResp);
 }
 
-inline void
-    setUserAlertCount(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                      const uint32_t userAlertCount)
+inline void setUserAlertCount(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const uint32_t userAlertCount)
 {
     sdbusplus::asio::setProperty(
         *crow::connections::systemBus, "xyz.openbmc_project.License",
@@ -183,8 +183,8 @@ inline void handleLicenseControlPatch(
 
     std::optional<uint32_t> userAlertCount;
 
-    if (!json_util::readJsonPatch( //
-            req, asyncResp->res, //
+    if (!json_util::readJsonPatch(           //
+            req, asyncResp->res,             //
             "UserAlertCount", userAlertCount //
             ))
     {
@@ -259,9 +259,9 @@ bool hasKeyExtension(const std::string& str)
     return false;
 }
 
-inline void
-    readMultipartContext(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                         const MultipartParser& parser)
+inline void readMultipartContext(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const MultipartParser& parser)
 {
     const std::string* uploadData = nullptr;
 

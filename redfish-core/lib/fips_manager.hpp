@@ -120,9 +120,9 @@ inline void getAvailableProviders(std::shared_ptr<bmcweb::AsyncResp> aResp)
         "AvailableProviders");
 }
 
-inline void
-    handleSecurityPolicyGet(App& app, const crow::Request& req,
-                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void handleSecurityPolicyGet(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -136,7 +136,8 @@ inline void
     }
     asyncResp->res.jsonValue["@odata.id"] =
         "/redfish/v1/Managers/bmc/SecurityPolicy";
-    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("SecurityPolicy");
+    asyncResp->res.jsonValue["@odata.type"] =
+        json_util::odataType("SecurityPolicy");
     asyncResp->res.jsonValue["Id"] = "SecurityPolicy";
     asyncResp->res.jsonValue["Name"] = "Security Policy";
     asyncResp->res.jsonValue["Description"] = "Security Policy";
@@ -147,9 +148,9 @@ inline void
     getAvailableProviders(asyncResp);
 }
 
-inline void
-    handleFipsPolicyPatch(std::string version, bool enabledStatus,
-                          const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void handleFipsPolicyPatch(
+    std::string version, bool enabledStatus,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     auto fipsmodeChangeCb =
         [asyncResp,
@@ -169,7 +170,8 @@ inline void
             asyncResp->res.result(boost::beast::http::status::accepted);
             asyncResp->res.jsonValue["@odata.id"] =
                 "/redfish/v1/Managers/bmc/SecurityPolicy";
-            asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("SecurityPolicy");
+            asyncResp->res.jsonValue["@odata.type"] =
+                json_util::odataType("SecurityPolicy");
             asyncResp->res.jsonValue["Actions"]["#Manager.Reset"]["target"] =
                 "/redfish/v1/Managers/bmc/Actions/Manager.Reset";
             asyncResp->res.jsonValue["Id"] = "SecurityPolicy";
@@ -200,8 +202,8 @@ inline void handleSecurityPolicyPatch(
     }
     std::optional<nlohmann::json> oemObject;
     if (!json_util::readJsonPatch( //
-            req, asyncResp->res, //
-            "Oem", oemObject //
+            req, asyncResp->res,   //
+            "Oem", oemObject       //
             ))
     {
         BMCWEB_LOG_ERROR("Cannot read values from FIPSPolicy tag");
@@ -214,9 +216,9 @@ inline void handleSecurityPolicyPatch(
         return;
     }
     std::optional<nlohmann::json> oemIntelObject;
-    if (!json_util::readJson( //
+    if (!json_util::readJson(           //
             *oemObject, asyncResp->res, //
-            "Intel", oemIntelObject //
+            "Intel", oemIntelObject     //
             ))
     {
         messages::unrecognizedRequestBody(asyncResp->res);
@@ -230,9 +232,9 @@ inline void handleSecurityPolicyPatch(
         BMCWEB_LOG_ERROR("Cannot read values from FIPSPolicy tag");
         return;
     }
-    if (!json_util::readJson( //
+    if (!json_util::readJson(                //
             *oemIntelObject, asyncResp->res, //
-            "FIPSPolicy", fipsPolicyObject //
+            "FIPSPolicy", fipsPolicyObject   //
             ))
     {
         messages::unrecognizedRequestBody(asyncResp->res);
@@ -247,10 +249,10 @@ inline void handleSecurityPolicyPatch(
     }
     std::optional<std::string> fipsVersion;
     std::optional<bool> enabledStatus;
-    if (!json_util::readJson( //
+    if (!json_util::readJson(                  //
             *fipsPolicyObject, asyncResp->res, //
-            "Version", fipsVersion, //
-            "Enabled", enabledStatus //
+            "Version", fipsVersion,            //
+            "Enabled", enabledStatus           //
             ))
     {
         messages::unrecognizedRequestBody(asyncResp->res);

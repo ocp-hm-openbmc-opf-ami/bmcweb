@@ -15,4 +15,4 @@ bool memberMatches(const nlohmann::json& member,
 bool applyFilterToCollection(nlohmann::json& body,
                              const filter_ast::LogicalAnd& filterParam);
 
-}
+} // namespace redfish

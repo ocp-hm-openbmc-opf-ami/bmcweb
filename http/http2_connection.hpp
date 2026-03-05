@@ -91,10 +91,10 @@ class HTTP2Connection :
         return 0;
     }
 
-    static ssize_t
-        fileReadCallback(nghttp2_session* /* session */, int32_t streamId,
-                         uint8_t* buf, size_t length, uint32_t* dataFlags,
-                         nghttp2_data_source* /*source*/, void* userPtr)
+    static ssize_t fileReadCallback(
+        nghttp2_session* /* session */, int32_t streamId, uint8_t* buf,
+        size_t length, uint32_t* dataFlags, nghttp2_data_source* /*source*/,
+        void* userPtr)
     {
         self_type& self = userPtrToSelf(userPtr);
 
@@ -269,7 +269,8 @@ class HTTP2Connection :
         if constexpr (!BMCWEB_INSECURE_DISABLE_AUTH)
         {
             thisReq.session = crow::authentication::authenticate(
-                {}, asyncResp->res, thisReq.method(), thisReq.target(), thisReq.req, nullptr);
+                {}, asyncResp->res, thisReq.method(), thisReq.target(),
+                thisReq.req, nullptr);
             if (!crow::authentication::isOnAllowlist(thisReq.url().path(),
                                                      thisReq.method()) &&
                 thisReq.session == nullptr)

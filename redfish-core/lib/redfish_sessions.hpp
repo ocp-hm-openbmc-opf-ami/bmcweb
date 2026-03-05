@@ -154,10 +154,10 @@ uint16_t getkvmPort()
         auto bus = sdbusplus::bus::new_default_system();
 
         // Prepare the D-Bus method call
-        auto method =
-            bus.new_method_call("xyz.openbmc_project.Control.Service.Manager",
-                                "/xyz/openbmc_project/control/service/start_2dipkvm",
-                                "org.freedesktop.DBus.Properties", "Get");
+        auto method = bus.new_method_call(
+            "xyz.openbmc_project.Control.Service.Manager",
+            "/xyz/openbmc_project/control/service/start_2dipkvm",
+            "org.freedesktop.DBus.Properties", "Get");
 
         // Append interface and property name to the method call
         method.append("xyz.openbmc_project.Control.Service.SocketAttributes",
@@ -186,7 +186,8 @@ uint16_t getkvmPort()
 }
 
 inline void fillSessionObject(crow::Response& res,
-                              const persistent_data::UserSession& session, const std::string& ipAdd)
+                              const persistent_data::UserSession& session,
+                              const std::string& ipAdd)
 {
     res.jsonValue["Id"] = session.uniqueId;
     res.jsonValue["UserName"] = session.username;
@@ -208,7 +209,8 @@ inline void fillSessionObject(crow::Response& res,
     res.jsonValue["Oem"]["AMI_WebSession"]["@odata.id"] = boost::urls::format(
         "/redfish/v1/SessionService/Sessions/{}#/Oem/AMI_WebSession",
         session.uniqueId);
-    res.jsonValue["Oem"]["AMI_WebSession"]["@odata.type"] = json_util::odataType("AMIWebSession", "WebSession");
+    res.jsonValue["Oem"]["AMI_WebSession"]["@odata.type"] =
+        json_util::odataType("AMIWebSession", "WebSession");
     res.jsonValue["Oem"]["AMI_WebSession"]["KvmActive"] =
         static_cast<bool>(session.kvmConnections);
     res.jsonValue["Oem"]["AMI_WebSession"]["VmActive"] =
@@ -223,8 +225,10 @@ inline void fillSessionObject(crow::Response& res,
         res.jsonValue["Context"] = *session.clientId;
     }
 
-    std::string creationMessageId = "ResourceAdded:/redfish/v1/SessionService/Sessions/" + session.uniqueId;
-    EventServiceManager::getInstance().resourceCreationDeletion(creationMessageId);
+    std::string creationMessageId =
+        "ResourceAdded:/redfish/v1/SessionService/Sessions/" + session.uniqueId;
+    EventServiceManager::getInstance().resourceCreationDeletion(
+        creationMessageId);
 }
 
 inline std::string getSessionType(int sessionType)
@@ -257,10 +261,9 @@ inline std::string getprivilege(int priv)
         return "";
 }
 
-bool validateSessionAccess(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const crow::Request& req,
-    const std::string& targetUserName)
+bool validateSessionAccess(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                           const crow::Request& req,
+                           const std::string& targetUserName)
 {
     // User must be authenticated to access sessions
     if (req.session == nullptr)
@@ -269,7 +272,8 @@ bool validateSessionAccess(
         return false;
     }
 
-    // User can access their own sessions or if they have ConfigureUsers privilege
+    // User can access their own sessions or if they have ConfigureUsers
+    // privilege
     if (targetUserName != req.session->username)
     {
         Privileges effectiveUserPrivileges =
@@ -285,11 +289,10 @@ bool validateSessionAccess(
     return true;
 }
 
-inline void getSessionInfo(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
-                           const crow::Request& req,
-                           const std::string& interface,
-                           const std::string& propertyName,
-                           std::string sessionId, bool& found)
+inline void getSessionInfo(
+    std::shared_ptr<bmcweb::AsyncResp> asyncResp, const crow::Request& req,
+    const std::string& interface, const std::string& propertyName,
+    std::string sessionId, bool& found)
 {
     size_t Pos = sessionId.find('_');
     std::string num = sessionId.substr(Pos + 1);
@@ -321,7 +324,7 @@ inline void getSessionInfo(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
             {
                 // Verify session ownership or ConfigureUsers privilege
                 if (!validateSessionAccess(asyncResp, req, userName))
-                {                    
+                {
                     return;
                 }
 
@@ -332,7 +335,8 @@ inline void getSessionInfo(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
                     "/redfish/v1/SessionService/"
                     "Sessions/" +
                     sessionId;
-		asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("Session");
+                asyncResp->res.jsonValue["@odata.type"] =
+                    json_util::odataType("Session");
                 asyncResp->res.jsonValue["Name"] = "User Session";
                 asyncResp->res.jsonValue["Description"] =
                     "Manager User Session";
@@ -355,7 +359,9 @@ inline void getSessionInfo(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
                 asyncResp->res.jsonValue["Roles"] = std::move(roles);
                 asyncResp->res.jsonValue["Oem"]["AMI_WebSession"]["UserId"] =
                     UserId;
-                asyncResp->res.jsonValue["Oem"]["AMI_WebSession"]["@odata.type"] = json_util::odataType("AMIWebSession", "WebSession");
+                asyncResp->res
+                    .jsonValue["Oem"]["AMI_WebSession"]["@odata.type"] =
+                    json_util::odataType("AMIWebSession", "WebSession");
             }
         }
     }
@@ -408,7 +414,8 @@ inline void handleSessionGet(
             return;
         }
 
-        std::string ipStr = redfish::ip_util::extractIPv4FromMappedIPv6(req.serverIPAddress);
+        std::string ipStr =
+            redfish::ip_util::extractIPv4FromMappedIPv6(req.serverIPAddress);
         fillSessionObject(asyncResp->res, *session, ipStr);
         return;
     }
@@ -506,7 +513,8 @@ inline void handleSessionGet(
                             "/redfish/v1/SessionService/"
                             "Sessions/" +
                             sessionId;
-			asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("Session");
+                        asyncResp->res.jsonValue["@odata.type"] =
+                            json_util::odataType("Session");
                         asyncResp->res.jsonValue["Name"] = "User Session";
                         asyncResp->res.jsonValue["Description"] =
                             "Manager User Session";
@@ -549,7 +557,8 @@ inline void handleSessionDelete(
     {
         return;
     }
-    std::string deletionMessageId = "ResourceRemoved:/redfish/v1/SessionService/Sessions/" + sessionId;
+    std::string deletionMessageId =
+        "ResourceRemoved:/redfish/v1/SessionService/Sessions/" + sessionId;
 
     if (sessionId.find('_') != std::string::npos)
     {
@@ -640,8 +649,9 @@ inline void handleSessionDelete(
             SessionManagerService, SessionManagerObj,
             "xyz.openbmc_project.SessionManager", "SessionUnregister",
             static_cast<uint8_t>(SessId), static_cast<uint8_t>(sessType), 1);
-            
-        EventServiceManager::getInstance().resourceCreationDeletion(deletionMessageId);
+
+        EventServiceManager::getInstance().resourceCreationDeletion(
+            deletionMessageId);
         return;
     }
 
@@ -669,7 +679,8 @@ inline void handleSessionDelete(
 
         persistent_data::SessionStore::getInstance().removeSession(session);
         asyncResp->res.result(boost::beast::http::status::no_content);
-        EventServiceManager::getInstance().resourceCreationDeletion(deletionMessageId);
+        EventServiceManager::getInstance().resourceCreationDeletion(
+            deletionMessageId);
         return;
     }
 
@@ -717,8 +728,9 @@ inline void handleSessionDelete(
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths", "/", 0,
         interfaces);
-    
-    EventServiceManager::getInstance().resourceCreationDeletion(deletionMessageId);
+
+    EventServiceManager::getInstance().resourceCreationDeletion(
+        deletionMessageId);
 }
 
 inline nlohmann::json getSessionCollectionMembers()
@@ -904,21 +916,22 @@ inline void processAfterSessionCreation(
         "Location", "/redfish/v1/SessionService/Sessions/" + session->uniqueId);
     if (session->isConfigureSelfOnly)
     {
-	asyncResp->res.result(
-                            boost::beast::http::status::forbidden);
+        asyncResp->res.result(boost::beast::http::status::forbidden);
         messages::passwordChangeRequired(
             asyncResp->res,
             boost::urls::format("/redfish/v1/AccountService/Accounts/{}",
                                 session->username));
-	return;
+        return;
     }
     asyncResp->res.result(boost::beast::http::status::created);
     session->AMIsessionType = "Redfish";
-    crow::getUserInfo(asyncResp, username, session, req.serverIPAddress, [asyncResp, session, req]() {
-        std::string ipStr = redfish::ip_util::extractIPv4FromMappedIPv6(req.serverIPAddress);
-        fillSessionObject(asyncResp->res, *session, ipStr);
-    });
-    
+    crow::getUserInfo(asyncResp, username, session, req.serverIPAddress,
+                      [asyncResp, session, req]() {
+                          std::string ipStr =
+                              redfish::ip_util::extractIPv4FromMappedIPv6(
+                                  req.serverIPAddress);
+                          fillSessionObject(asyncResp->res, *session, ipStr);
+                      });
 }
 
 inline void handleSessionCollectionPost(
@@ -961,7 +974,7 @@ inline void handleSessionCollectionPost(
         return;
     }
 
-    int pamrc = pamAuthenticateUser(username, password, token,req.ipAddress);
+    int pamrc = pamAuthenticateUser(username, password, token, req.ipAddress);
     bool isConfigureSelfOnly = pamrc == PAM_NEW_AUTHTOK_REQD;
     if ((pamrc != PAM_SUCCESS) && !isConfigureSelfOnly)
     {
@@ -1004,13 +1017,15 @@ inline void handleSessionServiceHead(
         "</redfish/v1/JsonSchemas/SessionService/SessionService.json>; rel=describedby");
 }
 
-inline void getSessionServiceInfo(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void getSessionServiceInfo(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     asyncResp->res.addHeader(
         boost::beast::http::field::link,
         "</redfish/v1/JsonSchemas/SessionService/SessionService.json>; rel=describedby");
-    
-    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("SessionService");
+
+    asyncResp->res.jsonValue["@odata.type"] =
+        json_util::odataType("SessionService");
     asyncResp->res.jsonValue["@odata.id"] = "/redfish/v1/SessionService";
     asyncResp->res.jsonValue["Name"] = "Session Service";
     asyncResp->res.jsonValue["Id"] = "SessionService";
@@ -1073,7 +1088,8 @@ inline void getSessionServiceInfo(const std::shared_ptr<bmcweb::AsyncResp>& asyn
             const uint64_t* s = std::get_if<uint64_t>(&value);
             asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.id"] =
                 "/redfish/v1/SessionService#/Oem/Ami";
-            asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] = json_util::odataType("AMISessionService", "Ami");
+            asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] =
+                json_util::odataType("AMISessionService", "Ami");
             asyncResp->res.jsonValue["Oem"]["Ami"]["KVMSessionTimeout"] = *s;
         },
         "xyz.openbmc_project.Control.Service.Manager",
@@ -1092,8 +1108,9 @@ inline void getSessionServiceInfo(const std::shared_ptr<bmcweb::AsyncResp>& asyn
             const uint16_t* s = std::get_if<uint16_t>(&value);
             asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.id"] =
                 "/redfish/v1/SessionService#/Oem/Ami";
-	    asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] = json_util::odataType("AMISessionService", "Ami");
-	    asyncResp->res.jsonValue["Oem"]["Ami"]["KVMPort"] = *s;
+            asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] =
+                json_util::odataType("AMISessionService", "Ami");
+            asyncResp->res.jsonValue["Oem"]["Ami"]["KVMPort"] = *s;
         },
         "xyz.openbmc_project.Control.Service.Manager",
         "/xyz/openbmc_project/control/service/start_2dipkvm",
@@ -1101,9 +1118,9 @@ inline void getSessionServiceInfo(const std::shared_ptr<bmcweb::AsyncResp>& asyn
         "xyz.openbmc_project.Control.Service.SocketAttributes", "Port");
 }
 
-inline void
-    handleSessionServiceGet(crow::App& app, const crow::Request& req,
-                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void handleSessionServiceGet(
+    crow::App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
@@ -1187,40 +1204,43 @@ inline void handleSessionServicePatch(
                 return;
             }
 
-	     if (kvmSessionTimeout)
+            if (kvmSessionTimeout)
             {
                 if (*kvmSessionTimeout <= 86400 && *kvmSessionTimeout >= 30)
                 {
-                crow::connections::systemBus->async_method_call(
-                    [asyncResp, kvmSessionTimeout](const boost::system::error_code ec) {
-                        if (ec)
-                        {
-                            BMCWEB_LOG_ERROR("Error patching {}", ec);
-                            messages::internalError(asyncResp->res);
-                            return;
-                        }
-                        messages::success(asyncResp->res);
-                    },
-                    "xyz.openbmc_project.Control.Service.Manager",
-                    "/xyz/openbmc_project/control/service/start_2dipkvm",
-                    "org.freedesktop.DBus.Properties", "Set",
-                    "xyz.openbmc_project.Control.Service.Attributes",
-                    "SessionTimeOut",
-                    std::variant<uint64_t>(*kvmSessionTimeout));
-               }
-               else
-               {
-                    messages::propertyValueNotInList(asyncResp->res, std::to_string(*kvmSessionTimeout),
-                                             "KVMSessionTimeout");
-               }
-           }
+                    crow::connections::systemBus->async_method_call(
+                        [asyncResp, kvmSessionTimeout](
+                            const boost::system::error_code ec) {
+                            if (ec)
+                            {
+                                BMCWEB_LOG_ERROR("Error patching {}", ec);
+                                messages::internalError(asyncResp->res);
+                                return;
+                            }
+                            messages::success(asyncResp->res);
+                        },
+                        "xyz.openbmc_project.Control.Service.Manager",
+                        "/xyz/openbmc_project/control/service/start_2dipkvm",
+                        "org.freedesktop.DBus.Properties", "Set",
+                        "xyz.openbmc_project.Control.Service.Attributes",
+                        "SessionTimeOut",
+                        std::variant<uint64_t>(*kvmSessionTimeout));
+                }
+                else
+                {
+                    messages::propertyValueNotInList(
+                        asyncResp->res, std::to_string(*kvmSessionTimeout),
+                        "KVMSessionTimeout");
+                }
+            }
 
             if (bmcwebPort)
             {
                 uint16_t kvm_Port = getkvmPort();
                 if (bmcwebPort == kvm_Port)
                 {
-                    messages::propertyValueConflict(asyncResp->res, "BMCwebPort", "KVMPort");
+                    messages::propertyValueConflict(asyncResp->res,
+                                                    "BMCwebPort", "KVMPort");
                     return;
                 }
 
@@ -1264,7 +1284,8 @@ inline void handleSessionServicePatch(
                 }
                 else
                 {
-                    messages::propertyValueConflict(asyncResp->res, "KVMPort", "BMCwebPort");
+                    messages::propertyValueConflict(asyncResp->res, "KVMPort",
+                                                    "BMCwebPort");
                     return;
                 }
             }
@@ -1329,8 +1350,10 @@ inline void requestRoutesSession(App& app)
 
                                 if (SessId == id)
                                 {
-                                    // Verify session ownership or ConfigureUsers privilege
-                                    if (!validateSessionAccess(asyncResp, req, userName))
+                                    // Verify session ownership or
+                                    // ConfigureUsers privilege
+                                    if (!validateSessionAccess(asyncResp, req,
+                                                               userName))
                                     {
                                         return;
                                     }

@@ -66,6 +66,7 @@ using DbusVariantType = std::variant<
     std::vector<std::tuple<std::string, bool>>,
     std::vector<std::tuple<std::string, std::string>>,
     std::vector<std::tuple<uint32_t, bool, std::string>>,
+    std::vector<std::tuple<uint16_t, std::vector<uint16_t>>>,
     std::vector<std::tuple<uint32_t, std::vector<uint32_t>>>,
     std::vector<std::tuple<std::string, int32_t>>,
     std::vector<std::tuple<uint32_t, size_t>>,
@@ -146,11 +147,11 @@ inline bool getNthStringFromPath(const std::string& path, int index,
     return count >= index;
 }
 
-inline void
-    getAllProperties(const std::string& service, const std::string& objectPath,
-                     const std::string& interface,
-                     std::function<void(const boost::system::error_code&,
-                                        const DBusPropertiesMap&)>&& callback)
+inline void getAllProperties(
+    const std::string& service, const std::string& objectPath,
+    const std::string& interface,
+    std::function<void(const boost::system::error_code&,
+                       const DBusPropertiesMap&)>&& callback)
 {
     sdbusplus::asio::getAllProperties(*crow::connections::systemBus, service,
                                       objectPath, interface,
@@ -204,11 +205,11 @@ inline void checkDbusPathExists(const std::string& path,
         std::array<std::string, 0>());
 }
 
-inline void
-    getSubTree(const std::string& path, int32_t depth,
-               std::span<const std::string_view> interfaces,
-               std::function<void(const boost::system::error_code&,
-                                  const MapperGetSubTreeResponse&)>&& callback)
+inline void getSubTree(
+    const std::string& path, int32_t depth,
+    std::span<const std::string_view> interfaces,
+    std::function<void(const boost::system::error_code&,
+                       const MapperGetSubTreeResponse&)>&& callback)
 {
     crow::connections::systemBus->async_method_call(
         [callback{std::move(callback)}](

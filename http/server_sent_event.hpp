@@ -4,12 +4,12 @@
 #include "http_body.hpp"
 #include "http_request.hpp"
 #include "http_response.hpp"
+#include "utils/time_utils.hpp"
 
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/steady_timer.hpp>
 #include <boost/beast/core/multi_buffer.hpp>
 #include <boost/beast/websocket.hpp>
-#include "utils/time_utils.hpp"
 
 #include <array>
 #include <cstddef>
@@ -52,8 +52,7 @@ class ConnectionImpl : public Connection
                            const std::shared_ptr<bmcweb::AsyncResp>&)>
             openHandlerIn,
         std::function<void(std::shared_ptr<Connection>&)> closeHandlerIn) :
-        Connection(reqIn),
-        adaptor(std::move(adaptorIn)),
+        Connection(reqIn), adaptor(std::move(adaptorIn)),
         timer(static_cast<boost::asio::io_context&>(
             adaptor.get_executor().context())),
         openHandler(std::move(openHandlerIn)),
@@ -88,14 +87,14 @@ class ConnectionImpl : public Connection
 
             asyncResp->res.setCompleteRequestHandler(
                 [self(shared_from_this())](crow::Response& thisRes) {
-                if (thisRes.resultInt() != 200)
-                {
-                    self->completeRequest(thisRes);
-                }
-            });
+                    if (thisRes.resultInt() != 200)
+                    {
+                        self->completeRequest(thisRes);
+                    }
+                });
 
             openHandler(self, req, asyncResp);
-            //sendSSEHeader();
+            // sendSSEHeader();
         }
     }
 
@@ -323,7 +322,7 @@ class ConnectionImpl : public Connection
 
     void onTimeoutCallback(const std::weak_ptr<Connection>& weakSelf,
                            const boost::system::error_code& ec)
-    {           
+    {
         std::shared_ptr<Connection> self = weakSelf.lock();
         if (!self)
         {
@@ -347,12 +346,13 @@ class ConnectionImpl : public Connection
         if (doingWrite == true)
         {
             BMCWEB_LOG_WARNING("{} Connection timed out, closing",
-                           logPtr(self.get()));
+                               logPtr(self.get()));
             self->close("closing connection");
         }
         else
         {
-            sendSseEvent(redfish::time_utils::getDateTimeOffsetNow().first, "\"Dummy string to keep the SSE clients Alive\"");
+            sendSseEvent(redfish::time_utils::getDateTimeOffsetNow().first,
+                         "\"Dummy string to keep the SSE clients Alive\"");
         }
     }
 

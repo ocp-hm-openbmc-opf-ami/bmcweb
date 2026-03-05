@@ -38,9 +38,10 @@ inline void handleManagersLogServiceJournalGet(
         messages::resourceNotFound(asyncResp->res, "Manager", managerId);
         return;
     }
-     int MaxNumberOfRecords = 1000;
+    int MaxNumberOfRecords = 1000;
 
-    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("LogService");
+    asyncResp->res.jsonValue["@odata.type"] =
+        json_util::odataType("LogService");
     asyncResp->res.jsonValue["@odata.id"] =
         boost::urls::format("/redfish/v1/Managers/{}/LogServices/Journal",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
@@ -137,7 +138,7 @@ inline void handleManagersJournalLogEntryCollectionGet(
     {
         return;
     }
-    
+
     query_param::QueryCapabilities capabilities = {
         .canDelegateTop = true,
         .canDelegateSkip = true,
@@ -268,7 +269,7 @@ inline void handleManagersJournalLogEntryCollectionGet(
 
     if (OverWritePolicy == "WrapsWhenFull")
     {
-        if(totalEntries > MaxNumberOfRecords)
+        if (totalEntries > MaxNumberOfRecords)
         {
             skip = static_cast<size_t>(totalEntries - MaxNumberOfRecords);
             top = static_cast<size_t>(MaxNumberOfRecords);
@@ -284,8 +285,7 @@ inline void handleManagersJournalLogEntryCollectionGet(
             messages::internalError(asyncResp->res);
             return;
         }
-        readJournalEntries(top, asyncResp,
-                           {std::move(journal)});
+        readJournalEntries(top, asyncResp, {std::move(journal)});
     }
 }
 
@@ -390,7 +390,8 @@ inline void requestRoutesBMCJournalLogService(App& app)
                    const std::string& /* managerId */,
                    const std::string& entryID) {
                 asyncResp->res.clearHeader(boost::beast::http::field::allow);
-                if (!membersResponseGet(asyncResp, entryID, "LogEntryCollection"))
+                if (!membersResponseGet(asyncResp, entryID,
+                                        "LogEntryCollection"))
                 {
                     return;
                 }

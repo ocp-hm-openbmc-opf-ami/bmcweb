@@ -21,9 +21,8 @@ namespace crow
 namespace authentication
 {
 
-inline std::shared_ptr<persistent_data::UserSession>
-    performBasicAuth(const boost::asio::ip::address& clientIp,
-                     std::string_view authHeader)
+inline std::shared_ptr<persistent_data::UserSession> performBasicAuth(
+    const boost::asio::ip::address& clientIp, std::string_view authHeader)
 {
     BMCWEB_LOG_DEBUG("[AuthMiddleware] Basic authentication");
 
@@ -46,8 +45,8 @@ inline std::shared_ptr<persistent_data::UserSession>
     }
 
     std::string user = authData.substr(0, separator);
-    
-    if(!user.size()) 
+
+    if (!user.size())
     {
         BMCWEB_LOG_DEBUG("[AuthMiddleware] Username missing");
         return nullptr;
@@ -64,7 +63,7 @@ inline std::shared_ptr<persistent_data::UserSession>
     BMCWEB_LOG_DEBUG("[AuthMiddleware] User IPAddress: {}",
                      clientIp.to_string());
 
-    int pamrc = pamAuthenticateUser(user, pass, std::nullopt,clientIp);
+    int pamrc = pamAuthenticateUser(user, pass, std::nullopt, clientIp);
     bool isConfigureSelfOnly = pamrc == PAM_NEW_AUTHTOK_REQD;
     if ((pamrc != PAM_SUCCESS) && !isConfigureSelfOnly)
     {
@@ -95,8 +94,8 @@ inline std::shared_ptr<persistent_data::UserSession>
         user, clientIp, isConfigureSelfOnly);
 }
 
-inline std::shared_ptr<persistent_data::UserSession>
-    performTokenAuth(std::string_view authHeader)
+inline std::shared_ptr<persistent_data::UserSession> performTokenAuth(
+    std::string_view authHeader)
 {
     BMCWEB_LOG_DEBUG("[AuthMiddleware] Token authentication");
     if (!authHeader.starts_with("Token "))
@@ -109,8 +108,8 @@ inline std::shared_ptr<persistent_data::UserSession>
     return sessionOut;
 }
 
-inline std::shared_ptr<persistent_data::UserSession>
-    performXtokenAuth(const boost::beast::http::header<true>& reqHeader)
+inline std::shared_ptr<persistent_data::UserSession> performXtokenAuth(
+    const boost::beast::http::header<true>& reqHeader)
 {
     BMCWEB_LOG_DEBUG("[AuthMiddleware] X-Auth-Token authentication");
 
@@ -124,9 +123,9 @@ inline std::shared_ptr<persistent_data::UserSession>
     return sessionOut;
 }
 
-inline std::shared_ptr<persistent_data::UserSession>
-    performCookieAuth(boost::beast::http::verb method [[maybe_unused]],
-                      const boost::beast::http::header<true>& reqHeader)
+inline std::shared_ptr<persistent_data::UserSession> performCookieAuth(
+    boost::beast::http::verb method [[maybe_unused]],
+    const boost::beast::http::header<true>& reqHeader)
 {
     using headers = boost::beast::http::header<true>;
     std::pair<headers::const_iterator, headers::const_iterator> cookies =
@@ -150,8 +149,8 @@ inline std::shared_ptr<persistent_data::UserSession>
         {
             endIndex = cookieValue.size();
         }
-        std::string_view authKey = cookieValue.substr(startIndex,
-                                                      endIndex - startIndex);
+        std::string_view authKey =
+            cookieValue.substr(startIndex, endIndex - startIndex);
 
         std::shared_ptr<persistent_data::UserSession> sessionOut =
             persistent_data::SessionStore::getInstance().loginSessionByToken(
@@ -191,9 +190,8 @@ inline std::shared_ptr<persistent_data::UserSession>
     return nullptr;
 }
 
-inline std::shared_ptr<persistent_data::UserSession>
-    performTLSAuth(Response& res,
-                   const std::shared_ptr<persistent_data::UserSession>& session)
+inline std::shared_ptr<persistent_data::UserSession> performTLSAuth(
+    Response& res, const std::shared_ptr<persistent_data::UserSession>& session)
 {
     if (session != nullptr)
     {
@@ -269,10 +267,16 @@ inline std::shared_ptr<persistent_data::UserSession> authenticate(
         {
             sessionOut = performTLSAuth(res, session);
         }
-        if (sessionOut != nullptr && sessionOut->sessionType == persistent_data::SessionType::MutualTLS && !authMethodsConfig.tls)
+        if (sessionOut != nullptr &&
+            sessionOut->sessionType ==
+                persistent_data::SessionType::MutualTLS &&
+            !authMethodsConfig.tls)
         {
-            BMCWEB_LOG_WARNING("TLS authentication disabled, rejecting TLS session.");
-            redfish::messages::resourceAtUriUnauthorized(res, boost::urls::url_view(requestUrl), "Setting TLS when mutual-tls-auth feature is disabled.");
+            BMCWEB_LOG_WARNING(
+                "TLS authentication disabled, rejecting TLS session.");
+            redfish::messages::resourceAtUriUnauthorized(
+                res, boost::urls::url_view(requestUrl),
+                "Setting TLS when mutual-tls-auth feature is disabled.");
             return nullptr;
         }
     }
@@ -282,10 +286,15 @@ inline std::shared_ptr<persistent_data::UserSession> authenticate(
         {
             sessionOut = performXtokenAuth(reqHeader);
         }
-        if (sessionOut != nullptr && sessionOut->sessionType == persistent_data::SessionType::Session && !authMethodsConfig.xtoken)
+        if (sessionOut != nullptr &&
+            sessionOut->sessionType == persistent_data::SessionType::Session &&
+            !authMethodsConfig.xtoken)
         {
-            BMCWEB_LOG_WARNING("X-Token authentication disabled, rejecting X-Token session.");
-            redfish::messages::resourceAtUriUnauthorized(res, boost::urls::url_view(requestUrl), "Setting XToken when xtoken-auth feature is disabled.");
+            BMCWEB_LOG_WARNING(
+                "X-Token authentication disabled, rejecting X-Token session.");
+            redfish::messages::resourceAtUriUnauthorized(
+                res, boost::urls::url_view(requestUrl),
+                "Setting XToken when xtoken-auth feature is disabled.");
             return nullptr;
         }
     }
@@ -295,10 +304,15 @@ inline std::shared_ptr<persistent_data::UserSession> authenticate(
         {
             sessionOut = performCookieAuth(method, reqHeader);
         }
-        if (sessionOut != nullptr && sessionOut->sessionType == persistent_data::SessionType::Cookie && !authMethodsConfig.cookie)
+        if (sessionOut != nullptr &&
+            sessionOut->sessionType == persistent_data::SessionType::Cookie &&
+            !authMethodsConfig.cookie)
         {
-            BMCWEB_LOG_WARNING("Cookie authentication disabled, rejecting Cookie session.");
-            redfish::messages::resourceAtUriUnauthorized(res, boost::urls::url_view(requestUrl), "Setting Cookie when cookie-auth feature is disabled.");
+            BMCWEB_LOG_WARNING(
+                "Cookie authentication disabled, rejecting Cookie session.");
+            redfish::messages::resourceAtUriUnauthorized(
+                res, boost::urls::url_view(requestUrl),
+                "Setting Cookie when cookie-auth feature is disabled.");
             return nullptr;
         }
     }
@@ -310,10 +324,15 @@ inline std::shared_ptr<persistent_data::UserSession> authenticate(
         {
             sessionOut = performTokenAuth(authHeader);
         }
-        if (sessionOut != nullptr && sessionOut->sessionType == persistent_data::SessionType::Session && !authMethodsConfig.sessionToken)
+        if (sessionOut != nullptr &&
+            sessionOut->sessionType == persistent_data::SessionType::Session &&
+            !authMethodsConfig.sessionToken)
         {
-            BMCWEB_LOG_WARNING("Session Token authentication disabled, rejecting Session Token session.");
-            redfish::messages::resourceAtUriUnauthorized(res, boost::urls::url_view(requestUrl), "Setting SessionToken when session-auth feature is disabled.");
+            BMCWEB_LOG_WARNING(
+                "Session Token authentication disabled, rejecting Session Token session.");
+            redfish::messages::resourceAtUriUnauthorized(
+                res, boost::urls::url_view(requestUrl),
+                "Setting SessionToken when session-auth feature is disabled.");
             return nullptr;
         }
     }
@@ -323,10 +342,15 @@ inline std::shared_ptr<persistent_data::UserSession> authenticate(
         {
             sessionOut = performBasicAuth(ipAddress, authHeader);
         }
-        if (sessionOut != nullptr && sessionOut->sessionType == persistent_data::SessionType::Basic && !authMethodsConfig.basic)
+        if (sessionOut != nullptr &&
+            sessionOut->sessionType == persistent_data::SessionType::Basic &&
+            !authMethodsConfig.basic)
         {
-            BMCWEB_LOG_WARNING("Basic authentication disabled, rejecting Basic session.");
-            redfish::messages::resourceAtUriUnauthorized(res, boost::urls::url_view(requestUrl), "Setting BasicAuth when basic-auth feature is disabled.");
+            BMCWEB_LOG_WARNING(
+                "Basic authentication disabled, rejecting Basic session.");
+            redfish::messages::resourceAtUriUnauthorized(
+                res, boost::urls::url_view(requestUrl),
+                "Setting BasicAuth when basic-auth feature is disabled.");
             return nullptr;
         }
     }

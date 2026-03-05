@@ -555,14 +555,25 @@ inline void sensorState(uint16_t value, std::string objPath,
     uint16_t position = 0;
     std::vector<uint16_t> positions;
     std::map<std::string, std::string> type = {
-        {"cpu", "Cpustatus"},         {"watchdog", "watchdog"},
-        {"acpisystem", "ACPISystem"}, {"powersupply", "Powersupply"},
-        {"powerunit", "Powerunit"},   {"os", "OSCritical"},
-        {"acpidevice", "ACPIDevice"}, {"battery", "Battery"},
-        {"bmcfirmwarehealth", "BMCFirwareHealth"}, {"chassisstate", "Digital"},
-        {"discrete", "APISensor"}, {"discrete", "APISensor2"}, {"discrete", "APISensor3"},
-        {"discrete", "APISensor4"}, {"discrete", "APISensor5"}, {"discrete", "APISensor6"},
-        {"discrete", "APISensor7"}, {"discrete", "APISensor8"}, {"discrete", "APISensor9"},
+        {"cpu", "Cpustatus"},
+        {"watchdog", "watchdog"},
+        {"acpisystem", "ACPISystem"},
+        {"powersupply", "Powersupply"},
+        {"powerunit", "Powerunit"},
+        {"os", "OSCritical"},
+        {"acpidevice", "ACPIDevice"},
+        {"battery", "Battery"},
+        {"bmcfirmwarehealth", "BMCFirwareHealth"},
+        {"chassisstate", "Digital"},
+        {"discrete", "APISensor"},
+        {"discrete", "APISensor2"},
+        {"discrete", "APISensor3"},
+        {"discrete", "APISensor4"},
+        {"discrete", "APISensor5"},
+        {"discrete", "APISensor6"},
+        {"discrete", "APISensor7"},
+        {"discrete", "APISensor8"},
+        {"discrete", "APISensor9"},
         {"discrete", "APISensor10"}};
     auto it = type.find(std::string(sensorType));
     if (it != type.end())
@@ -807,7 +818,8 @@ inline void populateFanRedundancy(
                                     ("/Redundancy"_json_pointer / jResp.size())
                                         .to_string());
                                 redundancy["@odata.id"] = std::move(url);
-                                redundancy["@odata.type"] = json_util::odataType("Redundancy");
+                                redundancy["@odata.type"] =
+                                    json_util::odataType("Redundancy");
                                 redundancy["MinNumNeeded"] = minNumNeeded;
                                 redundancy["Mode"] =
                                     redundancy::RedundancyType::NPlusM;
@@ -2687,7 +2699,7 @@ inline void handleSensorCollectionGet(
     {
         return;
     }
-    
+
     query_param::QueryCapabilities capabilities = {
         .canDelegateExpandLevel = 1,
     };
@@ -2894,13 +2906,15 @@ inline void getSensorFromDbus(
                     }
                     if (pass == 2)
                     {
-                        asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("Sensor");
+                        asyncResp->res.jsonValue["@odata.type"] =
+                            json_util::odataType("Sensor");
                         std::string nameSensor = name;
                         std::replace(nameSensor.begin(), nameSensor.end(), '_',
                                      ' ');
                         asyncResp->res.jsonValue["Name"] = nameSensor;
                         asyncResp->res.jsonValue["Id"] = type + '_' + name;
-                        asyncResp->res.jsonValue["Description"] = "Sensor Information";
+                        asyncResp->res.jsonValue["Description"] =
+                            "Sensor Information";
                         if (*value != 0)
                         {
                             std::string objPath =
@@ -2918,8 +2932,8 @@ inline void getSensorFromDbus(
                                     asyncResp->res
                                         .jsonValue["Oem"]["Ami"]["States"] =
                                         stateArray;
-                                    asyncResp->res
-                                        .jsonValue["Oem"]["Ami"]["ReadingType"] =
+                                    asyncResp->res.jsonValue["Oem"]["Ami"]
+                                                            ["ReadingType"] =
                                         "Discrete";
                                 });
                         }
@@ -2928,7 +2942,8 @@ inline void getSensorFromDbus(
                             asyncResp->res.jsonValue["Oem"]["Ami"]["States"] =
                                 nullptr;
                         }
-                        asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] = json_util::odataType("AMISensor");
+                        asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] =
+                            json_util::odataType("AMISensor");
                         asyncResp->res.jsonValue["Status"]["State"] =
                             sensor_utils::getState(nullptr, true);
                         asyncResp->res.jsonValue["Status"]["Health"] =
@@ -2951,7 +2966,7 @@ inline void handleSensorThreshGet(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, const std::string& sensorId)
 {
-	asyncResp->res.clearHeader(boost::beast::http::field::allow);
+    asyncResp->res.clearHeader(boost::beast::http::field::allow);
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
@@ -3174,7 +3189,7 @@ inline void handleSensorThreshPatch(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, const std::string& sensorId)
 {
-	asyncResp->res.clearHeader(boost::beast::http::field::allow);
+    asyncResp->res.clearHeader(boost::beast::http::field::allow);
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
@@ -3325,7 +3340,8 @@ inline void filterThresholdSensors(
                                    lastSlashPos - secondLastSlashPos - 1);
                 std::string sensorName = objpath.substr(lastSlashPos + 1);
 
-                std::string sensorTypeName = redfish::sensor_utils::getSensorId(sensorName, sensorType);
+                std::string sensorTypeName =
+                    redfish::sensor_utils::getSensorId(sensorName, sensorType);
 
                 if (sensorTypeName == sensorId)
                 {
@@ -3377,7 +3393,7 @@ inline bool valideSensorWithConfFile(const std::string& sensorId)
 }
 
 inline void getSensorReading(const std::string& sensorPath,
-                      std::function<void(const std::string&)> callback)
+                             std::function<void(const std::string&)> callback)
 {
     constexpr std::array<std::string_view, 3> interfaces = {
         "xyz.openbmc_project.Sensor.Value", "xyz.openbmc_project.Sensor.State",
@@ -3497,10 +3513,10 @@ inline void handleSensorGet(App& app, const crow::Request& req,
                                                 std::move(respHandler));
 }
 
-inline void
-    handleSensorPost(App& app, const crow::Request& req,
-                     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                     const std::string& chassisId, const std::string& sensorId)
+inline void handleSensorPost(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& sensorId)
 {
     asyncResp->res.clearHeader(boost::beast::http::field::allow);
     if (!membersResponseGet(asyncResp, sensorId, "SensorCollection"))
@@ -3547,7 +3563,8 @@ inline void
             }
             if (!isValid)
             {
-                messages::resourceNotFound(asyncResp->res,"chassisId", chassisId);
+                messages::resourceNotFound(asyncResp->res, "chassisId",
+                                           chassisId);
                 return;
             }
 
@@ -3569,12 +3586,13 @@ inline void
                     "xyz.openbmc_project.Association.Definitions"};
                 ::dbus::utility::getDbusObject(
                     sensorPath, interfaces,
-                    [asyncResp, sensorId](const boost::system::error_code& ec,
-                                const ::dbus::utility::MapperGetObject& /*subtree*/) {
+                    [asyncResp, sensorId](
+                        const boost::system::error_code& ec,
+                        const ::dbus::utility::MapperGetObject& /*subtree*/) {
                         if (ec == boost::system::errc::io_error)
                         {
                             messages::resourceNotFound(asyncResp->res, sensorId,
-                                                    "Sensor");
+                                                       "Sensor");
                             return;
                         }
                         if (ec)
@@ -3601,7 +3619,6 @@ inline void
             "xyz.openbmc_project.Inventory.Item.Board",
             "xyz.openbmc_project.Inventory.Item.Chassis"});
 }
-
 
 inline void handleSensorHistoryGet(
     App& app, const crow::Request& req,
@@ -3830,17 +3847,20 @@ inline void requestRoutesSensorThreshCollection(App& app)
 
 inline void requestRoutesSensorThresh(App& app)
 {
-    BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/Sensors/Oem/Ami/Threshold/<str>/")
+    BMCWEB_ROUTE(app,
+                 "/redfish/v1/Chassis/<str>/Sensors/Oem/Ami/Threshold/<str>/")
         .privileges(redfish::privileges::getSensorThresh)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(sensors::handleSensorThreshGet, std::ref(app)));
 
-    BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/Sensors/Oem/Ami/Threshold/<str>/")
+    BMCWEB_ROUTE(app,
+                 "/redfish/v1/Chassis/<str>/Sensors/Oem/Ami/Threshold/<str>/")
         .privileges(redfish::privileges::patchSensorThresh)
         .methods(boost::beast::http::verb::patch)(
             std::bind_front(sensors::handleSensorThreshPatch, std::ref(app)));
 
-    BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/Sensors/Oem/Ami/Threshold/<str>/")
+    BMCWEB_ROUTE(app,
+                 "/redfish/v1/Chassis/<str>/Sensors/Oem/Ami/Threshold/<str>/")
         .methods(boost::beast::http::verb::post, boost::beast::http::verb::put,
                  boost::beast::http::verb::delete_)(
             [](const crow::Request& req,
@@ -3848,7 +3868,8 @@ inline void requestRoutesSensorThresh(App& app)
                const std::string& /* chassisName */,
                const std::string& sensorId) {
                 asyncResp->res.clearHeader(boost::beast::http::field::allow);
-                if (!membersResponseGet(asyncResp, sensorId, "ThresholdSensorCollection"))
+                if (!membersResponseGet(asyncResp, sensorId,
+                                        "ThresholdSensorCollection"))
                 {
                     return;
                 }
@@ -3868,11 +3889,12 @@ inline void requestRoutesSensor(App& app)
         .privileges(redfish::privileges::getSensor)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(sensors::handleSensorGet, std::ref(app)));
-            
+
     BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/Sensors/<str>/")
         .privileges(redfish::privileges::getSensor)
-        .methods(boost::beast::http::verb::post, boost::beast::http::verb::patch,
-                 boost::beast::http::verb::put, boost::beast::http::verb::delete_)(
+        .methods(boost::beast::http::verb::post,
+                 boost::beast::http::verb::patch, boost::beast::http::verb::put,
+                 boost::beast::http::verb::delete_)(
             std::bind_front(sensors::handleSensorPost, std::ref(app)));
 }
 

@@ -12,6 +12,7 @@
 #include "certificate_service.hpp"
 #include "chassis.hpp"
 #include "cups_service.hpp"
+#include "dashboard.hpp"
 #include "environment_metrics.hpp"
 #include "ethernet.hpp"
 #include "event_service.hpp"
@@ -62,10 +63,8 @@
 #include "thermal_subsystem.hpp"
 #include "trigger.hpp"
 #include "update_service.hpp"
-#include "virtual_media.hpp"
 #include "utils/json_utils.hpp"
-#include "dashboard.hpp"
-
+#include "virtual_media.hpp"
 
 #if (!BMCWEB_ARBEL_NUVOTON_MACRO)
 #include "bsodjpeg.hpp"
@@ -118,11 +117,11 @@
 #ifdef ONETREE_NVIDIASIPACK
 #include "ext/cper/src/cper.hpp"
 #include "ext/dot/src/dot.hpp"
+#include "ext/sbmr/src/sbmr.hpp"
 #include "ext/spdm/src/spdm.hpp"
 #include "ext/src/auxreset.hpp"
 #include "ext/src/erot_dump.hpp"
 #include "ext/src/reset.hpp"
-#include "ext/sbmr/src/sbmr.hpp"
 #endif
 
 #ifdef ONETREE_GPGPU
@@ -130,7 +129,8 @@
 #endif
 
 #if (defined(ONETREE_BRCMRAID)) || (defined(ONETREE_MSCCRAID)) ||              \
-    (defined(ONETREE_NVME)) || (defined(ONETREE_BRCMRAID8)) || (defined(ONETREE_RTP))
+    (defined(ONETREE_NVME)) || (defined(ONETREE_BRCMRAID8)) ||                 \
+    (defined(ONETREE_RTP))
 #include "ext/include/storage_ext.hpp"
 #endif
 
@@ -176,7 +176,7 @@ namespace redfish
 
 RedfishService::RedfishService(App& app)
 {
-    //init schemaVersionMap
+    // init schemaVersionMap
     json_util::initSchemaVersionMap();
 #ifdef ONETREE_ACD
     redfish::ami::core::resource::requestRoutesACDService(app);
@@ -241,11 +241,11 @@ RedfishService::RedfishService(App& app)
     requestRoutesManagerResetActionInfo(app);
     requestRoutesManagerResetToDefaults(app);
     requestRoutesManagerDiagnosticData(app);
-    #if (!BMCWEB_ARBEL_NUVOTON_MACRO)
-        requestRoutesBsodjpeg(app);
-        requestRoutesDeleteBsodjpeg(app);
-        requestRoutesTriggerBsodjpeg(app);
-    #endif
+#if (!BMCWEB_ARBEL_NUVOTON_MACRO)
+    requestRoutesBsodjpeg(app);
+    requestRoutesDeleteBsodjpeg(app);
+    requestRoutesTriggerBsodjpeg(app);
+#endif
     requestRoutesChassisCollection(app);
     requestRoutesChassis(app);
     requestRoutesChassisResetAction(app);
@@ -275,8 +275,8 @@ RedfishService::RedfishService(App& app)
     if constexpr (BMCWEB_REDFISH_DUMP_LOG)
     {
         requestRoutesSystemDumpService(app);
-	requestRoutesSystemDumpEntryCollection(app);
-	requestRoutesSystemDumpEntry(app);
+        requestRoutesSystemDumpEntryCollection(app);
+        requestRoutesSystemDumpEntry(app);
         requestRoutesSystemDumpCreate(app);
         requestRoutesSystemDumpClear(app);
 
@@ -449,7 +449,7 @@ RedfishService::RedfishService(App& app)
     redfish::psm::registerPsmRoutes(app);
 #endif
 #ifdef ONETREE_RPC
-        registerRackPowerControllerRoutes(app);
+    registerRackPowerControllerRoutes(app);
 #endif
 
 #ifdef ONETREE_GPGPU
@@ -457,7 +457,8 @@ RedfishService::RedfishService(App& app)
 #endif
 
 #if (defined(ONETREE_NVME)) || (defined(ONETREE_MSCCRAID)) ||                  \
-    (defined(ONETREE_BRCMRAID)) || (defined(ONETREE_BRCMRAID8)) || (defined(ONETREE_RTP))
+    (defined(ONETREE_BRCMRAID)) || (defined(ONETREE_BRCMRAID8)) ||             \
+    (defined(ONETREE_RTP))
     {
         redfish::ext::core::resource::requestStorageCollectionRoutes(app);
         redfish::ext::core::resource::requestRoutesStorage(app);

@@ -221,17 +221,17 @@ struct NbdProxyServer : std::enable_shared_from_this<NbdProxyServer>
         }
 
         redfish::powerSaveMode(POWER_SAVE_MODE_ENABLE);
-        if(crow::obmc_vm::host1)
+        if (crow::obmc_vm::host1)
         {
             crow::connections::systemBus->async_method_call(
-            dbus::utility::logError, "xyz.openbmc_project.VirtualMedia1", path,
-            "xyz.openbmc_project.VirtualMedia.Proxy", "Unmount");
+                dbus::utility::logError, "xyz.openbmc_project.VirtualMedia1",
+                path, "xyz.openbmc_project.VirtualMedia.Proxy", "Unmount");
         }
         else
         {
             crow::connections::systemBus->async_method_call(
-            dbus::utility::logError, "xyz.openbmc_project.VirtualMedia", path,
-            "xyz.openbmc_project.VirtualMedia.Proxy", "Unmount");
+                dbus::utility::logError, "xyz.openbmc_project.VirtualMedia",
+                path, "xyz.openbmc_project.VirtualMedia.Proxy", "Unmount");
         }
     }
 
@@ -257,7 +257,7 @@ struct NbdProxyServer : std::enable_shared_from_this<NbdProxyServer>
             self->connection.close("Failed to mount media");
             return;
         }
-	self->connection.session->vmNbdActive[self->getEndpointIndex()] = true;
+        self->connection.session->vmNbdActive[self->getEndpointIndex()] = true;
     }
 
     static void afterAccept(const std::weak_ptr<NbdProxyServer>& weak,
@@ -303,26 +303,26 @@ struct NbdProxyServer : std::enable_shared_from_this<NbdProxyServer>
             sessionId = "session_" +
                         std::to_string(connection.sessionMap[uniqueId]);
         }
-	
-       if(crow::obmc_vm::host1)
+
+        if (crow::obmc_vm::host1)
         {
             crow::connections::systemBus->async_method_call(
-            [weak{weak_from_this()}](const boost::system::error_code& ec,
-                                     bool isBinary) {
-                afterMount(weak, ec, isBinary);
-            },
-            "xyz.openbmc_project.VirtualMedia1", path,
-            "xyz.openbmc_project.VirtualMedia.Proxy", "Mount",sessionId);
+                [weak{weak_from_this()}](const boost::system::error_code& ec,
+                                         bool isBinary) {
+                    afterMount(weak, ec, isBinary);
+                },
+                "xyz.openbmc_project.VirtualMedia1", path,
+                "xyz.openbmc_project.VirtualMedia.Proxy", "Mount", sessionId);
         }
         else
         {
             crow::connections::systemBus->async_method_call(
-            [weak{weak_from_this()}](const boost::system::error_code& ec,
-                                     bool isBinary) {
-                afterMount(weak, ec, isBinary);
-            },
-            "xyz.openbmc_project.VirtualMedia", path,
-            "xyz.openbmc_project.VirtualMedia.Proxy", "Mount",sessionId);
+                [weak{weak_from_this()}](const boost::system::error_code& ec,
+                                         bool isBinary) {
+                    afterMount(weak, ec, isBinary);
+                },
+                "xyz.openbmc_project.VirtualMedia", path,
+                "xyz.openbmc_project.VirtualMedia.Proxy", "Mount", sessionId);
         }
     }
 
@@ -456,11 +456,11 @@ using SessionMap = boost::container::flat_map<crow::websocket::Connection*,
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static SessionMap sessions;
 
-inline void
-    afterGetSocket(crow::websocket::Connection& conn,
-                   const sdbusplus::message::object_path& path,
-                   const boost::system::error_code& ec,
-                   const dbus::utility::DBusPropertiesMap& propertiesList)
+inline void afterGetSocket(
+    crow::websocket::Connection& conn,
+    const sdbusplus::message::object_path& path,
+    const boost::system::error_code& ec,
+    const dbus::utility::DBusPropertiesMap& propertiesList)
 {
     if (ec)
     {
@@ -527,19 +527,21 @@ inline void onOpen(crow::websocket::Connection& conn)
 
     std::string index = conn.url().segments().back();
     std::string path, service;
-    if (( index == "0" || index == "1"))
+    if ((index == "0" || index == "1"))
     {
         crow::obmc_vm::host1 = false;
         service = "xyz.openbmc_project.VirtualMedia";
-        path = std::format("/xyz/openbmc_project/VirtualMedia/Proxy/Slot_{}", index);
+        path = std::format("/xyz/openbmc_project/VirtualMedia/Proxy/Slot_{}",
+                           index);
     }
-    else if ( index == "4" || index == "5")
+    else if (index == "4" || index == "5")
     {
         crow::obmc_vm::host1 = true;
         service = "xyz.openbmc_project.VirtualMedia1";
 
         int slot = index[0] - '4';
-        path = std::format("/xyz/openbmc_project/VirtualMedia1/Proxy/Slot_{}", slot);
+        path = std::format("/xyz/openbmc_project/VirtualMedia1/Proxy/Slot_{}",
+                           slot);
     }
     else
     {
@@ -547,13 +549,11 @@ inline void onOpen(crow::websocket::Connection& conn)
         conn.close("Internal error");
         return;
     }
-    
-    
+
     dbus::utility::getAllProperties(
-        service, path,
-        "xyz.openbmc_project.VirtualMedia.MountPoint",
+        service, path, "xyz.openbmc_project.VirtualMedia.MountPoint",
         [&conn, path](const boost::system::error_code& ec,
-                    const dbus::utility::DBusPropertiesMap& propertiesList) {
+                      const dbus::utility::DBusPropertiesMap& propertiesList) {
             afterGetSocket(conn, path, ec, propertiesList);
         });
 
