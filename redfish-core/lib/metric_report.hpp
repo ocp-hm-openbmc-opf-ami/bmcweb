@@ -7,9 +7,9 @@
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utils/collection.hpp"
+#include "utils/json_utils.hpp"
 #include "utils/telemetry_utils.hpp"
 #include "utils/time_utils.hpp"
-#include "utils/json_utils.hpp"
 
 #include <boost/url/format.hpp>
 #include <sdbusplus/asio/property.hpp>
@@ -104,7 +104,8 @@ inline void requestRoutesMetricReport(App& app)
                 {
                     return;
                 }
-                if (!membersResponseGet(asyncResp, id, "MetricReportCollection"))
+                if (!membersResponseGet(asyncResp, id,
+                                        "MetricReportCollection"))
                 {
                     return;
                 }
@@ -150,17 +151,16 @@ inline void requestRoutesMetricReport(App& app)
                     "Update");
             });
 
-    BMCWEB_ROUTE(app,
-                 "/redfish/v1/TelemetryService/MetricReports/<str>/")
+    BMCWEB_ROUTE(app, "/redfish/v1/TelemetryService/MetricReports/<str>/")
         .methods(boost::beast::http::verb::post,
-                 boost::beast::http::verb::patch,
-                 boost::beast::http::verb::put,
+                 boost::beast::http::verb::patch, boost::beast::http::verb::put,
                  boost::beast::http::verb::delete_)(
             [&app](const crow::Request& /* req */,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& id) {
                 asyncResp->res.clearHeader(boost::beast::http::field::allow);
-                if (!membersResponseGet(asyncResp, id, "MetricReportCollection"))
+                if (!membersResponseGet(asyncResp, id,
+                                        "MetricReportCollection"))
                 {
                     return;
                 }

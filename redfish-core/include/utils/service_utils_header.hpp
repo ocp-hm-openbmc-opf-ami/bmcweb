@@ -18,36 +18,39 @@ inline void getSerialConsoleSshMasked(
     const nlohmann::json::json_pointer& valueJsonPtr);
 
 inline void getMasked(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-               const std::string& serviceName, const std::string& ObjectName,
-               const std::string& propertyName);
+                      const std::string& serviceName,
+                      const std::string& ObjectName,
+                      const std::string& propertyName);
 
 inline void getRunning(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                const std::string& serviceName,
-                const nlohmann::json::json_pointer& valueJsonPtr);
+                       const std::string& serviceName,
+                       const nlohmann::json::json_pointer& valueJsonPtr);
 
 inline void getEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                const std::string& serviceName,
-                const nlohmann::json::json_pointer& valueJsonPtr);
+                       const std::string& serviceName,
+                       const nlohmann::json::json_pointer& valueJsonPtr);
 
 inline void getPortNumber(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   const std::string& serviceName,
-                   const nlohmann::json::json_pointer& valueJsonPtr);
-
+                          const std::string& serviceName,
+                          const nlohmann::json::json_pointer& valueJsonPtr);
 
 inline void setMasked(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-               const std::string& serviceName, const bool enabled);
+                      const std::string& serviceName, const bool enabled);
 
 inline void setEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                const std::string& serviceName, const bool enabled);
+                       const std::string& serviceName, const bool enabled);
 
 inline void setPortNumber(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   const std::string& serviceName, const uint16_t portNumber);
+                          const std::string& serviceName,
+                          const uint16_t portNumber);
 
-inline void setServiceEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                             const std::string& serviceName, const bool enabled);
+inline void setServiceEnabled(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& serviceName, const bool enabled);
 
-inline void getAllAvailableTtyServices(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-            std::function<void(const std::vector<std::string>&)> callback);
+inline void getAllAvailableTtyServices(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    std::function<void(const std::vector<std::string>&)> callback);
 
 } // namespace service_util
 } // namespace redfish

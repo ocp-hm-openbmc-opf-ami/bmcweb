@@ -185,8 +185,8 @@ inline void afterSystemsStoragePostSubtree(
     if (ec)
     {
         BMCWEB_LOG_DEBUG("requestRoutesStorage DBUS response error");
-        messages::resourceNotFound(asyncResp->res, json_util::odataType("Storage"),
-                                   storageId);
+        messages::resourceNotFound(asyncResp->res,
+                                   json_util::odataType("Storage"), storageId);
         return;
     }
     auto storage = std::ranges::find_if(
@@ -198,8 +198,8 @@ inline void afterSystemsStoragePostSubtree(
         });
     if (storage == subtree.end())
     {
-        messages::resourceNotFound(asyncResp->res, json_util::odataType("Storage"),
-                                   storageId);
+        messages::resourceNotFound(asyncResp->res,
+                                   json_util::odataType("Storage"), storageId);
         return;
     }
     asyncResp->res.addHeader("Allow", "GET");
@@ -283,10 +283,10 @@ inline void afterSubtree(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     asyncResp->res.jsonValue["Links"]["StorageServices@odata.count"] = 1;
 }
 
-inline void
-    handleStorageGet(App& app, const crow::Request& req,
-                     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                     const std::string& storageId)
+inline void handleStorageGet(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& storageId)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -310,12 +310,14 @@ inline void requestRoutesStorage(App& app)
 
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Storage/<str>/")
         .privileges(redfish::privileges::getStorage)
-        .methods(boost::beast::http::verb::patch,boost::beast::http::verb::post,boost::beast::http::verb::delete_)(
-            [&app] (const crow::Request& req,
-            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-            [[maybe_unused]] const std::string& systemName, const std::string& storageId)
-            {
-		        asyncResp->res.clearHeader(boost::beast::http::field::allow);
+        .methods(boost::beast::http::verb::patch,
+                 boost::beast::http::verb::post,
+                 boost::beast::http::verb::delete_)(
+            [&app](const crow::Request& req,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   [[maybe_unused]] const std::string& systemName,
+                   const std::string& storageId) {
+                asyncResp->res.clearHeader(boost::beast::http::field::allow);
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
                     return;
@@ -329,7 +331,8 @@ inline void requestRoutesStorage(App& app)
                     "xyz.openbmc_project.Inventory.Item.Storage"};
                 dbus::utility::getSubTree(
                     "/xyz/openbmc_project/inventory", 0, interfaces,
-                    std::bind_front(afterSystemsStoragePostSubtree, asyncResp, storageId));
+                    std::bind_front(afterSystemsStoragePostSubtree, asyncResp,
+                                    storageId));
             });
 
     BMCWEB_ROUTE(app, "/redfish/v1/Storage/<str>/")
@@ -459,8 +462,8 @@ inline std::optional<drive::MediaType> convertDriveType(std::string_view type)
     return drive::MediaType::Invalid;
 }
 
-inline std::optional<protocol::Protocol>
-    convertDriveProtocol(std::string_view proto)
+inline std::optional<protocol::Protocol> convertDriveProtocol(
+    std::string_view proto)
 {
     if (proto == "xyz.openbmc_project.Inventory.Item.Drive.DriveProtocol.SAS")
     {

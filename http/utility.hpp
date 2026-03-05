@@ -323,21 +323,25 @@ inline bool base64Decode(std::string_view input, std::string& output)
 
 inline std::string getOffset(std::string time_Zone)
 {
+    const std::chrono::time_zone* tz = std::chrono::locate_zone(time_Zone);
+    auto now = std::chrono::system_clock::now();
+    std::chrono::sys_info tzInfo =
+        tz->get_info(std::chrono::floor<std::chrono::seconds>(now));
+    auto offset = tzInfo.offset;
 
-          const std::chrono::time_zone* tz = std::chrono::locate_zone(time_Zone);
-          auto now = std::chrono::system_clock::now();
-          std::chrono::sys_info tzInfo = tz->get_info(std::chrono::floor<std::chrono::seconds>(now));
-          auto offset = tzInfo.offset;
+    auto hours = std::chrono::duration_cast<std::chrono::hours>(offset);
+    auto minutes =
+        std::chrono::duration_cast<std::chrono::minutes>(offset - hours);
+    auto seconds = std::chrono::duration_cast<std::chrono::seconds>(
+        offset - hours - minutes);
 
-         auto hours = std::chrono::duration_cast<std::chrono::hours>(offset);
-         auto minutes = std::chrono::duration_cast<std::chrono::minutes>(offset - hours);
-         auto seconds = std::chrono::duration_cast<std::chrono::seconds>(offset - hours - minutes);
+    std::ostringstream oss;
+    oss << (offset.count() >= 0 ? "+" : "-") << std::setw(2)
+        << std::setfill('0') << std::abs(hours.count()) << ":" << std::setw(2)
+        << std::setfill('0') << std::abs(minutes.count());
 
-         std::ostringstream oss;
-         oss << (offset.count() >= 0 ? "+" : "-") << std::setw(2) << std::setfill('0') << std::abs(hours.count()) << ":" << std::setw(2) << std::setfill('0') << std::abs(minutes.count());
-
-           std::string timezone_offset = oss.str();// "+08:00"
-           return timezone_offset;
+    std::string timezone_offset = oss.str(); // "+08:00"
+    return timezone_offset;
 }
 
 inline float tzFormatConvert(std::string timeZone)
@@ -611,9 +615,9 @@ inline bool readUrlSegments(const boost::urls::url_view_base& url,
     return details::readUrlSegments(url, {std::forward<Args>(args)...});
 }
 
-inline boost::urls::url
-    replaceUrlSegment(const boost::urls::url_view_base& urlView,
-                      const uint replaceLoc, std::string_view newSegment)
+inline boost::urls::url replaceUrlSegment(
+    const boost::urls::url_view_base& urlView, const uint replaceLoc,
+    std::string_view newSegment)
 {
     const boost::urls::segments_view& urlSegments = urlView.segments();
     boost::urls::url url("/");
@@ -698,7 +702,7 @@ inline std::string urlDecode(const std::string& encoded)
 {
     std::string decoded;
     decoded.reserve(encoded.size());
-    
+
     for (size_t i = 0; i < encoded.size(); ++i)
     {
         if (encoded[i] == '%' && i + 2 < encoded.size())
@@ -706,8 +710,9 @@ inline std::string urlDecode(const std::string& encoded)
             // Convert hex to char
             int value = 0;
             std::string hexStr = encoded.substr(i + 1, 2);
-            
-            try {
+
+            try
+            {
                 value = std::stoi(hexStr, nullptr, 16);
                 decoded += static_cast<char>(value);
                 i += 2; // Skip the two hex digits
@@ -728,7 +733,7 @@ inline std::string urlDecode(const std::string& encoded)
             decoded += encoded[i];
         }
     }
-    
+
     return decoded;
 }
 

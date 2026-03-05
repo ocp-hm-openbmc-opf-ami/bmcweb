@@ -93,7 +93,8 @@ inline void fillCPULicenseInstance(
             asyncResp->res.jsonValue["@odata.id"] =
                 "/redfish/v1/LicenseService/Licenses/" + licenseType +
                 processorId;
-            asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("License");
+            asyncResp->res.jsonValue["@odata.type"] =
+                json_util::odataType("License");
             asyncResp->res.jsonValue["Id"] = licenseType + processorId;
             asyncResp->res.jsonValue["Name"] =
                 licenseType + " for " + processorId;
@@ -121,7 +122,8 @@ inline void fillCPULicenseInstance(
                     "/redfish/v1/Systems/system/Processors/" + processorId +
                     "/Oem/Intel/DynamicFeature";
             }
-            asyncResp->res.jsonValue["Oem"]["Intel"]["@odata.type"] = json_util::odataType("OemLicense", "License");
+            asyncResp->res.jsonValue["Oem"]["Intel"]["@odata.type"] =
+                json_util::odataType("OemLicense", "License");
         },
         service, objectPath, featureEnableInterfaceName, method);
 }
@@ -297,28 +299,28 @@ inline bool readAuthFeature(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 {
     if (nlohmann::json oemIntelObject;
         !oemObject.empty() &&
-        json_util::readJson( //
+        json_util::readJson(           //
             oemObject, asyncResp->res, //
-            "Intel", oemIntelObject //
+            "Intel", oemIntelObject    //
             ))
     {
         if (nlohmann::json linkObject;
             !oemIntelObject.empty() &&
-            json_util::readJson( //
+            json_util::readJson(                //
                 oemIntelObject, asyncResp->res, //
-                "Links", linkObject //
+                "Links", linkObject             //
                 ))
         {
             if (nlohmann::json authFeatureObject;
                 !linkObject.empty() &&
-                json_util::readJson( //
-                    linkObject, asyncResp->res, //
+                json_util::readJson(                       //
+                    linkObject, asyncResp->res,            //
                     "AuthorizedFeature", authFeatureObject //
                     ))
             {
-                if (json_util::readJson( //
+                if (json_util::readJson(                   //
                         authFeatureObject, asyncResp->res, //
-                        "@odata.id", authFeature //
+                        "@odata.id", authFeature           //
                         ))
                 {
                     return true;
@@ -469,15 +471,16 @@ inline void addCPULicense(
 }
 } // namespace licenseService
 
-inline void
-    handleLicenseServiceGet(App& app, const crow::Request& req,
-                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void handleLicenseServiceGet(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
     }
-    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("LicenseService");
+    asyncResp->res.jsonValue["@odata.type"] =
+        json_util::odataType("LicenseService");
     asyncResp->res.jsonValue["@odata.id"] = "/redfish/v1/LicenseService";
     asyncResp->res.jsonValue["Id"] = "LicenseService";
     asyncResp->res.jsonValue["Name"] = "License Service";
@@ -544,12 +547,12 @@ inline void handleLicenseCollectionPost(
     std::vector<nlohmann::json> linksAuthDevArray;
     std::vector<std::string> authDevices;
 
-    if (!redfish::json_util::readJsonPatch( //
-            req, asyncResp->res, //
-            "LicenseString", licenseString, //
-            "AuthorizationScope", authScope, //
+    if (!redfish::json_util::readJsonPatch(               //
+            req, asyncResp->res,                          //
+            "LicenseString", licenseString,               //
+            "AuthorizationScope", authScope,              //
             "Links/AuthorizedDevices", linksAuthDevArray, //
-            "Oem", oemObject //
+            "Oem", oemObject                              //
             ))
     {
         return;
@@ -573,9 +576,9 @@ inline void handleLicenseCollectionPost(
     for (nlohmann::json authDevObj : linksAuthDevArray)
     {
         std::string authDev;
-        if (!json_util::readJson( //
+        if (!json_util::readJson(           //
                 authDevObj, asyncResp->res, //
-                "@odata.id", authDev //
+                "@odata.id", authDev        //
                 ))
         {
             return;
@@ -611,10 +614,10 @@ inline void handleLicenseCollectionPost(
 }
 
 // Handler for License Instance
-inline void
-    handleLicenseGet(App& app, const crow::Request& req,
-                     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                     const std::string& param)
+inline void handleLicenseGet(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& param)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {

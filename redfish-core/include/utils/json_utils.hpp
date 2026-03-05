@@ -56,26 +56,32 @@ bool processJsonFromRequest(crow::Response& res, const crow::Request& req,
 namespace details
 {
 
-template <typename Type> struct IsOptional : std::false_type
+template <typename Type>
+struct IsOptional : std::false_type
 {};
 
-template <typename Type> struct IsOptional<std::optional<Type>> : std::true_type
+template <typename Type>
+struct IsOptional<std::optional<Type>> : std::true_type
 {};
 
-template <typename Type> struct IsVector : std::false_type
+template <typename Type>
+struct IsVector : std::false_type
 {};
 
-template <typename Type> struct IsVector<std::vector<Type>> : std::true_type
+template <typename Type>
+struct IsVector<std::vector<Type>> : std::true_type
 {};
 
-template <typename Type> struct IsStdArray : std::false_type
+template <typename Type>
+struct IsStdArray : std::false_type
 {};
 
 template <typename Type, std::size_t size>
 struct IsStdArray<std::array<Type, size>> : std::true_type
 {};
 
-template <typename Type> struct IsVariant : std::false_type
+template <typename Type>
+struct IsVariant : std::false_type
 {};
 
 template <typename... Types>
@@ -524,11 +530,12 @@ inline bool readJsonHelperObject(nlohmann::json::object_t& obj,
                 result = details::unpackValue<nlohmann::json>(item.second, key,
                                                               res, j) &&
                          result;
-                // In nested key after the first iteration the result will give false
-		/*if (!result)
-                {
-                    return result;
-                }*/
+                // In nested key after the first iteration the result will give
+                // false
+                /*if (!result)
+                        {
+                            return result;
+                        }*/
 
                 std::vector<PerUnpack> nextLevel;
                 for (PerUnpack& p : toUnpack)
@@ -683,8 +690,8 @@ inline const nlohmann::json* findNestedKey(std::string_view key,
     return &*it;
 }
 
-inline std::optional<nlohmann::json::object_t>
-    readJsonPatchHelper(const crow::Request& req, crow::Response& res)
+inline std::optional<nlohmann::json::object_t> readJsonPatchHelper(
+    const crow::Request& req, crow::Response& res)
 {
     nlohmann::json jsonRequest;
     if (!json_util::processJsonFromRequest(res, req, jsonRequest))
@@ -914,17 +921,17 @@ uint64_t getEstimatedJsonSize(const nlohmann::json& root);
 
 extern std::unordered_map<std::string, std::string> schemaVersionMap;
 
-//Intitilize SchemaVerion Map
+// Intitilize SchemaVerion Map
 inline void initSchemaVersionMap()
 {
     std::error_code ec;
-    //directory where all the JsonSchemas present
+    // directory where all the JsonSchemas present
     std::filesystem::directory_iterator dirList(
         "/usr/share/www/redfish/v1/JsonSchemas", ec);
     if (ec)
     {
         BMCWEB_LOG_ERROR("Failed to Initialize Schema Version Map");
-        return ;
+        return;
     }
     for (const std::filesystem::path& file : dirList)
     {
@@ -943,7 +950,7 @@ inline std::string getSchemaVersion(const std::string& schemaName)
     return (it != schemaVersionMap.end()) ? it->second : "";
 }
 
-//return standard odata type
+// return standard odata type
 inline std::string odataType(const std::string& schema)
 {
     std::string schemaVersion, odataType;
@@ -959,8 +966,9 @@ inline std::string odataType(const std::string& schema)
     return odataType;
 }
 
-//return standard odata type for namespace along with the specified entity
-inline std::string odataType(const std::string& schema, const std::string_view& entity)
+// return standard odata type for namespace along with the specified entity
+inline std::string odataType(const std::string& schema,
+                             const std::string_view& entity)
 {
     std::string schemaVersion, odataType;
     schemaVersion = getSchemaVersion(schema);
@@ -975,14 +983,17 @@ inline std::string odataType(const std::string& schema, const std::string_view& 
     return odataType;
 }
 
-//return standard odata type for namespace along with the specified entities
-inline std::string odataType(const std::string& schema, const std::string_view& entity, const std::string_view& entity2)
+// return standard odata type for namespace along with the specified entities
+inline std::string odataType(const std::string& schema,
+                             const std::string_view& entity,
+                             const std::string_view& entity2)
 {
     std::string schemaVersion, odataType;
     schemaVersion = getSchemaVersion(schema);
     if (!schemaVersion.empty())
     {
-        odataType = std::format("#{}.{}.{}.{}", schema, schemaVersion, entity, entity2);
+        odataType =
+            std::format("#{}.{}.{}.{}", schema, schemaVersion, entity, entity2);
     }
     else
     {

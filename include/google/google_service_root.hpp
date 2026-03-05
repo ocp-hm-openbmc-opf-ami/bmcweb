@@ -23,9 +23,9 @@ namespace crow
 namespace google_api
 {
 
-inline void
-    handleGoogleV1Get(const crow::Request& /*req*/,
-                      const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void handleGoogleV1Get(
+    const crow::Request& /*req*/,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     asyncResp->res.jsonValue["@odata.type"] =
         "#GoogleServiceRoot.v1_0_0.GoogleServiceRoot";
@@ -109,9 +109,9 @@ inline void resolveRoT(const std::string& command,
         [command, asyncResp, rotId, entityHandler{std::move(entityHandler)}](
             const boost::system::error_code& ec,
             const dbus::utility::MapperGetSubTreeResponse& subtree) {
-        hothGetSubtreeCallback(command, asyncResp, rotId, entityHandler, ec,
-                               subtree);
-    });
+            hothGetSubtreeCallback(command, asyncResp, rotId, entityHandler, ec,
+                                   subtree);
+        });
 }
 
 inline void populateRootOfTrustEntity(
@@ -138,19 +138,19 @@ inline void populateRootOfTrustEntity(
         "Embedded";
 }
 
-inline void
-    handleRootOfTrustGet(const crow::Request& /*req*/,
-                         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                         const std::string& param)
+inline void handleRootOfTrustGet(
+    const crow::Request& /*req*/,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& param)
 {
     std::string emptyCommand;
     resolveRoT(emptyCommand, asyncResp, param, populateRootOfTrustEntity);
 }
 
-inline void
-    invocationCallback(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                       const boost::system::error_code& ec,
-                       const std::vector<uint8_t>& responseBytes)
+inline void invocationCallback(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec,
+    const std::vector<uint8_t>& responseBytes)
 {
     if (ec)
     {
@@ -164,10 +164,10 @@ inline void
         bytesToHexString(responseBytes);
 }
 
-inline void
-    invokeRoTCommand(const std::string& command,
-                     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                     const ResolvedEntity& resolvedEntity)
+inline void invokeRoTCommand(
+    const std::string& command,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const ResolvedEntity& resolvedEntity)
 {
     std::vector<uint8_t> bytes = hexStringToBytes(command);
     if (bytes.empty())
@@ -181,8 +181,8 @@ inline void
     crow::connections::systemBus->async_method_call(
         [asyncResp{asyncResp}](const boost::system::error_code& ec,
                                const std::vector<uint8_t>& responseBytes) {
-        invocationCallback(asyncResp, ec, responseBytes);
-    },
+            invocationCallback(asyncResp, ec, responseBytes);
+        },
         resolvedEntity.service, resolvedEntity.object, resolvedEntity.interface,
         "SendHostCommand", bytes);
 }

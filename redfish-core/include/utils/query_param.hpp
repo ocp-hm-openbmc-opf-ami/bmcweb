@@ -305,8 +305,8 @@ enum class QueryError
 
 inline QueryError getNumericParam(std::string_view value, size_t& param)
 {
-    std::from_chars_result r = std::from_chars(value.begin(), value.end(),
-                                               param);
+    std::from_chars_result r =
+        std::from_chars(value.begin(), value.end(), param);
 
     // If the number wasn't representable in the type, it's out of range
     if (r.ec == std::errc::result_out_of_range)
@@ -696,9 +696,8 @@ inline void findNavigationReferencesInObjectRecursive(
 // Isn't a concern until https://gerrit.openbmc.org/c/openbmc/bmcweb/+/60556
 // lands.  May want to avoid forwarding query params when request is uptree from
 // a top level collection.
-inline std::vector<ExpandNode>
-    findNavigationReferences(ExpandType eType, int depth, int skipDepth,
-                             nlohmann::json& jsonResponse)
+inline std::vector<ExpandNode> findNavigationReferences(
+    ExpandType eType, int depth, int skipDepth, nlohmann::json& jsonResponse)
 {
     std::vector<ExpandNode> ret;
     const nlohmann::json::json_pointer root = nlohmann::json::json_pointer("");
@@ -788,8 +787,9 @@ inline unsigned propogateErrorCode(unsigned finalCode, unsigned subResponseCode)
     if (finalCodeIndex != std::numeric_limits<size_t>::max() &&
         subResponseCodeIndex != std::numeric_limits<size_t>::max())
     {
-        return finalCodeIndex <= subResponseCodeIndex ? finalCode
-                                                      : subResponseCode;
+        return finalCodeIndex <= subResponseCodeIndex
+                   ? finalCode
+                   : subResponseCode;
     }
     if (subResponseCode == 500 || finalCode == 500)
     {
@@ -893,10 +893,10 @@ class MultiAsyncResp : public std::enable_shared_from_this<MultiAsyncResp>
     }
 
   private:
-    static void
-        placeResultStatic(const std::shared_ptr<MultiAsyncResp>& multi,
-                          const nlohmann::json::json_pointer& locationToPlace,
-                          crow::Response& res)
+    static void placeResultStatic(
+        const std::shared_ptr<MultiAsyncResp>& multi,
+        const nlohmann::json::json_pointer& locationToPlace,
+        crow::Response& res)
     {
         multi->placeResult(locationToPlace, res);
     }
@@ -1022,11 +1022,10 @@ inline void processSelect(crow::Response& intermediateResponse,
     recursiveSelect(intermediateResponse.jsonValue, trieRoot);
 }
 
-inline void
-    processAllParams(crow::App& app, const Query& query, const Query& delegated,
-                     std::function<void(crow::Response&)>& completionHandler,
-                     crow::Response& intermediateResponse,
-                     const crow::Request& req)
+inline void processAllParams(
+    crow::App& app, const Query& query, const Query& delegated,
+    std::function<void(crow::Response&)>& completionHandler,
+    crow::Response& intermediateResponse, const crow::Request& req)
 {
     if (!completionHandler)
     {
@@ -1065,10 +1064,10 @@ inline void
         multi->startQuery(query, delegated);
         return;
     }
-    //Commented below if Condition due to rep Crash
+    // Commented below if Condition due to rep Crash
     if (query.filter)
     {
-     applyFilterToCollection(intermediateResponse.jsonValue, *query.filter);
+        applyFilterToCollection(intermediateResponse.jsonValue, *query.filter);
     }
 
     // According to Redfish Spec Section 7.3.1, $select is the last parameter to

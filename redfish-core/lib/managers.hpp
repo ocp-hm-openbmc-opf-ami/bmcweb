@@ -6,11 +6,11 @@
 #include "bmcweb_config.h"
 
 #include "app.hpp"
-#include "managers_header.hpp"
 #include "dbus_utility.hpp"
 #include "generated/enums/action_info.hpp"
 #include "generated/enums/manager.hpp"
 #include "generated/enums/resource.hpp"
+#include "managers_header.hpp"
 #include "query.hpp"
 #include "redfish_util.hpp"
 #include "registries/privilege_registry.hpp"
@@ -24,10 +24,10 @@
 #include <boost/date_time.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/url/format.hpp>
+#include <event_service_manager.hpp>
 #include <sdbusplus/asio/property.hpp>
 #include <sdbusplus/unpack_properties.hpp>
 #include <task.hpp>
-#include <event_service_manager.hpp>
 
 #include <algorithm>
 #include <array>
@@ -43,8 +43,7 @@
 namespace redfish
 {
 
-inline std::string
-    getBMCUpdateServiceName()
+inline std::string getBMCUpdateServiceName()
 {
     if constexpr (BMCWEB_REDFISH_UPDATESERVICE_USE_DBUS)
     {
@@ -52,8 +51,7 @@ inline std::string
     }
     return "xyz.openbmc_project.Software.BMC.Updater";
 }
-inline std::string
-    getBMCUpdateServicePath()
+inline std::string getBMCUpdateServicePath()
 {
     if constexpr (BMCWEB_REDFISH_UPDATESERVICE_USE_DBUS)
     {
@@ -84,16 +82,17 @@ using managerPropertyValue = std::variant<uint8_t, uint16_t, std::string,
  * @param[in] asyncResp - Shared pointer for completing asynchronous call
  * @param[in] payload - Double pointer to get the task Data
  */
-inline void createTimeOutTask(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                       task::Payload&& payload, uint64_t timeDiff)
+inline void createTimeOutTask(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    task::Payload&& payload, uint64_t timeDiff)
 {
     BMCWEB_LOG_ERROR("do Task creartion");
     sdbusplus::message::object_path objPath;
     const std::uint64_t* timeOutValue = nullptr;
 
     std::shared_ptr<task::TaskData> task = task::TaskData::createTask(
-	[&timeOutValue](boost::system::error_code ec, sdbusplus::message_t& msg,
-           const std::shared_ptr<task::TaskData>& taskData) {
+        [&timeOutValue](boost::system::error_code ec, sdbusplus::message_t& msg,
+                        const std::shared_ptr<task::TaskData>& taskData) {
             if (ec)
             {
                 taskData->messages.emplace_back(messages::internalError());
@@ -113,10 +112,10 @@ inline void createTimeOutTask(const std::shared_ptr<bmcweb::AsyncResp>& asyncRes
                 {
                     if (property.first == "TimeOut")
                     {
-                        redfish::taskservice::setTaskState("Completed", 
-                                        static_cast<size_t>( std::stoi(index)));
+                        redfish::taskservice::setTaskState(
+                            "Completed", static_cast<size_t>(std::stoi(index)));
                         taskData->messages.emplace_back(
-                                        messages::taskCompletedOK(index));
+                            messages::taskCompletedOK(index));
                         taskData->state = "Completed";
                         taskData->timer.cancel();
                         syslog(LOG_INFO, "BMC Reboot Task Completed\r\n");
@@ -124,17 +123,18 @@ inline void createTimeOutTask(const std::shared_ptr<bmcweb::AsyncResp>& asyncRes
                     }
                     else
                     {
-                        redfish::taskservice::setTaskState("Pending", 
-                                    static_cast<size_t>( std::stoi(index)));
+                        redfish::taskservice::setTaskState(
+                            "Pending", static_cast<size_t>(std::stoi(index)));
                         taskData->state = "Pending";
-                        taskData->messages.emplace_back(messages::taskPaused(index));
+                        taskData->messages.emplace_back(
+                            messages::taskPaused(index));
                         syslog(LOG_INFO, "BMC Reboot Task Pending\r\n");
-                        return !task::completed;             
+                        return !task::completed;
                     }
                 }
-		        /*if (timeOutValue != nullptr && *timeOutValue != 0)
+                /*if (timeOutValue != nullptr && *timeOutValue != 0)
                 {
-                        redfish::taskservice::setTaskState("Pending", 
+                        redfish::taskservice::setTaskState("Pending",
                                     static_cast<size_t>( std::stoi(index)));
                         taskData->state = "Pending";
                         taskData->messages.emplace_back(messages::taskPaused(index));
@@ -176,8 +176,7 @@ inline const managerPropertyValue getProperty(
     return value;
 }
 
-void doBMCGracefulRestart(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+void doBMCGracefulRestart(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     const char* processName = "xyz.openbmc_project.State.BMC";
     const char* objectPath = "/xyz/openbmc_project/state/bmc0";
@@ -203,8 +202,8 @@ void doBMCGracefulRestart(
         interfaceName, destProperty, dbusPropertyValue);
 }
 
-inline void
-    doBMCForceRestart(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void doBMCForceRestart(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     const char* processName = "xyz.openbmc_project.State.BMC";
     const char* objectPath = "/xyz/openbmc_project/state/bmc0";
@@ -235,9 +234,8 @@ inline void
  * @param[in] asyncResp - Shared pointer for completing asynchronous calls
  * @param[in] resetType - string for completing reboot*/
 
-inline void
-    resetOperation(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   const std::string& resetType)
+inline void resetOperation(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                           const std::string& resetType)
 {
     if (resetType == "GracefulRestart")
     {
@@ -392,7 +390,7 @@ inline void requestRoutesManagerResetAction(App& app)
                  resetType == "ForceRestart") &&
                 !operationApplyTime && !maintenanceWindowStartTime)
             {
-		setTimer(asyncResp, 0);
+                setTimer(asyncResp, 0);
                 resetOperation(asyncResp, resetType);
                 messages::success(asyncResp->res);
                 return;
@@ -406,10 +404,10 @@ inline void requestRoutesManagerResetAction(App& app)
                     resetOperation(asyncResp, resetType);
                     createTimeOutTask(asyncResp, std::move(payload), 1);
                     std::string index = asyncResp->res.jsonValue["Id"];
-                    redfish::taskservice::setTaskState("Completed", 
-                                    static_cast<size_t>(std::stoi(index)));
+                    redfish::taskservice::setTaskState(
+                        "Completed", static_cast<size_t>(std::stoi(index)));
                     syslog(LOG_INFO, "BMC Immediate Reboot Task Completed\r\n");
-                    
+
                     return;
                 }
 
@@ -469,8 +467,8 @@ inline void requestRoutesManagerResetAction(App& app)
                         differenceTime(posixTime_1, redfishDateTimeOffset);
 
                     setTimer(asyncResp, timeOut);
-	            createTimeOutTask(asyncResp, std::move(payload),timeOut);
-		    resetOperation(asyncResp, resetType);
+                    createTimeOutTask(asyncResp, std::move(payload), timeOut);
+                    resetOperation(asyncResp, resetType);
                     return;
                 }
 
@@ -503,10 +501,13 @@ inline void handleFactoryDefaultGet(
         return;
     }
 
-    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("AMIResetToDefaults");
-    asyncResp->res.jsonValue["@odata.id"] = boost::urls::format("/redfish/v1/Managers/{}/Oem/Ami/ResetToDefaults",BMCWEB_REDFISH_MANAGER_URI_NAME);
-    asyncResp->res.jsonValue["Name"]="AMI ResetToDefaults";
-    asyncResp->res.jsonValue["Id"]="AMIResetToDefaults";
+    asyncResp->res.jsonValue["@odata.type"] =
+        json_util::odataType("AMIResetToDefaults");
+    asyncResp->res.jsonValue["@odata.id"] =
+        boost::urls::format("/redfish/v1/Managers/{}/Oem/Ami/ResetToDefaults",
+                            BMCWEB_REDFISH_MANAGER_URI_NAME);
+    asyncResp->res.jsonValue["Name"] = "AMI ResetToDefaults";
+    asyncResp->res.jsonValue["Id"] = "AMIResetToDefaults";
     redfish::getPreserveConfig(asyncResp, "Managers");
 }
 inline void requestRoutesManagerResetToDefaults(App& app)
@@ -523,7 +524,8 @@ inline void requestRoutesManagerResetToDefaults(App& app)
      * OpenBMC only supports ResetToDefaultsType "ResetAll".
      */
 
-    BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/Actions/Manager.ResetToDefaults/")
+    BMCWEB_ROUTE(app,
+                 "/redfish/v1/Managers/<str>/Actions/Manager.ResetToDefaults/")
         .privileges(redfish::privileges::postManager)
         .methods(boost::beast::http::verb::post)(
             [&app](const crow::Request& req,
@@ -541,20 +543,17 @@ inline void requestRoutesManagerResetToDefaults(App& app)
                 }
                 std::string resetType;
 
-                if (!json_util::readJsonAction(
-                    req, asyncResp->res,
-                    "ResetType", resetType
-                    ))
+                if (!json_util::readJsonAction(req, asyncResp->res, "ResetType",
+                                               resetType))
                 {
                     return;
                 }
 
-                if(resetType != "ResetAll")
+                if (resetType != "ResetAll")
                 {
-                    messages::actionParameterNotSupported(asyncResp->res, resetType,
-                                              "ResetType");
+                    messages::actionParameterNotSupported(
+                        asyncResp->res, resetType, "ResetType");
                     return;
-
                 }
                 for (const std::shared_ptr<task::TaskData>& task : task::tasks)
                 {
@@ -594,8 +593,7 @@ inline void requestRoutesManagerResetToDefaults(App& app)
  * ManagerResetActionInfo derived class for delivering Manager
  * ResetType AllowableValues using ResetInfo schema.
  */
-inline void
-    requestRoutesManagerResetActionInfo(App& app)
+inline void requestRoutesManagerResetActionInfo(App& app)
 {
     /**
      * Functions triggers appropriate requests on DBus
@@ -619,7 +617,8 @@ inline void
                     return;
                 }
 
-                asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("ActionInfo");
+                asyncResp->res.jsonValue["@odata.type"] =
+                    json_util::odataType("ActionInfo");
                 asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
                     "/redfish/v1/Managers/{}/ResetActionInfo",
                     BMCWEB_REDFISH_MANAGER_URI_NAME);
@@ -658,11 +657,13 @@ inline void
                     return;
                 }
 
-                asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("ActionInfo");
+                asyncResp->res.jsonValue["@odata.type"] =
+                    json_util::odataType("ActionInfo");
                 asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
                     "/redfish/v1/Managers/{}/ResetToDefaultsActionInfo",
                     BMCWEB_REDFISH_MANAGER_URI_NAME);
-                asyncResp->res.jsonValue["Name"] = "ResetToDefaults Action Info";
+                asyncResp->res.jsonValue["Name"] =
+                    "ResetToDefaults Action Info";
                 asyncResp->res.jsonValue["Id"] = "ResetToDefaultsActionInfo";
                 nlohmann::json::object_t parameter;
                 parameter["Name"] = "ResetType";
@@ -717,19 +718,22 @@ inline void asyncPopulatePid(
             nlohmann::json& configRoot =
                 asyncResp->res.jsonValue["Oem"]["OpenBmc"]["Fan"];
             nlohmann::json& fans = configRoot["FanControllers"];
-            fans["@odata.type"] = json_util::odataType("OpenBMCManager", "Manager", "FanControllers");
+            fans["@odata.type"] = json_util::odataType(
+                "OpenBMCManager", "Manager", "FanControllers");
             fans["@odata.id"] = boost::urls::format(
                 "/redfish/v1/Managers/{}#/Oem/OpenBmc/Fan/FanControllers",
                 BMCWEB_REDFISH_MANAGER_URI_NAME);
 
             nlohmann::json& pids = configRoot["PidControllers"];
-            pids["@odata.type"] = json_util::odataType("OpenBMCManager", "Manager", "PidControllers");
+            pids["@odata.type"] = json_util::odataType(
+                "OpenBMCManager", "Manager", "PidControllers");
             pids["@odata.id"] = boost::urls::format(
                 "/redfish/v1/Managers/{}#/Oem/OpenBmc/Fan/PidControllers",
                 BMCWEB_REDFISH_MANAGER_URI_NAME);
 
             nlohmann::json& stepwise = configRoot["StepwiseControllers"];
-            stepwise["@odata.type"] = json_util::odataType("OpenBMCManager", "Manager", "StepwiseControllers");
+            stepwise["@odata.type"] = json_util::odataType(
+                "OpenBMCManager", "Manager", "StepwiseControllers");
             stepwise["@odata.id"] = boost::urls::format(
                 "/redfish/v1/Managers/{}#/Oem/OpenBmc/Fan/StepwiseControllers",
                 BMCWEB_REDFISH_MANAGER_URI_NAME);
@@ -738,11 +742,13 @@ inline void asyncPopulatePid(
             zones["@odata.id"] = boost::urls::format(
                 "/redfish/v1/Managers/{}#/Oem/OpenBmc/Fan/FanZones",
                 BMCWEB_REDFISH_MANAGER_URI_NAME);
-            zones["@odata.type"] = json_util::odataType("OpenBMCManager", "Manager", "FanZones");
+            zones["@odata.type"] =
+                json_util::odataType("OpenBMCManager", "Manager", "FanZones");
             configRoot["@odata.id"] =
                 boost::urls::format("/redfish/v1/Managers/{}#/Oem/OpenBmc/Fan",
                                     BMCWEB_REDFISH_MANAGER_URI_NAME);
-            configRoot["@odata.type"] = json_util::odataType("OpenBMCManager", "Manager", "Fan");
+            configRoot["@odata.type"] =
+                json_util::odataType("OpenBMCManager", "Manager", "Fan");
             configRoot["Profile@Redfish.AllowableValues"] = supportedProfiles;
 
             if (!currentProfile.empty())
@@ -830,37 +836,55 @@ inline void asyncPopulatePid(
                         nlohmann::json& zone = zones[name];
                         if (name.find("PSU") == std::string::npos)
                         {
-                            constexpr std::array<std::string_view, 1> interfaces{
-                                "xyz.openbmc_project.Inventory.Item.Board"};
+                            constexpr std::array<std::string_view, 1>
+                                interfaces{
+                                    "xyz.openbmc_project.Inventory.Item.Board"};
                             dbus::utility::getSubTreePaths(
                                 "/xyz/openbmc_project/inventory", 0, interfaces,
-                                [asyncResp, name](const boost::system::error_code& ec,  // Capture name instead
-                            const dbus::utility::MapperGetSubTreePathsResponse& chassisList) {
-                            if (ec)
-                            {
-                                BMCWEB_LOG_ERROR("Chassis Name not found - {}", ec);
-                                return;
-                            }
-                            for (const std::string& chassisPath : chassisList)
-                            {
-                                if(chassisPath.find_last_of('/') != std::string::npos)
-                                {
-                                    std::string chassisName = chassisPath.substr(chassisPath.find_last_of('/') + 1);
-                                    if (chassisName != "Cpld")
+                                [asyncResp,
+                                 name](const boost::system::error_code&
+                                           ec, // Capture name instead
+                                       const dbus::utility::
+                                           MapperGetSubTreePathsResponse&
+                                               chassisList) {
+                                    if (ec)
                                     {
-                                        asyncResp->res.jsonValue["Oem"]["OpenBmc"]["Fan"]["FanZones"][name]["Chassis"]["@odata.id"] =
-                                            boost::urls::format("/redfish/v1/Chassis/{}", chassisName);
+                                        BMCWEB_LOG_ERROR(
+                                            "Chassis Name not found - {}", ec);
                                         return;
                                     }
-                                }
-                            }
-                            });
+                                    for (const std::string& chassisPath :
+                                         chassisList)
+                                    {
+                                        if (chassisPath.find_last_of('/') !=
+                                            std::string::npos)
+                                        {
+                                            std::string chassisName =
+                                                chassisPath.substr(
+                                                    chassisPath.find_last_of(
+                                                        '/') +
+                                                    1);
+                                            if (chassisName != "Cpld")
+                                            {
+                                                asyncResp->res.jsonValue
+                                                    ["Oem"]["OpenBmc"]["Fan"]
+                                                    ["FanZones"][name]
+                                                    ["Chassis"]["@odata.id"] =
+                                                    boost::urls::format(
+                                                        "/redfish/v1/Chassis/{}",
+                                                        chassisName);
+                                                return;
+                                            }
+                                        }
+                                    }
+                                });
                         }
                         url.set_fragment(
                             ("/Oem/OpenBmc/Fan/FanZones"_json_pointer / name)
                                 .to_string());
                         zone["@odata.id"] = std::move(url);
-                        zone["@odata.type"] = json_util::odataType("OpenBMCManager", "FanZone");
+                        zone["@odata.type"] =
+                            json_util::odataType("OpenBMCManager", "FanZone");
                         config = &zone;
                     }
 
@@ -880,7 +904,8 @@ inline void asyncPopulatePid(
                              name)
                                 .to_string());
                         controller["@odata.id"] = std::move(url);
-                        controller["@odata.type"] = json_util::odataType("OpenBMCManager", "Manager", "StepwiseController");
+                        controller["@odata.type"] = json_util::odataType(
+                            "OpenBMCManager", "Manager", "StepwiseController");
 
                         controller["Direction"] = *classPtr;
                     }
@@ -905,7 +930,8 @@ inline void asyncPopulatePid(
                                  name)
                                     .to_string());
                             element["@odata.id"] = std::move(url);
-                            element["@odata.type"] = json_util::odataType("OpenBMCManager", "Manager", "FanController");
+                            element["@odata.type"] = json_util::odataType(
+                                "OpenBMCManager", "Manager", "FanController");
                         }
                         else
                         {
@@ -914,7 +940,8 @@ inline void asyncPopulatePid(
                                  name)
                                     .to_string());
                             element["@odata.id"] = std::move(url);
-                            element["@odata.type"] = json_util::odataType("OpenBMCManager", "Manager", "PidController");
+                            element["@odata.type"] = json_util::odataType(
+                                "OpenBMCManager", "Manager", "PidController");
                         }
                     }
                     else
@@ -1020,46 +1047,51 @@ inline void asyncPopulatePid(
                         {
 #ifndef ONETREE_AMD_CHALUPA
                             {
-                            if (propertyPair.first == "Zones")
-                            {
-                                const std::vector<std::string>* inputs =
-                                    std::get_if<std::vector<std::string>>(
-                                        &propertyPair.second);
+                                if (propertyPair.first == "Zones")
+                                {
+                                    const std::vector<std::string>* inputs =
+                                        std::get_if<std::vector<std::string>>(
+                                            &propertyPair.second);
 
-                                if (inputs == nullptr)
-                                {
-                                    BMCWEB_LOG_ERROR("Zones Pid Field Illegal");
-                                    messages::internalError(asyncResp->res);
-                                    return;
+                                    if (inputs == nullptr)
+                                    {
+                                        BMCWEB_LOG_ERROR(
+                                            "Zones Pid Field Illegal");
+                                        messages::internalError(asyncResp->res);
+                                        return;
+                                    }
+                                    auto& data = (*config)[propertyPair.first];
+                                    data = nlohmann::json::array();
+                                    for (std::string itemCopy : *inputs)
+                                    {
+                                        dbus::utility::escapePathForDbus(
+                                            itemCopy);
+                                        nlohmann::json::object_t input;
+                                        boost::urls::url managerUrl =
+                                            boost::urls::format(
+                                                "/redfish/v1/Managers/{}#{}",
+                                                BMCWEB_REDFISH_MANAGER_URI_NAME,
+                                                ("/Oem/OpenBmc/Fan/FanZones"_json_pointer /
+                                                 itemCopy)
+                                                    .to_string());
+                                        input["@odata.id"] =
+                                            std::move(managerUrl);
+                                        input["@odata.type"] =
+                                            json_util::odataType(
+                                                "OpenBMCManager", "FanZone");
+                                        data.emplace_back(std::move(input));
+                                    }
                                 }
-                                auto& data = (*config)[propertyPair.first];
-                                data = nlohmann::json::array();
-                                for (std::string itemCopy : *inputs)
-                                {
-                                    dbus::utility::escapePathForDbus(itemCopy);
-                                    nlohmann::json::object_t input;
-                                    boost::urls::url managerUrl =
-                                        boost::urls::format(
-                                            "/redfish/v1/Managers/{}#{}",
-                                            BMCWEB_REDFISH_MANAGER_URI_NAME,
-                                            ("/Oem/OpenBmc/Fan/FanZones"_json_pointer /
-                                             itemCopy)
-                                                .to_string());
-                                    input["@odata.id"] = std::move(managerUrl);
-                                    input["@odata.type"] = json_util::odataType("OpenBMCManager", "FanZone");
-                                    data.emplace_back(std::move(input));
-                                }
+                                // todo(james): may never happen, but this
+                                // assumes configuration data referenced in the
+                                // PID config is provided by the same daemon, we
+                                // could add another loop to cover all cases,
+                                // but I'm okay kicking this can down the road a
+                                // bit
                             }
-                            // todo(james): may never happen, but this
-                            // assumes configuration data referenced in the
-                            // PID config is provided by the same daemon, we
-                            // could add another loop to cover all cases,
-                            // but I'm okay kicking this can down the road a
-                            // bit
-			    }
-#endif 
-			    if (propertyPair.first == "Inputs" ||
-                                     propertyPair.first == "Outputs")
+#endif
+                            if (propertyPair.first == "Inputs" ||
+                                propertyPair.first == "Outputs")
                             {
                                 auto& data = (*config)[propertyPair.first];
                                 const std::vector<std::string>* inputs =
@@ -1159,10 +1191,10 @@ enum class CreatePIDRet
     patch
 };
 
-inline bool
-    getZonesFromJsonReq(const std::shared_ptr<bmcweb::AsyncResp>& response,
-                        std::vector<nlohmann::json::object_t>& config,
-                        std::vector<std::string>& zones)
+inline bool getZonesFromJsonReq(
+    const std::shared_ptr<bmcweb::AsyncResp>& response,
+    std::vector<nlohmann::json::object_t>& config,
+    std::vector<std::string>& zones)
 {
     if (config.empty())
     {
@@ -1198,9 +1230,9 @@ inline bool
     return true;
 }
 
-inline const dbus::utility::ManagedObjectType::value_type*
-    findChassis(const dbus::utility::ManagedObjectType& managedObj,
-                std::string_view value, std::string& chassis)
+inline const dbus::utility::ManagedObjectType::value_type* findChassis(
+    const dbus::utility::ManagedObjectType& managedObj, std::string_view value,
+    std::string& chassis)
 {
     BMCWEB_LOG_DEBUG("Find Chassis: {}", value);
 
@@ -1230,14 +1262,12 @@ inline const dbus::utility::ManagedObjectType::value_type*
     return nullptr;
 }
 
-inline CreatePIDRet
-    createPidInterface(const std::shared_ptr<bmcweb::AsyncResp>& response,
-                       const std::string& type, std::string_view name,
-                       nlohmann::json& jsonValue, const std::string& path,
-                       const dbus::utility::ManagedObjectType& managedObj,
-                       bool createNewObject,
-                       dbus::utility::DBusPropertiesMap& output,
-                       std::string& chassis, const std::string& profile)
+inline CreatePIDRet createPidInterface(
+    const std::shared_ptr<bmcweb::AsyncResp>& response, const std::string& type,
+    std::string_view name, nlohmann::json& jsonValue, const std::string& path,
+    const dbus::utility::ManagedObjectType& managedObj, bool createNewObject,
+    dbus::utility::DBusPropertiesMap& output, std::string& chassis,
+    const std::string& profile)
 {
     // common deleter
     if (jsonValue == nullptr)
@@ -1371,24 +1401,24 @@ inline CreatePIDRet
         std::map<std::string, std::optional<double>> doubles;
         std::optional<std::string> setpointOffset;
         if (!redfish::json_util::readJson(
-                jsonValue, response->res, //
-                "Inputs", inputs, //
-                "Outputs", outputs, //
-                "Zones", zones, //
-                "FFGainCoefficient", doubles["FFGainCoefficient"], //
-                "FFOffCoefficient", doubles["FFOffCoefficient"], //
-                "ICoefficient", doubles["ICoefficient"], //
-                "ILimitMax", doubles["ILimitMax"], //
-                "ILimitMin", doubles["ILimitMin"], //
-                "OutLimitMax", doubles["OutLimitMax"], //
-                "OutLimitMin", doubles["OutLimitMin"], //
-                "PCoefficient", doubles["PCoefficient"], //
-                "SetPoint", doubles["SetPoint"], //
-                "SetPointOffset", setpointOffset, //
-                "SlewNeg", doubles["SlewNeg"], //
-                "SlewPos", doubles["SlewPos"], //
+                jsonValue, response->res,                            //
+                "Inputs", inputs,                                    //
+                "Outputs", outputs,                                  //
+                "Zones", zones,                                      //
+                "FFGainCoefficient", doubles["FFGainCoefficient"],   //
+                "FFOffCoefficient", doubles["FFOffCoefficient"],     //
+                "ICoefficient", doubles["ICoefficient"],             //
+                "ILimitMax", doubles["ILimitMax"],                   //
+                "ILimitMin", doubles["ILimitMin"],                   //
+                "OutLimitMax", doubles["OutLimitMax"],               //
+                "OutLimitMin", doubles["OutLimitMin"],               //
+                "PCoefficient", doubles["PCoefficient"],             //
+                "SetPoint", doubles["SetPoint"],                     //
+                "SetPointOffset", setpointOffset,                    //
+                "SlewNeg", doubles["SlewNeg"],                       //
+                "SlewPos", doubles["SlewPos"],                       //
                 "PositiveHysteresis", doubles["PositiveHysteresis"], //
-                "NegativeHysteresis", doubles["NegativeHysteresis"] //
+                "NegativeHysteresis", doubles["NegativeHysteresis"]  //
                 ))
         {
             return CreatePIDRet::fail;
@@ -1782,10 +1812,8 @@ struct GetPIDValues : std::enable_shared_from_this<GetPIDValues>
 
     GetPIDValues(const GetPIDValues&) = delete;
     GetPIDValues(GetPIDValues&&) = delete;
-    GetPIDValues&
-        operator=(const GetPIDValues&) = delete;
-    GetPIDValues&
-        operator=(GetPIDValues&&) = delete;
+    GetPIDValues& operator=(const GetPIDValues&) = delete;
+    GetPIDValues& operator=(GetPIDValues&&) = delete;
 
     std::shared_ptr<bmcweb::AsyncResp> asyncResp;
     CompletionValues complete;
@@ -1799,20 +1827,16 @@ struct SetPIDValues : std::enable_shared_from_this<SetPIDValues>
             std::pair<std::string, std::optional<nlohmann::json::object_t>>>&&
             configurationsIn,
         std::optional<std::string>& profileIn) :
-        asyncResp(asyncRespIn),
-        configuration(std::move(configurationsIn)),
+        asyncResp(asyncRespIn), configuration(std::move(configurationsIn)),
         profile(std::move(profileIn))
     {}
 
     SetPIDValues(const SetPIDValues&) = delete;
     SetPIDValues(SetPIDValues&&) = delete;
-    SetPIDValues&
-        operator=(const SetPIDValues&) = delete;
-    SetPIDValues&
-        operator=(SetPIDValues&&) = delete;
+    SetPIDValues& operator=(const SetPIDValues&) = delete;
+    SetPIDValues& operator=(SetPIDValues&&) = delete;
 
-    void
-        run()
+    void run()
     {
         if (asyncResp->res.result() != boost::beast::http::status::ok)
         {
@@ -1916,8 +1940,7 @@ struct SetPIDValues : std::enable_shared_from_this<SetPIDValues>
                     });
             });
     }
-    void
-        pidSetDone()
+    void pidSetDone()
     {
         if (asyncResp->res.result() != boost::beast::http::status::ok)
         {
@@ -2159,9 +2182,9 @@ struct SetPIDValues : std::enable_shared_from_this<SetPIDValues>
  * @param[in] path - object path
  * @return none
  */
-inline void
-    getLocation(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                const std::string& connectionName, const std::string& path)
+inline void getLocation(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                        const std::string& connectionName,
+                        const std::string& path)
 {
     BMCWEB_LOG_DEBUG("Get BMC manager Location data.");
 
@@ -2184,9 +2207,9 @@ inline void
         });
 }
 
-inline void
-    getCurrentDateTimeValue(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                            const std::string& timeZoneName)
+inline void getCurrentDateTimeValue(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& timeZoneName)
 {
     BMCWEB_LOG_DEBUG("Getting Manager Date Time");
     dbus::utility::getProperty<uint64_t>(
@@ -2217,8 +2240,8 @@ inline void
 }
 
 // avoid name collision systems.hpp
-inline void
-    managerGetLastResetTime(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void managerGetLastResetTime(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     BMCWEB_LOG_DEBUG("Getting Manager Last Reset Time");
 
@@ -2251,9 +2274,9 @@ inline void
  *
  * @return void
  */
-inline void
-    setActiveFirmwareImage(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                           const std::string& runningFirmwareTarget)
+inline void setActiveFirmwareImage(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& runningFirmwareTarget)
 {
     // Get the Id from /redfish/v1/UpdateService/FirmwareInventory/<Id>
     std::string::size_type idPos = runningFirmwareTarget.rfind('/');
@@ -2351,10 +2374,9 @@ inline void
         });
 }
 
-inline void
-    afterSetDateTime(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                     const boost::system::error_code& ec,
-                     const sdbusplus::message_t& msg)
+inline void afterSetDateTime(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec, const sdbusplus::message_t& msg)
 {
     if (ec)
     {
@@ -2380,33 +2402,34 @@ inline void
     asyncResp->res.result(boost::beast::http::status::no_content);
 }
 
-inline void
-    setTimeZoneName(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                    const std::string& timeZoneName)
+inline void setTimeZoneName(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                            const std::string& timeZoneName)
 {
     BMCWEB_LOG_DEBUG("Set Time Zone Name: {}", timeZoneName);
 
     // Validate timezone before attempting to set it
     try
     {
-        const std::chrono::time_zone* tz = std::chrono::locate_zone(timeZoneName);
+        const std::chrono::time_zone* tz =
+            std::chrono::locate_zone(timeZoneName);
         if (tz == nullptr)
         {
             BMCWEB_LOG_ERROR("Invalid timezone: {}", timeZoneName);
             messages::propertyValueFormatError(asyncResp->res, timeZoneName,
-                                             "TimeZoneName");
+                                               "TimeZoneName");
             return;
         }
     }
     catch (const std::runtime_error& e)
     {
-        BMCWEB_LOG_ERROR("Invalid timezone: {}, error: {}", timeZoneName, e.what());
+        BMCWEB_LOG_ERROR("Invalid timezone: {}, error: {}", timeZoneName,
+                         e.what());
         messages::propertyValueFormatError(asyncResp->res, timeZoneName,
-                                         "TimeZoneName");
+                                           "TimeZoneName");
         return;
     }
 
-    crow::utility::saveTimeZone(crow::utility::localTimeZone,timeZoneName);
+    crow::utility::saveTimeZone(crow::utility::localTimeZone, timeZoneName);
 
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code& ec,
@@ -2417,9 +2440,8 @@ inline void
         "org.freedesktop.timedate1", "SetTimezone", timeZoneName, true);
 }
 
-inline void
-    setDateTime(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                const std::string& datetime)
+inline void setDateTime(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                        const std::string& datetime)
 {
     BMCWEB_LOG_DEBUG("Set date time: {}", datetime);
 
@@ -2472,8 +2494,8 @@ inline void
         });
 }
 
-inline void
-    checkForQuiesced(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void checkForQuiesced(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     dbus::utility::getProperty<std::string>(
         "org.freedesktop.systemd1",
@@ -2498,11 +2520,10 @@ inline void
         });
 }
 
-inline void
-    handleManagersInstanceGet(
-        App& app, const crow::Request& req,
-        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-        const std::string& managerId)
+inline void handleManagersInstanceGet(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& managerId)
 {
     asyncResp->res.clearHeader(boost::beast::http::field::allow);
 
@@ -2545,7 +2566,7 @@ inline void
     asyncResp->res.jsonValue["SerialInterfaces"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Managers/{}/SerialInterfaces",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
-    #endif
+#endif
     asyncResp->res.jsonValue["EthernetInterfaces"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Managers/{}/EthernetInterfaces",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
@@ -2553,9 +2574,9 @@ inline void
      !defined(ONETREE_ASPEED_SDK_LAYER) && !defined(ONETREE_RM) &&             \
      !defined(ONETREE_PSM))
     {
-    asyncResp->res.jsonValue["SecurityPolicy"]["@odata.id"] =
-       	boost::urls::format("/redfish/v1/Managers/{}/SecurityPolicy",
-               	            BMCWEB_REDFISH_MANAGER_URI_NAME);
+        asyncResp->res.jsonValue["SecurityPolicy"]["@odata.id"] =
+            boost::urls::format("/redfish/v1/Managers/{}/SecurityPolicy",
+                                BMCWEB_REDFISH_MANAGER_URI_NAME);
     }
 #endif
 #if (!defined(ONETREE_RM)) && (!defined(ONETREE_PSM))
@@ -2572,11 +2593,11 @@ inline void
     nlohmann::json& oemIntel = oem["Intel"];
 #ifdef ONETREE_NVIDIASIPACK
     nlohmann::json& oemResetToDefaults =
-	    asyncResp->res.jsonValue["Actions"]["Oem"]
-	    ["#NvidiaManager.ResetToDefaults"];
-    oemResetToDefaults["target"] =
-	    boost::urls::format("/redfish/v1/Managers/{}/Actions/Oem/NvidiaManager.ResetToDefaults",
-	     BMCWEB_REDFISH_MANAGER_URI_NAME);
+        asyncResp->res
+            .jsonValue["Actions"]["Oem"]["#NvidiaManager.ResetToDefaults"];
+    oemResetToDefaults["target"] = boost::urls::format(
+        "/redfish/v1/Managers/{}/Actions/Oem/NvidiaManager.ResetToDefaults",
+        BMCWEB_REDFISH_MANAGER_URI_NAME);
 #endif
     oemIntel["@odata.type"] = json_util::odataType("OpenBMCManager", "Intel");
     oemIntel["@odata.id"] = "/redfish/v1/Managers/bmc#/Oem/Intel";
@@ -2586,24 +2607,25 @@ inline void
 #endif
     oem["@odata.id"] = boost::urls::format("/redfish/v1/Managers/{}#/Oem",
                                            BMCWEB_REDFISH_MANAGER_URI_NAME);
-    oemOpenbmc["@odata.type"] = json_util::odataType("OpenBMCManager", "Manager");
+    oemOpenbmc["@odata.type"] =
+        json_util::odataType("OpenBMCManager", "Manager");
     oemOpenbmc["@odata.id"] =
         boost::urls::format("/redfish/v1/Managers/bmc#/Oem#/OpenBmc/",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
 
-    #if (!BMCWEB_ARBEL_NUVOTON_MACRO)
+#if (!BMCWEB_ARBEL_NUVOTON_MACRO)
     nlohmann::json::object_t jpeg;
     jpeg["@odata.id"] =
         boost::urls::format("/redfish/v1/Managers/{}/Oem/OpenBmc/Jpeg",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
     oemOpenbmc["Jpeg"] = std::move(jpeg);
-    #endif
+#endif
     nlohmann::json::object_t certificates;
     certificates["@odata.id"] =
         boost::urls::format("/redfish/v1/Managers/{}/Truststore/Certificates",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
     oemOpenbmc["Certificates"] = std::move(certificates);
-    #endif
+#endif
     // Manager.Reset (an action) can be many values, OpenBMC only
     // supports BMC reboot.
     nlohmann::json& managerReset =
@@ -2620,9 +2642,9 @@ inline void
 #if (!defined(ONETREE_RM)) && (!defined(ONETREE_PSM))
     nlohmann::json& ResetToDefaults =
         asyncResp->res.jsonValue["Actions"]["#Manager.ResetToDefaults"];
-    ResetToDefaults["target"] =
-        boost::urls::format("/redfish/v1/Managers/{}/Actions/Manager.ResetToDefaults",
-                            BMCWEB_REDFISH_MANAGER_URI_NAME);
+    ResetToDefaults["target"] = boost::urls::format(
+        "/redfish/v1/Managers/{}/Actions/Manager.ResetToDefaults",
+        BMCWEB_REDFISH_MANAGER_URI_NAME);
     ResetToDefaults["@Redfish.ActionInfo"] =
         boost::urls::format("/redfish/v1/Managers/{}/ResetActionInfo",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
@@ -2646,10 +2668,10 @@ inline void
             getCurrentDateTimeValue(asyncResp, property);
         });
 #endif
-// TODO (Gunnar): Remove these one day since moved to ComputerSystem
-// Still used by OCP profiles
-// https://github.com/opencomputeproject/OCP-Profiles/issues/23
-// Fill in CommandShell info
+    // TODO (Gunnar): Remove these one day since moved to ComputerSystem
+    // Still used by OCP profiles
+    // https://github.com/opencomputeproject/OCP-Profiles/issues/23
+    // Fill in CommandShell info
 
     asyncResp->res.jsonValue["CommandShell"]["ServiceEnabled"] = true;
     asyncResp->res.jsonValue["CommandShell"]["MaxConcurrentSessions"] = 1;
@@ -2673,7 +2695,7 @@ inline void
 #if (!defined(ONETREE_RM)) && (!defined(ONETREE_PSM))
     sw_util::populateSoftwareInformation(asyncResp, sw_util::bmcPurpose,
                                          "FirmwareVersion", true);
-    #endif
+#endif
     managerGetLastResetTime(asyncResp);
     getSystemLocationIndicatorActive(asyncResp);
 #if (!defined(ONETREE_RM)) && (!defined(ONETREE_PSM))
@@ -2705,7 +2727,7 @@ inline void
             aRsp->res.jsonValue["Links"]["ManagerInChassis"]["@odata.id"] =
                 chassiUrl;
         });
-    #endif
+#endif
     dbus::utility::getProperty<double>(
         "org.freedesktop.systemd1", "/org/freedesktop/systemd1",
         "org.freedesktop.systemd1.Manager", "Progress",
@@ -2838,8 +2860,7 @@ inline void
         });
 }
 
-inline void
-    requestRoutesManager(App& app)
+inline void requestRoutesManager(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/")
         .privileges(redfish::privileges::getManager)
@@ -2854,8 +2875,7 @@ inline void
                            const crow::Request& req,
                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                            const std::string& managerId) {
-	    
-	        asyncResp->res.clearHeader(boost::beast::http::field::allow);
+            asyncResp->res.clearHeader(boost::beast::http::field::allow);
 
             if (!redfish::setUpRedfishRoute(app, req, asyncResp))
             {
@@ -2971,35 +2991,36 @@ inline void
 
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/")
         .privileges(redfish::privileges::getManager)
-        .methods(boost::beast::http::verb::post,boost::beast::http::verb::delete_)(
+        .methods(boost::beast::http::verb::post,
+                 boost::beast::http::verb::delete_)(
             [&app](const crow::Request& req,
-                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                const std::string& managerId)
-            {
-               asyncResp->res.clearHeader(boost::beast::http::field::allow);
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const std::string& managerId) {
+                asyncResp->res.clearHeader(boost::beast::http::field::allow);
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
                     return;
                 }
-                if (!membersResponseGet(asyncResp, managerId, "ManagerCollection"))
+                if (!membersResponseGet(asyncResp, managerId,
+                                        "ManagerCollection"))
                 {
                     return;
                 }
                 if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
                 {
-                    messages::resourceNotFound(asyncResp->res, "Manager", managerId);
+                    messages::resourceNotFound(asyncResp->res, "Manager",
+                                               managerId);
                     return;
                 }
                 asyncResp->res.addHeader("Allow", "GET, PATCH");
                 messages::operationNotAllowed(asyncResp->res);
                 return;
-           });
+            });
 }
 
-inline void
-    handleManagerCollectionGet(
-        App& app, const crow::Request& req,
-        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void handleManagerCollectionGet(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -3025,14 +3046,15 @@ inline void requestRoutesManagerCollection(App& app)
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/")
         .privileges(redfish::privileges::getManagerCollection)
         .methods(boost::beast::http::verb::get)(
-	std::bind_front(handleManagerCollectionGet, std::ref(app)));
+            std::bind_front(handleManagerCollectionGet, std::ref(app)));
 }
 
 // Add function declarations for functions used before they're defined:
 static inline void findSerialDevice(std::vector<std::string>& tokens);
-static inline void getSerialServiceState(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, 
-                                        const std::string& SerialName);
-                                        
+static inline void getSerialServiceState(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& SerialName);
+
 // Add these function declarations near the top of the namespace:
 inline FILE* safe_popen(const char* command, const char* type)
 {
@@ -3048,8 +3070,8 @@ inline int safe_system(const char* command)
 inline bool isSerialDeviceExists(const std::string& serialName)
 {
     std::string devicePath = "/dev/" + serialName;
-    bool deviceExists = std::filesystem::exists(devicePath) && 
-                                  std::filesystem::is_character_file(devicePath);
+    bool deviceExists = std::filesystem::exists(devicePath) &&
+                        std::filesystem::is_character_file(devicePath);
     return deviceExists;
 }
 
@@ -3086,7 +3108,7 @@ void SttyStatusCmd(const string& cmd, string item, bool& result)
         result = false;
         return;
     }
-    result = false;  // Initialize to false
+    result = false; // Initialize to false
     while (!feof(pipe))
     {
         if (fgets(buffer, sizeof(buffer), pipe) != NULL)
@@ -3099,13 +3121,13 @@ void SttyStatusCmd(const string& cmd, string item, bool& result)
                 // Check if the item is negated (preceded by -)
                 if (found > 0 && line[found - 1] == '-')
                 {
-                    result = false;  // Item is disabled
+                    result = false; // Item is disabled
                 }
                 else
                 {
-                    result = true;   // Item is enabled
+                    result = true; // Item is enabled
                 }
-                break;  // Found the item, stop searching
+                break;             // Found the item, stop searching
             }
         }
     }
@@ -3114,45 +3136,49 @@ void SttyStatusCmd(const string& cmd, string item, bool& result)
 
 inline void handleManagerSerialInterfaceGet(
     App& app, const crow::Request& req,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, const std::string& SerialName)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& SerialName)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
     }
-   
-    // FIX: Add proper macro check for IPMI-SOL support
-    #if (!BMCWEB_ARBEL_NUVOTON_MACRO)
+
+// FIX: Add proper macro check for IPMI-SOL support
+#if (!BMCWEB_ARBEL_NUVOTON_MACRO)
     if (SerialName == "IPMI-SOL")
     {
         asyncResp->res.addHeader("Allow", "GET, PATCH");
         dbus::utility::getProperty<uint64_t>(
             consoleDbusService, consoleDbusObject, consoleDbusInterface, "Baud",
             [asyncResp](const boost::system::error_code& ec, uint64_t val) {
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR("Error while getting BitRate");
-                messages::internalError(asyncResp->res);
-                return;
-            }
-            asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("SerialInterface");
-            asyncResp->res.jsonValue["Id"] = "IPMI-SOL";
-            asyncResp->res.jsonValue["Name"] = "Manager Serial Interface";
-            asyncResp->res.jsonValue["Description"] = "Management for Serial Interface";
-            asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
-                "/redfish/v1/Managers/{}/SerialInterfaces/IPMI-SOL",
-                BMCWEB_REDFISH_MANAGER_URI_NAME);
-            asyncResp->res.jsonValue["BitRate"] = std::to_string(val);
-        });
-        return;  // Important: return after handling IPMI-SOL
+                if (ec)
+                {
+                    BMCWEB_LOG_ERROR("Error while getting BitRate");
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+                asyncResp->res.jsonValue["@odata.type"] =
+                    json_util::odataType("SerialInterface");
+                asyncResp->res.jsonValue["Id"] = "IPMI-SOL";
+                asyncResp->res.jsonValue["Name"] = "Manager Serial Interface";
+                asyncResp->res.jsonValue["Description"] =
+                    "Management for Serial Interface";
+                asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
+                    "/redfish/v1/Managers/{}/SerialInterfaces/IPMI-SOL",
+                    BMCWEB_REDFISH_MANAGER_URI_NAME);
+                asyncResp->res.jsonValue["BitRate"] = std::to_string(val);
+            });
+        return; // Important: return after handling IPMI-SOL
     }
-    #endif
-    auto fillSerialResponseCb = [asyncResp, SerialName](const char* resourceName) {
+#endif
+    auto fillSerialResponseCb = [asyncResp,
+                                 SerialName](const char* resourceName) {
         std::vector<std::string> tokens;
-        bool check = false, StopBits = false, HwControl = false, SwControl = false, Parity_enable = false, Parity_Odd = false;
+        bool check = false, StopBits = false, HwControl = false,
+             SwControl = false, Parity_enable = false, Parity_Odd = false;
         std::string BitRate, DataBits;
         findSerialDevice(tokens);
-           
 
         for (auto i : tokens)
         {
@@ -3164,17 +3190,19 @@ inline void handleManagerSerialInterfaceGet(
                 asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
                     "/redfish/v1/Managers/{}/SerialInterfaces/{}",
                     BMCWEB_REDFISH_MANAGER_URI_NAME, SerialName);
-                asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("SerialInterface");
+                asyncResp->res.jsonValue["@odata.type"] =
+                    json_util::odataType("SerialInterface");
                 asyncResp->res.jsonValue["Name"] = "Manager Serial Interface";
-                asyncResp->res.jsonValue["Description"] = "Management for Serial Interface";
+                asyncResp->res.jsonValue["Description"] =
+                    "Management for Serial Interface";
                 asyncResp->res.jsonValue["Id"] = SerialName;
 
                 std::string sttyCmd = "stty -a -F /dev/" + SerialName;
                 SttyStatusCmd(sttyCmd, "cstopb", StopBits);
                 SttyStatusCmd(sttyCmd, "crtscts", HwControl);
                 SttyStatusCmd(sttyCmd, "ixon", SwControl);
-                SttyStatusCmd(sttyCmd, "parenb", Parity_enable);    
-                SttyStatusCmd(sttyCmd, "parodd", Parity_Odd);       
+                SttyStatusCmd(sttyCmd, "parenb", Parity_enable);
+                SttyStatusCmd(sttyCmd, "parodd", Parity_Odd);
                 SttyValueCmd(sttyCmd, "speed ", BitRate);
                 SttyValueCmd(sttyCmd, "cs", DataBits);
                 if (!BitRate.empty())
@@ -3208,7 +3236,7 @@ inline void handleManagerSerialInterfaceGet(
                 {
                     asyncResp->res.jsonValue["FlowControl"] = "None";
                 }
-                
+
                 if (!Parity_enable)
                 {
                     asyncResp->res.jsonValue["Parity"] = "None";
@@ -3221,10 +3249,10 @@ inline void handleManagerSerialInterfaceGet(
                 {
                     asyncResp->res.jsonValue["Parity"] = "Even";
                 }
-                
+
                 if (resourceName != NULL && resourceName[0] != '\0')
                 {
-		            std::string name = std::string(resourceName);
+                    std::string name = std::string(resourceName);
                     std::filesystem::path logDir = "/var/log";
                     for (const std::filesystem::directory_entry& dirEnt :
                          std::filesystem::directory_iterator(logDir))
@@ -3246,8 +3274,8 @@ inline void handleManagerSerialInterfaceGet(
                                 filename + obmcConsoleLogFileRotatedSuffix;
                             std::ifstream logStream(logDir / rotateFileName);
                             std::uintmax_t totalSize = 0;
-                            if (std::filesystem::exists(logDir /
-                                                        rotateFileName))
+                            if (std::filesystem::exists(
+                                    logDir / rotateFileName))
                             {
                                 totalSize += std::filesystem::file_size(
                                     logDir / rotateFileName);
@@ -3267,8 +3295,8 @@ inline void handleManagerSerialInterfaceGet(
                             }
                             console["OutputSize"] = totalSize;
                             std::filesystem::file_time_type ftime =
-                                std::filesystem::last_write_time(logDir /
-                                                                 filename);
+                                std::filesystem::last_write_time(
+                                    logDir / filename);
                             std::time_t cftime =
                                 std::chrono::system_clock::to_time_t(
                                     std::chrono::file_clock::to_sys(ftime));
@@ -3282,19 +3310,21 @@ inline void handleManagerSerialInterfaceGet(
                 break;
             }
         }
-                
+
         if (check == false)
         {
-            // FIX: Check if this is IPMI-SOL on unsupported platforms
-            #if (BMCWEB_ARBEL_NUVOTON_MACRO)
+// FIX: Check if this is IPMI-SOL on unsupported platforms
+#if (BMCWEB_ARBEL_NUVOTON_MACRO)
             if (SerialName == "IPMI-SOL")
             {
-                messages::resourceNotFound(asyncResp->res, "SerialInterface", SerialName);
+                messages::resourceNotFound(asyncResp->res, "SerialInterface",
+                                           SerialName);
                 return;
             }
-            #endif
-            
-            messages::resourceNotFound(asyncResp->res, "SerialInterface", SerialName);
+#endif
+
+            messages::resourceNotFound(asyncResp->res, "SerialInterface",
+                                       SerialName);
             return;
         }
     };
@@ -3305,49 +3335,49 @@ inline void handleManagerSerialInterfaceGet(
         [asyncResp, targetConsoleInterface, fillSerialResponseCb](
             const boost::system::error_code ec,
             const dbus::utility::MapperGetSubTreeResponse& subtree) {
-        if (ec)
-        {
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        if (subtree.empty())
-        {
-            fillSerialResponseCb("");
-        }
-        else
-        {
-            if (subtree.size() > 1)
+            if (ec)
             {
                 messages::internalError(asyncResp->res);
                 return;
             }
+            if (subtree.empty())
+            {
+                fillSerialResponseCb("");
+            }
+            else
+            {
+                if (subtree.size() > 1)
+                {
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
 
-            auto objectPath = subtree[0].first;
-            crow::connections::systemBus->async_method_call(
-                [asyncResp, fillSerialResponseCb](
-                    const boost::system::error_code ec2,
-                    const std::variant<std::string>& variantName) {
-                if (ec2)
-                {
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-		const std::string* foundName = 
-		    std::get_if<std::string>(&(variantName));
-                if (foundName == nullptr)
-                {
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                else
-                {
-                    fillSerialResponseCb(foundName->c_str());
-                }
-                },
-                "xyz.openbmc_project.EntityManager", objectPath.c_str(),
-                "org.freedesktop.DBus.Properties", "Get",
-                targetConsoleInterface.c_str(), "Name");
-        }
+                auto objectPath = subtree[0].first;
+                crow::connections::systemBus->async_method_call(
+                    [asyncResp, fillSerialResponseCb](
+                        const boost::system::error_code ec2,
+                        const std::variant<std::string>& variantName) {
+                        if (ec2)
+                        {
+                            messages::internalError(asyncResp->res);
+                            return;
+                        }
+                        const std::string* foundName =
+                            std::get_if<std::string>(&(variantName));
+                        if (foundName == nullptr)
+                        {
+                            messages::internalError(asyncResp->res);
+                            return;
+                        }
+                        else
+                        {
+                            fillSerialResponseCb(foundName->c_str());
+                        }
+                    },
+                    "xyz.openbmc_project.EntityManager", objectPath.c_str(),
+                    "org.freedesktop.DBus.Properties", "Get",
+                    targetConsoleInterface.c_str(), "Name");
+            }
         },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
@@ -3355,48 +3385,52 @@ inline void handleManagerSerialInterfaceGet(
         std::array<const char*, 1>{targetConsoleInterface.c_str()});
 }
 
-
-static inline void findSerialDevice(std::vector<std::string>&tokens)
+static inline void findSerialDevice(std::vector<std::string>& tokens)
 {
-    // Use the filesystem lib to search for ttyS* at /dev instead of find shellCmd,
-    // to resolve the special character checking failure in safe_popen.
+    // Use the filesystem lib to search for ttyS* at /dev instead of find
+    // shellCmd, to resolve the special character checking failure in
+    // safe_popen.
     std::filesystem::path devDir = "/dev";
     std::regex pattern("^ttyS[0-9]+$"); // Matches "ttyS*"
     for (const std::filesystem::directory_entry& entry :
-        std::filesystem::directory_iterator(devDir))
+         std::filesystem::directory_iterator(devDir))
     {
-        if (entry.is_character_file()) { // Ensures it's a character device
+        if (entry.is_character_file())
+        { // Ensures it's a character device
             std::string filename = entry.path().filename().string();
-            if (std::regex_match(filename, pattern)) {
+            if (std::regex_match(filename, pattern))
+            {
                 tokens.push_back(filename.c_str());
             }
         }
     }
     return;
 }
-static inline void getSerialServiceState(const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& token)
+static inline void getSerialServiceState(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& token)
 {
     std::string serviceName = "obmc-console@" + token + ".service";
     crow::connections::systemBus->async_method_call(
-        [aResp](const boost::system::error_code ec,
-                const std::vector<std::tuple<std::string, uint32_t, std::string>>& result) {
-        // Check if the response array is empty
-        if (ec || result.empty())
-        {
-            aResp->res.jsonValue["InterfaceEnabled"] = false;
-            return;
-        }
-        // ttyS process found
-        aResp->res.jsonValue["InterfaceEnabled"] = true;
+        [aResp](
+            const boost::system::error_code ec,
+            const std::vector<std::tuple<std::string, uint32_t, std::string>>&
+                result) {
+            // Check if the response array is empty
+            if (ec || result.empty())
+            {
+                aResp->res.jsonValue["InterfaceEnabled"] = false;
+                return;
+            }
+            // ttyS process found
+            aResp->res.jsonValue["InterfaceEnabled"] = true;
         },
-    "org.freedesktop.systemd1",         // Service
-    "/org/freedesktop/systemd1",        // Object
-    "org.freedesktop.systemd1.Manager", // Interface
-    "GetUnitProcesses",                 // Method
-    serviceName);
+        "org.freedesktop.systemd1",         // Service
+        "/org/freedesktop/systemd1",        // Object
+        "org.freedesktop.systemd1.Manager", // Interface
+        "GetUnitProcesses",                 // Method
+        serviceName);
 }
-inline void
-    requestRoutesManagerSerialInterface(App& app)
+inline void requestRoutesManagerSerialInterface(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/SerialInterfaces/")
         .privileges(redfish::privileges::getSerialInterfaceCollection)
@@ -3411,34 +3445,34 @@ inline void
 
                 if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
                 {
-                    messages::resourceNotFound(asyncResp->res, "Manager", 
-		    				managerId);
+                    messages::resourceNotFound(asyncResp->res, "Manager",
+                                               managerId);
                     return;
                 }
-                
+
                 asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
                     "/redfish/v1/Managers/{}/SerialInterfaces/",
                     BMCWEB_REDFISH_MANAGER_URI_NAME);
                 asyncResp->res.jsonValue["@odata.type"] =
                     "#SerialInterfaceCollection.SerialInterfaceCollection";
-		// asyncResp->res.jsonValue["Id"] =
+                // asyncResp->res.jsonValue["Id"] =
                 //   BMCWEB_REDFISH_MANAGER_URI_NAME;
-                asyncResp->res.jsonValue["Name"] = 
-			"Serial Interface Collection";
+                asyncResp->res.jsonValue["Name"] =
+                    "Serial Interface Collection";
                 asyncResp->res.jsonValue["Description"] =
                     "Collection of Serial Interfaces for this System";
-                
+
                 // Initialize the members array
                 nlohmann::json::array_t members;
-               
-                #if (!BMCWEB_ARBEL_NUVOTON_MACRO)
+
+#if (!BMCWEB_ARBEL_NUVOTON_MACRO)
                 nlohmann::json& bmc = members.emplace_back();
                 bmc["@odata.id"] = boost::urls::format(
                     "/redfish/v1/Managers/{}/SerialInterfaces/IPMI-SOL",
                     BMCWEB_REDFISH_MANAGER_URI_NAME);
-                #endif
+#endif
 
-                // Find and add serial devices 
+                // Find and add serial devices
                 std::vector<std::string> tokens;
                 findSerialDevice(tokens);
                 for (const auto& token : tokens)
@@ -3448,10 +3482,11 @@ inline void
                         "/redfish/v1/Managers/{}/SerialInterfaces/{}",
                         BMCWEB_REDFISH_MANAGER_URI_NAME, token);
                 }
-                
+
                 // Set the members array and count
                 asyncResp->res.jsonValue["Members"] = members;
-                asyncResp->res.jsonValue["Members@odata.count"] = members.size();
+                asyncResp->res.jsonValue["Members@odata.count"] =
+                    members.size();
             });
 
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/SerialInterfaces/<str>")
@@ -3459,7 +3494,8 @@ inline void
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   const std::string& managerId, const std::string& SerialName) {
+                   const std::string& managerId,
+                   const std::string& SerialName) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
                     return;
@@ -3471,312 +3507,345 @@ inline void
                                                managerId);
                     return;
                 }
-                
+
                 asyncResp->res.clearHeader(boost::beast::http::field::allow);
 
-                handleManagerSerialInterfaceGet(app, req, asyncResp, SerialName);
+                handleManagerSerialInterfaceGet(app, req, asyncResp,
+                                                SerialName);
             });
 
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/SerialInterfaces/<str>/")
-    .privileges(redfish::privileges::patchSerialInterface)
-    .methods(boost::beast::http::verb::patch)(
-        [&app](const crow::Request& req,
-               const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-               const std::string& managerId, const std::string& SerialName) {
-    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-    {
-        return;
-    }
-    
-    // Fix: Check managerId, not SerialName
-    if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
-    {
-        messages::resourceNotFound(asyncResp->res, "Manager", managerId);
-        return;
-    }
-    
-    asyncResp->res.clearHeader(boost::beast::http::field::allow);
-    
-
-    #if (!BMCWEB_ARBEL_NUVOTON_MACRO)
-    if (SerialName == "IPMI-SOL")
-    {
-        asyncResp->res.addHeader("Allow", "GET, PATCH");
-        std::optional<std::string> bitRate;
-        std::optional<std::string> vId;
-        if (!json_util::readJsonPatch(req, asyncResp->res, "BitRate", bitRate, "Id", vId))
-        {
-            return;
-        }
-        if (vId)
-        {
-            messages::propertyNotWritable(asyncResp->res, "Id");
-            asyncResp->res.result(boost::beast::http::status::bad_request);
-            return;
-        }
-        if (bitRate)
-        {
-            if (*bitRate == "9600" || *bitRate == "19200" ||
-                *bitRate == "38400" || *bitRate == "57600" ||
-                *bitRate == "115200")
+        .privileges(redfish::privileges::patchSerialInterface)
+        .methods(
+            boost::beast::http::verb::
+                patch)([&app](
+                           const crow::Request& req,
+                           const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                           const std::string& managerId,
+                           const std::string& SerialName) {
+            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
             {
-                uint64_t baudRate = std::stoull(*bitRate);
-                sdbusplus::asio::setProperty(
-                    *crow::connections::systemBus, consoleDbusService,
-                    consoleDbusObject, consoleDbusInterface, "Baud", baudRate,
-                    [asyncResp, SerialName](const boost::system::error_code& ec) {
-                        if (ec)
-                        {
-                            BMCWEB_LOG_DEBUG("Unable to set BitRate");
-                            messages::internalError(asyncResp->res);
-                            return;
-                        }
-                        messages::success(asyncResp->res);
-                    });
-            }
-            else
-            {
-                messages::propertyValueNotInList(asyncResp->res, *bitRate, "BitRate");
                 return;
             }
-        }
-        return;  // Important: return after handling IPMI-SOL
-    }
-    #else
-    // FIX: For unsupported platforms, return error for IPMI-SOL
-    if (SerialName == "IPMI-SOL")
-    {
-        messages::resourceNotFound(asyncResp->res, "SerialInterface", SerialName);
-        return;
-    }
-    #endif
-    
-    // Validate that the serial device exists before processing PATCH
-    if (!isSerialDeviceExists(SerialName))
-    {
-        messages::resourceNotFound(asyncResp->res, "SerialInterfaces", SerialName);
-        return;
-    }
 
-    asyncResp->res.addHeader("Allow", "GET, PATCH");
-
-    std::optional<std::string> bitrate;
-    std::optional<std::string> databits;
-    std::optional<std::string> flowcontrol;
-    std::optional<std::string> parity;
-    std::optional<std::string> stopbits;
-    std::optional<bool> interfaceEnabled;
-    std::optional<std::string> id;
-
-    if (!json_util::readJsonPatch(
-        req, asyncResp->res, "BitRate", bitrate, "DataBits", databits,
-        "FlowControl", flowcontrol, "InterfaceEnabled",
-        interfaceEnabled, "Parity", parity, "StopBits", stopbits,
-        "Id", id))
-    {
-        return;
-    }
-    
-    // Check for read-only properties and return propertyNotWritable error
-    if (id)
-    {
-        messages::propertyNotWritable(asyncResp->res, "Id");
-        return;
-    }
- 
-    // Fix: Use serialName instead of undefined serialName
-    char cmd[150];
-    snprintf(cmd, sizeof(cmd), "stty -F /dev/%s ", SerialName.c_str());
-
-        if (bitrate)
-        {
-            if (*bitrate == "1200" || *bitrate == "2400" || *bitrate == "4800" ||
-                *bitrate == "9600" || *bitrate == "19200" || *bitrate == "38400" ||
-                *bitrate == "57600" || *bitrate == "115200" || *bitrate == "230400")
+            // Fix: Check managerId, not SerialName
+            if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
             {
-                sprintf(cmd + strlen(cmd), "ispeed %s ospeed %s ",
-                        bitrate->c_str(), bitrate->c_str());
-            }
-            else
-            {
-                messages::propertyValueNotInList(asyncResp->res, *bitrate, "BitRate");
+                messages::resourceNotFound(asyncResp->res, "Manager",
+                                           managerId);
                 return;
             }
-        }
 
+            asyncResp->res.clearHeader(boost::beast::http::field::allow);
 
-        if (databits)
-        {
-            if (*databits >= "5" && *databits <= "8")
+#if (!BMCWEB_ARBEL_NUVOTON_MACRO)
+            if (SerialName == "IPMI-SOL")
             {
-                sprintf(cmd + strlen(cmd), "cs%s ", databits->c_str());
-            }
-            else
-            {
-                messages::propertyValueNotInList(asyncResp->res, *databits, "DataBits");
-                return;
-            }
-        }
-        
-        if (flowcontrol)
-        {
-            if (*flowcontrol == "Software")
-            {
-                sprintf(cmd + strlen(cmd), "ixon ");
-            }
-            else if (*flowcontrol == "Hardware")
-            {
-                sprintf(cmd + strlen(cmd), "crtscts -ixon ");
-            }
-            else if (*flowcontrol == "None")
-            {
-                sprintf(cmd + strlen(cmd), "-crtscts -ixon ");
-            }
-            else
-            {
-                messages::propertyValueNotInList(asyncResp->res, *flowcontrol, "FlowControl");
-                return;
-            }
-        }
-        
-        if (interfaceEnabled)
-        {
-            // If trying to enable, check condition result
-            std::string serviceName = "obmc-console@" + SerialName + ".service";
-            std::string checkCmd = "systemctl show " + serviceName + " --property=ConditionResult --value";
-            std::string conditionResult;
-            char buffer[128];
-
-            FILE* condPipe = safe_popen(checkCmd.c_str(), "r");
-            if (condPipe != nullptr)
-            {
-                if (fgets(buffer, sizeof(buffer), condPipe) != nullptr)
+                asyncResp->res.addHeader("Allow", "GET, PATCH");
+                std::optional<std::string> bitRate;
+                std::optional<std::string> vId;
+                if (!json_util::readJsonPatch(req, asyncResp->res, "BitRate",
+                                              bitRate, "Id", vId))
                 {
-                    conditionResult = buffer;
-                    conditionResult.erase(conditionResult.find_last_not_of(" \n\r\t") + 1);
+                    return;
                 }
-                pclose(condPipe);
+                if (vId)
+                {
+                    messages::propertyNotWritable(asyncResp->res, "Id");
+                    asyncResp->res.result(
+                        boost::beast::http::status::bad_request);
+                    return;
+                }
+                if (bitRate)
+                {
+                    if (*bitRate == "9600" || *bitRate == "19200" ||
+                        *bitRate == "38400" || *bitRate == "57600" ||
+                        *bitRate == "115200")
+                    {
+                        uint64_t baudRate = std::stoull(*bitRate);
+                        sdbusplus::asio::setProperty(
+                            *crow::connections::systemBus, consoleDbusService,
+                            consoleDbusObject, consoleDbusInterface, "Baud",
+                            baudRate,
+                            [asyncResp,
+                             SerialName](const boost::system::error_code& ec) {
+                                if (ec)
+                                {
+                                    BMCWEB_LOG_DEBUG("Unable to set BitRate");
+                                    messages::internalError(asyncResp->res);
+                                    return;
+                                }
+                                messages::success(asyncResp->res);
+                            });
+                    }
+                    else
+                    {
+                        messages::propertyValueNotInList(asyncResp->res,
+                                                         *bitRate, "BitRate");
+                        return;
+                    }
+                }
+                return; // Important: return after handling IPMI-SOL
             }
-            
-            // If condition check failed and user tries to enable, return error
-            if (!conditionResult.empty() && conditionResult == "no")
+#else
+            // FIX: For unsupported platforms, return error for IPMI-SOL
+            if (SerialName == "IPMI-SOL")
             {
-                BMCWEB_LOG_ERROR("Cannot start {} - unmet condition check", serviceName);
-                messages::propertyValueExternalConflict(asyncResp->res, 
-                        "InterfaceEnabled",
-                        SerialName);
+                messages::resourceNotFound(asyncResp->res, "SerialInterface",
+                                           SerialName);
                 return;
             }
-           
-            // Check current service status using systemctl is-active
-            std::string statusCmd = "systemctl is-active " + serviceName + " 2>/dev/null";
-            int currentStatus = std::system(statusCmd.c_str());
-            bool isCurrentlyActive = (currentStatus == 0);
-            
-            // Check if service is already in desired state
-            if ((*interfaceEnabled && isCurrentlyActive) || 
-                (!(*interfaceEnabled) && !isCurrentlyActive))
+#endif
+
+            // Validate that the serial device exists before processing PATCH
+            if (!isSerialDeviceExists(SerialName))
             {
-                BMCWEB_LOG_DEBUG("Service {} is already in the desired state, no operation needed", serviceName);
-                messages::noOperation(asyncResp->res);
+                messages::resourceNotFound(asyncResp->res, "SerialInterfaces",
+                                           SerialName);
                 return;
             }
-                
-            // Execute the start/stop command
-            char enableCmd[100];
-            if (*interfaceEnabled)
+
+            asyncResp->res.addHeader("Allow", "GET, PATCH");
+
+            std::optional<std::string> bitrate;
+            std::optional<std::string> databits;
+            std::optional<std::string> flowcontrol;
+            std::optional<std::string> parity;
+            std::optional<std::string> stopbits;
+            std::optional<bool> interfaceEnabled;
+            std::optional<std::string> id;
+
+            if (!json_util::readJsonPatch(
+                    req, asyncResp->res, "BitRate", bitrate, "DataBits",
+                    databits, "FlowControl", flowcontrol, "InterfaceEnabled",
+                    interfaceEnabled, "Parity", parity, "StopBits", stopbits,
+                    "Id", id))
             {
-                snprintf(enableCmd, sizeof(enableCmd), 
-                        "systemctl start obmc-console@%s.service", SerialName.c_str());
+                return;
             }
-            else
+
+            // Check for read-only properties and return propertyNotWritable
+            // error
+            if (id)
             {
-                snprintf(enableCmd, sizeof(enableCmd), 
-                        "systemctl stop obmc-console@%s.service", SerialName.c_str());
+                messages::propertyNotWritable(asyncResp->res, "Id");
+                return;
             }
-            int result = safe_system(enableCmd);
+
+            // Fix: Use serialName instead of undefined serialName
+            char cmd[150];
+            snprintf(cmd, sizeof(cmd), "stty -F /dev/%s ", SerialName.c_str());
+
+            if (bitrate)
+            {
+                if (*bitrate == "1200" || *bitrate == "2400" ||
+                    *bitrate == "4800" || *bitrate == "9600" ||
+                    *bitrate == "19200" || *bitrate == "38400" ||
+                    *bitrate == "57600" || *bitrate == "115200" ||
+                    *bitrate == "230400")
+                {
+                    sprintf(cmd + strlen(cmd), "ispeed %s ospeed %s ",
+                            bitrate->c_str(), bitrate->c_str());
+                }
+                else
+                {
+                    messages::propertyValueNotInList(asyncResp->res, *bitrate,
+                                                     "BitRate");
+                    return;
+                }
+            }
+
+            if (databits)
+            {
+                if (*databits >= "5" && *databits <= "8")
+                {
+                    sprintf(cmd + strlen(cmd), "cs%s ", databits->c_str());
+                }
+                else
+                {
+                    messages::propertyValueNotInList(asyncResp->res, *databits,
+                                                     "DataBits");
+                    return;
+                }
+            }
+
+            if (flowcontrol)
+            {
+                if (*flowcontrol == "Software")
+                {
+                    sprintf(cmd + strlen(cmd), "ixon ");
+                }
+                else if (*flowcontrol == "Hardware")
+                {
+                    sprintf(cmd + strlen(cmd), "crtscts -ixon ");
+                }
+                else if (*flowcontrol == "None")
+                {
+                    sprintf(cmd + strlen(cmd), "-crtscts -ixon ");
+                }
+                else
+                {
+                    messages::propertyValueNotInList(
+                        asyncResp->res, *flowcontrol, "FlowControl");
+                    return;
+                }
+            }
+
+            if (interfaceEnabled)
+            {
+                // If trying to enable, check condition result
+                std::string serviceName =
+                    "obmc-console@" + SerialName + ".service";
+                std::string checkCmd = "systemctl show " + serviceName +
+                                       " --property=ConditionResult --value";
+                std::string conditionResult;
+                char buffer[128];
+
+                FILE* condPipe = safe_popen(checkCmd.c_str(), "r");
+                if (condPipe != nullptr)
+                {
+                    if (fgets(buffer, sizeof(buffer), condPipe) != nullptr)
+                    {
+                        conditionResult = buffer;
+                        conditionResult.erase(
+                            conditionResult.find_last_not_of(" \n\r\t") + 1);
+                    }
+                    pclose(condPipe);
+                }
+
+                // If condition check failed and user tries to enable, return
+                // error
+                if (!conditionResult.empty() && conditionResult == "no")
+                {
+                    BMCWEB_LOG_ERROR("Cannot start {} - unmet condition check",
+                                     serviceName);
+                    messages::propertyValueExternalConflict(
+                        asyncResp->res, "InterfaceEnabled", SerialName);
+                    return;
+                }
+
+                // Check current service status using systemctl is-active
+                std::string statusCmd =
+                    "systemctl is-active " + serviceName + " 2>/dev/null";
+                int currentStatus = std::system(statusCmd.c_str());
+                bool isCurrentlyActive = (currentStatus == 0);
+
+                // Check if service is already in desired state
+                if ((*interfaceEnabled && isCurrentlyActive) ||
+                    (!(*interfaceEnabled) && !isCurrentlyActive))
+                {
+                    BMCWEB_LOG_DEBUG(
+                        "Service {} is already in the desired state, no operation needed",
+                        serviceName);
+                    messages::noOperation(asyncResp->res);
+                    return;
+                }
+
+                // Execute the start/stop command
+                char enableCmd[100];
+                if (*interfaceEnabled)
+                {
+                    snprintf(enableCmd, sizeof(enableCmd),
+                             "systemctl start obmc-console@%s.service",
+                             SerialName.c_str());
+                }
+                else
+                {
+                    snprintf(enableCmd, sizeof(enableCmd),
+                             "systemctl stop obmc-console@%s.service",
+                             SerialName.c_str());
+                }
+                int result = safe_system(enableCmd);
+                if (result != 0)
+                {
+                    BMCWEB_LOG_ERROR(
+                        "Failed to {} service obmc-console@{}.service. Command failed with exit code: {}",
+                        (*interfaceEnabled ? "start" : "stop"), SerialName,
+                        result);
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+            }
+
+            if (parity)
+            {
+                if (*parity == "None")
+                {
+                    sprintf(cmd + strlen(cmd), "-parenb ");
+                }
+                else if (*parity == "Odd")
+                {
+                    sprintf(cmd + strlen(cmd), "parenb parodd ");
+                }
+                else if (*parity == "Even")
+                {
+                    sprintf(cmd + strlen(cmd), "parenb -parodd ");
+                }
+                else
+                {
+                    messages::propertyValueNotInList(asyncResp->res, *parity,
+                                                     "Parity");
+                    return;
+                }
+            }
+
+            if (stopbits)
+            {
+                if (*stopbits == "1")
+                {
+                    sprintf(cmd + strlen(cmd), "-cstopb ");
+                }
+                else if (*stopbits == "2")
+                {
+                    sprintf(cmd + strlen(cmd), "cstopb ");
+                }
+                else
+                {
+                    messages::propertyValueNotInList(asyncResp->res, *stopbits,
+                                                     "StopBits");
+                    return;
+                }
+            }
+
+            int result = safe_system(cmd);
+            (void)result;
             if (result != 0)
             {
-                BMCWEB_LOG_ERROR("Failed to {} service obmc-console@{}.service. Command failed with exit code: {}", 
-                                (*interfaceEnabled ? "start" : "stop"), SerialName, result);
+                BMCWEB_LOG_ERROR(
+                    "Failed to configure serial port {}. stty command failed with exit code: {}",
+                    SerialName, result);
                 messages::internalError(asyncResp->res);
                 return;
             }
-        }        
-        
-        if (parity)
-        {
-            if (*parity == "None")
-            {
-                sprintf(cmd + strlen(cmd), "-parenb ");
-            }
-            else if (*parity == "Odd")
-            {
-                sprintf(cmd + strlen(cmd), "parenb parodd ");
-            }
-            else if (*parity == "Even")
-            {
-                sprintf(cmd + strlen(cmd), "parenb -parodd ");
-            }
-            else
-            {
-                messages::propertyValueNotInList(asyncResp->res, *parity, "Parity");
-                return;
-            }
-        }
-        
-        if (stopbits)
-        {
-            if (*stopbits == "1")
-            {
-                sprintf(cmd + strlen(cmd), "-cstopb ");
-            }
-            else if (*stopbits == "2")
-            {
-                sprintf(cmd + strlen(cmd), "cstopb ");
-            }
-            else
-            {
-                messages::propertyValueNotInList(asyncResp->res, *stopbits, "StopBits");
-                return;
-            }
-        }
-        
-        int result = safe_system(cmd);
-        (void)result;
-        if (result != 0)
-        {
-            BMCWEB_LOG_ERROR("Failed to configure serial port {}. stty command failed with exit code: {}", 
-                            SerialName, result);
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        // Fix: Provide success response
-	asyncResp->res.result(boost::beast::http::status::no_content);
-    });
+            // Fix: Provide success response
+            asyncResp->res.result(boost::beast::http::status::no_content);
+        });
 
-        // Handle POST, PUT, DELETE methods - return 404 if resource doesn't exist, 405 if it does
+    // Handle POST, PUT, DELETE methods - return 404 if resource doesn't exist,
+    // 405 if it does
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/SerialInterfaces/<str>/")
         .privileges(redfish::privileges::getSerialInterface)
-        .methods(boost::beast::http::verb::post, boost::beast::http::verb::put, 
+        .methods(boost::beast::http::verb::post, boost::beast::http::verb::put,
                  boost::beast::http::verb::delete_)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   const std::string& managerId, const std::string& SerialName) {
+                   const std::string& managerId,
+                   const std::string& SerialName) {
                 asyncResp->res.clearHeader(boost::beast::http::field::allow);
-                
+
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
                     return;
                 }
                 if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
                 {
-                    messages::resourceNotFound(asyncResp->res, "Manager", managerId);
+                    messages::resourceNotFound(asyncResp->res, "Manager",
+                                               managerId);
                     return;
                 }
-                
-                // Check if this is IPMI-SOL
-                #if (!BMCWEB_ARBEL_NUVOTON_MACRO)
+
+// Check if this is IPMI-SOL
+#if (!BMCWEB_ARBEL_NUVOTON_MACRO)
                 if (SerialName == "IPMI-SOL")
                 {
                     // Resource exists, but method not allowed
@@ -3784,27 +3853,29 @@ inline void
                     messages::operationNotAllowed(asyncResp->res);
                     return;
                 }
-                #else
+#else
                 if (SerialName == "IPMI-SOL")
                 {
                     // Resource doesn't exist on this platform
-                    messages::resourceNotFound(asyncResp->res, "SerialInterface", SerialName);
+                    messages::resourceNotFound(asyncResp->res,
+                                               "SerialInterface", SerialName);
                     return;
                 }
-                #endif
-                
+#endif
+
                 // Check if the serial device exists
                 if (!isSerialDeviceExists(SerialName))
                 {
                     // Return 404 for non-existent resources
-                    messages::resourceNotFound(asyncResp->res, "SerialInterfaces", SerialName);
+                    messages::resourceNotFound(asyncResp->res,
+                                               "SerialInterfaces", SerialName);
                     return;
                 }
-                
+
                 // Resource exists but method not allowed
                 asyncResp->res.addHeader("Allow", "GET, PATCH");
                 messages::operationNotAllowed(asyncResp->res);
-    });
+            });
 }
 
 inline void requestRoutesSerialConsoleLog(App& app)
@@ -3817,10 +3888,10 @@ inline void requestRoutesSerialConsoleLog(App& app)
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& managerId,
                    const std::string& resourceName) {
-                
                 if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
                 {
-                    messages::resourceNotFound(asyncResp->res, "Manager", managerId);
+                    messages::resourceNotFound(asyncResp->res, "Manager",
+                                               managerId);
                     return;
                 }
                 std::filesystem::path logDir = "/var/log";
@@ -3828,8 +3899,10 @@ inline void requestRoutesSerialConsoleLog(App& app)
                      std::filesystem::directory_iterator(logDir))
                 {
                     std::string filename = dirEnt.path().filename();
-                    if (boost::starts_with(filename, obmcConsoleLogFilePrefix) &&
-                        !boost::ends_with(filename, obmcConsoleLogFileRotatedSuffix) &&
+                    if (boost::starts_with(filename,
+                                           obmcConsoleLogFilePrefix) &&
+                        !boost::ends_with(filename,
+                                          obmcConsoleLogFileRotatedSuffix) &&
                         filename.find(resourceName) != std::string::npos)
                     {
                         asyncResp->res.addHeader("Content-Type", "text/plain");
@@ -3837,10 +3910,10 @@ inline void requestRoutesSerialConsoleLog(App& app)
                             "attachment; filename=\"" + resourceName + "\"";
                         asyncResp->res.addHeader("Content-Disposition",
                                                  contentDispositionParam);
-                        
+
                         // Build the entire response as one string
                         std::string responseContent;
-                        
+
                         std::string rotateFileName =
                             filename + obmcConsoleLogFileRotatedSuffix;
                         std::ifstream logStream(logDir / rotateFileName);
@@ -3859,7 +3932,8 @@ inline void requestRoutesSerialConsoleLog(App& app)
                         {
                             messages::internalError(asyncResp->res);
                             asyncResp->res.jsonValue["error"]["message"] =
-                                "Failed to open " + resourceName + "'s log files";
+                                "Failed to open " + resourceName +
+                                "'s log files";
                             return;
                         }
                         else
@@ -3871,16 +3945,16 @@ inline void requestRoutesSerialConsoleLog(App& app)
                             }
                             logStream.close();
                         }
-                        
+
                         // Write the entire content at once
                         asyncResp->res.write(std::move(responseContent));
                         return;
                     }
                 }
 
-                messages::resourceNotFound(asyncResp->res,
-                                           "#SerialInterfaces.v1_1_5.SerialInterfaces",
-                                           resourceName);
+                messages::resourceNotFound(
+                    asyncResp->res, "#SerialInterfaces.v1_1_5.SerialInterfaces",
+                    resourceName);
                 return;
             });
 }

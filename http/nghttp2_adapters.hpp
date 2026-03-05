@@ -36,8 +36,8 @@ struct nghttp2_session_callbacks
     }
 
     nghttp2_session_callbacks(const nghttp2_session_callbacks&) = delete;
-    nghttp2_session_callbacks&
-        operator=(const nghttp2_session_callbacks&) = delete;
+    nghttp2_session_callbacks& operator=(const nghttp2_session_callbacks&) =
+        delete;
     nghttp2_session_callbacks(nghttp2_session_callbacks&&) = delete;
     nghttp2_session_callbacks& operator=(nghttp2_session_callbacks&&) = delete;
 
@@ -64,8 +64,8 @@ struct nghttp2_session_callbacks
     void setOnBeginHeadersCallback(
         nghttp2_on_begin_headers_callback onBeginHeaders)
     {
-        nghttp2_session_callbacks_set_on_begin_headers_callback(ptr,
-                                                                onBeginHeaders);
+        nghttp2_session_callbacks_set_on_begin_headers_callback(
+            ptr, onBeginHeaders);
     }
 
     void setSendDataCallback(nghttp2_send_data_callback onSendData)
@@ -78,8 +78,8 @@ struct nghttp2_session_callbacks
         nghttp2_session_callbacks_set_before_frame_send_callback(
             ptr, beforeSendFrame);
     }
-    void
-        setAfterFrameSendCallback(nghttp2_on_frame_send_callback afterSendFrame)
+    void setAfterFrameSendCallback(
+        nghttp2_on_frame_send_callback afterSendFrame)
     {
         nghttp2_session_callbacks_set_on_frame_send_callback(ptr,
                                                              afterSendFrame);

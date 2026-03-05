@@ -6,6 +6,7 @@
 #include "bmcweb_config.h"
 
 #include <nlohmann/json.hpp>
+#include <utils/json_utils.hpp>
 
 #include <array>
 #include <charconv>
@@ -16,7 +17,6 @@
 #include <string>
 #include <string_view>
 #include <utility>
-#include <utils/json_utils.hpp>
 
 namespace redfish::registries
 {
@@ -45,9 +45,8 @@ struct Message
 };
 using MessageEntry = std::pair<const char*, const Message>;
 
-inline std::string
-    fillMessageArgs(const std::span<const std::string_view> messageArgs,
-                    std::string_view msg)
+inline std::string fillMessageArgs(
+    const std::span<const std::string_view> messageArgs, std::string_view msg)
 {
     std::string ret;
     size_t reserve = msg.size();
@@ -81,10 +80,9 @@ inline std::string
     return ret;
 }
 
-inline nlohmann::json::object_t
-    getLogFromRegistry(const Header& header,
-                       std::span<const MessageEntry> registry, size_t index,
-                       std::span<const std::string_view> args)
+inline nlohmann::json::object_t getLogFromRegistry(
+    const Header& header, std::span<const MessageEntry> registry, size_t index,
+    std::span<const std::string_view> args)
 {
     const redfish::registries::MessageEntry& entry = registry[index];
     // Intentionally make a copy of the string, so we can append in the
@@ -96,7 +94,7 @@ inline nlohmann::json::object_t
     {
         jArgs.push_back(arg);
     }
-    
+
     std::string msgId;
     if (BMCWEB_REDFISH_USE_3_DIGIT_MESSAGEID)
     {

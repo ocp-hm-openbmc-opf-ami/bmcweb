@@ -73,8 +73,9 @@ void getMainChassisId(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
             std::string chassisId;
             // Priority order: Baseboard > Chassis > EVB
-            constexpr std::array<std::string_view, 3> priorities = {"Baseboard", "Chassis", "EVB"};
-            
+            constexpr std::array<std::string_view, 3> priorities = {
+                "Baseboard", "Chassis", "EVB"};
+
             for (const auto& priority : priorities)
             {
                 for (const auto& [objectPath, serviceMap] : subtree)
@@ -82,7 +83,8 @@ void getMainChassisId(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                     if (objectPath.find(priority) != std::string::npos)
                     {
                         std::size_t idPos = objectPath.rfind('/');
-                        if (idPos != std::string::npos && (idPos + 1) < objectPath.size())
+                        if (idPos != std::string::npos &&
+                            (idPos + 1) < objectPath.size())
                         {
                             chassisId = objectPath.substr(idPos + 1);
                             break;

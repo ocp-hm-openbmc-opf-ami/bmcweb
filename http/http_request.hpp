@@ -33,7 +33,7 @@ struct Request
 
     std::shared_ptr<persistent_data::UserSession> session;
     std::unordered_map<std::string, uint8_t>& sessionMap =
-	     persistent_data::sessionMap;
+        persistent_data::sessionMap;
     std::string userRole;
     Request(Body reqIn, std::error_code& ec) : req(std::move(reqIn))
     {

@@ -890,7 +890,7 @@ class HttpClient
   private:
     std::unordered_map<std::string, std::shared_ptr<ConnectionPool>>
         connectionPools;
-    
+
     // reference_wrapper here makes HttpClient movable
     std::reference_wrapper<boost::asio::io_context> ioc;
     std::shared_ptr<ConnectionPolicy> connPolicy;
@@ -942,9 +942,9 @@ class HttpClient
         {
             verify = "ssl no verify";
         }
-        std::string clientKey = std::format("{}{}://{}", verify,
-                                            destUrl.scheme(),
-                                            destUrl.encoded_host_and_port());
+        std::string clientKey =
+            std::format("{}{}://{}", verify, destUrl.scheme(),
+                        destUrl.encoded_host_and_port());
         auto pool = connectionPools.try_emplace(clientKey);
         if (pool.first->second == nullptr)
         {
@@ -956,7 +956,7 @@ class HttpClient
         pool.first->second->sendData(std::move(data), destUrl, httpHeader, verb,
                                      resHandler);
     }
-    
+
     // Test whether all connections are terminated (after MaxRetryAttempts)
     bool isTerminated()
     {

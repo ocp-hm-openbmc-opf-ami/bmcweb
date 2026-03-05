@@ -165,7 +165,8 @@ inline void populateAggregationSource(
     asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
         "/redfish/v1/AggregationService/AggregationSources/{}",
         aggregationSourceId);
-    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("AggregationSource");
+    asyncResp->res.jsonValue["@odata.type"] =
+        json_util::odataType("AggregationSource");
     asyncResp->res.jsonValue["Id"] = aggregationSourceId;
 
     // TODO: We may want to change this whenever we support aggregating multiple

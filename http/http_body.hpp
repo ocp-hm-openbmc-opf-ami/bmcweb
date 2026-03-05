@@ -13,9 +13,9 @@
 #include <boost/beast/core/file_posix.hpp>
 #include <boost/beast/http/message.hpp>
 #include <boost/system/error_code.hpp>
+
 #include <cstdint>
 #include <optional>
-
 #include <string_view>
 
 namespace bmcweb
@@ -28,7 +28,7 @@ struct HttpBody
     class reader;
     class value_type;
     // NOLINTEND(readability-identifier-naming)
-    
+
     static std::uint64_t size(const value_type& body);
 };
 
@@ -54,7 +54,7 @@ class HttpBody::value_type
     {
         return fileHandle.fileHandle;
     }
-    
+
     boost::beast::file_posix& file()
     {
         return fileHandle.fileHandle;
@@ -170,14 +170,14 @@ class HttpBody::writer
         ec = {};
     }
 
-    boost::optional<std::pair<const_buffers_type, bool>>
-        get(boost::beast::error_code& ec)
+    boost::optional<std::pair<const_buffers_type, bool>> get(
+        boost::beast::error_code& ec)
     {
         return getWithMaxSize(ec, std::numeric_limits<size_t>::max());
     }
 
-    boost::optional<std::pair<const_buffers_type, bool>>
-        getWithMaxSize(boost::beast::error_code& ec, size_t maxSize)
+    boost::optional<std::pair<const_buffers_type, bool>> getWithMaxSize(
+        boost::beast::error_code& ec, size_t maxSize)
     {
         std::pair<const_buffers_type, bool> ret;
         if (!body.file().is_open())
@@ -273,8 +273,9 @@ class HttpBody::reader
                 value.file().write(b.data(), b.size(), ec);
                 if (ec)
                 {
-                     BMCWEB_LOG_ERROR("Failed to write to file: {}", ec.message());
-                     return 0;
+                    BMCWEB_LOG_ERROR("Failed to write to file: {}",
+                                     ec.message());
+                    return 0;
                 }
             }
         }

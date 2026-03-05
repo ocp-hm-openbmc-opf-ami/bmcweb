@@ -195,19 +195,19 @@ inline void getPersistentMemoryProperties(
         pmRegionSizeLimitInKiB, "VolatileSizeInKiB", volatileSizeInKiB,
         "PmSizeInKiB", pmSizeInKiB, "LogicalSizeInKiB", logicalSizeInKiB,
         "CacheSizeInKiB", cacheSizeInKB, "VolatileRegionMaxSizeInKiB",
-        voltaileRegionMaxSizeInKib, "PmRegionMaxSizeInKiB", pmRegionMaxSizeInKiB,
-        "AllocationIncrementInKiB", allocationIncrementInKiB,
-        "AllocationAlignmentInKiB", allocationAlignmentInKiB,
-        "VolatileRegionNumberLimit", volatileRegionNumberLimit,
-        "PmRegionNumberLimit", pmRegionNumberLimit, "SpareDeviceCount",
-        spareDeviceCount, "IsSpareDeviceInUse", isSpareDeviceInUse,
-        "IsRankSpareEnabled", isRankSpareEnabled, "MaxAveragePowerLimitmW",
-        maxAveragePowerLimitmW, "ConfigurationLocked", configurationLocked,
-        "AllowedMemoryModes", allowedMemoryModes, "MemoryMedia", memoryMedia,
-        "ConfigurationLockCapable", configurationLockCapable, "DataLockCapable",
-        dataLockCapable, "PassphraseCapable", passphraseCapable,
-        "MaxPassphraseCount", maxPassphraseCount, "PassphraseLockLimit",
-        passphraseLockLimit);
+        voltaileRegionMaxSizeInKib, "PmRegionMaxSizeInKiB",
+        pmRegionMaxSizeInKiB, "AllocationIncrementInKiB",
+        allocationIncrementInKiB, "AllocationAlignmentInKiB",
+        allocationAlignmentInKiB, "VolatileRegionNumberLimit",
+        volatileRegionNumberLimit, "PmRegionNumberLimit", pmRegionNumberLimit,
+        "SpareDeviceCount", spareDeviceCount, "IsSpareDeviceInUse",
+        isSpareDeviceInUse, "IsRankSpareEnabled", isRankSpareEnabled,
+        "MaxAveragePowerLimitmW", maxAveragePowerLimitmW, "ConfigurationLocked",
+        configurationLocked, "AllowedMemoryModes", allowedMemoryModes,
+        "MemoryMedia", memoryMedia, "ConfigurationLockCapable",
+        configurationLockCapable, "DataLockCapable", dataLockCapable,
+        "PassphraseCapable", passphraseCapable, "MaxPassphraseCount",
+        maxPassphraseCount, "PassphraseLockLimit", passphraseLockLimit);
 
     if (!success)
     {
@@ -406,10 +406,10 @@ inline void assembleDimmProperties(
     asyncResp->res.jsonValue[jsonPtr]["Name"] = dimmId;
 #ifndef ONETREE_RTP
     {
-    asyncResp->res.jsonValue[jsonPtr]["Status"]["State"] =
-        resource::State::Enabled;
-    asyncResp->res.jsonValue[jsonPtr]["Status"]["Health"] =
-        resource::Health::OK;
+        asyncResp->res.jsonValue[jsonPtr]["Status"]["State"] =
+            resource::State::Enabled;
+        asyncResp->res.jsonValue[jsonPtr]["Status"]["Health"] =
+            resource::Health::OK;
     }
 #endif
     const uint16_t* memoryDataWidth = nullptr;
@@ -770,7 +770,8 @@ inline void getDimmData(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
                 return;
             }
             // Set @odata only if object is found
-            asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("Memory");
+            asyncResp->res.jsonValue["@odata.type"] =
+                json_util::odataType("Memory");
             asyncResp->res.jsonValue["@odata.id"] =
                 boost::urls::format("/redfish/v1/Systems/{}/Memory/{}",
                                     BMCWEB_REDFISH_SYSTEM_URI_NAME, dimmId);

@@ -238,25 +238,27 @@ namespace details
 // https://howardhinnant.github.io/date_algorithms.html#civil_from_days
 // All constants are explained in the above
 template <class IntType>
-constexpr std::tuple<IntType, unsigned, unsigned>
-    civilFromDays(IntType z) noexcept
+constexpr std::tuple<IntType, unsigned, unsigned> civilFromDays(
+    IntType z) noexcept
 {
     z += 719468;
     IntType era = (z >= 0 ? z : z - 146096) / 146097;
     unsigned doe = static_cast<unsigned>(z - era * 146097); // [0, 146096]
     unsigned yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) /
-                   365; // [0, 399]
+                   365;                                     // [0, 399]
     IntType y = static_cast<IntType>(yoe) + era * 400;
     unsigned doy = doe - (365 * yoe + yoe / 4 - yoe / 100); // [0, 365]
-    unsigned mp = (5 * doy + 2) / 153; // [0, 11]
-    unsigned d = doy - (153 * mp + 2) / 5 + 1; // [1, 31]
-    unsigned m = mp < 10 ? mp + 3 : mp - 9; // [1, 12]
+    unsigned mp = (5 * doy + 2) / 153;                      // [0, 11]
+    unsigned d = doy - (153 * mp + 2) / 5 + 1;              // [1, 31]
+    unsigned m = mp < 10 ? mp + 3 : mp - 9;                 // [1, 12]
 
     return std::tuple<IntType, unsigned, unsigned>(y + (m <= 2), m, d);
 }
 
 template <typename IntType, typename Period>
-std::string toISO8061ExtendedStr(std::chrono::duration<IntType, Period> t, std::optional<std::string> timezone = std::nullopt)
+std::string toISO8061ExtendedStr(
+    std::chrono::duration<IntType, Period> t,
+    std::optional<std::string> timezone = std::nullopt)
 {
     std::string timeZone;
     if (timezone)
@@ -327,16 +329,18 @@ std::string toISO8061ExtendedStr(std::chrono::duration<IntType, Period> t, std::
         subseconds = std::format(".{:06}", subsec.count());
     }
 
-    return std::format("{:04}-{:02}-{:02}T{:02}:{:02}:{:02}{}{}", year,
-                       month, day, hr.count(), mt.count(), se.count(),
-                       subseconds, offSet);
+    return std::format("{:04}-{:02}-{:02}T{:02}:{:02}:{:02}{}{}", year, month,
+                       day, hr.count(), mt.count(), se.count(), subseconds,
+                       offSet);
 }
 
 #else
 
 template <typename IntType, typename Period>
 
-std::string toISO8061ExtendedStr(std::chrono::duration<IntType, Period> dur, std::optional<std::string> timezone = std::nullopt)
+std::string toISO8061ExtendedStr(
+    std::chrono::duration<IntType, Period> dur,
+    std::optional<std::string> timezone = std::nullopt)
 {
     std::string timeZone;
     if (timezone)
@@ -414,7 +418,8 @@ std::string getDateTimeUint(uint64_t secondsSinceEpoch)
 // Note that the maximum supported date is 9999-12-31T23:59:59+00:00, if
 // the given |secondsSinceEpoch| is too large, we return the maximum supported
 // date.
-std::string getDateTimeUintMs(uint64_t milliSecondsSinceEpoch, std::optional<std::string> timezone)
+std::string getDateTimeUintMs(uint64_t milliSecondsSinceEpoch,
+                              std::optional<std::string> timezone)
 {
     using DurationType = std::chrono::duration<uint64_t, std::milli>;
     DurationType sinceEpoch(milliSecondsSinceEpoch);

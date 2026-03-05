@@ -23,12 +23,11 @@
 #include <http_request.hpp>
 #include <http_response.hpp>
 
+#include <algorithm>
+#include <cctype>
 #include <optional>
 #include <string>
 #include <vector>
-
-#include <cctype>
-#include <algorithm>
 
 namespace redfish
 {
@@ -47,18 +46,19 @@ using SuspendPeriodsType = std::vector<
     std::map<std::string, std::variant<std::vector<std::string>, std::string>>>;
 using ThresholdsType = std::map<std::string, std::vector<uint16_t>>;
 
-using PolicyParamsTuple = std::tuple<uint32_t, // 0 - correctionInMs
-                                     uint16_t, // 1 - limit
-                                     uint16_t, // 2 - statReportingPeriod
-                                     int32_t,  // 3 - policyStorage
-                                     int32_t,  // 4 - powerCorrectionType
-                                     int32_t,  // 5 - limitException
-                                     SuspendPeriodsType, // 6 - suspendPeriods
-                                     ThresholdsType,     // 7 - thresholds
-                                     uint8_t,            // 8 - componentId
-                                     uint16_t,           // 9- triggerLimit
-                                     std::string         // 10- triggerType
-                                     >;
+using PolicyParamsTuple =
+    std::tuple<uint32_t,           // 0 - correctionInMs
+               uint16_t,           // 1 - limit
+               uint16_t,           // 2 - statReportingPeriod
+               int32_t,            // 3 - policyStorage
+               int32_t,            // 4 - powerCorrectionType
+               int32_t,            // 5 - limitException
+               SuspendPeriodsType, // 6 - suspendPeriods
+               ThresholdsType,     // 7 - thresholds
+               uint8_t,            // 8 - componentId
+               uint16_t,           // 9- triggerLimit
+               std::string         // 10- triggerType
+               >;
 
 static const boost::container::flat_map<int32_t, std::string>
     kPolicyStorageMap = {{0, "Persistent"}, {1, "Volatile"}};
@@ -119,139 +119,148 @@ inline bool isHwProtectionPolicy(
 
 bool isNumber(const std::string& str)
 {
-    return !str.empty() &&
-           std::all_of(str.begin(), str.end(), ::isdigit);
+    return !str.empty() && std::all_of(str.begin(), str.end(), ::isdigit);
 }
 
 inline void getAttributes(const std::shared_ptr<bmcweb::AsyncResp>& response,
                           const std::string& policyObjectPath)
 {
     dbus::utility::getAllProperties(
-        kNodeManagerService, policyObjectPath,
-        kPolicyAttributesInterface,
+        kNodeManagerService, policyObjectPath, kPolicyAttributesInterface,
         [response](boost::system::error_code ec,
                    const std::vector<
                        std::pair<std::string, dbus::utility::DbusVariantType>>&
                        properties) {
-        if (ec)
-        {
-            messages::internalError(response->res);
-            return;
-        }
+            if (ec)
+            {
+                messages::internalError(response->res);
+                return;
+            }
 
-        auto policyName = getPropertyValue<std::string>(properties, "Id");
-        if (!policyName)
-        {
-            messages::internalError(response->res);
-            return;
-        }
+            auto policyName = getPropertyValue<std::string>(properties, "Id");
+            if (!policyName)
+            {
+                messages::internalError(response->res);
+                return;
+            }
 
-        if (isPolicyReadOnly(properties))
-        {
-            response->res.clearHeader(boost::beast::http::field::allow);
-            response->res.addHeader("Allow", "GET");
-        }
-        else 
-        {
-            if (isNumber(*policyName))
+            if (isPolicyReadOnly(properties))
             {
                 response->res.clearHeader(boost::beast::http::field::allow);
-                response->res.addHeader("Allow", "GET,PATCH,DELETE");
+                response->res.addHeader("Allow", "GET");
             }
             else
             {
-                response->res.clearHeader(boost::beast::http::field::allow);
-                response->res.addHeader("Allow", "GET,PATCH");
+                if (isNumber(*policyName))
+                {
+                    response->res.clearHeader(boost::beast::http::field::allow);
+                    response->res.addHeader("Allow", "GET,PATCH,DELETE");
+                }
+                else
+                {
+                    response->res.clearHeader(boost::beast::http::field::allow);
+                    response->res.addHeader("Allow", "GET,PATCH");
+                }
             }
-        }
-        response->res.jsonValue["@odata.id"] =
-            "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Policies/" +
-            *policyName;
-        response->res.jsonValue["@odata.type"] = json_util::odataType("NmPolicy");
-        response->res.jsonValue["Actions"]["#NmPolicy.ResetStatistics"] = {
-            {"target",
-             "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Policies/" +
-                 *policyName + "/Actions/Policy.ResetStatistics"}};
-
-        if (isHwProtectionPolicy(properties) || !isPolicyReadOnly(properties))
-        {
-            response->res.jsonValue["Actions"]["#NmPolicy.ChangeState"] = {
-                {"State@Redfish.AllowableValues", {"Enabled", "Disabled"}},
+            response->res.jsonValue["@odata.id"] =
+                "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Policies/" +
+                *policyName;
+            response->res.jsonValue["@odata.type"] =
+                json_util::odataType("NmPolicy");
+            response->res.jsonValue["Actions"]["#NmPolicy.ResetStatistics"] = {
                 {"target",
                  "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Policies/" +
-                     *policyName + "/Actions/Policy.ChangeState"}};
-        }
-        response->res.jsonValue["Thresholds"]["ThresholdValue"] =
-            nlohmann::json::array();
-        response->res.jsonValue["SuspendPeriods"] = nlohmann::json::object();
-        parsePropertyToResponse<uint8_t>(response, properties, "ComponentId");
-        parsePropertyToResponse<uint16_t>(response, properties, "Limit");
-        parsePropertyToResponse<int32_t>(response, properties, "PolicyStorage",
-                                         kPolicyStorageMap);
-        response->res.jsonValue["Id"] = *policyName;
-        response->res.jsonValue["Name"] = "Policy" + *policyName;
-        parsePropertyToResponse<std::string>(
-            response, properties, "PolicyType",
-            [&response, &properties](std::string& policyType) {
-            response->res.jsonValue["PolicyType"] = policyType;
-            if (policyType == kPowerPolicyType)
+                     *policyName + "/Actions/Policy.ResetStatistics"}};
+
+            if (isHwProtectionPolicy(properties) ||
+                !isPolicyReadOnly(properties))
             {
-                parsePropertyToResponse<uint32_t>(response, properties,
-                                                  "CorrectionInMs");
-                parsePropertyToResponse<int32_t>(response, properties,
-                                                 "PowerCorrectionType",
-                                                 kPowerCorrectionTypeMap);
-                parsePropertyToResponse<int32_t>(
-                    response, properties, "LimitException", kLimitExceptionMap);
+                response->res.jsonValue["Actions"]["#NmPolicy.ChangeState"] = {
+                    {"State@Redfish.AllowableValues", {"Enabled", "Disabled"}},
+                    {"target",
+                     "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Policies/" +
+                         *policyName + "/Actions/Policy.ChangeState"}};
             }
-            });
-        parsePropertyToResponse<uint16_t>(response, properties,
-                                          "StatisticsReportingPeriod",
-                                          [&response](uint16_t s) {
-            auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                std::chrono::seconds(s));
-            response->res.jsonValue["StatisticsReportingPeriod"] =
-                time_utils::toDurationString(ms);
-        });
-        parsePropertyToResponse<std::string>(
-            response, properties, "DomainId",
-            [&response](std::string& domainName) {
-            response->res.jsonValue["Domain"]["@odata.id"] =
-                "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Domains/" +
-                domainName;
-            });
-        parsePropertyToResponse<int32_t>(response, properties, "PolicyState",
-                                         kPolicyOemStateMap,
-                                         [&response](std::string state) {
-            response->res.jsonValue["OemStatus"] = state;
-        });
-        parsePropertyToResponse<int32_t>(response, properties, "PolicyState",
-                                         [&response](int32_t state) {
-            std::string dmtfState = "Disabled";
-            if (isPolicyStateEnabled(state))
-            {
-                dmtfState = "Enabled";
-            }
-            response->res.jsonValue["Status"]["State"] = dmtfState;
-        });
-        parsePropertyToResponse<std::string>(response, properties,
-                                             "TriggerType",
-                                             [&response](std::string& trigger) {
-            response->res.jsonValue["Trigger"]["TriggerType"]["@odata.id"] =
-                "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Triggers/" +
-                trigger;
-        });
-        parsePropertyToResponse<uint16_t>(response, properties, "TriggerLimit",
-                                          [&response](uint16_t triggerLimit) {
-            response->res.jsonValue["Trigger"]["TriggerLimit"] = triggerLimit;
-        });
-        parsePropertyToResponse<int32_t>(response, properties, "Owner",
-                                         [&response](int32_t defaultPolicy) {
-            if (defaultPolicy)
-                response->res.jsonValue["DefaultPolicy"] = true;
-            else
-                response->res.jsonValue["DefaultPolicy"] = false;
-        });
+            response->res.jsonValue["Thresholds"]["ThresholdValue"] =
+                nlohmann::json::array();
+            response->res.jsonValue["SuspendPeriods"] =
+                nlohmann::json::object();
+            parsePropertyToResponse<uint8_t>(response, properties,
+                                             "ComponentId");
+            parsePropertyToResponse<uint16_t>(response, properties, "Limit");
+            parsePropertyToResponse<int32_t>(
+                response, properties, "PolicyStorage", kPolicyStorageMap);
+            response->res.jsonValue["Id"] = *policyName;
+            response->res.jsonValue["Name"] = "Policy" + *policyName;
+            parsePropertyToResponse<std::string>(
+                response, properties, "PolicyType",
+                [&response, &properties](std::string& policyType) {
+                    response->res.jsonValue["PolicyType"] = policyType;
+                    if (policyType == kPowerPolicyType)
+                    {
+                        parsePropertyToResponse<uint32_t>(response, properties,
+                                                          "CorrectionInMs");
+                        parsePropertyToResponse<int32_t>(
+                            response, properties, "PowerCorrectionType",
+                            kPowerCorrectionTypeMap);
+                        parsePropertyToResponse<int32_t>(response, properties,
+                                                         "LimitException",
+                                                         kLimitExceptionMap);
+                    }
+                });
+            parsePropertyToResponse<uint16_t>(
+                response, properties, "StatisticsReportingPeriod",
+                [&response](uint16_t s) {
+                    auto ms =
+                        std::chrono::duration_cast<std::chrono::milliseconds>(
+                            std::chrono::seconds(s));
+                    response->res.jsonValue["StatisticsReportingPeriod"] =
+                        time_utils::toDurationString(ms);
+                });
+            parsePropertyToResponse<std::string>(
+                response, properties, "DomainId",
+                [&response](std::string& domainName) {
+                    response->res.jsonValue["Domain"]["@odata.id"] =
+                        "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Domains/" +
+                        domainName;
+                });
+            parsePropertyToResponse<int32_t>(
+                response, properties, "PolicyState", kPolicyOemStateMap,
+                [&response](std::string state) {
+                    response->res.jsonValue["OemStatus"] = state;
+                });
+            parsePropertyToResponse<int32_t>(
+                response, properties, "PolicyState",
+                [&response](int32_t state) {
+                    std::string dmtfState = "Disabled";
+                    if (isPolicyStateEnabled(state))
+                    {
+                        dmtfState = "Enabled";
+                    }
+                    response->res.jsonValue["Status"]["State"] = dmtfState;
+                });
+            parsePropertyToResponse<std::string>(
+                response, properties, "TriggerType",
+                [&response](std::string& trigger) {
+                    response->res
+                        .jsonValue["Trigger"]["TriggerType"]["@odata.id"] =
+                        "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Triggers/" +
+                        trigger;
+                });
+            parsePropertyToResponse<uint16_t>(
+                response, properties, "TriggerLimit",
+                [&response](uint16_t triggerLimit) {
+                    response->res.jsonValue["Trigger"]["TriggerLimit"] =
+                        triggerLimit;
+                });
+            parsePropertyToResponse<int32_t>(
+                response, properties, "Owner",
+                [&response](int32_t defaultPolicy) {
+                    if (defaultPolicy)
+                        response->res.jsonValue["DefaultPolicy"] = true;
+                    else
+                        response->res.jsonValue["DefaultPolicy"] = false;
+                });
         });
 }
 
@@ -262,49 +271,54 @@ static void deletePolicy(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         [asyncResp,
          policyId](const boost::system::error_code& ec,
                    const std::vector<sdbusplus::message::object_path>& paths) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("respHandler DBus error: {}", ec.message());
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        if (paths.size() != 1)
-        {
-            messages::resourceNotFound(asyncResp->res, "Policies", policyId);
-            return;
-        }
-        auto policyPath = paths[0];
-        BMCWEB_LOG_DEBUG("Deleting policy: {}", policyPath.str);
-        crow::connections::systemBus->async_method_call(
-            [asyncResp, policyPath](const boost::system::error_code ec2) {
-            if (ec2)
+            if (ec)
             {
-                if (static_cast<nmDbus::ErrorCodes>(ec2.value()) ==
-                    nmDbus::ErrorCodes::OperationNotPermitted)
-                {
-                    asyncResp->res.clearHeader(boost::beast::http::field::allow);
-                    asyncResp->res.addHeader(boost::beast::http::field::allow, "GET , PATCH");
-                    messages::resourceCannotBeDeleted(asyncResp->res);
-                }
-                else
-                {
-                    messages::resourceNotFound(asyncResp->res, "Policies",
-                                               policyPath.str);
-                }
-
+                BMCWEB_LOG_ERROR("respHandler DBus error: {}", ec.message());
+                messages::internalError(asyncResp->res);
                 return;
             }
-            BMCWEB_LOG_INFO("Policy deleted: {}", policyPath.str);
-            asyncResp->res.result(boost::beast::http::status::no_content);
-            },
-            kNodeManagerService, policyPath.str,
-            "xyz.openbmc_project.Object.Delete", "Delete");
-    };
-    asyncFindPolicies(removePolicy,
-                      [policyId](const nmDbus::DBusPropertiesMap& propMap) {
-        return createAttributePredicate("Id", policyId)(propMap) &&
-               createAttributePredicate("Owner", kPolicyOwnerBmc)(propMap);
-    });
+            if (paths.size() != 1)
+            {
+                messages::resourceNotFound(asyncResp->res, "Policies",
+                                           policyId);
+                return;
+            }
+            auto policyPath = paths[0];
+            BMCWEB_LOG_DEBUG("Deleting policy: {}", policyPath.str);
+            crow::connections::systemBus->async_method_call(
+                [asyncResp, policyPath](const boost::system::error_code ec2) {
+                    if (ec2)
+                    {
+                        if (static_cast<nmDbus::ErrorCodes>(ec2.value()) ==
+                            nmDbus::ErrorCodes::OperationNotPermitted)
+                        {
+                            asyncResp->res.clearHeader(
+                                boost::beast::http::field::allow);
+                            asyncResp->res.addHeader(
+                                boost::beast::http::field::allow,
+                                "GET , PATCH");
+                            messages::resourceCannotBeDeleted(asyncResp->res);
+                        }
+                        else
+                        {
+                            messages::resourceNotFound(
+                                asyncResp->res, "Policies", policyPath.str);
+                        }
+
+                        return;
+                    }
+                    BMCWEB_LOG_INFO("Policy deleted: {}", policyPath.str);
+                    asyncResp->res.result(
+                        boost::beast::http::status::no_content);
+                },
+                kNodeManagerService, policyPath.str,
+                "xyz.openbmc_project.Object.Delete", "Delete");
+        };
+    asyncFindPolicies(
+        removePolicy, [policyId](const nmDbus::DBusPropertiesMap& propMap) {
+            return createAttributePredicate("Id", policyId)(propMap) &&
+                   createAttributePredicate("Owner", kPolicyOwnerBmc)(propMap);
+        });
 }
 
 bool convertAttributesToPolicyParams(
@@ -312,16 +326,16 @@ bool convertAttributesToPolicyParams(
         properties,
     PolicyParamsTuple& policyParams)
 {
-    auto correctionInMs = getPropertyValue<uint32_t>(properties,
-                                                     "CorrectionInMs");
+    auto correctionInMs =
+        getPropertyValue<uint32_t>(properties, "CorrectionInMs");
     auto limit = getPropertyValue<uint16_t>(properties, "Limit");
     auto statisticsReportingPeriod =
         getPropertyValue<uint16_t>(properties, "StatisticsReportingPeriod");
     auto policyStorage = getPropertyValue<int32_t>(properties, "PolicyStorage");
-    auto powerCorrectionType = getPropertyValue<int32_t>(properties,
-                                                         "PowerCorrectionType");
-    auto limitException = getPropertyValue<int32_t>(properties,
-                                                    "LimitException");
+    auto powerCorrectionType =
+        getPropertyValue<int32_t>(properties, "PowerCorrectionType");
+    auto limitException =
+        getPropertyValue<int32_t>(properties, "LimitException");
     auto componentId = getPropertyValue<uint8_t>(properties, "ComponentId");
     auto triggerLimit = getPropertyValue<uint16_t>(properties, "TriggerLimit");
     auto triggerType = getPropertyValue<std::string>(properties, "TriggerType");
@@ -384,7 +398,7 @@ inline void updatePolicyParamsWithJsonValues(
         auto policyStorageDbus = std::find_if(
             kPolicyStorageMap.begin(), kPolicyStorageMap.end(),
             [&policyStorage](const std::pair<int32_t, std::string>& option) {
-            return *policyStorage == option.second;
+                return *policyStorage == option.second;
             });
         if (policyStorageDbus != kPolicyStorageMap.end())
         {
@@ -402,7 +416,7 @@ inline void updatePolicyParamsWithJsonValues(
             kPowerCorrectionTypeMap.begin(), kPowerCorrectionTypeMap.end(),
             [&powerCorrectionType](
                 const std::pair<int32_t, std::string>& option) {
-            return *powerCorrectionType == option.second;
+                return *powerCorrectionType == option.second;
             });
         if (powerCorrectionTypeDbus != kPowerCorrectionTypeMap.end())
         {
@@ -419,7 +433,7 @@ inline void updatePolicyParamsWithJsonValues(
         auto limitExceptionDbus = std::find_if(
             kLimitExceptionMap.begin(), kLimitExceptionMap.end(),
             [&limitException](const std::pair<int32_t, std::string>& option) {
-            return *limitException == option.second;
+                return *limitException == option.second;
             });
         if (limitExceptionDbus != kLimitExceptionMap.end())
         {
@@ -466,31 +480,32 @@ void getPolicyObjectPath(const crow::Request& req,
         [req, asyncResp, policyName,
          handler](const boost::system::error_code ec,
                   const std::vector<std::string>& objects) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("respHandler DBus error: {}", ec.message());
-            messages::internalError(asyncResp->res);
-        }
-
-        auto policyObjectPath =
-            std::find_if(objects.begin(), objects.end(),
-                         [&policyName](const std::string& objectPath) {
-            std::smatch match;
-            std::regex search("Policy/" + policyName + "$");
-            if (std::regex_search(objectPath, match, search))
+            if (ec)
             {
-                return true;
+                BMCWEB_LOG_ERROR("respHandler DBus error: {}", ec.message());
+                messages::internalError(asyncResp->res);
             }
-            return false;
-            });
 
-        if (objects.end() == policyObjectPath)
-        {
-            messages::resourceNotFound(asyncResp->res, "Policies", policyName);
-            return;
-        }
-        std::string policyObjectPathValue = *policyObjectPath;
-        handler(policyObjectPathValue);
+            auto policyObjectPath = std::find_if(
+                objects.begin(), objects.end(),
+                [&policyName](const std::string& objectPath) {
+                    std::smatch match;
+                    std::regex search("Policy/" + policyName + "$");
+                    if (std::regex_search(objectPath, match, search))
+                    {
+                        return true;
+                    }
+                    return false;
+                });
+
+            if (objects.end() == policyObjectPath)
+            {
+                messages::resourceNotFound(asyncResp->res, "Policies",
+                                           policyName);
+                return;
+            }
+            std::string policyObjectPathValue = *policyObjectPath;
+            handler(policyObjectPathValue);
         },
         kObjectMapperService, kObjectMapperObjectPath, kObjectMapperService,
         "GetSubTreePaths", kNodeManagerObjectPath, 0,
@@ -501,88 +516,98 @@ inline void requestRoutesNodeManagerPolicies(App& app)
 {
     sd_bus_error_add_map(nmDbus::kNodeManagerDBusErrors);
 
-    BMCWEB_ROUTE(app, "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Policies/")
+    BMCWEB_ROUTE(app,
+                 "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Policies/")
         .privileges(redfish::privileges::privilegeSetLogin)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
-               const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
                     return;
                 }
-        asyncResp->res.jsonValue = {
-            {"@odata.type", "#NmPolicyCollection.v1_0_0.NmPolicyCollection"},
-            {"@odata.id",
-             "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Policies"},
-            {"Name", "NM Policies Collection"},
-	    {"Description", "The Collection of NodeManager Policies"},
-        };
+                asyncResp->res.jsonValue = {
+                    {"@odata.type",
+                     "#NmPolicyCollection.v1_0_0.NmPolicyCollection"},
+                    {"@odata.id",
+                     "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Policies"},
+                    {"Name", "NM Policies Collection"},
+                    {"Description", "The Collection of NodeManager Policies"},
+                };
 
-        auto addPolicies =
-            [asyncResp](
-                const boost::system::error_code& ec,
-                const std::vector<sdbusplus::message::object_path>& paths) {
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR("respHandler DBus error: {}", ec.message());
-                messages::internalError(asyncResp->res);
-                return;
-            }
-            nlohmann::json& members = asyncResp->res.jsonValue["Members"];
-            members = dbusPoliciesPathsToLinks(paths);
-            asyncResp->res.jsonValue["Members@odata.count"] = members.size();
-        };
+                auto addPolicies =
+                    [asyncResp](
+                        const boost::system::error_code& ec,
+                        const std::vector<sdbusplus::message::object_path>&
+                            paths) {
+                        if (ec)
+                        {
+                            BMCWEB_LOG_ERROR("respHandler DBus error: {}",
+                                             ec.message());
+                            messages::internalError(asyncResp->res);
+                            return;
+                        }
+                        nlohmann::json& members =
+                            asyncResp->res.jsonValue["Members"];
+                        members = dbusPoliciesPathsToLinks(paths);
+                        asyncResp->res.jsonValue["Members@odata.count"] =
+                            members.size();
+                    };
 
-        asyncFindPolicies(addPolicies, nullptr);
-        });
+                asyncFindPolicies(addPolicies, nullptr);
+            });
 
     BMCWEB_ROUTE(
         app, "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Policies/<str>")
         .privileges(redfish::privileges::privilegeSetLogin)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
-               const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-               const std::string& policyName) {
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const std::string& policyName) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
                     return;
                 }
 
-        crow::connections::systemBus->async_method_call(
-            [asyncResp, policyName](const boost::system::error_code ec,
-                                    const std::vector<std::string>& objects) {
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR("respHandler DBus error: {}", ec.message());
-                messages::internalError(asyncResp->res);
-            }
+                crow::connections::systemBus->async_method_call(
+                    [asyncResp,
+                     policyName](const boost::system::error_code ec,
+                                 const std::vector<std::string>& objects) {
+                        if (ec)
+                        {
+                            BMCWEB_LOG_ERROR("respHandler DBus error: {}",
+                                             ec.message());
+                            messages::internalError(asyncResp->res);
+                        }
 
-            auto policyObjectPath =
-                std::find_if(objects.begin(), objects.end(),
-                             [&policyName](const std::string& objectPath) {
-                std::smatch match;
-                std::regex search("Policy/" + policyName + "$");
-                if (std::regex_search(objectPath, match, search))
-                {
-                    return true;
-                }
-                return false;
-                });
+                        auto policyObjectPath = std::find_if(
+                            objects.begin(), objects.end(),
+                            [&policyName](const std::string& objectPath) {
+                                std::smatch match;
+                                std::regex search("Policy/" + policyName + "$");
+                                if (std::regex_search(objectPath, match,
+                                                      search))
+                                {
+                                    return true;
+                                }
+                                return false;
+                            });
 
-            if (objects.end() == policyObjectPath)
-            {
-                messages::resourceNotFound(asyncResp->res, "Policies",
-                                           policyName);
-                return;
-            }
+                        if (objects.end() == policyObjectPath)
+                        {
+                            messages::resourceNotFound(asyncResp->res,
+                                                       "Policies", policyName);
+                            return;
+                        }
 
-            getAttributes(asyncResp, *policyObjectPath);
-            getStatistics(asyncResp, *policyObjectPath);
-            },
-            kObjectMapperService, kObjectMapperObjectPath, kObjectMapperService,
-            "GetSubTreePaths", kNodeManagerObjectPath, 0,
-            std::vector<const char*>{kPolicyAttributesInterface});
-        });
+                        getAttributes(asyncResp, *policyObjectPath);
+                        getStatistics(asyncResp, *policyObjectPath);
+                    },
+                    kObjectMapperService, kObjectMapperObjectPath,
+                    kObjectMapperService, "GetSubTreePaths",
+                    kNodeManagerObjectPath, 0,
+                    std::vector<const char*>{kPolicyAttributesInterface});
+            });
 
     BMCWEB_ROUTE(
         app, "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Policies/<str>")
@@ -590,212 +615,233 @@ inline void requestRoutesNodeManagerPolicies(App& app)
         .methods(boost::beast::http::verb::post)(
             [](const crow::Request&,
                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-               const std::string& policyName)
-        {
+               const std::string& policyName) {
                 asyncResp->res.clearHeader(boost::beast::http::field::allow);
 
-            crow::connections::systemBus->async_method_call(
-                [asyncResp, policyName](const boost::system::error_code ec,
-                                        const std::vector<std::string>& objects)
-            {
-                if (ec)
-                {
-                    BMCWEB_LOG_ERROR("respHandler DBus error: {}", ec.message());
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-
-                auto policyObjectPath =
-                    std::find_if(objects.begin(), objects.end(),
-                                [&policyName](const std::string& objectPath) {
-                    std::smatch match;
-                    std::regex search("Policy/" + policyName + "$");
-                    if (std::regex_search(objectPath, match, search))
-                    {
-                        return true;
-                    }
-                    return false;
-                    });
-
-                if (objects.end() == policyObjectPath)
-                {
-                    messages::resourceNotFound(asyncResp->res, "Policies",
-                                            policyName);
-                    return;
-                }
-                asyncResp->res.addHeader("Allow", "GET, PATCH, DELETE");
-                messages::operationNotAllowed(asyncResp->res);
-                return;
-            },
-            kObjectMapperService, kObjectMapperObjectPath, kObjectMapperService,
-            "GetSubTreePaths", kNodeManagerObjectPath, 0,
-            std::vector<const char*>{kPolicyAttributesInterface});
-        });
-
-    BMCWEB_ROUTE(
-        app, "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Policies/<str>/")
-        .privileges(redfish::privileges::privilegeSetConfigureManager)
-        .methods(boost::beast::http::verb::delete_)(
-            [](const crow::Request& req,
-               const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-               const std::string& policyName) {
-        if (policyName.empty())
-        {
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        getPolicyObjectPath(
-            req, asyncResp, policyName,
-            [req, asyncResp, policyName](const std::string& policyObjectPath) {
-            dbus::utility::getAllProperties(
-                kNodeManagerService,
-                policyObjectPath, kPolicyAttributesInterface,
-                [req, asyncResp, policyObjectPath, policyName](
-                    boost::system::error_code ec,
-                    const std::vector<
-                        std::pair<std::string, dbus::utility::DbusVariantType>>&
-                        properties) {
-                if (ec)
-                {
-                    BMCWEB_LOG_ERROR("Cannot get properties for policy: {}",
-                                     policyObjectPath);
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                if (isPolicyReadOnly(properties))
-                {
-                    BMCWEB_LOG_INFO(
-                        "The attempt to modify the object has been denied: {}",
-                        policyObjectPath);
-
-                    asyncResp->res.clearHeader(boost::beast::http::field::allow);
-                    asyncResp->res.addHeader(boost::beast::http::field::allow, "GET");
-                    messages::resourceCannotBeDeleted(asyncResp->res);
-                    return;
-                }
-                deletePolicy(asyncResp, policyName);
-                });
-            });
-        });
-
-    BMCWEB_ROUTE(
-        app, "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Policies/<str>/")
-        .privileges(redfish::privileges::privilegeSetConfigureManager)
-        .methods(boost::beast::http::verb::patch)(
-            [](const crow::Request& req,
-               const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-               const std::string& policyName) {
-        
-        getPolicyObjectPath(
-            req, asyncResp, policyName,
-            [req, asyncResp, policyName](const std::string& policyObjectPath) {
-            dbus::utility::getAllProperties(
-                kNodeManagerService,
-                policyObjectPath, kPolicyAttributesInterface,
-                [req, asyncResp, policyObjectPath, policyName](
-                    boost::system::error_code ec,
-                    const std::vector<
-                        std::pair<std::string, dbus::utility::DbusVariantType>>&
-                        properties) {
-                if (ec)
-                {
-                    BMCWEB_LOG_ERROR("Cannot get properties for policy: {}",
-                                     policyObjectPath);
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                if (isPolicyReadOnly(properties))
-                {
-                    BMCWEB_LOG_INFO(
-                        "The attempt to modify the object has been denied: {}",
-                        policyObjectPath);
-                    asyncResp->res.clearHeader(boost::beast::http::field::allow);
-                    asyncResp->res.addHeader(boost::beast::http::field::allow, "GET");    
-                    messages::operationNotAllowed(asyncResp->res);
-                    return;
-                }
-
-                PolicyParamsTuple policyParams;
-                if (!convertAttributesToPolicyParams(properties, policyParams))
-                {
-                    BMCWEB_LOG_ERROR(
-                        "Parameters conversion has failed for policy: {}",
-                        policyObjectPath);
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-
-                updatePolicyParamsWithJsonValues(req, asyncResp, policyParams);
-
-                if (asyncResp->res.result() != boost::beast::http::status::ok)
-                {
-                    BMCWEB_LOG_ERROR(
-                        "Paremters update has failed for policy: {}",
-                        policyObjectPath);
-                    return;
-                }
-
                 crow::connections::systemBus->async_method_call(
-                    [asyncResp, req, policyObjectPath,
-                     policyName](const boost::system::error_code ec2) {
-                    if (ec2)
-                    {
-                        BMCWEB_LOG_ERROR(
-                            "Update method has failed for policy: {}",
-                            policyObjectPath);
-                        nmDbus::dbusErrorToBmcwebMessage(asyncResp, req, ec2,
-                                                         policyObjectPath);
+                    [asyncResp,
+                     policyName](const boost::system::error_code ec,
+                                 const std::vector<std::string>& objects) {
+                        if (ec)
+                        {
+                            BMCWEB_LOG_ERROR("respHandler DBus error: {}",
+                                             ec.message());
+                            messages::internalError(asyncResp->res);
+                            return;
+                        }
+
+                        auto policyObjectPath = std::find_if(
+                            objects.begin(), objects.end(),
+                            [&policyName](const std::string& objectPath) {
+                                std::smatch match;
+                                std::regex search("Policy/" + policyName + "$");
+                                if (std::regex_search(objectPath, match,
+                                                      search))
+                                {
+                                    return true;
+                                }
+                                return false;
+                            });
+
+                        if (objects.end() == policyObjectPath)
+                        {
+                            messages::resourceNotFound(asyncResp->res,
+                                                       "Policies", policyName);
+                            return;
+                        }
+                        asyncResp->res.addHeader("Allow", "GET, PATCH, DELETE");
+                        messages::operationNotAllowed(asyncResp->res);
                         return;
-                    }
-                    getAttributes(asyncResp, policyObjectPath);
-                    getStatistics(asyncResp, policyObjectPath);
                     },
-                    kNodeManagerService, policyObjectPath,
-                    kPolicyAttributesInterface, "Update", policyParams);
-                });
+                    kObjectMapperService, kObjectMapperObjectPath,
+                    kObjectMapperService, "GetSubTreePaths",
+                    kNodeManagerObjectPath, 0,
+                    std::vector<const char*>{kPolicyAttributesInterface});
             });
+
+    BMCWEB_ROUTE(
+        app, "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Policies/<str>/")
+        .privileges(redfish::privileges::privilegeSetConfigureManager)
+        .methods(
+            boost::beast::http::verb::
+                delete_)([](const crow::Request& req,
+                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                            const std::string& policyName) {
+            if (policyName.empty())
+            {
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            getPolicyObjectPath(
+                req, asyncResp, policyName,
+                [req, asyncResp,
+                 policyName](const std::string& policyObjectPath) {
+                    dbus::utility::getAllProperties(
+                        kNodeManagerService, policyObjectPath,
+                        kPolicyAttributesInterface,
+                        [req, asyncResp, policyObjectPath, policyName](
+                            boost::system::error_code ec,
+                            const std::vector<std::pair<
+                                std::string, dbus::utility::DbusVariantType>>&
+                                properties) {
+                            if (ec)
+                            {
+                                BMCWEB_LOG_ERROR(
+                                    "Cannot get properties for policy: {}",
+                                    policyObjectPath);
+                                messages::internalError(asyncResp->res);
+                                return;
+                            }
+                            if (isPolicyReadOnly(properties))
+                            {
+                                BMCWEB_LOG_INFO(
+                                    "The attempt to modify the object has been denied: {}",
+                                    policyObjectPath);
+
+                                asyncResp->res.clearHeader(
+                                    boost::beast::http::field::allow);
+                                asyncResp->res.addHeader(
+                                    boost::beast::http::field::allow, "GET");
+                                messages::resourceCannotBeDeleted(
+                                    asyncResp->res);
+                                return;
+                            }
+                            deletePolicy(asyncResp, policyName);
+                        });
+                });
+        });
+
+    BMCWEB_ROUTE(
+        app, "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Policies/<str>/")
+        .privileges(redfish::privileges::privilegeSetConfigureManager)
+        .methods(
+            boost::beast::http::verb::
+                patch)([](const crow::Request& req,
+                          const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                          const std::string& policyName) {
+            getPolicyObjectPath(
+                req, asyncResp, policyName,
+                [req, asyncResp,
+                 policyName](const std::string& policyObjectPath) {
+                    dbus::utility::getAllProperties(
+                        kNodeManagerService, policyObjectPath,
+                        kPolicyAttributesInterface,
+                        [req, asyncResp, policyObjectPath, policyName](
+                            boost::system::error_code ec,
+                            const std::vector<std::pair<
+                                std::string, dbus::utility::DbusVariantType>>&
+                                properties) {
+                            if (ec)
+                            {
+                                BMCWEB_LOG_ERROR(
+                                    "Cannot get properties for policy: {}",
+                                    policyObjectPath);
+                                messages::internalError(asyncResp->res);
+                                return;
+                            }
+                            if (isPolicyReadOnly(properties))
+                            {
+                                BMCWEB_LOG_INFO(
+                                    "The attempt to modify the object has been denied: {}",
+                                    policyObjectPath);
+                                asyncResp->res.clearHeader(
+                                    boost::beast::http::field::allow);
+                                asyncResp->res.addHeader(
+                                    boost::beast::http::field::allow, "GET");
+                                messages::operationNotAllowed(asyncResp->res);
+                                return;
+                            }
+
+                            PolicyParamsTuple policyParams;
+                            if (!convertAttributesToPolicyParams(properties,
+                                                                 policyParams))
+                            {
+                                BMCWEB_LOG_ERROR(
+                                    "Parameters conversion has failed for policy: {}",
+                                    policyObjectPath);
+                                messages::internalError(asyncResp->res);
+                                return;
+                            }
+
+                            updatePolicyParamsWithJsonValues(req, asyncResp,
+                                                             policyParams);
+
+                            if (asyncResp->res.result() !=
+                                boost::beast::http::status::ok)
+                            {
+                                BMCWEB_LOG_ERROR(
+                                    "Paremters update has failed for policy: {}",
+                                    policyObjectPath);
+                                return;
+                            }
+
+                            crow::connections::systemBus->async_method_call(
+                                [asyncResp, req, policyObjectPath, policyName](
+                                    const boost::system::error_code ec2) {
+                                    if (ec2)
+                                    {
+                                        BMCWEB_LOG_ERROR(
+                                            "Update method has failed for policy: {}",
+                                            policyObjectPath);
+                                        nmDbus::dbusErrorToBmcwebMessage(
+                                            asyncResp, req, ec2,
+                                            policyObjectPath);
+                                        return;
+                                    }
+                                    getAttributes(asyncResp, policyObjectPath);
+                                    getStatistics(asyncResp, policyObjectPath);
+                                },
+                                kNodeManagerService, policyObjectPath,
+                                kPolicyAttributesInterface, "Update",
+                                policyParams);
+                        });
+                });
         });
 
     BMCWEB_ROUTE(
         app, "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Policies/<str>/"
              "Actions/Policy.ChangeState")
         .privileges(redfish::privileges::privilegeSetConfigureManager)
-        .methods(boost::beast::http::verb::post)(
-            [](const crow::Request& req,
-               const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-               const std::string& policyName) {
-        getPolicyObjectPath(
-            req, asyncResp, policyName,
-            [req, asyncResp, policyName](const std::string& policyObjectPath) {
-            dbus::utility::getAllProperties(
-                kNodeManagerService,
-                policyObjectPath, kPolicyAttributesInterface,
-                [req, asyncResp, policyObjectPath, policyName](
-                    boost::system::error_code ec,
-                    const std::vector<
-                        std::pair<std::string, dbus::utility::DbusVariantType>>&
-                        properties) {
-                if (ec)
-                {
-                    BMCWEB_LOG_ERROR("Cannot get properties for policy: {}",
-                                     policyObjectPath);
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
+        .methods(
+            boost::beast::http::verb::
+                post)([](const crow::Request& req,
+                         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                         const std::string& policyName) {
+            getPolicyObjectPath(
+                req, asyncResp, policyName,
+                [req, asyncResp,
+                 policyName](const std::string& policyObjectPath) {
+                    dbus::utility::getAllProperties(
+                        kNodeManagerService, policyObjectPath,
+                        kPolicyAttributesInterface,
+                        [req, asyncResp, policyObjectPath, policyName](
+                            boost::system::error_code ec,
+                            const std::vector<std::pair<
+                                std::string, dbus::utility::DbusVariantType>>&
+                                properties) {
+                            if (ec)
+                            {
+                                BMCWEB_LOG_ERROR(
+                                    "Cannot get properties for policy: {}",
+                                    policyObjectPath);
+                                messages::internalError(asyncResp->res);
+                                return;
+                            }
 
-                if (!isHwProtectionPolicy(properties) &&
-                    isPolicyReadOnly(properties))
-                {
-                    BMCWEB_LOG_INFO(
-                        "The attempt to modify the object has been denied: {}",
-                        policyObjectPath);
-                    messages::operationNotAllowed(asyncResp->res);
-                    return;
-                }
-                changeDbusObjectState(req, asyncResp, policyName,
-                                      "Policy.ChangeState", policyObjectPath);
+                            if (!isHwProtectionPolicy(properties) &&
+                                isPolicyReadOnly(properties))
+                            {
+                                BMCWEB_LOG_INFO(
+                                    "The attempt to modify the object has been denied: {}",
+                                    policyObjectPath);
+                                messages::operationNotAllowed(asyncResp->res);
+                                return;
+                            }
+                            changeDbusObjectState(req, asyncResp, policyName,
+                                                  "Policy.ChangeState",
+                                                  policyObjectPath);
+                        });
                 });
-            });
         });
 
     BMCWEB_ROUTE(
@@ -806,116 +852,123 @@ inline void requestRoutesNodeManagerPolicies(App& app)
             [](const crow::Request& req,
                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                const std::string& policyName) {
-        getPolicyObjectPath(
-            req, asyncResp, policyName,
-            [req, asyncResp, policyName](const std::string& policyObjectPath) {
-            BMCWEB_LOG_DEBUG("Proceeding Policy.ResetStatistics on policy: {}",
-                             policyName);
+                getPolicyObjectPath(
+                    req, asyncResp, policyName,
+                    [req, asyncResp,
+                     policyName](const std::string& policyObjectPath) {
+                        BMCWEB_LOG_DEBUG(
+                            "Proceeding Policy.ResetStatistics on policy: {}",
+                            policyName);
 
-            resetStatistics(asyncResp, policyObjectPath);
-            return;
+                        resetStatistics(asyncResp, policyObjectPath);
+                        return;
+                    });
             });
-        });
 
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Policies")
         .privileges(redfish::privileges::privilegeSetConfigureManager)
-        .methods(boost::beast::http::verb::post)(
-            [](const crow::Request& req,
-               const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
-        uint32_t correctionInMs;
-        uint16_t limit;
-        std::string statisticsReportingPeriodString;
-        std::string policyStorageString;
-        std::string powerCorrectionTypeString;
-        std::string limitExceptionString;
-        uint8_t componentId;
-        nlohmann::json trigger;
-        uint16_t triggerLimit;
-        std::string triggerType;
-        std::string domain;
-        std::string id;
-        nlohmann::json status;
-        std::string stateString;
+        .methods(
+            boost::beast::http::verb::
+                post)([](const crow::Request& req,
+                         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
+            uint32_t correctionInMs;
+            uint16_t limit;
+            std::string statisticsReportingPeriodString;
+            std::string policyStorageString;
+            std::string powerCorrectionTypeString;
+            std::string limitExceptionString;
+            uint8_t componentId;
+            nlohmann::json trigger;
+            uint16_t triggerLimit;
+            std::string triggerType;
+            std::string domain;
+            std::string id;
+            nlohmann::json status;
+            std::string stateString;
 
-        if (!json_util::readJsonAction(
-                req, asyncResp->res, "CorrectionInMs", correctionInMs, "Limit",
-                limit, "StatisticsReportingPeriod",
-                statisticsReportingPeriodString, "PolicyStorage",
-                policyStorageString, "PowerCorrectionType",
-                powerCorrectionTypeString, "LimitException",
-                limitExceptionString, "ComponentId", componentId, "Trigger",
-                trigger, "Domain", domain, "Id", id, "Status", status))
-        {
-            return;
-        }
-
-        if (!json_util::readJson(trigger, asyncResp->res, "TriggerLimit",
-                                 triggerLimit, "TriggerType", triggerType))
-        {
-            return;
-        }
-
-        if (!json_util::readJson(status, asyncResp->res, "State", stateString))
-        {
-            return;
-        }
-
-        uint16_t statisticsReportingPeriod = convertTimeString<uint16_t>(
-            asyncResp, statisticsReportingPeriodString,
-            "StatisticsReportingPeriod");
-        int32_t policyStorage = convertStringToEnum<int32_t>(
-            asyncResp, policyStorageString, "PolicyStorage", kPolicyStorageMap);
-        int32_t powerCorrectionType = convertStringToEnum<int32_t>(
-            asyncResp, powerCorrectionTypeString, "PowerCorrectionType",
-            kPowerCorrectionTypeMap);
-        int32_t limitException =
-            convertStringToEnum<int32_t>(asyncResp, limitExceptionString,
-                                         "LimitException", kLimitExceptionMap);
-        bool state = convertStringToEnum<bool>(asyncResp, stateString, "State",
-                                               kPolicyStateMap);
-
-        if (asyncResp->res.result() != boost::beast::http::status::ok)
-        {
-            return;
-        }
-
-        crow::connections::systemBus->async_method_call(
-            [req, asyncResp, id,
-             state](const boost::system::error_code& ec,
-                    const sdbusplus::message::object_path& policyObjectPath) {
-            if (ec)
+            if (!json_util::readJsonAction(
+                    req, asyncResp->res, "CorrectionInMs", correctionInMs,
+                    "Limit", limit, "StatisticsReportingPeriod",
+                    statisticsReportingPeriodString, "PolicyStorage",
+                    policyStorageString, "PowerCorrectionType",
+                    powerCorrectionTypeString, "LimitException",
+                    limitExceptionString, "ComponentId", componentId, "Trigger",
+                    trigger, "Domain", domain, "Id", id, "Status", status))
             {
-                nmDbus::dbusErrorToBmcwebMessage(asyncResp, req, ec,
-                                                 policyObjectPath.str);
                 return;
             }
-            BMCWEB_LOG_DEBUG("Created new policy: {}", policyObjectPath.str);
-            messages::created(asyncResp->res);
-            if (state)
+
+            if (!json_util::readJson(trigger, asyncResp->res, "TriggerLimit",
+                                     triggerLimit, "TriggerType", triggerType))
             {
-                crow::connections::systemBus->async_method_call(
-                    [asyncResp](const boost::system::error_code ec2) {
-                    if (ec2)
+                return;
+            }
+
+            if (!json_util::readJson(status, asyncResp->res, "State",
+                                     stateString))
+            {
+                return;
+            }
+
+            uint16_t statisticsReportingPeriod = convertTimeString<uint16_t>(
+                asyncResp, statisticsReportingPeriodString,
+                "StatisticsReportingPeriod");
+            int32_t policyStorage = convertStringToEnum<int32_t>(
+                asyncResp, policyStorageString, "PolicyStorage",
+                kPolicyStorageMap);
+            int32_t powerCorrectionType = convertStringToEnum<int32_t>(
+                asyncResp, powerCorrectionTypeString, "PowerCorrectionType",
+                kPowerCorrectionTypeMap);
+            int32_t limitException = convertStringToEnum<int32_t>(
+                asyncResp, limitExceptionString, "LimitException",
+                kLimitExceptionMap);
+            bool state = convertStringToEnum<bool>(asyncResp, stateString,
+                                                   "State", kPolicyStateMap);
+
+            if (asyncResp->res.result() != boost::beast::http::status::ok)
+            {
+                return;
+            }
+
+            crow::connections::systemBus->async_method_call(
+                [req, asyncResp, id, state](
+                    const boost::system::error_code& ec,
+                    const sdbusplus::message::object_path& policyObjectPath) {
+                    if (ec)
                     {
-                        BMCWEB_LOG_DEBUG("DBUS response error {}", ec2);
-                        messages::internalError(asyncResp->res);
+                        nmDbus::dbusErrorToBmcwebMessage(asyncResp, req, ec,
+                                                         policyObjectPath.str);
                         return;
                     }
-                    },
-                    kNodeManagerService, policyObjectPath,
-                    "org.freedesktop.DBus.Properties", "Set",
-                    "xyz.openbmc_project.Object.Enable", "Enabled",
-                    std::variant<bool>(true));
-            }
-            getAttributes(asyncResp, policyObjectPath);
-            getStatistics(asyncResp, policyObjectPath);
-            },
-            kNodeManagerService, getDomainDbusPath(domain),
-            kPolicyManagerInterface, "CreateWithId", id,
-            std::tuple(correctionInMs, limit, statisticsReportingPeriod,
-                       policyStorage, powerCorrectionType, limitException,
-                       SuspendPeriodsType{}, ThresholdsType{}, componentId,
-                       triggerLimit, triggerType));
+                    BMCWEB_LOG_DEBUG("Created new policy: {}",
+                                     policyObjectPath.str);
+                    messages::created(asyncResp->res);
+                    if (state)
+                    {
+                        crow::connections::systemBus->async_method_call(
+                            [asyncResp](const boost::system::error_code ec2) {
+                                if (ec2)
+                                {
+                                    BMCWEB_LOG_DEBUG("DBUS response error {}",
+                                                     ec2);
+                                    messages::internalError(asyncResp->res);
+                                    return;
+                                }
+                            },
+                            kNodeManagerService, policyObjectPath,
+                            "org.freedesktop.DBus.Properties", "Set",
+                            "xyz.openbmc_project.Object.Enable", "Enabled",
+                            std::variant<bool>(true));
+                    }
+                    getAttributes(asyncResp, policyObjectPath);
+                    getStatistics(asyncResp, policyObjectPath);
+                },
+                kNodeManagerService, getDomainDbusPath(domain),
+                kPolicyManagerInterface, "CreateWithId", id,
+                std::tuple(correctionInMs, limit, statisticsReportingPeriod,
+                           policyStorage, powerCorrectionType, limitException,
+                           SuspendPeriodsType{}, ThresholdsType{}, componentId,
+                           triggerLimit, triggerType));
         });
 }
 } // namespace redfish

@@ -94,24 +94,24 @@ class Server
     {
         signals.async_wait(
             [this](const boost::system::error_code& ec, int signalNo) {
-            if (ec)
-            {
-                BMCWEB_LOG_INFO("Error in signal handler{}", ec.message());
-            }
-            else
-            {
-                if (signalNo == SIGHUP)
+                if (ec)
                 {
-                    BMCWEB_LOG_INFO("Receivied reload signal");
-                    loadCertificate();
-                    startAsyncWaitForSignal();
+                    BMCWEB_LOG_INFO("Error in signal handler{}", ec.message());
                 }
                 else
                 {
-                    stop();
+                    if (signalNo == SIGHUP)
+                    {
+                        BMCWEB_LOG_INFO("Receivied reload signal");
+                        loadCertificate();
+                        startAsyncWaitForSignal();
+                    }
+                    else
+                    {
+                        stop();
+                    }
                 }
-            }
-        });
+            });
     }
 
     void stop()

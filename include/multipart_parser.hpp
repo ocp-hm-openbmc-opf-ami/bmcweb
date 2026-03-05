@@ -4,15 +4,15 @@
 
 #include "http_request.hpp"
 
+#include <fcntl.h>
+#include <unistd.h>
+
 #include <boost/beast/http/fields.hpp>
 
+#include <filesystem>
 #include <ranges>
 #include <string>
 #include <string_view>
-
-#include <fcntl.h>  
-#include <unistd.h>  
-#include <filesystem>
 
 enum class ParserError
 {
@@ -61,7 +61,7 @@ enum class Boundary
 struct FormPart
 {
     boost::beast::http::fields fields;
-    std::string content; 
+    std::string content;
     bool isFileMode = false;
     int fd = -1;
 };
@@ -71,15 +71,19 @@ class MultipartParser
   public:
     MultipartParser() = default;
 
-    ~MultipartParser() {    
-        for (auto& part : mime_fields) {    
-            if (part.fd != -1) {    
-                close(part.fd);    
-            }    
-        }    
+    ~MultipartParser()
+    {
+        for (auto& part : mime_fields)
+        {
+            if (part.fd != -1)
+            {
+                close(part.fd);
+            }
+        }
     }
 
-    [[nodiscard]] ParserError parse(const crow::Request& req, bool enableLargeFileMode = false)
+    [[nodiscard]] ParserError parse(const crow::Request& req,
+                                    bool enableLargeFileMode = false)
     {
         std::string_view contentType = req.getHeaderValue("content-type");
 
@@ -190,42 +194,63 @@ class MultipartParser
                     state = State::HEADER_VALUE;
                     [[fallthrough]];
                 case State::HEADER_VALUE:
-                    if (c == cr)  
-                    {  
-                        std::string_view value(&buffer[headerValueMark], i - headerValueMark);  
-                        mime_fields.rbegin()->fields.set(currentHeaderName, value);  
+                    if (c == cr)
+                    {
+                        std::string_view value(&buffer[headerValueMark],
+                                               i - headerValueMark);
+                        mime_fields.rbegin()->fields.set(currentHeaderName,
+                                                         value);
 
-                        if (enableLargeFileMode){
+                        if (enableLargeFileMode)
+                        {
                             mime_fields.rbegin()->isFileMode = true;
 
-                            if (currentHeaderName == "Content-Disposition") {  
-                                size_t index = value.find(';');  
-                                if (index != std::string::npos) {  
-                                    for (const auto& param : boost::beast::http::param_list{value.substr(index)}) {  
-                                        if (param.first == "name") {  
-                                            if (param.second == "FilePath") {  
+                            if (currentHeaderName == "Content-Disposition")
+                            {
+                                size_t index = value.find(';');
+                                if (index != std::string::npos)
+                                {
+                                    for (const auto& param :
+                                         boost::beast::http::param_list{
+                                             value.substr(index)})
+                                    {
+                                        if (param.first == "name")
+                                        {
+                                            if (param.second == "FilePath")
+                                            {
                                                 currentPartIsFilePath = true;
-                                            } else if (param.second == "UploadFile") {  
-                                                currentPartIsUploadFile = true;  
-                                                if (targetFilePath == "") {
-                                                    return ParserError::ERROR_FILEPATH_MISSING;  
-                                                }  
+                                            }
+                                            else if (param.second ==
+                                                     "UploadFile")
+                                            {
+                                                currentPartIsUploadFile = true;
+                                                if (targetFilePath == "")
+                                                {
+                                                    return ParserError::
+                                                        ERROR_FILEPATH_MISSING;
+                                                }
 
                                                 // get fd
-                                                mime_fields.rbegin()->fd = open(targetFilePath.c_str(),   
-                                                    O_CREAT | O_WRONLY | O_TRUNC, 0600);
-                                                if (mime_fields.rbegin()->fd == -1) {
-                                                    return ParserError::ERROR_FILE_CREATION;  
-                                                }   
-                                            }  
+                                                mime_fields.rbegin()->fd =
+                                                    open(targetFilePath.c_str(),
+                                                         O_CREAT | O_WRONLY |
+                                                             O_TRUNC,
+                                                         0600);
+                                                if (mime_fields.rbegin()->fd ==
+                                                    -1)
+                                                {
+                                                    return ParserError::
+                                                        ERROR_FILE_CREATION;
+                                                }
+                                            }
                                         }
-                                    }  
-                                }  
+                                    }
+                                }
                             }
                         }
 
-                        state = State::HEADER_VALUE_ALMOST_DONE;  
-                    }  
+                        state = State::HEADER_VALUE_ALMOST_DONE;
+                    }
                     break;
                 case State::HEADER_VALUE_ALMOST_DONE:
                     if (c != lf)
@@ -322,20 +347,28 @@ class MultipartParser
         {
             if (boundary[index] == c)
             {
-                if (index == 0)  
-                {  
-                    const char* start = &buffer[partDataMark];  
+                if (index == 0)
+                {
+                    const char* start = &buffer[partDataMark];
                     size_t size = i - partDataMark;
 
                     // Write directly to file
-                    if (!mime_fields.empty() && mime_fields.rbegin()->isFileMode && currentPartIsUploadFile) {
+                    if (!mime_fields.empty() &&
+                        mime_fields.rbegin()->isFileMode &&
+                        currentPartIsUploadFile)
+                    {
                         // write
-                        ssize_t written = write(mime_fields.rbegin()->fd, start, size);  
-                        if (written != static_cast<ssize_t>(size)) {  
-                            return ParserError::ERROR_FILE_WRITE;  
-                        }  
-                    } else {  
-                        mime_fields.rbegin()->content += std::string_view(start, size);  
+                        ssize_t written =
+                            write(mime_fields.rbegin()->fd, start, size);
+                        if (written != static_cast<ssize_t>(size))
+                        {
+                            return ParserError::ERROR_FILE_WRITE;
+                        }
+                    }
+                    else
+                    {
+                        mime_fields.rbegin()->content +=
+                            std::string_view(start, size);
                     }
                 }
                 index++;
@@ -371,35 +404,52 @@ class MultipartParser
                 if (c == lf)
                 {
                     // End multipart field (UploadFile or FilePath)
-                    if (!mime_fields.empty() && mime_fields.rbegin()->isFileMode){
-                        if (currentPartIsFilePath) {
-
+                    if (!mime_fields.empty() &&
+                        mime_fields.rbegin()->isFileMode)
+                    {
+                        if (currentPartIsFilePath)
+                        {
                             targetFilePath = mime_fields.rbegin()->content;
                             std::filesystem::path filepath(targetFilePath);
 
-                            if (filepath.parent_path() != "/tmp/lmedia") {
-                                BMCWEB_LOG_ERROR("Invalid file path: {}", targetFilePath);  
-                                return ParserError::ERROR_FILEPATH_DIRECTORY_INVALID;  
+                            if (filepath.parent_path() != "/tmp/lmedia")
+                            {
+                                BMCWEB_LOG_ERROR("Invalid file path: {}",
+                                                 targetFilePath);
+                                return ParserError::
+                                    ERROR_FILEPATH_DIRECTORY_INVALID;
                             }
 
-                            if (std::filesystem::exists(targetFilePath)) {  
-                                BMCWEB_LOG_ERROR("File already exists: {}", targetFilePath);  
-                                return ParserError::ERROR_FILE_ALREADY_EXISTS;  
+                            if (std::filesystem::exists(targetFilePath))
+                            {
+                                BMCWEB_LOG_ERROR("File already exists: {}",
+                                                 targetFilePath);
+                                return ParserError::ERROR_FILE_ALREADY_EXISTS;
                             }
 
-                            std::string extension = filepath.extension().string();
-                            const std::vector<std::string> supportedExtensions = {".nrg", ".img", ".iso", ".ima"};
-                            if (std::find(supportedExtensions.begin(), supportedExtensions.end(), extension) == supportedExtensions.end()) {  
-                                BMCWEB_LOG_ERROR("Unsupported file extension: {}", extension);  
+                            std::string extension =
+                                filepath.extension().string();
+                            const std::vector<std::string> supportedExtensions =
+                                {".nrg", ".img", ".iso", ".ima"};
+                            if (std::find(supportedExtensions.begin(),
+                                          supportedExtensions.end(),
+                                          extension) ==
+                                supportedExtensions.end())
+                            {
+                                BMCWEB_LOG_ERROR(
+                                    "Unsupported file extension: {}",
+                                    extension);
                                 return ParserError::ERROR_UNSUPPORTED_FILE_TYPE;
                             }
-                        }  
+                        }
 
-                        if (currentPartIsUploadFile) {
-                            if (mime_fields.rbegin()->fd != -1) {
+                        if (currentPartIsUploadFile)
+                        {
+                            if (mime_fields.rbegin()->fd != -1)
+                            {
                                 close(mime_fields.rbegin()->fd);
                                 mime_fields.rbegin()->fd = -1;
-                            } 
+                            }
                         }
                     }
                     // unset the PART_BOUNDARY flag
@@ -465,8 +515,7 @@ class MultipartParser
     size_t headerFieldMark = 0;
     size_t headerValueMark = 0;
 
-    std::string targetFilePath = "";  
-    bool currentPartIsFilePath = false;  
+    std::string targetFilePath = "";
+    bool currentPartIsFilePath = false;
     bool currentPartIsUploadFile = false;
-    
 };

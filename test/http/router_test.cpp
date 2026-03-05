@@ -26,8 +26,8 @@ using ::crow::utility::getParameterTag;
 TEST(Router, AllowHeader)
 {
     // Callback handler that does nothing
-    auto nullCallback = [](const Request&,
-                           const std::shared_ptr<bmcweb::AsyncResp>&) {};
+    auto nullCallback =
+        [](const Request&, const std::shared_ptr<bmcweb::AsyncResp>&) {};
 
     Router router;
     std::error_code ec;
@@ -61,17 +61,17 @@ TEST(Router, AllowHeader)
 TEST(Router, OverlapingRoutes)
 {
     // Callback handler that does nothing
-    auto fooCallback = [](const Request&,
-                          const std::shared_ptr<bmcweb::AsyncResp>&) {
-        EXPECT_FALSE(true);
-    };
+    auto fooCallback =
+        [](const Request&, const std::shared_ptr<bmcweb::AsyncResp>&) {
+            EXPECT_FALSE(true);
+        };
     bool barCalled = false;
     auto foobarCallback =
         [&barCalled](const Request&, const std::shared_ptr<bmcweb::AsyncResp>&,
                      const std::string& bar) {
-        barCalled = true;
-        EXPECT_EQ(bar, "bar");
-    };
+            barCalled = true;
+            EXPECT_EQ(bar, "bar");
+        };
 
     Router router;
     std::error_code ec;
@@ -101,8 +101,8 @@ TEST(Router, 404)
     auto nullCallback =
         [&notFoundCalled](const Request&,
                           const std::shared_ptr<bmcweb::AsyncResp>&) {
-        notFoundCalled = true;
-    };
+            notFoundCalled = true;
+        };
 
     Router router;
     std::error_code ec;
@@ -127,13 +127,13 @@ TEST(Router, 404)
 TEST(Router, 405)
 {
     // Callback handler that does nothing
-    auto nullCallback = [](const Request&,
-                           const std::shared_ptr<bmcweb::AsyncResp>&) {};
+    auto nullCallback =
+        [](const Request&, const std::shared_ptr<bmcweb::AsyncResp>&) {};
     bool called = false;
     auto notAllowedCallback =
         [&called](const Request&, const std::shared_ptr<bmcweb::AsyncResp>&) {
-        called = true;
-    };
+            called = true;
+        };
 
     Router router;
     std::error_code ec;

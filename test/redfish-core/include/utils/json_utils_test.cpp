@@ -483,7 +483,7 @@ TEST(objectKeyCmp, PositiveCases)
         0, objectKeyCmp("Name",
                         R"({"@odata.id": "/redfish/v1/1", "Name": "a"})"_json,
                         R"({"@odata.id": "/redfish/v1/1", "Name": "b"})"_json));
-     EXPECT_EQ(0, objectKeyCmp(
+    EXPECT_EQ(0, objectKeyCmp(
                      "Name",
                      R"({"@odata.id": "/redfish/v1/1", "Name": "a 45"})"_json,
                      R"({"@odata.id": "/redfish/v1/1", "Name": "a 45"})"_json));
@@ -491,7 +491,7 @@ TEST(objectKeyCmp, PositiveCases)
                      "Name",
                      R"({"@odata.id": "/redfish/v1/1", "Name": "a 45"})"_json,
                      R"({"@odata.id": "/redfish/v1/1", "Name": "b 45"})"_json));
-                     
+
     EXPECT_GT(
         0, objectKeyCmp("@odata.id",
                         R"({"@odata.id": "/redfish/v1/1", "Name": "b"})"_json,

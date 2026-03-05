@@ -180,7 +180,7 @@ inline void getPefConfParam(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
         std::array<const char*, 1>{pefConfIface});
 }
 
-inline void getDestinationType (const std::shared_ptr<bmcweb::AsyncResp>& aResp)
+inline void getDestinationType(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
 {
     dbus::utility::getProperty<uint8_t>(
         "xyz.openbmc_project.pef.alert.manager",
@@ -204,19 +204,18 @@ inline void getDestinationType (const std::shared_ptr<bmcweb::AsyncResp>& aResp)
             {
                 destinationTypeString = "SnmpTrap";
             }
-	    else if (destinationType == 2)
+            else if (destinationType == 2)
             {
                 destinationTypeString = "Both";
             }
             aResp->res.jsonValue["DestinationType"] = destinationTypeString;
-	    nlohmann::json::array_t allowed;
+            nlohmann::json::array_t allowed;
             allowed.emplace_back("SnmpTrap");
             allowed.emplace_back("SMTP");
             allowed.emplace_back("Both");
-            aResp->res
-                .jsonValue["DestinationType@Redfish.AllowableValues"] =
+            aResp->res.jsonValue["DestinationType@Redfish.AllowableValues"] =
                 std::move(allowed);
-    });
+        });
 }
 
 inline void setPefConfParam(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
@@ -265,8 +264,8 @@ inline void setPefConfParam(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
         std::array<const char*, 1>{pefConfIface});
 }
 
-void setDestinationType (const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-                         const std::optional<std::string>& destinationType)
+void setDestinationType(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+                        const std::optional<std::string>& destinationType)
 {
     uint8_t desType;
     if (destinationType == "SnmpTrap")
@@ -279,25 +278,27 @@ void setDestinationType (const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     }
     else if (destinationType == "Both")
     {
-	desType = 2;
+        desType = 2;
     }
-    else {
-        messages::propertyValueIncorrect(aResp->res, "DestinationType", *destinationType);
+    else
+    {
+        messages::propertyValueIncorrect(aResp->res, "DestinationType",
+                                         *destinationType);
         return;
     }
     sdbusplus::asio::setProperty(
         *crow::connections::systemBus, "xyz.openbmc_project.pef.alert.manager",
         "/xyz/openbmc_project/PefAlertManager/DestinationSelector/Entry1",
         "xyz.openbmc_project.pef.DestinationSelectorTable", "DestinationType",
-        desType,
-        [aResp](const boost::system::error_code& ec) {
-        if (ec)
-        {
-            BMCWEB_LOG_DEBUG("D-Bus response error setting Destination Type.");
-            messages::internalError(aResp->res);
-            return;
-        }
-    });
+        desType, [aResp](const boost::system::error_code& ec) {
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG(
+                    "D-Bus response error setting Destination Type.");
+                messages::internalError(aResp->res);
+                return;
+            }
+        });
 }
 
 void getEventEntries(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
@@ -411,43 +412,251 @@ const PropertyValue getSmtpEnable(const std::string& interfaceName)
 }
 
 void getPefServiceInfo(crow::App& app, const crow::Request& req,
-    const std::shared_ptr<bmcweb::AsyncResp>& aResp)
+                       const std::shared_ptr<bmcweb::AsyncResp>& aResp)
 {
     if (!redfish::setUpRedfishRoute(app, req, aResp))
     {
         return;
     }
 
-    aResp->res.jsonValue = {
-                    {"@odata.type", "#PefService.v1_0_0.PefService"},
-                    {"@odata.id", "/redfish/v1/PefService"},
-                    {"Id", "Pef Service"},
-                    {"Name", "Pef Service"},
-                    {"Description", "Pef Service Collections"}};
-                aResp->res.jsonValue["Actions"]["#PefService.SendAlertMail"]
-                                    ["target"] =
-                    "/redfish/v1/PefService/Actions/"
-                    "PefService.SendAlertMail";
-                aResp->res.jsonValue["Actions"]["#PefService.SendAlertSNMPTrap"]
-                                    ["target"] =
-                    "/redfish/v1/PefService/Actions/"
-                    "PefService.SendAlertSNMPTrap";
-                nlohmann::json& entriesntrollerArray =
-                    aResp->res.jsonValue["Members"];
-                entriesntrollerArray = nlohmann::json::array();
+    aResp->res.jsonValue = {{"@odata.type", "#PefService.v1_0_0.PefService"},
+                            {"@odata.id", "/redfish/v1/PefService"},
+                            {"Id", "Pef Service"},
+                            {"Name", "Pef Service"},
+                            {"Description", "Pef Service Collections"}};
+    aResp->res.jsonValue["Actions"]["#PefService.SendAlertMail"]["target"] =
+        "/redfish/v1/PefService/Actions/"
+        "PefService.SendAlertMail";
+    aResp->res.jsonValue["Actions"]["#PefService.SendAlertSNMPTrap"]["target"] =
+        "/redfish/v1/PefService/Actions/"
+        "PefService.SendAlertSNMPTrap";
+    nlohmann::json& entriesntrollerArray = aResp->res.jsonValue["Members"];
+    entriesntrollerArray = nlohmann::json::array();
 
-                getEventEntries(aResp, entriesntrollerArray);
-                getFilterEnable(aResp);
-                getPefConfParam(aResp);
-                getDestinationType(aResp);
-
+    getEventEntries(aResp, entriesntrollerArray);
+    getFilterEnable(aResp);
+    getPefConfParam(aResp);
+    getDestinationType(aResp);
 }
 
-void getPefServiceInfoId(
-                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                        const std::string& entryId)
+void getPefServiceInfoId(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                         const std::string& entryId)
 {
     crow::connections::systemBus->async_method_call(
+        [asyncResp, entryId](const boost::system::error_code ec,
+                             const std::vector<std::string>& storageList) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR(
+                    "D-Bus call error while validating event entry");
+                asyncResp->res.result(
+                    boost::beast::http::status::internal_server_error);
+                return;
+            }
+
+            // Loop through the event entries and check if the requested
+            // entryId is valid
+            bool isValid = false;
+            for (const std::string& objpath : storageList)
+            {
+                std::size_t lastPos = objpath.rfind('/');
+                if (lastPos != std::string::npos &&
+                    objpath.substr(lastPos + 1) == entryId)
+                {
+                    isValid = true;
+                    break;
+                }
+            }
+
+            if (!isValid)
+            {
+                messages::resourceNotFound(asyncResp->res, "PefService",
+                                           entryId);
+                return;
+            }
+            else
+            {
+                asyncResp->res.jsonValue = {
+                    {"@odata.type", "#PefEntry.v1_0_0.PefEntry"},
+                    {"@odata.id", "/redfish/v1/PefService/" + entryId},
+                    {"Id", entryId},
+                    {"Name", "Pef Service Entry"}};
+                getEventSeverity(asyncResp, entryId);
+            }
+        },
+        "xyz.openbmc_project.ObjectMapper",
+        "/xyz/openbmc_project/object_mapper",
+        "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
+        "/xyz/openbmc_project/PefAlertManager/EventFilterTable/", 0,
+        std::array<const char*, 1>{"xyz.openbmc_project.pef.EventFilterTable"});
+}
+
+inline void requestRoutesPefService(App& app)
+{
+    BMCWEB_ROUTE(app, "/redfish/v1/PefService/")
+        .privileges(redfish::privileges::getPefService)
+        .methods(boost::beast::http::verb::get)(
+            [&app](const crow::Request& req,
+                   const std::shared_ptr<bmcweb::AsyncResp>& aResp) {
+                getPefServiceInfo(app, req, aResp);
+            });
+
+    BMCWEB_ROUTE(app, "/redfish/v1/PefService/")
+        .privileges(redfish::privileges::patchPefService)
+        .methods(boost::beast::http::verb::patch)(
+            [&app](const crow::Request& req,
+                   const std::shared_ptr<bmcweb::AsyncResp>& aResp) {
+                std::optional<std::vector<uint8_t>> filterEnable;
+                std::optional<uint8_t> pefActionGblControl;
+                std::optional<std::string> destinationType;
+
+                if (!json_util::readJsonPatch(                      //
+                        req, aResp->res,                            //
+                        "FilterEnable", filterEnable,               //
+                        "PEFActionGblControl", pefActionGblControl, //
+                        "DestinationType", destinationType          //
+                        ))
+                {
+                    return;
+                }
+                if (filterEnable)
+                {
+                    setFilterEnable(aResp, *filterEnable);
+                }
+                if (pefActionGblControl)
+                {
+                    setPefConfParam(aResp, pefActionGblControl);
+                }
+                if (destinationType)
+                {
+                    setDestinationType(aResp, destinationType);
+                }
+                getPefServiceInfo(app, req, aResp);
+            });
+
+    BMCWEB_ROUTE(app, "/redfish/v1/PefService/<str>")
+        .privileges(redfish::privileges::getPefService)
+        .methods(boost::beast::http::verb::get)(
+            [&app](const crow::Request& req,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const std::string& entryId) {
+                asyncResp->res.clearHeader(boost::beast::http::field::allow);
+                asyncResp->res.addHeader("Allow", "GET, PATCH");
+
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
+                getPefServiceInfoId(asyncResp, entryId);
+            });
+
+    BMCWEB_ROUTE(app, "/redfish/v1/PefService/<str>")
+        .privileges(redfish::privileges::patchPefService)
+        .methods(
+            boost::beast::http::verb::
+                patch)([&app](
+                           const crow::Request& req,
+                           const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                           const std::string& entryId) {
+            asyncResp->res.clearHeader(boost::beast::http::field::allow);
+            asyncResp->res.addHeader("Allow", "GET, PATCH");
+
+            crow::connections::systemBus->async_method_call(
+                [asyncResp, entryId,
+                 req](const boost::system::error_code ec,
+                      const std::vector<std::string>& storageList) {
+                    std::optional<std::string> eventSeverity;
+                    if (ec)
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "D-Bus call error while validating event entry");
+                        asyncResp->res.result(
+                            boost::beast::http::status::internal_server_error);
+                        return;
+                    }
+
+                    // Loop through the event entries and check if the requested
+                    // entryId is valid
+                    bool isValid = false;
+                    for (const std::string& objpath : storageList)
+                    {
+                        std::size_t lastPos = objpath.rfind('/');
+                        if (lastPos != std::string::npos &&
+                            objpath.substr(lastPos + 1) == entryId)
+                        {
+                            isValid = true;
+                            break;
+                        }
+                    }
+
+                    if (!isValid)
+                    {
+                        messages::resourceNotFound(asyncResp->res, "PefService",
+                                                   entryId);
+                        return;
+                    }
+                    if (!json_util::readJsonPatch(         //
+                            req, asyncResp->res,           //
+                            "EventSeverity", eventSeverity //
+                            ))
+                    {
+                        return;
+                    }
+
+                    if (eventSeverity)
+                    {
+                        if (eventSeverity == "Information")
+                        {
+                            setEventSeverity(asyncResp, 2, entryId);
+                        }
+                        else if (eventSeverity == "OK")
+                        {
+                            setEventSeverity(asyncResp, 4, entryId);
+                        }
+                        else if (eventSeverity == "Warning")
+                        {
+                            setEventSeverity(asyncResp, 8, entryId);
+                        }
+                        else if (eventSeverity == "Critical")
+                        {
+                            setEventSeverity(asyncResp, 10, entryId);
+                        }
+                        else if (eventSeverity == "All")
+                        {
+                            setEventSeverity(asyncResp, 30, entryId);
+                        }
+                        else
+                        {
+                            messages::propertyValueNotInList(asyncResp->res,
+                                                             "EventSeverity",
+                                                             *eventSeverity);
+                            return;
+                        }
+                    }
+                    getPefServiceInfoId(asyncResp, entryId);
+                },
+                "xyz.openbmc_project.ObjectMapper",
+                "/xyz/openbmc_project/object_mapper",
+                "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
+                "/xyz/openbmc_project/PefAlertManager/EventFilterTable/", 0,
+                std::array<const char*, 1>{
+                    "xyz.openbmc_project.pef.EventFilterTable"});
+        });
+
+    BMCWEB_ROUTE(app, "/redfish/v1/PefService/<str>")
+        .privileges(redfish::privileges::postPefService)
+        .methods(boost::beast::http::verb::post,
+                 boost::beast::http::verb::
+                     delete_)([&app](const crow::Request& req,
+                                     const std::shared_ptr<bmcweb::AsyncResp>&
+                                         asyncResp,
+                                     const std::string& entryId) {
+            asyncResp->res.clearHeader(boost::beast::http::field::allow);
+            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+            {
+                return;
+            }
+            crow::connections::systemBus->async_method_call(
                 [asyncResp,
                  entryId](const boost::system::error_code ec,
                           const std::vector<std::string>& storageList) {
@@ -480,16 +689,9 @@ void getPefServiceInfoId(
                                                    entryId);
                         return;
                     }
-                    else
-                    {
-                        asyncResp->res.jsonValue = {
-                            {"@odata.type", "#PefEntry.v1_0_0.PefEntry"},
-                            {"@odata.id", "/redfish/v1/PefService/" + entryId},
-                            {"Id", entryId},
-                            {"Name", "Pef Service Entry"}
-                        };
-                        getEventSeverity(asyncResp, entryId);
-                    }
+                    asyncResp->res.addHeader("Allow", "GET, PATCH");
+                    messages::operationNotAllowed(asyncResp->res);
+                    return;
                 },
                 "xyz.openbmc_project.ObjectMapper",
                 "/xyz/openbmc_project/object_mapper",
@@ -497,219 +699,7 @@ void getPefServiceInfoId(
                 "/xyz/openbmc_project/PefAlertManager/EventFilterTable/", 0,
                 std::array<const char*, 1>{
                     "xyz.openbmc_project.pef.EventFilterTable"});
-}
-
-inline void requestRoutesPefService(App& app)
-{
-    BMCWEB_ROUTE(app, "/redfish/v1/PefService/")
-        .privileges(redfish::privileges::getPefService)
-        .methods(boost::beast::http::verb::get)(
-            [&app](const crow::Request& req,
-               const std::shared_ptr<bmcweb::AsyncResp>& aResp) {
-                   getPefServiceInfo(app, req, aResp);
-            });
-
-    BMCWEB_ROUTE(app, "/redfish/v1/PefService/")
-        .privileges(redfish::privileges::patchPefService)
-        .methods(boost::beast::http::verb::patch)(
-            [&app](const crow::Request& req,
-               const std::shared_ptr<bmcweb::AsyncResp>& aResp) {
-                std::optional<std::vector<uint8_t>> filterEnable;
-                std::optional<uint8_t> pefActionGblControl;
-                std::optional<std::string> destinationType;
-
-                if (!json_util::readJsonPatch( //
-                        req, aResp->res, //
-                        "FilterEnable", filterEnable, //
-                        "PEFActionGblControl", pefActionGblControl, //
-                        "DestinationType", destinationType          //
-                        ))
-                {
-                    return;
-                }
-                if (filterEnable)
-                {
-                    setFilterEnable(aResp, *filterEnable);
-                }
-                if (pefActionGblControl)
-                {
-                    setPefConfParam(aResp, pefActionGblControl);
-                }
-                if (destinationType)
-                {
-                    setDestinationType(aResp, destinationType);
-                }
-                getPefServiceInfo(app, req, aResp);
-            });
-
-    BMCWEB_ROUTE(app, "/redfish/v1/PefService/<str>")
-        .privileges(redfish::privileges::getPefService)
-        .methods(
-            boost::beast::http::verb::
-                get)([&app](const crow::Request& req,
-                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                            const std::string& entryId) {
-            asyncResp->res.clearHeader(boost::beast::http::field::allow);
-            asyncResp->res.addHeader("Allow", "GET, PATCH");
-
-            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-            {
-                return;
-            }
-            getPefServiceInfoId(asyncResp,entryId);
-                    });
-
-    BMCWEB_ROUTE(app, "/redfish/v1/PefService/<str>")
-        .privileges(redfish::privileges::patchPefService)
-        .methods(boost::beast::http::verb::patch)(
-            [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   const std::string& entryId) {
-
-		asyncResp->res.clearHeader(boost::beast::http::field::allow);
-                asyncResp->res.addHeader("Allow", "GET, PATCH");
-		
-		 crow::connections::systemBus->async_method_call(
-                [asyncResp,
-                 entryId,req](const boost::system::error_code ec,
-                          const std::vector<std::string>& storageList) 
-                {
-                    std::optional<std::string> eventSeverity;
-                    if (ec)
-                    {
-                        BMCWEB_LOG_ERROR(
-                            "D-Bus call error while validating event entry");
-                        asyncResp->res.result(
-                            boost::beast::http::status::internal_server_error);
-                        return;
-                    }
-
-                    // Loop through the event entries and check if the requested
-                    // entryId is valid
-                    bool isValid = false;
-                    for (const std::string& objpath : storageList)
-                    {
-                        std::size_t lastPos = objpath.rfind('/');
-                        if (lastPos != std::string::npos &&
-                            objpath.substr(lastPos + 1) == entryId)
-                        {
-                            isValid = true;
-                            break;
-                        }
-                    }
-
-                    if (!isValid)
-                    {
-                        messages::resourceNotFound(asyncResp->res, "PefService",
-                                                   entryId);
-                        return;
-                    }
-                if (!json_util::readJsonPatch( //
-                        req, asyncResp->res, //
-                        "EventSeverity", eventSeverity //
-                        ))
-                {
-                    return;
-                }
-
-                if (eventSeverity)
-                {
-                    if (eventSeverity == "Information")
-                    {
-                        setEventSeverity(asyncResp, 2, entryId);
-                    }
-                    else if (eventSeverity == "OK")
-                    {
-                        setEventSeverity(asyncResp, 4, entryId);
-                    }
-                    else if (eventSeverity == "Warning")
-                    {
-                        setEventSeverity(asyncResp, 8, entryId);
-                    }
-                    else if (eventSeverity == "Critical")
-                    {
-                        setEventSeverity(asyncResp, 10, entryId);
-                    }
-                    else if (eventSeverity == "All")
-                    {
-                        setEventSeverity(asyncResp, 30, entryId);
-                    }
-                    else
-                    {
-                        messages::propertyValueNotInList(
-                            asyncResp->res, "EventSeverity", *eventSeverity);
-                            return;
-                    }
-                }
-                getPefServiceInfoId(asyncResp,entryId);
-                },
-                "xyz.openbmc_project.ObjectMapper",
-                "/xyz/openbmc_project/object_mapper",
-                "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
-                "/xyz/openbmc_project/PefAlertManager/EventFilterTable/", 0,
-                std::array<const char*, 1>{
-                    "xyz.openbmc_project.pef.EventFilterTable"});
-            });
-
-	
-	 BMCWEB_ROUTE(app, "/redfish/v1/PefService/<str>")
-            .privileges(redfish::privileges::postPefService)
-            .methods(
-                boost::beast::http::verb::
-                    post,boost::beast::http::verb::delete_)([&app](const crow::Request& req,
-                                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                                const std::string& entryId)
-            {
-                asyncResp->res.clearHeader(boost::beast::http::field::allow);
-                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-                {
-                    return;
-                }
-                crow::connections::systemBus->async_method_call(
-                    [asyncResp,
-                     entryId](const boost::system::error_code ec,
-                              const std::vector<std::string>& storageList) {
-                        if (ec)
-                        {
-                            BMCWEB_LOG_ERROR(
-                                "D-Bus call error while validating event entry");
-                            asyncResp->res.result(
-                                boost::beast::http::status::internal_server_error);
-                            return;
-                        }
-    
-                        // Loop through the event entries and check if the requested
-                        // entryId is valid
-                        bool isValid = false;
-                        for (const std::string& objpath : storageList)
-                        {
-                            std::size_t lastPos = objpath.rfind('/');
-                            if (lastPos != std::string::npos &&
-                                objpath.substr(lastPos + 1) == entryId)
-                            {
-                                isValid = true;
-                                break;
-                            }
-                        }
-    
-                        if (!isValid)
-                        {
-                            messages::resourceNotFound(asyncResp->res, "PefService",
-                                                       entryId);
-                            return;
-                        }
-                        asyncResp->res.addHeader("Allow", "GET, PATCH");
-                        messages::operationNotAllowed(asyncResp->res);
-                        return;
-            },
-            "xyz.openbmc_project.ObjectMapper",
-            "/xyz/openbmc_project/object_mapper",
-            "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
-            "/xyz/openbmc_project/PefAlertManager/EventFilterTable/", 0,
-            std::array<const char*, 1>{
-                "xyz.openbmc_project.pef.EventFilterTable"});
         });
-
 
     BMCWEB_ROUTE(app,
                  "/redfish/v1/PefService/Actions/PefService.SendAlertMail/")
@@ -721,11 +711,11 @@ inline void requestRoutesPefService(App& app)
                 std::string mailBuf;
                 std::optional<std::string> vId;
 
-                if (!json_util::readJsonPatch( //
-                        req, aResp->res, //
-                        "Subject", subject, //
+                if (!json_util::readJsonPatch(  //
+                        req, aResp->res,        //
+                        "Subject", subject,     //
                         "MailContent", mailBuf, //
-                        "Id", vId //
+                        "Id", vId               //
                         ))
                 {
                     return;
@@ -768,7 +758,8 @@ inline void requestRoutesPefService(App& app)
                             else if (response == 65535)
                             {
                                 messages::operationFailed(aResp->res);
-                                aResp->res.result(boost::beast::http::status::bad_request);
+                                aResp->res.result(
+                                    boost::beast::http::status::bad_request);
                                 return;
                             }
                             else if (response == 65534)
@@ -851,7 +842,8 @@ inline void requestRoutesSendTrap(App& app)
                                 {
                                     crow::connections::systemBus->async_method_call(
                                         [aResp](const boost::system::error_code&
-                                                    ecTrapSend, bool result) {
+                                                    ecTrapSend,
+                                                bool result) {
                                             if (ecTrapSend)
                                             {
                                                 BMCWEB_LOG_DEBUG(

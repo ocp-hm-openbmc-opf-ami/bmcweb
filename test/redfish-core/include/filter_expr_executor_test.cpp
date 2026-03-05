@@ -166,7 +166,6 @@ TEST(FilterParser, String)
     filterTrue("'1233' lt SerialNumber", members);
     filterTrue("'1234' le SerialNumber", members);
 
-
     // Forward false conditions
     filterFalse("SerialNumber eq 'NotFoo'", members);
     filterFalse("SerialNumber ne '1234'", members);
@@ -177,7 +176,7 @@ TEST(FilterParser, String)
 
     // Reverse false conditions
     filterFalse("'NotFoo' eq SerialNumber", members);
-     filterFalse("'1234' ne SerialNumber", members);
+    filterFalse("'1234' ne SerialNumber", members);
     filterFalse("'1234' gt SerialNumber", members);
     filterFalse("'1233' ge SerialNumber", members);
     filterFalse("'1234' lt SerialNumber", members);

@@ -14,11 +14,11 @@
 #include "http_response.hpp"
 #include "logging.hpp"
 #include "registries.hpp"
-#include "registries/base_message_registry.hpp"
 #include "registries/ami_message_registry.hpp"
-#include "registries/openbmc_message_registry.hpp"
+#include "registries/base_message_registry.hpp"
 #include "registries/certificate_service_message_registry.hpp"
 #include "registries/license_message_registry.hpp"
+#include "registries/openbmc_message_registry.hpp"
 
 #include <boost/beast/http/field.hpp>
 #include <boost/beast/http/status.hpp>
@@ -78,7 +78,8 @@ static nlohmann::json getLog(redfish::registries::openbmc::Index name,
         return {};
     }
     return getLogFromRegistry(redfish::registries::openbmc::header,
-                              redfish::registries::openbmc::registry, index, args);
+                              redfish::registries::openbmc::registry, index,
+                              args);
 }
 
 static nlohmann::json getLog(redfish::registries::license::Index name,
@@ -90,7 +91,8 @@ static nlohmann::json getLog(redfish::registries::license::Index name,
         return {};
     }
     return getLogFromRegistry(redfish::registries::license::header,
-                              redfish::registries::license::registry, index, args);
+                              redfish::registries::license::registry, index,
+                              args);
 }
 
 static nlohmann::json getLog(redfish::registries::ami::Index name,
@@ -1019,7 +1021,8 @@ void resourceAlreadyExists(crow::Response& res, std::string_view arg1,
                            std::string_view arg2, std::string_view arg3)
 {
     res.result(boost::beast::http::status::bad_request);
-    addMessageToErrorJson(res.jsonValue, resourceAlreadyExists(arg1, arg2, arg3));
+    addMessageToErrorJson(res.jsonValue,
+                          resourceAlreadyExists(arg1, arg2, arg3));
 }
 
 /**
@@ -1387,8 +1390,8 @@ void resourceMissingAtURI(crow::Response& res,
  * See header file for more information
  * @endinternal
  */
-nlohmann::json
-    resourceAtUriInUnknownFormat(const boost::urls::url_view_base& arg1)
+nlohmann::json resourceAtUriInUnknownFormat(
+    const boost::urls::url_view_base& arg1)
 {
     return getLog(
         redfish::registries::base::Index::resourceAtUriInUnknownFormat,
@@ -1431,8 +1434,8 @@ void resourceAtUriUnauthorized(crow::Response& res,
  * See header file for more information
  * @endinternal
  */
-nlohmann::json
-    couldNotEstablishConnection(const boost::urls::url_view_base& arg1)
+nlohmann::json couldNotEstablishConnection(
+    const boost::urls::url_view_base& arg1)
 {
     return getLog(redfish::registries::base::Index::couldNotEstablishConnection,
                   std::to_array<std::string_view>({arg1.buffer()}));
@@ -1926,8 +1929,8 @@ void resourceCreationConflict(crow::Response& res,
  * See header file for more information
  * @endinternal
  */
-nlohmann::json
-    actionParameterValueConflict(std::string_view arg1, const nlohmann::json& arg2)
+nlohmann::json actionParameterValueConflict(std::string_view arg1,
+                                            const nlohmann::json& arg2)
 {
     std::string arg2Str =
         arg2.dump(-1, ' ', true, nlohmann::json::error_handler_t::replace);
@@ -2822,9 +2825,8 @@ void invalidTypeForCertificateString(crow::Response& res, std::string_view arg1)
  */
 nlohmann::json privateKeyNotFound(void)
 {
-    return getLog(
-        redfish::registries::certificate::Index::privateKeyNotFound,
-        {});
+    return getLog(redfish::registries::certificate::Index::privateKeyNotFound,
+                  {});
 }
 
 void privateKeyNotFound(crow::Response& res)
@@ -2842,7 +2844,8 @@ void privateKeyNotFound(crow::Response& res)
  */
 nlohmann::json requestBodyNotAllowed()
 {
-    return getLog(redfish::registries::openbmc::Index::requestBodyNotAllowed, {});
+    return getLog(redfish::registries::openbmc::Index::requestBodyNotAllowed,
+                  {});
 }
 
 void requestBodyNotAllowed(crow::Response& res)
@@ -2858,20 +2861,19 @@ void requestBodyNotAllowed(crow::Response& res)
  * See header file for more information
  * @endinternal
  */
-nlohmann::json configurationConflict(const std::string& arg1, const std::string& arg2)
+nlohmann::json configurationConflict(const std::string& arg1,
+                                     const std::string& arg2)
 {
-    return getLog(
-    redfish::registries::openbmc::Index::configurationConflict,
-    std::to_array<std::string_view>({arg1, arg2}));
-
+    return getLog(redfish::registries::openbmc::Index::configurationConflict,
+                  std::to_array<std::string_view>({arg1, arg2}));
 }
 
-void configurationConflict(crow::Response& res, const std::string& arg1, const std::string& arg2)
+void configurationConflict(crow::Response& res, const std::string& arg1,
+                           const std::string& arg2)
 {
     res.result(boost::beast::http::status::bad_request);
     addMessageToErrorJson(res.jsonValue, configurationConflict(arg1, arg2));
 }
-
 
 /**
  * @internal
@@ -2907,7 +2909,6 @@ void dumpQuotaExceeded(crow::Response& res)
 {
     res.result(boost::beast::http::status::bad_request);
     addMessageToErrorJson(res.jsonValue, dumpQuotaExceeded());
-
 }
 
 /**

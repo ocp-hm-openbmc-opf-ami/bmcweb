@@ -248,7 +248,7 @@ struct NbdProxyServer : std::enable_shared_from_this<NbdProxyServer>
             self->connection.close("Failed to mount media");
             return;
         }
-	self->connection.session->vmNbdActive[self->getEndpointIndex()] = true;
+        self->connection.session->vmNbdActive[self->getEndpointIndex()] = true;
     }
 
     static void afterAccept(const std::weak_ptr<NbdProxyServer>& weak,
@@ -294,14 +294,14 @@ struct NbdProxyServer : std::enable_shared_from_this<NbdProxyServer>
             sessionId = "session_" +
                         std::to_string(connection.sessionMap[uniqueId]);
         }
-	
+
         crow::connections::systemBus->async_method_call(
             [weak{weak_from_this()}](const boost::system::error_code& ec,
                                      bool isBinary) {
                 afterMount(weak, ec, isBinary);
             },
             "xyz.openbmc_project.VirtualMedia", path,
-            "xyz.openbmc_project.VirtualMedia.Proxy", "Mount",sessionId);
+            "xyz.openbmc_project.VirtualMedia.Proxy", "Mount", sessionId);
     }
 
     void send(std::string_view buffer, std::function<void()>&& onDone)
@@ -434,11 +434,11 @@ using SessionMap = boost::container::flat_map<crow::websocket::Connection*,
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static SessionMap sessions;
 
-inline void
-    afterGetSocket(crow::websocket::Connection& conn,
-                   const sdbusplus::message::object_path& path,
-                   const boost::system::error_code& ec,
-                   const dbus::utility::DBusPropertiesMap& propertiesList)
+inline void afterGetSocket(
+    crow::websocket::Connection& conn,
+    const sdbusplus::message::object_path& path,
+    const boost::system::error_code& ec,
+    const dbus::utility::DBusPropertiesMap& propertiesList)
 {
     if (ec)
     {

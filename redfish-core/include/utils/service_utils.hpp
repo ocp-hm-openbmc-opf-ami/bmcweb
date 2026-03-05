@@ -29,7 +29,8 @@ static bool matchService(const sdbusplus::message::object_path& objPath,
     // here we have to use the hardcoded "_40" to match
     std::string fullUnitName = objPath.filename();
 
-    // If either serviceName or fullUnitName contains "_40", we need to be more careful
+    // If either serviceName or fullUnitName contains "_40", we need to be more
+    // careful
     if (serviceName.find("_40") != std::string::npos ||
         fullUnitName.find("_40") != std::string::npos)
     {
@@ -58,24 +59,27 @@ inline void getSerialConsoleSshMasked(
     dbus::utility::getProperty<bool>(
         serviceManagerService, serviceManagerPath + serviceName,
         serviceConfigInterface, "Masked",
-        [asyncResp, valueJsonPtr](const boost::system::error_code& ec, bool eventValue) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("D-BUS response error on Masked Get: {}", ec);
-            return;
-        }
+        [asyncResp,
+         valueJsonPtr](const boost::system::error_code& ec, bool eventValue) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("D-BUS response error on Masked Get: {}", ec);
+                return;
+            }
 
-        // Use JSON pointer to set the value directly
-        asyncResp->res.jsonValue[valueJsonPtr] = eventValue;
+            // Use JSON pointer to set the value directly
+            asyncResp->res.jsonValue[valueJsonPtr] = eventValue;
 
-        asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] =
-            json_util::odataType("AmiManagerNetworkProtocol");
-    });
+            asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] =
+                json_util::odataType("AmiManagerNetworkProtocol");
+        });
 }
 
 inline void getMasked(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                const std::string& serviceName, const std::string& ObjectName,
-               const std::string& propertyName, const std::optional<std::string>& vendorName)
+                      const std::string& serviceName,
+                      const std::string& ObjectName,
+                      const std::string& propertyName,
+                      const std::optional<std::string>& vendorName)
 {
     dbus::utility::getProperty<bool>(
         serviceManagerService, serviceManagerPath + serviceName,
@@ -100,8 +104,8 @@ inline void getMasked(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                     .jsonValue["Oem"]["Ami"][ObjectName][propertyName] =
                     eventValue;
             }
-            asyncResp->res
-                    .jsonValue["Oem"]["Ami"]["@odata.type"] = json_util::odataType("AmiManagerNetworkProtocol");
+            asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] =
+                json_util::odataType("AmiManagerNetworkProtocol");
         });
 }
 
@@ -128,8 +132,8 @@ inline void getMaskedStatus(
 }
 
 inline void getRunning(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                const std::string& serviceName,
-                const nlohmann::json::json_pointer& valueJsonPtr)
+                       const std::string& serviceName,
+                       const nlohmann::json::json_pointer& valueJsonPtr)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, serviceName,
@@ -169,7 +173,8 @@ inline void getRunning(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                                 }
                                 if (*runningStatus)
                                 {
-                                    asyncResp->res.jsonValue[valueJsonPtr] = true;
+                                    asyncResp->res.jsonValue[valueJsonPtr] =
+                                        true;
                                     if (serviceName == "start_2dipkvm")
                                         asyncResp->res.jsonValue
                                             ["GraphicalConsole"]
@@ -198,8 +203,8 @@ inline void getRunning(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         "org.freedesktop.DBus.ObjectManager", "GetManagedObjects");
 }
 inline void getEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                const std::string& serviceName,
-                const nlohmann::json::json_pointer& valueJsonPtr)
+                       const std::string& serviceName,
+                       const nlohmann::json::json_pointer& valueJsonPtr)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, serviceName,
@@ -269,8 +274,8 @@ inline void getEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 }
 
 inline void getPortNumber(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   const std::string& serviceName,
-                   const nlohmann::json::json_pointer& valueJsonPtr)
+                          const std::string& serviceName,
+                          const nlohmann::json::json_pointer& valueJsonPtr)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, serviceName,
@@ -326,10 +331,10 @@ inline void getPortNumber(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 }
 
 template <typename T>
-static inline void
-    setProperty(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                const std::string& path, const std::string& interface,
-                const std::string& property, T value)
+static inline void setProperty(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& path, const std::string& interface,
+    const std::string& property, T value)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code ec) {
@@ -345,7 +350,7 @@ static inline void
 }
 
 inline void setMasked(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-               const std::string& serviceName, const bool enabled)
+                      const std::string& serviceName, const bool enabled)
 {
     sdbusplus::asio::setProperty(
         *crow::connections::systemBus, serviceManagerService,
@@ -361,7 +366,7 @@ inline void setMasked(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 }
 
 inline void setEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                const std::string& serviceName, const bool enabled)
+                       const std::string& serviceName, const bool enabled)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, serviceName,
@@ -399,7 +404,8 @@ inline void setEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 }
 
 inline void setPortNumber(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   const std::string& serviceName, const uint16_t portNumber)
+                          const std::string& serviceName,
+                          const uint16_t portNumber)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, serviceName,
@@ -433,8 +439,9 @@ inline void setPortNumber(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         serviceManagerService, "/xyz/openbmc_project/control/service",
         "org.freedesktop.DBus.ObjectManager", "GetManagedObjects");
 }
-inline void setServiceEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                             const std::string& serviceName, const bool enabled)
+inline void setServiceEnabled(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& serviceName, const bool enabled)
 {
     sdbusplus::asio::setProperty(
         *crow::connections::systemBus, serviceManagerService,
@@ -442,36 +449,42 @@ inline void setServiceEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncRes
         enabled, [asyncResp](const boost::system::error_code& ec) {
             if (ec)
             {
-                BMCWEB_LOG_ERROR("setServiceEnabled D-Bus error for service: {}", ec);
+                BMCWEB_LOG_ERROR(
+                    "setServiceEnabled D-Bus error for service: {}", ec);
                 messages::internalError(asyncResp->res);
                 return;
             }
         });
 }
 
-inline void getAllAvailableTtyServices(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                                     std::function<void(const std::vector<std::string>&)> callback)
+inline void getAllAvailableTtyServices(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    std::function<void(const std::vector<std::string>&)> callback)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, callback](const boost::system::error_code ec,
-                             const dbus::utility::ManagedObjectType& objects) {
+                              const dbus::utility::ManagedObjectType& objects) {
             if (ec)
             {
-                BMCWEB_LOG_ERROR("D-Bus error when getting TTY services: {}", ec);
+                BMCWEB_LOG_ERROR("D-Bus error when getting TTY services: {}",
+                                 ec);
                 messages::internalError(asyncResp->res);
                 callback({});
                 return;
             }
 
             std::vector<std::string> availableTtys;
-            // Look for console services matching the pattern obmc_2dconsole_40ttyS*
+            // Look for console services matching the pattern
+            // obmc_2dconsole_40ttyS*
             for (const auto& [path, _] : objects)
             {
                 std::string serviceName = path.filename();
                 if (serviceName.find("obmc_2dconsole_40ttyS") == 0)
                 {
-                    // Extract the ttyS part (e.g., "ttyS0" from "obmc_2dconsole_40ttyS0")
-                    availableTtys.push_back(serviceName.substr(std::string("obmc_2dconsole_40").size()));
+                    // Extract the ttyS part (e.g., "ttyS0" from
+                    // "obmc_2dconsole_40ttyS0")
+                    availableTtys.push_back(serviceName.substr(
+                        std::string("obmc_2dconsole_40").size()));
                 }
             }
 

@@ -82,12 +82,12 @@ TEST(getPreferredContentType, PositiveTest)
     EXPECT_EQ(getPreferredContentType("application/cbor, application::json",
                                       cborJson),
               ContentType::CBOR);
-    
+
     EXPECT_EQ(
         getPreferredContentType("application/json;charset=UTF-8", htmlJson),
         ContentType::JSON);
     std::array<ContentType, 1> eventStream{ContentType::EventStream};
-    
+
     EXPECT_EQ(
         getPreferredContentType("text/event-stream;charset=UTF-8", eventStream),
         ContentType::EventStream);

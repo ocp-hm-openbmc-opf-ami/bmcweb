@@ -35,8 +35,8 @@ inline std::string getRoleFromPrivileges(std::string_view priv)
     return "";
 }
 
-inline std::optional<nlohmann::json::array_t>
-    getAssignedPrivFromRole(std::string_view role)
+inline std::optional<nlohmann::json::array_t> getAssignedPrivFromRole(
+    std::string_view role)
 {
     nlohmann::json::array_t privArray;
     if (role == "Administrator")
@@ -73,10 +73,9 @@ inline void requestRoutesRoles(App& app)
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& roleId) {
-		
-		        asyncResp->res.clearHeader(boost::beast::http::field::allow);
-                
-		        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                asyncResp->res.clearHeader(boost::beast::http::field::allow);
+
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
                     return;
                 }
@@ -94,7 +93,8 @@ inline void requestRoutesRoles(App& app)
                     return;
                 }
 
-                asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("Role");
+                asyncResp->res.jsonValue["@odata.type"] =
+                    json_util::odataType("Role");
                 asyncResp->res.jsonValue["Name"] = "User Role";
                 asyncResp->res.jsonValue["Description"] = roleId + " User Role";
                 asyncResp->res.jsonValue["OemPrivileges"] =
@@ -108,32 +108,34 @@ inline void requestRoutesRoles(App& app)
                     std::move(*privArray);
             });
 
-	BMCWEB_ROUTE(app, "/redfish/v1/AccountService/Roles/<str>/")
-            .privileges(redfish::privileges::getRole)
-            .methods(boost::beast::http::verb::post,boost::beast::http::verb::patch,boost::beast::http::verb::delete_)(
-                [&app](const crow::Request& req,
-                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                       const std::string& roleId) {
-			        asyncResp->res.clearHeader(boost::beast::http::field::allow);
-                    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-                    {
-                        return;
-                    }
-                    if (!membersResponseGet(asyncResp, roleId, "RoleCollection"))
-                    {
-                        return;
-                    }
-                    std::optional<nlohmann::json::array_t> privArray =
-                        getAssignedPrivFromRole(roleId);
-                    if (!privArray)
-                    {
-                        messages::resourceNotFound(asyncResp->res, "Role", roleId);
-                        return;
-                    }
-                    asyncResp->res.addHeader("Allow", "GET");
-                    messages::operationNotAllowed(asyncResp->res);
+    BMCWEB_ROUTE(app, "/redfish/v1/AccountService/Roles/<str>/")
+        .privileges(redfish::privileges::getRole)
+        .methods(boost::beast::http::verb::post,
+                 boost::beast::http::verb::patch,
+                 boost::beast::http::verb::delete_)(
+            [&app](const crow::Request& req,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const std::string& roleId) {
+                asyncResp->res.clearHeader(boost::beast::http::field::allow);
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
                     return;
-                });
+                }
+                if (!membersResponseGet(asyncResp, roleId, "RoleCollection"))
+                {
+                    return;
+                }
+                std::optional<nlohmann::json::array_t> privArray =
+                    getAssignedPrivFromRole(roleId);
+                if (!privArray)
+                {
+                    messages::resourceNotFound(asyncResp->res, "Role", roleId);
+                    return;
+                }
+                asyncResp->res.addHeader("Allow", "GET");
+                messages::operationNotAllowed(asyncResp->res);
+                return;
+            });
 }
 
 inline void requestRoutesRoleCollection(App& app)
@@ -155,7 +157,7 @@ inline void requestRoutesRoleCollection(App& app)
                 asyncResp->res.jsonValue["Name"] = "Roles Collection";
                 asyncResp->res.jsonValue["Description"] = "BMC User Roles";
 
-               dbus::utility::getProperty<std::vector<std::string>>(
+                dbus::utility::getProperty<std::vector<std::string>>(
                     "xyz.openbmc_project.User.Manager",
                     "/xyz/openbmc_project/user",
                     "xyz.openbmc_project.User.Manager", "AllPrivileges",

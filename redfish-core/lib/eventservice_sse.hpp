@@ -15,10 +15,10 @@
 namespace redfish
 {
 
-inline void
-    createSubscription(std::shared_ptr<crow::sse_socket::Connection>& conn,
-                       const crow::Request& req,
-                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void createSubscription(
+    std::shared_ptr<crow::sse_socket::Connection>& conn,
+    const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     EventServiceManager& manager =
         EventServiceManager::getInstance(&conn->getIoContext());
@@ -222,8 +222,8 @@ inline void
     return;
 }
 
-inline void
-    deleteSubscription(std::shared_ptr<crow::sse_socket::Connection>& conn)
+inline void deleteSubscription(
+    std::shared_ptr<crow::sse_socket::Connection>& conn)
 {
     redfish::EventServiceManager::getInstance(&conn->getIoContext())
         .deleteSseSubscription(conn);

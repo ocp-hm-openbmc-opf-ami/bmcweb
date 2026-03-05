@@ -20,10 +20,14 @@ inline void getRegistryAndMessageKey(const std::string& messageID,
                                      std::string& messageKey)
 {
     size_t pos = messageID.find_last_of('.'); // Find the last comma
-    std::string lastValue = (pos != std::string::npos) ? messageID.substr(pos + 1) : messageID; // Extract last value
-    size_t pos1 = messageID.find(".");	
-    if (pos != std::string::npos) {
-        registryName = (pos1 != std::string::npos) ? messageID.substr(0, pos1) : messageID;
+    std::string lastValue = (pos != std::string::npos)
+                                ? messageID.substr(pos + 1)
+                                : messageID; // Extract last value
+    size_t pos1 = messageID.find(".");
+    if (pos != std::string::npos)
+    {
+        registryName =
+            (pos1 != std::string::npos) ? messageID.substr(0, pos1) : messageID;
         messageKey = lastValue;
     }
     else

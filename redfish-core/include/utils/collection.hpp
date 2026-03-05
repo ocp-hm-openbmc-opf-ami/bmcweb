@@ -63,10 +63,11 @@ inline void handleCollectionMembers(
         {
             continue;
         }
-        if (object.starts_with("/xyz/openbmc_project/inventory/system/component/"))
-	{
-	    continue;
-	}
+        if (object.starts_with(
+                "/xyz/openbmc_project/inventory/system/component/"))
+        {
+            continue;
+        }
         pathNames.emplace(std::move(leaf));
     }
 
@@ -83,7 +84,7 @@ inline void handleCollectionMembers(
         member["@odata.id"] = std::move(url);
         members.emplace_back(std::move(member));
     }
-    
+
     asyncResp->res.jsonValue[jsonCountKeyName] = members.size();
 }
 
@@ -101,24 +102,22 @@ inline void handleCollectionMembers(
  *
  * @return void
  */
-inline void
-    getCollectionToKey(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                       const boost::urls::url& collectionPath,
-                       std::span<const std::string_view> interfaces,
-                       const std::string& subtree,
-                       const nlohmann::json::json_pointer& jsonKeyName)
+inline void getCollectionToKey(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::urls::url& collectionPath,
+    std::span<const std::string_view> interfaces, const std::string& subtree,
+    const nlohmann::json::json_pointer& jsonKeyName)
 {
     BMCWEB_LOG_DEBUG("Get collection members for: {}", collectionPath.buffer());
-    dbus::utility::getSubTreePaths(subtree, 0, interfaces,
-                                   std::bind_front(handleCollectionMembers,
-                                                   asyncResp, collectionPath,
-                                                   jsonKeyName));
+    dbus::utility::getSubTreePaths(
+        subtree, 0, interfaces,
+        std::bind_front(handleCollectionMembers, asyncResp, collectionPath,
+                        jsonKeyName));
 }
-inline void
-    getCollectionMembers(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                         const boost::urls::url& collectionPath,
-                         std::span<const std::string_view> interfaces,
-                         const std::string& subtree)
+inline void getCollectionMembers(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::urls::url& collectionPath,
+    std::span<const std::string_view> interfaces, const std::string& subtree)
 {
     getCollectionToKey(asyncResp, collectionPath, interfaces, subtree,
                        nlohmann::json::json_pointer("/Members"));

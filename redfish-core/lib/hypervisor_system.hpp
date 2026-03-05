@@ -36,8 +36,8 @@ namespace redfish
  *
  * @return None.
  */
-inline void
-    getHypervisorState(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void getHypervisorState(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     BMCWEB_LOG_DEBUG("Get hypervisor state information.");
     dbus::utility::getProperty<std::string>(
@@ -121,8 +121,8 @@ inline void
  *
  * @return None.
  */
-inline void
-    getHypervisorActions(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void getHypervisorActions(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     BMCWEB_LOG_DEBUG("Get hypervisor actions.");
     constexpr std::array<std::string_view, 1> interfaces = {
@@ -371,9 +371,9 @@ inline void setHypervisorIPv4Address(
  *
  * @return None.
  */
-inline void
-    setHypervisorIPv4Subnet(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                            const std::string& ethIfaceId, const uint8_t subnet)
+inline void setHypervisorIPv4Subnet(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& ethIfaceId, const uint8_t subnet)
 {
     BMCWEB_LOG_DEBUG("Setting the Hypervisor subnet : {} on Iface: {}", subnet,
                      ethIfaceId);
@@ -420,10 +420,10 @@ inline void setHypervisorIPv4Gateway(
  *
  * @return None
  */
-inline void
-    createHypervisorIPv4(const std::string& ifaceId, uint8_t prefixLength,
-                         const std::string& gateway, const std::string& address,
-                         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void createHypervisorIPv4(
+    const std::string& ifaceId, uint8_t prefixLength,
+    const std::string& gateway, const std::string& address,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     setHypervisorIPv4Address(asyncResp, ifaceId, address);
     setHypervisorIPv4Gateway(asyncResp, gateway);
@@ -438,9 +438,9 @@ inline void
  *
  * @return None
  */
-inline void
-    deleteHypervisorIPv4(const std::string& ifaceId,
-                         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void deleteHypervisorIPv4(
+    const std::string& ifaceId,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     std::string address = "0.0.0.0";
     std::string gateway = "0.0.0.0";
@@ -546,11 +546,11 @@ inline void handleHypervisorIPv4StaticPatch(
     std::string address;
     std::string subnetMask;
     std::string gateway;
-    if (!json_util::readJsonObject( //
-            *obj, asyncResp->res, //
-            "Address", address, //
+    if (!json_util::readJsonObject(   //
+            *obj, asyncResp->res,     //
+            "Address", address,       //
             "SubnetMask", subnetMask, //
-            "Gateway", gateway //
+            "Gateway", gateway        //
             ))
     {
         return;
@@ -604,9 +604,9 @@ inline void handleHypervisorHostnamePatch(
                     "HostName", hostName);
 }
 
-inline void
-    setIPv4InterfaceEnabled(const std::string& ifaceId, bool isActive,
-                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void setIPv4InterfaceEnabled(
+    const std::string& ifaceId, bool isActive,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     setDbusProperty(
         asyncResp, "InterfaceEnabled", "xyz.openbmc_project.Settings",
@@ -685,7 +685,8 @@ inline void handleHypervisorEthernetInterfaceGet(
                                            ifaceId);
                 return;
             }
-            asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("EthernetInterface");
+            asyncResp->res.jsonValue["@odata.type"] =
+                json_util::odataType("EthernetInterface");
             asyncResp->res.jsonValue["Name"] = "Hypervisor Ethernet Interface";
             asyncResp->res.jsonValue["Description"] =
                 "Hypervisor's Virtual Management Ethernet Interface";
@@ -697,7 +698,8 @@ inline void handleHypervisorEthernetInterfaceGet(
 inline void handleHypervisorSystemGet(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("ComputerSystem");
+    asyncResp->res.jsonValue["@odata.type"] =
+        json_util::odataType("ComputerSystem");
     asyncResp->res.jsonValue["@odata.id"] = "/redfish/v1/Systems/hypervisor";
     asyncResp->res.jsonValue["Description"] = "Hypervisor";
     asyncResp->res.jsonValue["Name"] = "Hypervisor";
@@ -732,12 +734,12 @@ inline void handleHypervisorEthernetInterfacePatch(
     std::optional<std::vector<nlohmann::json::object_t>> ipv4Addresses;
     std::optional<bool> ipv4DHCPEnabled;
 
-    if (!json_util::readJsonPatch( //
-            req, asyncResp->res, //
-            "HostName", hostName, //
+    if (!json_util::readJsonPatch(                      //
+            req, asyncResp->res,                        //
+            "HostName", hostName,                       //
             "IPv4StaticAddresses", ipv4StaticAddresses, //
-            "IPv4Addresses", ipv4Addresses, //
-            "DHCPv4/DHCPEnabled", ipv4DHCPEnabled //
+            "IPv4Addresses", ipv4Addresses,             //
+            "DHCPv4/DHCPEnabled", ipv4DHCPEnabled       //
             ))
     {
         return;
@@ -861,7 +863,8 @@ inline void handleHypervisorResetActionGet(
             // turn On The system object Action should be utilized
             // for other operations
 
-            asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("ActionInfo");
+            asyncResp->res.jsonValue["@odata.type"] =
+                json_util::odataType("ActionInfo");
             asyncResp->res.jsonValue["@odata.id"] =
                 "/redfish/v1/Systems/hypervisor/ResetActionInfo";
             asyncResp->res.jsonValue["Name"] = "Reset Action Info";
@@ -885,8 +888,8 @@ inline void handleHypervisorSystemResetPost(
 {
     std::optional<std::string> resetType;
     if (!json_util::readJsonAction( //
-            req, asyncResp->res, //
-            "ResetType", resetType //
+            req, asyncResp->res,    //
+            "ResetType", resetType  //
             ))
     {
         // readJson adds appropriate error to response

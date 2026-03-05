@@ -29,89 +29,91 @@ inline void requestRoutesNodeManagerService([[maybe_unused]] App& app)
 #ifdef ONETREE_INTELSIPACK
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/")
         .privileges(redfish::privileges::privilegeSetLogin)
-        .methods(boost::beast::http::verb::get)(
-            [&app](const crow::Request& req,
-               const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
-                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-                {
-                    return;
-                }
-        crow::connections::systemBus->async_method_call(
-            [asyncResp](
-                const boost::system::error_code ec,
-                const boost::container::flat_map<
-                    std::string, std::variant<std::string, uint8_t, int32_t>>&
-                    response) {
-            if (ec)
+        .methods(
+            boost::beast::http::verb::
+                get)([&app](
+                         const crow::Request& req,
+                         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
+            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
             {
-                BMCWEB_LOG_ERROR("respHandler DBus error: {}", ec.message());
                 return;
             }
+            crow::connections::systemBus->async_method_call(
+                [asyncResp](const boost::system::error_code ec,
+                            const boost::container::flat_map<
+                                std::string, std::variant<std::string, uint8_t,
+                                                          int32_t>>& response) {
+                    if (ec)
+                    {
+                        BMCWEB_LOG_ERROR("respHandler DBus error: {}",
+                                         ec.message());
+                        return;
+                    }
 
-            const int32_t* health = nullptr;
-            const uint8_t* maxNumberOfPolicies = nullptr;
-            const std::string* version = nullptr;
-            for (const auto& [key, value] : response)
-            {
-                if ("Health" == key)
-                {
-                    health = std::get_if<int32_t>(&value);
-                }
-                else if ("MaxNumberOfPolicies" == key)
-                {
-                    maxNumberOfPolicies = std::get_if<uint8_t>(&value);
-                }
-                else if ("Version" == key)
-                {
-                    version = std::get_if<std::string>(&value);
-                }
-            }
+                    const int32_t* health = nullptr;
+                    const uint8_t* maxNumberOfPolicies = nullptr;
+                    const std::string* version = nullptr;
+                    for (const auto& [key, value] : response)
+                    {
+                        if ("Health" == key)
+                        {
+                            health = std::get_if<int32_t>(&value);
+                        }
+                        else if ("MaxNumberOfPolicies" == key)
+                        {
+                            maxNumberOfPolicies = std::get_if<uint8_t>(&value);
+                        }
+                        else if ("Version" == key)
+                        {
+                            version = std::get_if<std::string>(&value);
+                        }
+                    }
 
-            if (!health || !maxNumberOfPolicies || !version)
-            {
-                BMCWEB_LOG_ERROR(
-                    "Property type mismatch or property is missing");
-                messages::internalError(asyncResp->res);
-                return;
-            }
-            asyncResp->res.jsonValue["Status"]["Health"] =
-                (*health == 0 ? "OK" : "Warning");
-            asyncResp->res.jsonValue["MaxNumberOfPolicies"] =
-                *maxNumberOfPolicies;
-            asyncResp->res.jsonValue["NmVersion"] = *version;
-            },
-            "xyz.openbmc_project.NodeManager",
-            "/xyz/openbmc_project/NodeManager",
-            "org.freedesktop.DBus.Properties", "GetAll",
-            "xyz.openbmc_project.NodeManager.NodeManager");
+                    if (!health || !maxNumberOfPolicies || !version)
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "Property type mismatch or property is missing");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    asyncResp->res.jsonValue["Status"]["Health"] =
+                        (*health == 0 ? "OK" : "Warning");
+                    asyncResp->res.jsonValue["MaxNumberOfPolicies"] =
+                        *maxNumberOfPolicies;
+                    asyncResp->res.jsonValue["NmVersion"] = *version;
+                },
+                "xyz.openbmc_project.NodeManager",
+                "/xyz/openbmc_project/NodeManager",
+                "org.freedesktop.DBus.Properties", "GetAll",
+                "xyz.openbmc_project.NodeManager.NodeManager");
 
-        getEnabled(asyncResp, "/xyz/openbmc_project/NodeManager");
-        asyncResp->res.jsonValue = {
-            {"@odata.type", "#NodeManager.v1_0_0.NodeManager"},
-            {"@odata.id", "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager"},
-            {"Id", "NodeManager"},
-            {"Name", "Node Manager"},
-            {"Actions",
-             {{"#NodeManager.ChangeState",
-               {{"State@Redfish.AllowableValues", {"Enabled", "Disabled"}},
-                {"target",
-                 "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Actions/NodeManager.ChangeState"}}},
-              {"#NodeManager.GetDiagnosticInfo",
-               {{"target",
-                 "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Actions/NodeManager.GetDiagnosticInfo"}}}}},
-            {"Domains",
-             {{"@odata.id",
-               "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Domains"}}},
-            {"Policies",
-             {{"@odata.id",
-               "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Policies"}}},
-            {"Triggers",
-             {{"@odata.id",
-               "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Triggers"}}},
-            {"ThrottlingStatus",
-             {{"@odata.id",
-               "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/ThrottlingStatus"}}},
-        };
+            getEnabled(asyncResp, "/xyz/openbmc_project/NodeManager");
+            asyncResp->res.jsonValue = {
+                {"@odata.type", "#NodeManager.v1_0_0.NodeManager"},
+                {"@odata.id", "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager"},
+                {"Id", "NodeManager"},
+                {"Name", "Node Manager"},
+                {"Actions",
+                 {{"#NodeManager.ChangeState",
+                   {{"State@Redfish.AllowableValues", {"Enabled", "Disabled"}},
+                    {"target",
+                     "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Actions/NodeManager.ChangeState"}}},
+                  {"#NodeManager.GetDiagnosticInfo",
+                   {{"target",
+                     "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Actions/NodeManager.GetDiagnosticInfo"}}}}},
+                {"Domains",
+                 {{"@odata.id",
+                   "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Domains"}}},
+                {"Policies",
+                 {{"@odata.id",
+                   "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Policies"}}},
+                {"Triggers",
+                 {{"@odata.id",
+                   "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Triggers"}}},
+                {"ThrottlingStatus",
+                 {{"@odata.id",
+                   "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/ThrottlingStatus"}}},
+            };
         });
 
     BMCWEB_ROUTE(
@@ -121,79 +123,84 @@ inline void requestRoutesNodeManagerService([[maybe_unused]] App& app)
         .methods(boost::beast::http::verb::post)(
             [](const crow::Request& req,
                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
-        BMCWEB_LOG_DEBUG("NodeManager.ChangeState");
+                BMCWEB_LOG_DEBUG("NodeManager.ChangeState");
 
-        std::string state;
-        bool nmEnabled;
-        if (!json_util::readJsonAction(req, asyncResp->res, "State", state))
-        {
-            messages::actionParameterMissing(
-                asyncResp->res, "NodeManager.ChangeState", "State");
-            return;
-        }
+                std::string state;
+                bool nmEnabled;
+                if (!json_util::readJsonAction(req, asyncResp->res, "State",
+                                               state))
+                {
+                    messages::actionParameterMissing(
+                        asyncResp->res, "NodeManager.ChangeState", "State");
+                    return;
+                }
 
-        if (state == "Enabled")
-        {
-            nmEnabled = true;
-        }
-        else if (state == "Disabled")
-        {
-            nmEnabled = false;
-        }
-        else
-        {
-            messages::actionParameterValueFormatError(
-                asyncResp->res, state, "State", "NodeManager.ChangeState");
-            return;
-        }
+                if (state == "Enabled")
+                {
+                    nmEnabled = true;
+                }
+                else if (state == "Disabled")
+                {
+                    nmEnabled = false;
+                }
+                else
+                {
+                    messages::actionParameterValueFormatError(
+                        asyncResp->res, state, "State",
+                        "NodeManager.ChangeState");
+                    return;
+                }
 
-        crow::connections::systemBus->async_method_call(
-            [asyncResp](const boost::system::error_code ec) {
-            if (ec)
-            {
-                BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
-                messages::internalError(asyncResp->res);
-                return;
-            }
-            BMCWEB_LOG_DEBUG("Nm.ChangeState done.");
-            },
-            kNodeManagerService, "/xyz/openbmc_project/NodeManager",
-            "org.freedesktop.DBus.Properties", "Set",
-            "xyz.openbmc_project.Object.Enable", "Enabled",
-            std::variant<bool>(nmEnabled));
-        asyncResp->res.result(boost::beast::http::status::no_content);
-        });
+                crow::connections::systemBus->async_method_call(
+                    [asyncResp](const boost::system::error_code ec) {
+                        if (ec)
+                        {
+                            BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
+                            messages::internalError(asyncResp->res);
+                            return;
+                        }
+                        BMCWEB_LOG_DEBUG("Nm.ChangeState done.");
+                    },
+                    kNodeManagerService, "/xyz/openbmc_project/NodeManager",
+                    "org.freedesktop.DBus.Properties", "Set",
+                    "xyz.openbmc_project.Object.Enable", "Enabled",
+                    std::variant<bool>(nmEnabled));
+                asyncResp->res.result(boost::beast::http::status::no_content);
+            });
 
     BMCWEB_ROUTE(
         app,
         "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Actions/NodeManager.GetDiagnosticInfo/")
         .privileges(redfish::privileges::privilegeSetConfigureManager)
-        .methods(boost::beast::http::verb::post)(
-            [](const crow::Request&,
-               const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
-        BMCWEB_LOG_DEBUG("NodeManager.GetDiagnosticInfo");
+        .methods(
+            boost::beast::http::verb::
+                post)([](const crow::Request&,
+                         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
+            BMCWEB_LOG_DEBUG("NodeManager.GetDiagnosticInfo");
 
-        crow::connections::systemBus->async_method_call(
-            [asyncResp](const boost::system::error_code ec,
-                        std::string& diagnostics) {
-            if (ec)
-            {
-                BMCWEB_LOG_DEBUG(
-                    "Cannot get Diagnostics from the NodeManager, error: {}",
-                    ec.message());
-                messages::internalError(asyncResp->res);
-                return;
-            }
-            nlohmann::json diagsJson = nlohmann::json::parse(diagnostics);
-            asyncResp->res.result(boost::beast::http::status::ok);
-            asyncResp->res.write(diagsJson.dump(4));
-            BMCWEB_LOG_DEBUG("NodeManager.GetDiagnosticInfo done.");
-            },
-            kNodeManagerService, "/xyz/openbmc_project/NodeManager/Diagnostics",
-            "xyz.openbmc_project.NodeManager.Status", "DumpToJson");
-        return;
+            crow::connections::systemBus->async_method_call(
+                [asyncResp](const boost::system::error_code ec,
+                            std::string& diagnostics) {
+                    if (ec)
+                    {
+                        BMCWEB_LOG_DEBUG(
+                            "Cannot get Diagnostics from the NodeManager, error: {}",
+                            ec.message());
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    nlohmann::json diagsJson =
+                        nlohmann::json::parse(diagnostics);
+                    asyncResp->res.result(boost::beast::http::status::ok);
+                    asyncResp->res.write(diagsJson.dump(4));
+                    BMCWEB_LOG_DEBUG("NodeManager.GetDiagnosticInfo done.");
+                },
+                kNodeManagerService,
+                "/xyz/openbmc_project/NodeManager/Diagnostics",
+                "xyz.openbmc_project.NodeManager.Status", "DumpToJson");
+            return;
         });
-    #endif    
+#endif
 }
 
 } // namespace redfish

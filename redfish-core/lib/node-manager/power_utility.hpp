@@ -47,8 +47,8 @@ using SuspendPeriods = std::vector<
     std::map<std::string, std::variant<std::vector<std::string>, std::string>>>;
 using Thresholds = std::map<std::string, std::vector<uint16_t>>;
 
-static std::string
-    selectNmService(const dbus::utility::MapperGetObject& getObjectType)
+static std::string selectNmService(
+    const dbus::utility::MapperGetObject& getObjectType)
 {
     if (getObjectType.empty())
     {
@@ -111,13 +111,14 @@ static void enablePolicy(const std::string& nmServiceName,
         nmPath(domainId, policyId), "xyz.openbmc_project.Object.Enable",
         "Enabled", true,
         [domainId, errorHandler, policyId](boost::system::error_code ec) {
-        BMCWEB_LOG_DEBUG("{} : Set Enable->Enabled: {}[{}]",
-                         nmPath(domainId, policyId), ec.message(), ec.value());
-        if (ec)
-        {
-            errorHandler(ec);
-            return;
-        }
+            BMCWEB_LOG_DEBUG("{} : Set Enable->Enabled: {}[{}]",
+                             nmPath(domainId, policyId), ec.message(),
+                             ec.value());
+            if (ec)
+            {
+                errorHandler(ec);
+                return;
+            }
         });
 }
 
@@ -129,8 +130,9 @@ static void updatePolicyToDefaults(
     BMCWEB_LOG_DEBUG("updatePolicyToDefaults");
     crow::connections::systemBus->async_method_call(
         [domainId, policyId, sensorAsyncResp](boost::system::error_code ec) {
-        BMCWEB_LOG_DEBUG("{} : updatePolicyToDefaults->Update: {}[{}]",
-                         nmPath(domainId, policyId), ec.message(), ec.value());
+            BMCWEB_LOG_DEBUG("{} : updatePolicyToDefaults->Update: {}[{}]",
+                             nmPath(domainId, policyId), ec.message(),
+                             ec.value());
         },
         nmServiceName, nmPath(domainId, policyId), kPolicyAttributesInterface,
         "Update",
@@ -143,8 +145,9 @@ static void updatePolicyToDefaults(
         nmPath(domainId, policyId), "xyz.openbmc_project.Object.Enable",
         "Enabled", false,
         [domainId, sensorAsyncResp, policyId](boost::system::error_code ec) {
-        BMCWEB_LOG_DEBUG("{} : Set Enable->Disabled: {}[{}]",
-                         nmPath(domainId, policyId), ec.message(), ec.value());
+            BMCWEB_LOG_DEBUG("{} : Set Enable->Disabled: {}[{}]",
+                             nmPath(domainId, policyId), ec.message(),
+                             ec.value());
         });
     return;
 }
@@ -199,9 +202,9 @@ static std::optional<std::string> powerLimitStorageToStr(int32_t value)
     return std::nullopt;
 }
 
-static void
-    logException(const std::shared_ptr<SensorsAsyncResp>& sensorAsyncResp,
-                 const std::string& message)
+static void logException(
+    const std::shared_ptr<SensorsAsyncResp>& sensorAsyncResp,
+    const std::string& message)
 {
     BMCWEB_LOG_DEBUG("{}", message);
     messages::internalError(sensorAsyncResp->asyncResp->res);
@@ -234,14 +237,15 @@ static void patchPowerPowerControlPowerLimitCorrectionInMs(
         "CorrectionInMs", std::move(correctionTime),
         [domainId, policyId, handleError, sensorAsyncResp,
          nmServiceName](boost::system::error_code ec) {
-        BMCWEB_LOG_DEBUG("{} : Set PolicyAttributes->CorrectionInMs: {}[{}]",
-                         nmPath(domainId, policyId), ec.message(), ec.value());
-        if (ec)
-        {
-            handleError(ec);
-            return;
-        }
-        enablePolicy(nmServiceName, domainId, policyId, handleError);
+            BMCWEB_LOG_DEBUG(
+                "{} : Set PolicyAttributes->CorrectionInMs: {}[{}]",
+                nmPath(domainId, policyId), ec.message(), ec.value());
+            if (ec)
+            {
+                handleError(ec);
+                return;
+            }
+            enablePolicy(nmServiceName, domainId, policyId, handleError);
         });
 }
 
@@ -251,8 +255,8 @@ static void patchPowerPowerControlPowerLimitLimitInWatts(
     const std::string& nmServiceName, uint16_t limitInWatts)
 {
     BMCWEB_LOG_DEBUG("patchPowerPowerControlPowerLimitLimitInWatts");
-    auto handleError = handleSetPropertyError(sensorAsyncResp, "LimitInWatts",
-                                              limitInWatts);
+    auto handleError =
+        handleSetPropertyError(sensorAsyncResp, "LimitInWatts", limitInWatts);
 
     auto limit = limitInWatts;
     sdbusplus::asio::setProperty<uint16_t>(
@@ -261,14 +265,15 @@ static void patchPowerPowerControlPowerLimitLimitInWatts(
         std::move(limit),
         [domainId, policyId, handleError, sensorAsyncResp,
          nmServiceName](boost::system::error_code ec) {
-        BMCWEB_LOG_DEBUG("{} : Set PolicyAttributes->Limit: {}[{}]",
-                         nmPath(domainId, policyId), ec.message(), ec.value());
-        if (ec)
-        {
-            handleError(ec);
-            return;
-        }
-        enablePolicy(nmServiceName, domainId, policyId, handleError);
+            BMCWEB_LOG_DEBUG("{} : Set PolicyAttributes->Limit: {}[{}]",
+                             nmPath(domainId, policyId), ec.message(),
+                             ec.value());
+            if (ec)
+            {
+                handleError(ec);
+                return;
+            }
+            enablePolicy(nmServiceName, domainId, policyId, handleError);
         });
 }
 
@@ -295,14 +300,15 @@ static void patchPowerPowerControlPowerLimitLimitException(
         "LimitException", std::move(limitExc),
         [domainId, policyId, handleError, sensorAsyncResp,
          nmServiceName](boost::system::error_code ec) {
-        BMCWEB_LOG_DEBUG("{} : Set PolicyAttributes->LimitException: {}[{}]",
-                         nmPath(domainId, policyId), ec.message(), ec.value());
-        if (ec)
-        {
-            handleError(ec);
-            return;
-        }
-        enablePolicy(nmServiceName, domainId, policyId, handleError);
+            BMCWEB_LOG_DEBUG(
+                "{} : Set PolicyAttributes->LimitException: {}[{}]",
+                nmPath(domainId, policyId), ec.message(), ec.value());
+            if (ec)
+            {
+                handleError(ec);
+                return;
+            }
+            enablePolicy(nmServiceName, domainId, policyId, handleError);
         });
 }
 
@@ -330,13 +336,14 @@ static void patchPowerPowerControlOemOpenBmcPowerLimitStorage(
         std::move(limitStorage),
         [domainId, policyId, handleError, sensorAsyncResp,
          nmServiceName](boost::system::error_code ec) {
-        BMCWEB_LOG_DEBUG("{} : Set PolicyAttributes->PolicyStorage: {}[{}]",
-                         nmPath(domainId, policyId), ec.message(), ec.value());
-        if (ec)
-        {
-            handleError(ec);
-            return;
-        }
+            BMCWEB_LOG_DEBUG("{} : Set PolicyAttributes->PolicyStorage: {}[{}]",
+                             nmPath(domainId, policyId), ec.message(),
+                             ec.value());
+            if (ec)
+            {
+                handleError(ec);
+                return;
+            }
         });
 }
 
@@ -464,15 +471,15 @@ static void patchPowerPowerControlOem(
     }
 }
 
-static void
-    getPowerLimit(const std::shared_ptr<SensorsAsyncResp>& sensorAsyncResp,
-                  const DomainId& domainId, const PolicyId& policyId,
-                  const size_t idx, const std::string& nmServiceName,
-                  const std::shared_ptr<FinalCallback> finalCallback = nullptr)
+static void getPowerLimit(
+    const std::shared_ptr<SensorsAsyncResp>& sensorAsyncResp,
+    const DomainId& domainId, const PolicyId& policyId, const size_t idx,
+    const std::string& nmServiceName,
+    const std::shared_ptr<FinalCallback> finalCallback = nullptr)
 {
     BMCWEB_LOG_DEBUG("getPowerLimit");
-    auto setJsonPowerLimit =
-        [sensorAsyncResp, idx](const std::string& key, const auto& value) {
+    auto setJsonPowerLimit = [sensorAsyncResp,
+                              idx](const std::string& key, const auto& value) {
         nlohmann::json& json = sensorAsyncResp->asyncResp->res.jsonValue;
         if constexpr (std::numeric_limits<decltype(value)>::has_quiet_NaN)
         {
@@ -505,37 +512,39 @@ static void
             const std::vector<std::pair<
                 std::string, std::variant<std::monostate, uint16_t, int32_t,
                                           uint32_t>>>& properties) {
-        BMCWEB_LOG_DEBUG("{} : PolicyAttributes: {}[{}]",
-                         nmPath(domainId, policyId), ec.message(), ec.value());
-        if (ec)
-        {
-            return;
-        }
-        try
-        {
-            uint16_t limit = 0;
-            int32_t limitException = 0;
-            uint32_t correctionTimeMs = 0;
-            int32_t policyState = 0;
-            sdbusplus::unpackProperties(
-                properties, "Limit", limit, "LimitException", limitException,
-                "CorrectionInMs", correctionTimeMs, "PolicyState", policyState);
-
-            if (isPolicyStateEnabled(policyState))
+            BMCWEB_LOG_DEBUG("{} : PolicyAttributes: {}[{}]",
+                             nmPath(domainId, policyId), ec.message(),
+                             ec.value());
+            if (ec)
             {
-                setJsonPowerLimit("LimitInWatts", limit);
-                setJsonPowerLimit("CorrectionInMs", correctionTimeMs);
-                if (auto limitExStr = limitExceptionToStr(limitException))
+                return;
+            }
+            try
+            {
+                uint16_t limit = 0;
+                int32_t limitException = 0;
+                uint32_t correctionTimeMs = 0;
+                int32_t policyState = 0;
+                sdbusplus::unpackProperties(
+                    properties, "Limit", limit, "LimitException",
+                    limitException, "CorrectionInMs", correctionTimeMs,
+                    "PolicyState", policyState);
+
+                if (isPolicyStateEnabled(policyState))
                 {
-                    setJsonPowerLimit("LimitException", *limitExStr);
+                    setJsonPowerLimit("LimitInWatts", limit);
+                    setJsonPowerLimit("CorrectionInMs", correctionTimeMs);
+                    if (auto limitExStr = limitExceptionToStr(limitException))
+                    {
+                        setJsonPowerLimit("LimitException", *limitExStr);
+                    }
                 }
             }
-        }
-        catch (const sdbusplus::exception::UnpackPropertyError& error)
-        {
-            BMCWEB_LOG_ERROR("{}", error.what());
-            messages::internalError(sensorAsyncResp->asyncResp->res);
-        }
+            catch (const sdbusplus::exception::UnpackPropertyError& error)
+            {
+                BMCWEB_LOG_ERROR("{}", error.what());
+                messages::internalError(sensorAsyncResp->asyncResp->res);
+            }
         });
 }
 
@@ -545,8 +554,9 @@ static void getOem(const std::shared_ptr<SensorsAsyncResp>& sensorAsyncResp,
                    const std::shared_ptr<FinalCallback> finalCallback = nullptr)
 {
     BMCWEB_LOG_DEBUG("getOem");
-    auto setJsonOemPowerLimitStorage =
-        [sensorAsyncResp, idx](const std::optional<std::string>& value) {
+    auto setJsonOemPowerLimitStorage = [sensorAsyncResp,
+                                        idx](const std::optional<std::string>&
+                                                 value) {
         nlohmann::json& json = sensorAsyncResp->asyncResp->res.jsonValue;
 
         json["PowerControl"][idx]["Oem"]["OpenBmc"]["@odata.type"] =
@@ -575,25 +585,27 @@ static void getOem(const std::shared_ptr<SensorsAsyncResp>& sensorAsyncResp,
             const std::vector<std::pair<
                 std::string, std::variant<std::monostate, uint16_t, int32_t,
                                           uint32_t>>>& properties) {
-        BMCWEB_LOG_DEBUG("{} : PolicyAttributes: {}[{}]",
-                         nmPath(domainId, policyId), ec.message(), ec.value());
-        if (ec)
-        {
-            return;
-        }
-        try
-        {
-            int32_t policyStorage = 0;
-            sdbusplus::unpackProperties(properties, "PolicyStorage",
-                                        policyStorage);
+            BMCWEB_LOG_DEBUG("{} : PolicyAttributes: {}[{}]",
+                             nmPath(domainId, policyId), ec.message(),
+                             ec.value());
+            if (ec)
+            {
+                return;
+            }
+            try
+            {
+                int32_t policyStorage = 0;
+                sdbusplus::unpackProperties(properties, "PolicyStorage",
+                                            policyStorage);
 
-            setJsonOemPowerLimitStorage(powerLimitStorageToStr(policyStorage));
-        }
-        catch (const sdbusplus::exception::UnpackPropertyError& error)
-        {
-            BMCWEB_LOG_ERROR("{}", error.what());
-            messages::internalError(sensorAsyncResp->asyncResp->res);
-        }
+                setJsonOemPowerLimitStorage(
+                    powerLimitStorageToStr(policyStorage));
+            }
+            catch (const sdbusplus::exception::UnpackPropertyError& error)
+            {
+                BMCWEB_LOG_ERROR("{}", error.what());
+                messages::internalError(sensorAsyncResp->asyncResp->res);
+            }
         });
 }
 
@@ -605,8 +617,8 @@ static void getAllocatedAndRequestedWatts(
 {
     BMCWEB_LOG_DEBUG("getAllocatedAndRequestedWatts");
 
-    auto setJsonPowerRequestedWatts =
-        [sensorAsyncResp, powerControlIdx](const auto& value) {
+    auto setJsonPowerRequestedWatts = [sensorAsyncResp,
+                                       powerControlIdx](const auto& value) {
         nlohmann::json& json = sensorAsyncResp->asyncResp->res.jsonValue;
         nlohmann::json& powerControl = json["PowerControl"][powerControlIdx];
 
@@ -615,8 +627,8 @@ static void getAllocatedAndRequestedWatts(
 
     setJsonPowerRequestedWatts(nlohmann::json());
 
-    auto setJsonPowerAllocatedWatts =
-        [sensorAsyncResp, powerControlIdx](const auto& value) {
+    auto setJsonPowerAllocatedWatts = [sensorAsyncResp,
+                                       powerControlIdx](const auto& value) {
         nlohmann::json& json = sensorAsyncResp->asyncResp->res.jsonValue;
         nlohmann::json& powerControl = json["PowerControl"][powerControlIdx];
 
@@ -630,15 +642,15 @@ static void getAllocatedAndRequestedWatts(
         [domainId, sensorAsyncResp, setJsonPowerRequestedWatts,
          setJsonPowerAllocatedWatts,
          finalCallback](boost::system::error_code ec, uint16_t limit) {
-        BMCWEB_LOG_DEBUG("{} : Get PolicyAttributes->Limit: {}[{}]",
-                         nmPath(domainId, dmtfPowerPolicyId), ec.message(),
-                         ec.value());
-        if (ec)
-        {
-            return;
-        }
-        setJsonPowerRequestedWatts(limit);
-        setJsonPowerAllocatedWatts(limit);
+            BMCWEB_LOG_DEBUG("{} : Get PolicyAttributes->Limit: {}[{}]",
+                             nmPath(domainId, dmtfPowerPolicyId), ec.message(),
+                             ec.value());
+            if (ec)
+            {
+                return;
+            }
+            setJsonPowerRequestedWatts(limit);
+            setJsonPowerAllocatedWatts(limit);
         });
 }
 
@@ -674,25 +686,25 @@ static void getCapacityConsumedWattsInputRange(
             const boost::container::flat_map<
                 std::string, boost::container::flat_map<std::string, double>>&
                 response) {
-        BMCWEB_LOG_DEBUG("{} : GetAllLimitsCapabilities: {}[{}]",
-                         nmPath(domainId), ec.message(), ec.value());
-        if (ec)
-        {
-            return;
-        }
-        const auto& it =
-            response.find("Component_" + std::to_string(componentId));
-        if (it != response.cend())
-        {
-            try
+            BMCWEB_LOG_DEBUG("{} : GetAllLimitsCapabilities: {}[{}]",
+                             nmPath(domainId), ec.message(), ec.value());
+            if (ec)
             {
-                setJsonPower("PowerCapacityWatts", it->second.at("Max"));
+                return;
             }
-            catch (const std::out_of_range& error)
+            const auto& it =
+                response.find("Component_" + std::to_string(componentId));
+            if (it != response.cend())
             {
-                logException(sensorAsyncResp, error.what());
+                try
+                {
+                    setJsonPower("PowerCapacityWatts", it->second.at("Max"));
+                }
+                catch (const std::out_of_range& error)
+                {
+                    logException(sensorAsyncResp, error.what());
+                }
             }
-        }
         },
         nmServiceName, nmPath(domainId),
         "xyz.openbmc_project.NodeManager.Capabilities",
@@ -706,27 +718,28 @@ static void getCapacityConsumedWattsInputRange(
                 std::vector<std::pair<std::string,
                                       std::variant<std::monostate, double>>>>&
                 response) {
-        BMCWEB_LOG_DEBUG("{} : GetStatistics: {}[{}]",
-                         nmPath(domainId, policyId), ec.message(), ec.value());
-        if (ec)
-        {
-            return;
-        }
-        const auto& it = response.find("Power");
-        if (it != response.cend())
-        {
-            try
+            BMCWEB_LOG_DEBUG("{} : GetStatistics: {}[{}]",
+                             nmPath(domainId, policyId), ec.message(),
+                             ec.value());
+            if (ec)
             {
-                double current = 0.;
-                sdbusplus::unpackProperties(it->second, "Current", current);
-                setJsonPower("PowerConsumedWatts", current);
+                return;
             }
-            catch (const sdbusplus::exception::UnpackPropertyError& error)
+            const auto& it = response.find("Power");
+            if (it != response.cend())
             {
-                BMCWEB_LOG_ERROR("{}", error.what());
-                messages::internalError(sensorAsyncResp->asyncResp->res);
+                try
+                {
+                    double current = 0.;
+                    sdbusplus::unpackProperties(it->second, "Current", current);
+                    setJsonPower("PowerConsumedWatts", current);
+                }
+                catch (const sdbusplus::exception::UnpackPropertyError& error)
+                {
+                    BMCWEB_LOG_ERROR("{}", error.what());
+                    messages::internalError(sensorAsyncResp->asyncResp->res);
+                }
             }
-        }
         },
         nmServiceName, nmPath(domainId, policyId), kPolicyStatisticsInterface,
         "GetStatistics");
@@ -760,18 +773,18 @@ static void getCapacityConsumedWattsInputRange(
     sdbusplus::asio::getProperty<double>(
         *crow::connections::systemBus, nmServiceName, nmPath(domainId),
         "xyz.openbmc_project.NodeManager.Capabilities", "Max",
-        [domainId, setJsonPower, finalCallback](boost::system::error_code ec,
-                                                double max) {
-        BMCWEB_LOG_DEBUG("{} : Get Capabilities->Max: {}[{}]", nmPath(domainId),
-                         ec.message(), ec.value());
-        if (ec)
-        {
-            return;
-        }
-        if (!std::isnan(max))
-        {
-            setJsonPower("PowerCapacityWatts", max);
-        }
+        [domainId, setJsonPower,
+         finalCallback](boost::system::error_code ec, double max) {
+            BMCWEB_LOG_DEBUG("{} : Get Capabilities->Max: {}[{}]",
+                             nmPath(domainId), ec.message(), ec.value());
+            if (ec)
+            {
+                return;
+            }
+            if (!std::isnan(max))
+            {
+                setJsonPower("PowerCapacityWatts", max);
+            }
         });
 
     crow::connections::systemBus->async_method_call(
@@ -782,27 +795,27 @@ static void getCapacityConsumedWattsInputRange(
                 std::vector<std::pair<std::string,
                                       std::variant<std::monostate, double>>>>&
                 response) {
-        BMCWEB_LOG_DEBUG("{} : GetStatistics: {}[{}]", nmPath(domainId),
-                         ec.message(), ec.value());
-        if (ec)
-        {
-            return;
-        }
-        const auto& it = response.find("Power");
-        if (it != response.cend())
-        {
-            try
+            BMCWEB_LOG_DEBUG("{} : GetStatistics: {}[{}]", nmPath(domainId),
+                             ec.message(), ec.value());
+            if (ec)
             {
-                double current = 0.;
-                sdbusplus::unpackProperties(it->second, "Current", current);
-                setJsonPower("PowerConsumedWatts", current);
+                return;
             }
-            catch (const sdbusplus::exception::UnpackPropertyError& error)
+            const auto& it = response.find("Power");
+            if (it != response.cend())
             {
-                BMCWEB_LOG_ERROR("{}", error.what());
-                messages::internalError(sensorAsyncResp->asyncResp->res);
+                try
+                {
+                    double current = 0.;
+                    sdbusplus::unpackProperties(it->second, "Current", current);
+                    setJsonPower("PowerConsumedWatts", current);
+                }
+                catch (const sdbusplus::exception::UnpackPropertyError& error)
+                {
+                    BMCWEB_LOG_ERROR("{}", error.what());
+                    messages::internalError(sensorAsyncResp->asyncResp->res);
+                }
             }
-        }
         },
         nmServiceName, nmPath(domainId), kPolicyStatisticsInterface,
         "GetStatistics");
@@ -819,35 +832,35 @@ static void getPowerMetrics(
         [sensorAsyncResp, powerControlIdx](
             const std::string& key,
             const std::variant<double, uint32_t, uint64_t, bool>& valueVar) {
-        nlohmann::json& json = sensorAsyncResp->asyncResp->res.jsonValue;
-        std::visit(
-            [&json, &powerControlIdx, &key](auto& value) {
-            if (std::isnan(value))
-            {
-                json["PowerControl"][powerControlIdx]["PowerMetrics"][key] =
-                    nlohmann::json();
-            }
-            else
-            {
-                json["PowerControl"][powerControlIdx]["PowerMetrics"][key] =
-                    value;
-            }
-            },
-            valueVar);
-    };
+            nlohmann::json& json = sensorAsyncResp->asyncResp->res.jsonValue;
+            std::visit(
+                [&json, &powerControlIdx, &key](auto& value) {
+                    if (std::isnan(value))
+                    {
+                        json["PowerControl"][powerControlIdx]["PowerMetrics"]
+                            [key] = nlohmann::json();
+                    }
+                    else
+                    {
+                        json["PowerControl"][powerControlIdx]["PowerMetrics"]
+                            [key] = value;
+                    }
+                },
+                valueVar);
+        };
 
     auto setJsonPowerMetricsInterval =
         [sensorAsyncResp, powerControlIdx](
             const std::variant<double, uint32_t, uint64_t, bool>& valueVar) {
-        nlohmann::json& json = sensorAsyncResp->asyncResp->res.jsonValue;
-        if (auto seconds = std::get_if<uint32_t>(&valueVar))
-        {
-            auto minutes = std::chrono::duration_cast<std::chrono::minutes>(
-                std::chrono::seconds{*seconds});
-            json["PowerControl"][powerControlIdx]["PowerMetrics"]
-                ["IntervalInMin"] = minutes.count();
-        }
-    };
+            nlohmann::json& json = sensorAsyncResp->asyncResp->res.jsonValue;
+            if (auto seconds = std::get_if<uint32_t>(&valueVar))
+            {
+                auto minutes = std::chrono::duration_cast<std::chrono::minutes>(
+                    std::chrono::seconds{*seconds});
+                json["PowerControl"][powerControlIdx]["PowerMetrics"]
+                    ["IntervalInMin"] = minutes.count();
+            }
+        };
 
     setJsonPowerMetrics("AverageConsumedWatts",
                         std::numeric_limits<uint32_t>::quiet_NaN());
@@ -867,93 +880,94 @@ static void getPowerMetrics(
                                  std::string, std::variant<double, uint32_t,
                                                            uint64_t, bool>>>&
                 response) {
-        BMCWEB_LOG_DEBUG("{} : GetStatistics: {}[{}]",
-                         nmPath(domainId, policyId), ec.message(), ec.value());
-        if (ec)
-        {
-            return;
-        }
-        const auto& it = response.find("Power");
-        if (it != response.cend())
-        {
-            try
+            BMCWEB_LOG_DEBUG("{} : GetStatistics: {}[{}]",
+                             nmPath(domainId, policyId), ec.message(),
+                             ec.value());
+            if (ec)
             {
-                const auto& maxIt = it->second.find("Max");
-                const auto& minIt = it->second.find("Min");
-                const auto& averageIt = it->second.find("Average");
-                const auto& statisticsReportingPeriodIt =
-                    it->second.find("StatisticsReportingPeriod");
+                return;
+            }
+            const auto& it = response.find("Power");
+            if (it != response.cend())
+            {
+                try
+                {
+                    const auto& maxIt = it->second.find("Max");
+                    const auto& minIt = it->second.find("Min");
+                    const auto& averageIt = it->second.find("Average");
+                    const auto& statisticsReportingPeriodIt =
+                        it->second.find("StatisticsReportingPeriod");
 
-                if (maxIt != it->second.cend())
-                {
-                    setJsonPowerMetrics("MaxConsumedWatts", maxIt->second);
+                    if (maxIt != it->second.cend())
+                    {
+                        setJsonPowerMetrics("MaxConsumedWatts", maxIt->second);
+                    }
+                    if (minIt != it->second.cend())
+                    {
+                        setJsonPowerMetrics("MinConsumedWatts", minIt->second);
+                    }
+                    if (averageIt != it->second.cend())
+                    {
+                        setJsonPowerMetrics("AverageConsumedWatts",
+                                            averageIt->second);
+                    }
+                    if (statisticsReportingPeriodIt != it->second.cend())
+                    {
+                        setJsonPowerMetricsInterval(
+                            statisticsReportingPeriodIt->second);
+                    }
                 }
-                if (minIt != it->second.cend())
+                catch (const sdbusplus::exception::UnpackPropertyError& error)
                 {
-                    setJsonPowerMetrics("MinConsumedWatts", minIt->second);
-                }
-                if (averageIt != it->second.cend())
-                {
-                    setJsonPowerMetrics("AverageConsumedWatts",
-                                        averageIt->second);
-                }
-                if (statisticsReportingPeriodIt != it->second.cend())
-                {
-                    setJsonPowerMetricsInterval(
-                        statisticsReportingPeriodIt->second);
+                    BMCWEB_LOG_ERROR("{}", error.what());
+                    messages::internalError(sensorAsyncResp->asyncResp->res);
                 }
             }
-            catch (const sdbusplus::exception::UnpackPropertyError& error)
-            {
-                BMCWEB_LOG_ERROR("{}", error.what());
-                messages::internalError(sensorAsyncResp->asyncResp->res);
-            }
-        }
         },
         nmServiceName, nmPath(domainId, policyId), kPolicyStatisticsInterface,
         "GetStatistics");
 }
 
-static void
-    getStatus(const std::shared_ptr<SensorsAsyncResp>& sensorAsyncResp,
-              const DomainId& domainId, const PolicyId& policyId,
-              const size_t powerControlIdx, const std::string& nmServiceName,
-              const std::shared_ptr<FinalCallback> finalCallback = nullptr)
+static void getStatus(
+    const std::shared_ptr<SensorsAsyncResp>& sensorAsyncResp,
+    const DomainId& domainId, const PolicyId& policyId,
+    const size_t powerControlIdx, const std::string& nmServiceName,
+    const std::shared_ptr<FinalCallback> finalCallback = nullptr)
 {
     BMCWEB_LOG_DEBUG("getStatus");
     auto setJsonStatus =
         [sensorAsyncResp, powerControlIdx](const PolicyState& policyState) {
-        nlohmann::json& json = sensorAsyncResp->asyncResp->res.jsonValue;
-        std::string state, health;
+            nlohmann::json& json = sensorAsyncResp->asyncResp->res.jsonValue;
+            std::string state, health;
 
-        switch (policyState)
-        {
-            case PolicyState::disabled:
-                state = "Disabled";
-                health = "OK";
-                break;
-            case PolicyState::suspended:
-                state = "StandbyOffline";
-                health = "Warning";
-                break;
-            case PolicyState::pending:
-                state = "StandbyOffline";
-                health = "OK";
-                break;
-            case PolicyState::ready:
-            case PolicyState::triggered:
-            case PolicyState::selected:
-                state = "Enabled";
-                health = "OK";
-                break;
-            default:
-                BMCWEB_LOG_DEBUG("Cannot match policy state value");
-                return;
-        }
+            switch (policyState)
+            {
+                case PolicyState::disabled:
+                    state = "Disabled";
+                    health = "OK";
+                    break;
+                case PolicyState::suspended:
+                    state = "StandbyOffline";
+                    health = "Warning";
+                    break;
+                case PolicyState::pending:
+                    state = "StandbyOffline";
+                    health = "OK";
+                    break;
+                case PolicyState::ready:
+                case PolicyState::triggered:
+                case PolicyState::selected:
+                    state = "Enabled";
+                    health = "OK";
+                    break;
+                default:
+                    BMCWEB_LOG_DEBUG("Cannot match policy state value");
+                    return;
+            }
 
-        json["PowerControl"][powerControlIdx]["Status"]["State"] = state;
-        json["PowerControl"][powerControlIdx]["Status"]["Health"] = health;
-    };
+            json["PowerControl"][powerControlIdx]["Status"]["State"] = state;
+            json["PowerControl"][powerControlIdx]["Status"]["Health"] = health;
+        };
 
     sdbusplus::asio::getAllProperties(
         *crow::connections::systemBus, nmServiceName,
@@ -963,23 +977,25 @@ static void
             const std::vector<std::pair<
                 std::string, std::variant<std::monostate, uint16_t, int32_t,
                                           uint32_t>>>& properties) {
-        BMCWEB_LOG_DEBUG("{} : PolicyAttributes: {}[{}]",
-                         nmPath(domainId, policyId), ec.message(), ec.value());
-        if (ec)
-        {
-            return;
-        }
-        try
-        {
-            int32_t policyState = 0;
-            sdbusplus::unpackProperties(properties, "PolicyState", policyState);
-            setJsonStatus(static_cast<PolicyState>(policyState));
-        }
-        catch (const sdbusplus::exception::UnpackPropertyError& error)
-        {
-            BMCWEB_LOG_ERROR("{}", error.what());
-            messages::internalError(sensorAsyncResp->asyncResp->res);
-        }
+            BMCWEB_LOG_DEBUG("{} : PolicyAttributes: {}[{}]",
+                             nmPath(domainId, policyId), ec.message(),
+                             ec.value());
+            if (ec)
+            {
+                return;
+            }
+            try
+            {
+                int32_t policyState = 0;
+                sdbusplus::unpackProperties(properties, "PolicyState",
+                                            policyState);
+                setJsonStatus(static_cast<PolicyState>(policyState));
+            }
+            catch (const sdbusplus::exception::UnpackPropertyError& error)
+            {
+                BMCWEB_LOG_ERROR("{}", error.what());
+                messages::internalError(sensorAsyncResp->asyncResp->res);
+            }
         });
 }
 
@@ -1006,7 +1022,8 @@ static void getPowerControlComponentNode(
         {{"@odata.id", json["PowerControl"][powerControlIdx]["@odata.id"]}});
     json["PowerControl"][powerControlIdx]["RelatedItem"] =
         nlohmann::json::array();
-    json["PowerControl"][powerControlIdx]["@odata.type"] = json_util::odataType("Power", "PowerControl");
+    json["PowerControl"][powerControlIdx]["@odata.type"] =
+        json_util::odataType("Power", "PowerControl");
 
     std::shared_ptr<FinalCallback> finalCallback =
         std::make_shared<FinalCallback>([callback]() {
@@ -1050,13 +1067,14 @@ static void getPowerControlAggregateNode(
     }
     else
     {
-        json["PowerControl"][powerControlIdx]["Name"] = aggregatorName +
-                                                        " Power Control";
+        json["PowerControl"][powerControlIdx]["Name"] =
+            aggregatorName + " Power Control";
     }
     json["PowerControl"][powerControlIdx]["@odata.id"] =
         "/redfish/v1/Chassis/" + sensorAsyncResp->chassisId +
         "/Power/PowerControl/" + aggregatorName;
-    json["PowerControl"][powerControlIdx]["@odata.type"] = json_util::odataType("Power", "PowerControl");
+    json["PowerControl"][powerControlIdx]["@odata.type"] =
+        json_util::odataType("Power", "PowerControl");
     json["PowerControl"][powerRootNode]["RelatedItem"].push_back(
         {{"@odata.id", json["PowerControl"][powerControlIdx]["@odata.id"]}});
 
@@ -1085,13 +1103,12 @@ static void getPowerControlAggregateNode(
               nmServiceName, finalCallback);
 }
 
-static void
-    getNmDmtfGroup(const std::shared_ptr<SensorsAsyncResp>& sensorAsyncResp,
-                   const std::string& nmServiceName,
-                   size_t powerControlOffsetIdx,
-                   const std::vector<DeviceIndex>& components,
-                   const std::string& aggregatorName,
-                   const std::string& nodePrefixName, const DomainId& domainId)
+static void getNmDmtfGroup(
+    const std::shared_ptr<SensorsAsyncResp>& sensorAsyncResp,
+    const std::string& nmServiceName, size_t powerControlOffsetIdx,
+    const std::vector<DeviceIndex>& components,
+    const std::string& aggregatorName, const std::string& nodePrefixName,
+    const DomainId& domainId)
 {
     BMCWEB_LOG_DEBUG("getNmDmtfGroup node: {} powerControlIdx: {}",
                      aggregatorName, powerControlOffsetIdx);
@@ -1113,12 +1130,12 @@ static void
     }
 }
 
-static void
-    collectNmDmtfData(const std::shared_ptr<SensorsAsyncResp>& sensorAsyncResp,
-                      const std::string& nmServiceName,
-                      const std::vector<DeviceIndex>& processors,
-                      const std::vector<DeviceIndex>& memories,
-                      const std::vector<DeviceIndex>& accelerators)
+static void collectNmDmtfData(
+    const std::shared_ptr<SensorsAsyncResp>& sensorAsyncResp,
+    const std::string& nmServiceName,
+    const std::vector<DeviceIndex>& processors,
+    const std::vector<DeviceIndex>& memories,
+    const std::vector<DeviceIndex>& accelerators)
 {
     BMCWEB_LOG_DEBUG("collectNmDmtfData");
     nlohmann::json& json = sensorAsyncResp->asyncResp->res.jsonValue;
@@ -1129,7 +1146,8 @@ static void
     json["PowerControl"][powerRootNode]["@odata.id"] =
         "/redfish/v1/Chassis/" + sensorAsyncResp->chassisId +
         "/Power/PowerControl/0";
-    json["PowerControl"][powerRootNode]["@odata.type"] = json_util::odataType("Power", "PowerControl");
+    json["PowerControl"][powerRootNode]["@odata.type"] =
+        json_util::odataType("Power", "PowerControl");
     getAllocatedAndRequestedWatts(sensorAsyncResp, dcTotalPowerDomainId,
                                   dmtfPowerPolicyId, powerRootNode,
                                   nmServiceName);
@@ -1153,14 +1171,14 @@ static void
                    "Memories", "Memory", memoryDomainId);
 }
 
-static void
-    getComponents(const std::shared_ptr<SensorsAsyncResp>& sensorAsyncResp,
-                  const std::string& nmServiceName,
-                  std::function<void(const std::vector<DeviceIndex>&,
-                                     const std::vector<DeviceIndex>&,
-                                     const std::vector<DeviceIndex>&)>
-                      callback,
-                  std::function<void()> onError = nullptr)
+static void getComponents(
+    const std::shared_ptr<SensorsAsyncResp>& sensorAsyncResp,
+    const std::string& nmServiceName,
+    std::function<void(const std::vector<DeviceIndex>&,
+                       const std::vector<DeviceIndex>&,
+                       const std::vector<DeviceIndex>&)>
+        callback,
+    std::function<void()> onError = nullptr)
 {
     BMCWEB_LOG_DEBUG("getComponents");
     sdbusplus::asio::getProperty<std::vector<DeviceIndex>>(
@@ -1168,32 +1186,12 @@ static void
         kDomainAttributesInterface, "AvailableComponents",
         [nmServiceName, sensorAsyncResp, callback, onError](
             boost::system::error_code ec, std::vector<DeviceIndex> processors) {
-        BMCWEB_LOG_DEBUG("{} : Get AvailableComponents: {}",
-                         nmPath(cpuDomainId), ec.message());
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("{} : Get AvailableComponents failed: {}",
-                             nmPath(cpuDomainId), ec.message());
-            if (onError)
-            {
-                onError();
-            }
-            return;
-        }
-
-        sdbusplus::asio::getProperty<std::vector<DeviceIndex>>(
-            *crow::connections::systemBus, nmServiceName,
-            nmPath(memoryDomainId), kDomainAttributesInterface,
-            "AvailableComponents",
-            [nmServiceName, sensorAsyncResp, callback, onError,
-             processors](boost::system::error_code ec2,
-                         std::vector<DeviceIndex> memories) {
             BMCWEB_LOG_DEBUG("{} : Get AvailableComponents: {}",
-                             nmPath(memoryDomainId), ec2.message());
-            if (ec2)
+                             nmPath(cpuDomainId), ec.message());
+            if (ec)
             {
                 BMCWEB_LOG_ERROR("{} : Get AvailableComponents failed: {}",
-                                 nmPath(memoryDomainId), ec2.message());
+                                 nmPath(cpuDomainId), ec.message());
                 if (onError)
                 {
                     onError();
@@ -1203,24 +1201,47 @@ static void
 
             sdbusplus::asio::getProperty<std::vector<DeviceIndex>>(
                 *crow::connections::systemBus, nmServiceName,
-                nmPath(pcieDomainId), kDomainAttributesInterface,
+                nmPath(memoryDomainId), kDomainAttributesInterface,
                 "AvailableComponents",
-                [nmServiceName, sensorAsyncResp, callback, onError, processors,
-                 memories](boost::system::error_code ec3,
-                           std::vector<DeviceIndex> accelerators) {
-                if (ec3)
-                {
-                    BMCWEB_LOG_ERROR("{} : Get AvailableComponents failed: {}",
-                                     nmPath(pcieDomainId), ec3.message());
-                    if (onError)
+                [nmServiceName, sensorAsyncResp, callback, onError,
+                 processors](boost::system::error_code ec2,
+                             std::vector<DeviceIndex> memories) {
+                    BMCWEB_LOG_DEBUG("{} : Get AvailableComponents: {}",
+                                     nmPath(memoryDomainId), ec2.message());
+                    if (ec2)
                     {
-                        onError();
+                        BMCWEB_LOG_ERROR(
+                            "{} : Get AvailableComponents failed: {}",
+                            nmPath(memoryDomainId), ec2.message());
+                        if (onError)
+                        {
+                            onError();
+                        }
+                        return;
                     }
-                    return;
-                }
-                callback(processors, memories, accelerators);
+
+                    sdbusplus::asio::getProperty<std::vector<DeviceIndex>>(
+                        *crow::connections::systemBus, nmServiceName,
+                        nmPath(pcieDomainId), kDomainAttributesInterface,
+                        "AvailableComponents",
+                        [nmServiceName, sensorAsyncResp, callback, onError,
+                         processors,
+                         memories](boost::system::error_code ec3,
+                                   std::vector<DeviceIndex> accelerators) {
+                            if (ec3)
+                            {
+                                BMCWEB_LOG_ERROR(
+                                    "{} : Get AvailableComponents failed: {}",
+                                    nmPath(pcieDomainId), ec3.message());
+                                if (onError)
+                                {
+                                    onError();
+                                }
+                                return;
+                            }
+                            callback(processors, memories, accelerators);
+                        });
                 });
-            });
         });
 }
 
@@ -1241,9 +1262,9 @@ static void buildDomainPolicyMap(
              deviceIndex,
              std::string{"Accelerator"} + std::to_string(deviceIndex)});
     }
-    list.push_back({pcieDomainId,
-                    dmtfPowerPolicyId + std::string{"_Accelerators"},
-                    allDevices, "Accelerators"});
+    list.push_back(
+        {pcieDomainId, dmtfPowerPolicyId + std::string{"_Accelerators"},
+         allDevices, "Accelerators"});
 
     for (const auto& deviceIndex : processors)
     {
@@ -1259,15 +1280,15 @@ static void buildDomainPolicyMap(
 
     for (const auto& deviceIndex : memories)
     {
-        list.push_back({memoryDomainId,
-                        dmtfPowerPolicyId + std::string{"_Memory"} +
-                            std::to_string(deviceIndex),
-                        deviceIndex,
-                        std::string{"Memory"} + std::to_string(deviceIndex)});
+        list.push_back(
+            {memoryDomainId,
+             dmtfPowerPolicyId + std::string{"_Memory"} +
+                 std::to_string(deviceIndex),
+             deviceIndex, std::string{"Memory"} + std::to_string(deviceIndex)});
     }
-    list.push_back({memoryDomainId,
-                    dmtfPowerPolicyId + std::string{"_Memories"}, allDevices,
-                    "Memories"});
+    list.push_back(
+        {memoryDomainId, dmtfPowerPolicyId + std::string{"_Memories"},
+         allDevices, "Memories"});
 }
 
 static void getNmDmtfComponentByMemberId(
@@ -1280,74 +1301,80 @@ static void getNmDmtfComponentByMemberId(
         [sensorAsyncResp,
          name](const boost::system::error_code ec,
                const dbus::utility::MapperGetObject& getObjectType) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("ObjectMapper::GetObject call failed: {}", ec);
-        }
-        std::string nmServiceName = nm::selectNmService(getObjectType);
-        BMCWEB_LOG_DEBUG("Using node manager service: {}", nmServiceName);
-
-        getComponents(
-            sensorAsyncResp, nmServiceName,
-            [sensorAsyncResp, nmServiceName,
-             name](const std::vector<nm::DeviceIndex>& processors,
-                   const std::vector<nm::DeviceIndex>& memories,
-                   const std::vector<nm::DeviceIndex>& accelerators) {
-            std::vector<std::tuple<nm::DomainId, nm::PolicyId, nm::DeviceIndex,
-                                   std::string>>
-                list;
-            buildDomainPolicyMap(processors, memories, accelerators, list);
-
-            auto it = std::find_if(
-                list.begin(), list.end(),
-                [name](
-                    const std::tuple<nm::DomainId, nm::PolicyId,
-                                     nm::DeviceIndex, std::string>& element) {
-                const auto& [domain, policy, index, memberId] = element;
-                return (memberId == name);
-                });
-
-            if (it == list.end())
+            if (ec)
             {
-                messages::resourceNotFound(sensorAsyncResp->asyncResp->res,
-                                           "PowerControl", name);
-                return;
+                BMCWEB_LOG_ERROR("ObjectMapper::GetObject call failed: {}", ec);
             }
+            std::string nmServiceName = nm::selectNmService(getObjectType);
+            BMCWEB_LOG_DEBUG("Using node manager service: {}", nmServiceName);
 
-            const auto& [domain, policy, index, memberId] = *it;
+            getComponents(
+                sensorAsyncResp, nmServiceName,
+                [sensorAsyncResp, nmServiceName,
+                 name](const std::vector<nm::DeviceIndex>& processors,
+                       const std::vector<nm::DeviceIndex>& memories,
+                       const std::vector<nm::DeviceIndex>& accelerators) {
+                    std::vector<std::tuple<nm::DomainId, nm::PolicyId,
+                                           nm::DeviceIndex, std::string>>
+                        list;
+                    buildDomainPolicyMap(processors, memories, accelerators,
+                                         list);
 
-            if (index == allDevices)
-            {
-                getPowerControlAggregateNode(sensorAsyncResp, nmServiceName,
-                                             name, tempNode, domain,
-                                             [sensorAsyncResp]() {
-                    nlohmann::json& json =
-                        sensorAsyncResp->asyncResp->res.jsonValue;
-                    json = json["PowerControl"][tempNode];
+                    auto it = std::find_if(
+                        list.begin(), list.end(),
+                        [name](const std::tuple<nm::DomainId, nm::PolicyId,
+                                                nm::DeviceIndex, std::string>&
+                                   element) {
+                            const auto& [domain, policy, index, memberId] =
+                                element;
+                            return (memberId == name);
+                        });
+
+                    if (it == list.end())
+                    {
+                        messages::resourceNotFound(
+                            sensorAsyncResp->asyncResp->res, "PowerControl",
+                            name);
+                        return;
+                    }
+
+                    const auto& [domain, policy, index, memberId] = *it;
+
+                    if (index == allDevices)
+                    {
+                        getPowerControlAggregateNode(
+                            sensorAsyncResp, nmServiceName, name, tempNode,
+                            domain, [sensorAsyncResp]() {
+                                nlohmann::json& json =
+                                    sensorAsyncResp->asyncResp->res.jsonValue;
+                                json = json["PowerControl"][tempNode];
+                            });
+                    }
+                    else
+                    {
+                        auto nameAlpha = name;
+                        nameAlpha.erase(
+                            std::remove_if(nameAlpha.begin(), nameAlpha.end(),
+                                           [](char c) {
+                                               return !std::isalpha(c);
+                                           }),
+                            nameAlpha.end());
+                        getPowerControlComponentNode(
+                            sensorAsyncResp, nmServiceName, domain, index,
+                            tempNode, nameAlpha, powerRootNode,
+                            [sensorAsyncResp]() {
+                                BMCWEB_LOG_DEBUG(
+                                    "Remove nodes 0 and 1, copy content of node 1 to root");
+                                nlohmann::json& json =
+                                    sensorAsyncResp->asyncResp->res.jsonValue;
+                                json = json["PowerControl"][tempNode];
+                            });
+                    }
+                },
+                [sensorAsyncResp]() {
+                    messages::serviceInUnknownState(
+                        sensorAsyncResp->asyncResp->res);
                 });
-            }
-            else
-            {
-                auto nameAlpha = name;
-                nameAlpha.erase(
-                    std::remove_if(nameAlpha.begin(), nameAlpha.end(),
-                                   [](char c) { return !std::isalpha(c); }),
-                    nameAlpha.end());
-                getPowerControlComponentNode(sensorAsyncResp, nmServiceName,
-                                             domain, index, tempNode, nameAlpha,
-                                             powerRootNode,
-                                             [sensorAsyncResp]() {
-                    BMCWEB_LOG_DEBUG(
-                        "Remove nodes 0 and 1, copy content of node 1 to root");
-                    nlohmann::json& json =
-                        sensorAsyncResp->asyncResp->res.jsonValue;
-                    json = json["PowerControl"][tempNode];
-                });
-            }
-            },
-            [sensorAsyncResp]() {
-            messages::serviceInUnknownState(sensorAsyncResp->asyncResp->res);
-        });
         },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
@@ -1368,63 +1395,68 @@ static void patchNmDmtfComponentByMemberId(
         [req, sensorAsyncResp,
          name](const boost::system::error_code ec,
                const dbus::utility::MapperGetObject& getObjectType) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("ObjectMapper::GetObject call failed: {}", ec);
-        }
-        std::string nmServiceName = nm::selectNmService(getObjectType);
-        BMCWEB_LOG_DEBUG("Using node manager service: {}", nmServiceName);
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("ObjectMapper::GetObject call failed: {}", ec);
+            }
+            std::string nmServiceName = nm::selectNmService(getObjectType);
+            BMCWEB_LOG_DEBUG("Using node manager service: {}", nmServiceName);
 
-        getComponents(sensorAsyncResp, nmServiceName,
-                      [req, sensorAsyncResp, nmServiceName,
-                       name](const std::vector<nm::DeviceIndex>& processors,
-                             const std::vector<nm::DeviceIndex>& memories,
-                             const std::vector<nm::DeviceIndex>& accelerators) {
-            std::vector<std::tuple<nm::DomainId, nm::PolicyId, nm::DeviceIndex,
-                                   std::string>>
-                list;
-            buildDomainPolicyMap(processors, memories, accelerators, list);
+            getComponents(
+                sensorAsyncResp, nmServiceName,
+                [req, sensorAsyncResp, nmServiceName,
+                 name](const std::vector<nm::DeviceIndex>& processors,
+                       const std::vector<nm::DeviceIndex>& memories,
+                       const std::vector<nm::DeviceIndex>& accelerators) {
+                    std::vector<std::tuple<nm::DomainId, nm::PolicyId,
+                                           nm::DeviceIndex, std::string>>
+                        list;
+                    buildDomainPolicyMap(processors, memories, accelerators,
+                                         list);
 
-            auto it = std::find_if(
-                list.begin(), list.end(),
-                [name](
-                    const std::tuple<nm::DomainId, nm::PolicyId,
-                                     nm::DeviceIndex, std::string>& element) {
-                const auto& [domain, policy, index, memberId] = element;
-                return (memberId == name);
+                    auto it = std::find_if(
+                        list.begin(), list.end(),
+                        [name](const std::tuple<nm::DomainId, nm::PolicyId,
+                                                nm::DeviceIndex, std::string>&
+                                   element) {
+                            const auto& [domain, policy, index, memberId] =
+                                element;
+                            return (memberId == name);
+                        });
+
+                    std::optional<nlohmann::json> powerLimit;
+                    std::optional<nlohmann::json> oem;
+                    if (!json_util::readJsonAction(
+                            req, sensorAsyncResp->asyncResp->res, "Oem", oem,
+                            "PowerLimit", powerLimit))
+                    {
+                        return;
+                    }
+
+                    if (it == list.end())
+                    {
+                        messages::resourceNotFound(
+                            sensorAsyncResp->asyncResp->res, "PowerControl",
+                            name);
+                        return;
+                    }
+
+                    const auto& [domain, policy, index, memberId] = *it;
+
+                    if (powerLimit)
+                    {
+                        nm::patchPowerPowerControlPowerLimit(
+                            sensorAsyncResp, domain, policy, index,
+                            nmServiceName, *powerLimit);
+                    }
+
+                    if (oem)
+                    {
+                        nm::patchPowerPowerControlOem(sensorAsyncResp, domain,
+                                                      policy, nmServiceName,
+                                                      *oem);
+                    }
                 });
-
-            std::optional<nlohmann::json> powerLimit;
-            std::optional<nlohmann::json> oem;
-            if (!json_util::readJsonAction(req, sensorAsyncResp->asyncResp->res,
-                                           "Oem", oem, "PowerLimit",
-                                           powerLimit))
-            {
-                return;
-            }
-
-            if (it == list.end())
-            {
-                messages::resourceNotFound(sensorAsyncResp->asyncResp->res,
-                                           "PowerControl", name);
-                return;
-            }
-
-            const auto& [domain, policy, index, memberId] = *it;
-
-            if (powerLimit)
-            {
-                nm::patchPowerPowerControlPowerLimit(
-                    sensorAsyncResp, domain, policy, index, nmServiceName,
-                    *powerLimit);
-            }
-
-            if (oem)
-            {
-                nm::patchPowerPowerControlOem(sensorAsyncResp, domain, policy,
-                                              nmServiceName, *oem);
-            }
-        });
         },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",

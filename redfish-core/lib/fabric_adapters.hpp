@@ -114,8 +114,8 @@ inline void getFabricAdapterState(
     const std::string& serviceName, const std::string& fabricAdapterPath)
 {
     dbus::utility::getProperty<bool>(
-        serviceName, fabricAdapterPath,
-        "xyz.openbmc_project.Inventory.Item", "Present",
+        serviceName, fabricAdapterPath, "xyz.openbmc_project.Inventory.Item",
+        "Present",
         [asyncResp](const boost::system::error_code& ec, const bool present) {
             if (ec)
             {
@@ -170,7 +170,8 @@ inline void doAdapterGet(
     asyncResp->res.addHeader(
         boost::beast::http::field::link,
         "</redfish/v1/JsonSchemas/FabricAdapter/FabricAdapter.json>; rel=describedby");
-    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("FabricAdapter");
+    asyncResp->res.jsonValue["@odata.type"] =
+        json_util::odataType("FabricAdapter");
     asyncResp->res.jsonValue["Name"] = "Fabric Adapter";
     asyncResp->res.jsonValue["Id"] = adapterId;
     asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(

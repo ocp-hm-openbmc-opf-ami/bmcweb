@@ -228,9 +228,9 @@ inline void getProcessorProperties(
  *
  * @return None.
  */
-inline void
-    getProcessorSummary(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                        const std::string& service, const std::string& path)
+inline void getProcessorSummary(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& service, const std::string& path)
 {
     auto getCpuPresenceState = [asyncResp](const boost::system::error_code& ec3,
                                            const bool cpuPresenceCheck) {
@@ -270,9 +270,9 @@ inline void
  *
  * @return None.
  */
-inline void
-    processMemoryProperties(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                            const dbus::utility::DBusPropertiesMap& properties)
+inline void processMemoryProperties(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const dbus::utility::DBusPropertiesMap& properties)
 {
     BMCWEB_LOG_DEBUG("Got {} Dimm properties.", properties.size());
 
@@ -321,9 +321,9 @@ inline void
  *
  * @return None.
  */
-inline void
-    getMemorySummary(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                     const std::string& service, const std::string& path)
+inline void getMemorySummary(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& service, const std::string& path)
 {
     dbus::utility::getAllProperties(
         service, path, "xyz.openbmc_project.Inventory.Item.Dimm",
@@ -378,10 +378,10 @@ inline void afterGetUUID(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     }
 }
 
-inline void
-    afterGetInventory(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                      const boost::system::error_code& ec,
-                      const dbus::utility::DBusPropertiesMap& propertiesList)
+inline void afterGetInventory(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec,
+    const dbus::utility::DBusPropertiesMap& propertiesList)
 {
     if (ec)
     {
@@ -670,8 +670,7 @@ inline std::string dbusToRfBootSource(const std::string& dbusSource)
     {
         return "Usb";
     }
-    if (dbusSource ==
-        "xyz.openbmc_project.Control.Boot.Source.Sources.HTTP")
+    if (dbusSource == "xyz.openbmc_project.Control.Boot.Source.Sources.HTTP")
     {
         return "UefiHttp";
     }
@@ -847,8 +846,7 @@ inline int assignBootParameters(const std::string& rfSource,
     }
     else if (rfSource == "UefiHttp")
     {
-        bootSource =
-            "xyz.openbmc_project.Control.Boot.Source.Sources.HTTP";
+        bootSource = "xyz.openbmc_project.Control.Boot.Source.Sources.HTTP";
     }
     else if (rfSource == "Diags")
     {
@@ -948,7 +946,8 @@ void getCPLDBootProgress(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
             }
 
             aResp->res
-                .jsonValue["BootProgress"]["Oem"]["Intel"]["@odata.type"] = json_util::odataType("OpenBMCComputerSystem", "Intel");
+                .jsonValue["BootProgress"]["Oem"]["Intel"]["@odata.type"] =
+                json_util::odataType("OpenBMCComputerSystem", "Intel");
             const std::string* errorSource = nullptr;
             const std::string* powerState = nullptr;
             for (const std::pair<std::string, dbus::utility::DbusVariantType>&
@@ -993,8 +992,8 @@ void getCPLDBootProgress(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
  * @return None.
  */
 
-inline void
-    getBootOverrideType(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void getBootOverrideType(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     dbus::utility::getProperty<std::string>(
         "xyz.openbmc_project.Settings",
@@ -1034,8 +1033,8 @@ inline void
  * @return None.
  */
 
-inline void
-    getBootOverrideMode(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void getBootOverrideMode(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     dbus::utility::getProperty<std::string>(
         "xyz.openbmc_project.Settings",
@@ -1087,8 +1086,8 @@ inline void
  * @return None.
  */
 
-inline void
-    getBootOverrideSource(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void getBootOverrideSource(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     dbus::utility::getProperty<std::string>(
         "xyz.openbmc_project.Settings",
@@ -1178,8 +1177,8 @@ inline void processBootOverrideEnable(
  * @return None.
  */
 
-inline void
-    getBootOverrideEnable(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void getBootOverrideEnable(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     dbus::utility::getProperty<bool>(
         "xyz.openbmc_project.Settings",
@@ -1324,8 +1323,8 @@ inline void getAutomaticRebootAttempts(
  *
  * @return None.
  */
-void
-    getAutomaticRetryPolicy(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+void getAutomaticRetryPolicy(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     BMCWEB_LOG_DEBUG("Get Automatic Retry policy");
 
@@ -1504,7 +1503,10 @@ void getTrustedModuleRequiredToBoot(
     nlohmann::json::array_t tpmList;
     tpmList.emplace_back("Required");
     tpmList.emplace_back("Disabled");
-    asyncResp->res.jsonValue["Boot"]["TrustedModuleRequiredToBoot@Redfish.AllowableValues"] = tpmList; 
+    asyncResp->res
+        .jsonValue["Boot"]
+                  ["TrustedModuleRequiredToBoot@Redfish.AllowableValues"] =
+        tpmList;
 
     constexpr std::array<std::string_view, 1> interfaces = {
         "xyz.openbmc_project.Control.TPM.Policy"};
@@ -1799,9 +1801,9 @@ inline void setBootEnable(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
  *
  * @return Integer error code.
  */
-inline void
-    setBootModeOrSource(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                        const std::optional<std::string>& bootSource)
+inline void setBootModeOrSource(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::optional<std::string>& bootSource)
 {
     std::string bootSourceStr;
     std::string bootModeStr;
@@ -1853,11 +1855,11 @@ inline void
  * @return Integer error code.
  */
 
-inline void
-    setBootProperties(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                      const std::optional<std::string>& bootSource,
-                      const std::optional<std::string>& bootType,
-                      const std::optional<std::string>& bootEnable)
+inline void setBootProperties(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::optional<std::string>& bootSource,
+    const std::optional<std::string>& bootType,
+    const std::optional<std::string>& bootEnable)
 {
     BMCWEB_LOG_DEBUG("Set boot information.");
 
@@ -1936,8 +1938,8 @@ inline void setAssetTag(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
  *
  * @return stopBootOnFault value or empty  if incoming value is not valid
  */
-inline std::optional<bool>
-    validstopBootOnFault(const std::string& stopBootOnFaultString)
+inline std::optional<bool> validstopBootOnFault(
+    const std::string& stopBootOnFaultString)
 {
     if (stopBootOnFaultString == "AnyFault")
     {
@@ -1960,9 +1962,9 @@ inline std::optional<bool>
  *
  * @return None.
  */
-inline void
-    setStopBootOnFault(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                       const std::string& stopBootOnFault)
+inline void setStopBootOnFault(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& stopBootOnFault)
 {
     BMCWEB_LOG_DEBUG("Set Stop Boot On Fault.");
 
@@ -1992,9 +1994,9 @@ inline void
  *
  * @return None.
  */
-inline void
-    setAutomaticRetry(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                      const std::string& automaticRetryConfig)
+inline void setAutomaticRetry(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& automaticRetryConfig)
 {
     BMCWEB_LOG_DEBUG("Set Automatic Retry.");
 
@@ -2051,9 +2053,9 @@ inline std::string dbusPowerRestorePolicyFromRedfish(std::string_view policy)
  *
  * @return None.
  */
-inline void
-    setPowerRestorePolicy(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                          std::string_view policy)
+inline void setPowerRestorePolicy(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    std::string_view policy)
 {
     BMCWEB_LOG_DEBUG("Set power restore policy.");
 
@@ -2148,7 +2150,8 @@ void getProvisioningStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
             nlohmann::json& oemPFR =
                 asyncResp->res
                     .jsonValue["Oem"]["OpenBmc"]["FirmwareProvisioning"];
-            asyncResp->res.jsonValue["Oem"]["OpenBmc"]["@odata.type"] = json_util::odataType("OpenBMCComputerSystem", "OpenBmc");
+            asyncResp->res.jsonValue["Oem"]["OpenBmc"]["@odata.type"] =
+                json_util::odataType("OpenBMCComputerSystem", "OpenBmc");
             oemPFR["@odata.type"] =
                 "#OpenBMCComputerSystem.FirmwareProvisioning";
 
@@ -2210,8 +2213,8 @@ void getProvisioningStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
  *
  * @return PowerMode enum
  */
-inline computer_system::PowerMode
-    translatePowerModeString(const std::string& modeString)
+inline computer_system::PowerMode translatePowerModeString(
+    const std::string& modeString)
 {
     using PowerMode = computer_system::PowerMode;
 
@@ -2253,10 +2256,10 @@ inline computer_system::PowerMode
     return PowerMode::Invalid;
 }
 
-inline void
-    afterGetPowerMode(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                      const boost::system::error_code& ec,
-                      const dbus::utility::DBusPropertiesMap& properties)
+inline void afterGetPowerMode(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec,
+    const dbus::utility::DBusPropertiesMap& properties)
 {
     if (ec)
     {
@@ -2387,9 +2390,9 @@ void getPowerMode(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
  *
  * @return PowerMode value or empty string if mode is not valid
  */
-inline std::string
-    validatePowerMode(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                      const nlohmann::json& modeValue)
+inline std::string validatePowerMode(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const nlohmann::json& modeValue)
 {
     using PowerMode = computer_system::PowerMode;
     std::string mode;
@@ -2619,12 +2622,13 @@ void getHostWatchdogTimer(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
             {
                 std::string action = dbusToRfWatchdogAction(*expireAction);
                 nlohmann::json::array_t timeoutList;
-		        timeoutList.emplace_back("None");
+                timeoutList.emplace_back("None");
                 timeoutList.emplace_back("ResetSystem");
                 timeoutList.emplace_back("PowerCycle");
                 timeoutList.emplace_back("PowerDown");
                 timeoutList.emplace_back("OEM");
-                hostWatchdogTimer["TimeoutAction@Redfish.AllowableValues"] = timeoutList; 
+                hostWatchdogTimer["TimeoutAction@Redfish.AllowableValues"] =
+                    timeoutList;
 
                 if (action.empty())
                 {
@@ -2646,10 +2650,10 @@ void getHostWatchdogTimer(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
  *
  * @return None.
  */
-inline void
-    setWDTProperties(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                     const std::optional<bool> wdtEnable,
-                     const std::optional<std::string>& wdtTimeOutAction)
+inline void setWDTProperties(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::optional<bool> wdtEnable,
+    const std::optional<std::string>& wdtTimeOutAction)
 {
     BMCWEB_LOG_DEBUG("Set host watchdog");
 
@@ -2674,18 +2678,16 @@ inline void
                         wdtTimeOutActStr);
     }
 
-    //check and set the default Interval value if needed, then set wdtEnable
+    // check and set the default Interval value if needed, then set wdtEnable
     dbus::utility::getProperty<uint64_t>(
-        "xyz.openbmc_project.Watchdog",
-        "/xyz/openbmc_project/watchdog/host0",
+        "xyz.openbmc_project.Watchdog", "/xyz/openbmc_project/watchdog/host0",
         "xyz.openbmc_project.State.Watchdog", "Interval",
         [asyncResp, wdtEnable](const boost::system::error_code& ec,
-                       const uint64_t& interval) {
+                               const uint64_t& interval) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR(
-                    "DBUS response error on Watchdog Interval Get: {}",
-                    ec);
+                    "DBUS response error on Watchdog Interval Get: {}", ec);
                 return;
             }
 
@@ -2696,7 +2698,8 @@ inline void
                 BMCWEB_LOG_DEBUG(
                     "Watchdog Interval is 0, setting to default of 600s");
                 crow::connections::systemBus->async_method_call(
-                    [asyncResp, wdtEnable](const boost::system::error_code& ec2) {
+                    [asyncResp,
+                     wdtEnable](const boost::system::error_code& ec2) {
                         if (ec2)
                         {
                             BMCWEB_LOG_ERROR(
@@ -2708,35 +2711,37 @@ inline void
                         // Now set wdtEnable after interval has been set
                         if (wdtEnable)
                         {
-                            setDbusProperty(asyncResp, "HostWatchdogTimer/FunctionEnabled",
-                                            "xyz.openbmc_project.Watchdog",
-                                            sdbusplus::message::object_path(
-                                                "/xyz/openbmc_project/watchdog/host0"),
-                                            "xyz.openbmc_project.State.Watchdog", "Enabled",
-                                            *wdtEnable);
+                            setDbusProperty(
+                                asyncResp, "HostWatchdogTimer/FunctionEnabled",
+                                "xyz.openbmc_project.Watchdog",
+                                sdbusplus::message::object_path(
+                                    "/xyz/openbmc_project/watchdog/host0"),
+                                "xyz.openbmc_project.State.Watchdog", "Enabled",
+                                *wdtEnable);
                         }
                     },
                     "xyz.openbmc_project.Watchdog",
                     "/xyz/openbmc_project/watchdog/host0",
                     "org.freedesktop.DBus.Properties", "Set",
                     "xyz.openbmc_project.State.Watchdog", "Interval",
-                    dbus::utility::DbusVariantType(static_cast<uint64_t>(600000)));
+                    dbus::utility::DbusVariantType(
+                        static_cast<uint64_t>(600000)));
             }
             else
             {
                 // Interval is not 0, set wdtEnable immediately
                 if (wdtEnable)
                 {
-                    setDbusProperty(asyncResp, "HostWatchdogTimer/FunctionEnabled",
-                                    "xyz.openbmc_project.Watchdog",
-                                    sdbusplus::message::object_path(
-                                        "/xyz/openbmc_project/watchdog/host0"),
-                                    "xyz.openbmc_project.State.Watchdog", "Enabled",
-                                    *wdtEnable);
+                    setDbusProperty(
+                        asyncResp, "HostWatchdogTimer/FunctionEnabled",
+                        "xyz.openbmc_project.Watchdog",
+                        sdbusplus::message::object_path(
+                            "/xyz/openbmc_project/watchdog/host0"),
+                        "xyz.openbmc_project.State.Watchdog", "Enabled",
+                        *wdtEnable);
                 }
             }
-        }
-    );
+        });
 }
 
 /**
@@ -2747,9 +2752,9 @@ inline void
  *
  * @return true if successful
  */
-inline bool
-    parseIpsProperties(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                       const dbus::utility::DBusPropertiesMap& properties)
+inline bool parseIpsProperties(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const dbus::utility::DBusPropertiesMap& properties)
 {
     const bool* enabled = nullptr;
     const uint8_t* enterUtilizationPercent = nullptr;
@@ -3061,7 +3066,8 @@ void getSerialConsoleSshStatus(
                     break;
                 }
 
-                // Collect Multi SOL SSH services (only if standard SSH not found yet)
+                // Collect Multi SOL SSH services (only if standard SSH not
+                // found yet)
                 if (objName.starts_with("obmc_2dconsole_40ttyS"))
                 {
                     ttySServices.emplace_back(std::move(objName));
@@ -3104,26 +3110,31 @@ void getSerialConsoleSshStatus(
                 {
                     nlohmann::json solObj;
 
-                    solObj["Id"] = ttySServices[i].substr(std::string("obmc_2dconsole_40").size());
+                    solObj["Id"] = ttySServices[i].substr(
+                        std::string("obmc_2dconsole_40").size());
 
                     const std::string indexStr = std::to_string(i);
                     service_util::getEnabled(
                         asyncResp, ttySServices[i],
                         nlohmann::json::json_pointer(
-                            "/Oem/Ami/SerialConsole/SSH/SOLSSH/" + indexStr + "/ServiceEnabled"));
+                            "/Oem/Ami/SerialConsole/SSH/SOLSSH/" + indexStr +
+                            "/ServiceEnabled"));
                     service_util::getSerialConsoleSshMasked(
                         asyncResp, ttySServices[i],
                         nlohmann::json::json_pointer(
-                            "/Oem/Ami/SerialConsole/SSH/SOLSSH/" + indexStr + "/Masked"));
+                            "/Oem/Ami/SerialConsole/SSH/SOLSSH/" + indexStr +
+                            "/Masked"));
                     service_util::getRunning(
                         asyncResp, ttySServices[i],
                         nlohmann::json::json_pointer(
-                            "/Oem/Ami/SerialConsole/SSH/SOLSSH/" + indexStr + "/Running"));
+                            "/Oem/Ami/SerialConsole/SSH/SOLSSH/" + indexStr +
+                            "/Running"));
 
                     solArray.emplace_back(std::move(solObj));
                 }
 
-                asyncResp->res.jsonValue["Oem"]["Ami"]["SerialConsole"]["SSH"]["SOLSSH"] =
+                asyncResp->res
+                    .jsonValue["Oem"]["Ami"]["SerialConsole"]["SSH"]["SOLSSH"] =
                     std::move(solArray);
             }
         });
@@ -3156,7 +3167,7 @@ void getKvmConfig(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     service_util::getRunning(
         asyncResp, kvmServiceName,
-        nlohmann::json::json_pointer("/GraphicalConsole/ServiceEnabled"));   
+        nlohmann::json::json_pointer("/GraphicalConsole/ServiceEnabled"));
     asyncResp->res.jsonValue["GraphicalConsole"]["ConnectTypesSupported"] = {
         "KVMIP"};
     service_util::getMasked(asyncResp, kvmServiceName, "GraphicalConsole",
@@ -3309,7 +3320,7 @@ void createResetMaintenanceWindowTask(
                                 messages::internalError());
                             return task::completed;
                         }
-                        if(*timeOutValue == 0)
+                        if (*timeOutValue == 0)
                         {
                             timerFlag = true;
                         }
@@ -3332,22 +3343,23 @@ void createResetMaintenanceWindowTask(
                     }
                 }
 
-                if(!timerFlag)
+                if (!timerFlag)
                 {
-                    if(*osState ==
-                        "xyz.openbmc_project.State.OperatingSystem.Status.OSStatus.Inactive" ||
-                       *osState ==  "xyz.openbmc_project.State.OperatingSystem.Status.OSStatus.Standby")
-                        {
-                            if(!taskAlreadyHappened)
-                                taskAlreadyHappened = true;
-                        }
+                    if (*osState ==
+                            "xyz.openbmc_project.State.OperatingSystem.Status.OSStatus.Inactive" ||
+                        *osState ==
+                            "xyz.openbmc_project.State.OperatingSystem.Status.OSStatus.Standby")
+                    {
+                        if (!taskAlreadyHappened)
+                            taskAlreadyHappened = true;
+                    }
                 }
 
-                if(timerFlag && taskAlreadyHappened)
+                if (timerFlag && taskAlreadyHappened)
                 {
                     taskData->state = "Cancelled";
                     taskData->messages.emplace_back(
-                    messages::taskCancelled(index));
+                        messages::taskCancelled(index));
                     taskAlreadyHappened = false;
                     timerFlag = false;
                     return task::completed;
@@ -3360,7 +3372,7 @@ void createResetMaintenanceWindowTask(
                         *osState ==
                             "xyz.openbmc_project.State.OperatingSystem.Status.OSStatus.Inactive")
                     {
-                        if(!taskAlreadyHappened)
+                        if (!taskAlreadyHappened)
                         {
                             taskData->state = "Running";
                             taskData->messages.emplace_back(
@@ -3375,7 +3387,7 @@ void createResetMaintenanceWindowTask(
                         *osState ==
                             "xyz.openbmc_project.State.OperatingSystem.Status.OSStatus.Standby")
                     {
-                        if(!taskAlreadyHappened)
+                        if (!taskAlreadyHappened)
                         {
                             timerFlag = false;
                             taskData->state = "Completed";
@@ -3391,7 +3403,7 @@ void createResetMaintenanceWindowTask(
                         *osState ==
                             "xyz.openbmc_project.State.OperatingSystem.Status.OSStatus.Standby")
                     {
-                       if(!taskAlreadyHappened)
+                        if (!taskAlreadyHappened)
                         {
                             taskData->state = "Running";
                             taskData->messages.emplace_back(
@@ -3407,7 +3419,7 @@ void createResetMaintenanceWindowTask(
                         *osState ==
                             "xyz.openbmc_project.State.OperatingSystem.Status.OSStatus.Inactive")
                     {
-                        if(!taskAlreadyHappened)
+                        if (!taskAlreadyHappened)
                         {
                             taskData->messages.emplace_back(
                                 messages::taskCompletedOK(index));
@@ -3420,9 +3432,9 @@ void createResetMaintenanceWindowTask(
                     std::chrono::seconds(requestedHostTransition) +
                     (std::chrono::minutes(10)));
             }
-            else 
+            else
             {
-                if(taskData->state != "Running")
+                if (taskData->state != "Running")
                 {
                     taskData->state = "Pending";
                     taskData->messages.emplace_back(
@@ -3496,14 +3508,14 @@ void createSystemMaintenanceWindowTask(
                                 messages::internalError());
                             return task::completed;
                         }
-                        if(*timeOutValue == 0)
+                        if (*timeOutValue == 0)
                         {
                             timerFlag = true;
-                        }   
+                        }
                         else
                         {
                             timerFlag = false;
-                        }    
+                        }
                     }
 
                     if (property.first == "OperatingSystemState")
@@ -3518,19 +3530,19 @@ void createSystemMaintenanceWindowTask(
                         }
                     }
                 }
-                if(!timerFlag)
+                if (!timerFlag)
                 {
-                    if(*osState ==
+                    if (*osState ==
                         "xyz.openbmc_project.State.OperatingSystem.Status.OSStatus.Inactive")
                     {
                         taskAlreadyHappened = true;
                     }
                 }
-                if(timerFlag && taskAlreadyHappened)
+                if (timerFlag && taskAlreadyHappened)
                 {
                     taskData->state = "Cancelled";
                     taskData->messages.emplace_back(
-                                messages::taskCancelled(index));
+                        messages::taskCancelled(index));
                     taskAlreadyHappened = false;
                     timerFlag = false;
                     return task::completed;
@@ -3540,11 +3552,11 @@ void createSystemMaintenanceWindowTask(
                     *osState ==
                         "xyz.openbmc_project.State.OperatingSystem.Status.OSStatus.Standby")
                 {
-                    if(!taskAlreadyHappened)
+                    if (!taskAlreadyHappened)
                     {
                         taskData->state = "Running";
                         taskData->messages.emplace_back(
-                        messages::taskStarted(index));
+                            messages::taskStarted(index));
                     }
                     taskData->extendTimer(std::chrono::minutes(5));
                     return !task::completed;
@@ -3554,7 +3566,7 @@ void createSystemMaintenanceWindowTask(
                     *osState ==
                         "xyz.openbmc_project.State.OperatingSystem.Status.OSStatus.Inactive")
                 {
-                    if(!taskAlreadyHappened)    
+                    if (!taskAlreadyHappened)
                     {
                         taskAlreadyHappened = false;
                         timerFlag = false;
@@ -3568,9 +3580,9 @@ void createSystemMaintenanceWindowTask(
                     std::chrono::seconds(requestedPowerTransition) +
                     (std::chrono::minutes(10)));
             }
-            else 
+            else
             {
-                if(taskData->state == "New")
+                if (taskData->state == "New")
                 {
                     taskData->state = "Pending";
                     taskData->messages.emplace_back(
@@ -3587,25 +3599,23 @@ void createSystemMaintenanceWindowTask(
     task->payload.emplace(std::move(payload));
 
     auto chassis_Value = getPowerTransitionTimeOut(
-                "xyz.openbmc_project.State.Host0", 
-                "/xyz/openbmc_project/state/host0", 
-                "xyz.openbmc_project.State.OperatingSystem.Status", 
-                "PowerTransitionTimeOut");
+        "xyz.openbmc_project.State.Host0", "/xyz/openbmc_project/state/host0",
+        "xyz.openbmc_project.State.OperatingSystem.Status",
+        "PowerTransitionTimeOut");
 
     uint64_t requestedPowerTransition = std::get<uint64_t>(chassis_Value);
-    if(requestedPowerTransition > 5)
+    if (requestedPowerTransition > 5)
     {
-        // Will not get any signal from host for pending state so 
+        // Will not get any signal from host for pending state so
         // considering after 5 seconds state will be pending state
-        if(task->state == "New")
+        if (task->state == "New")
         {
-                std::this_thread::sleep_for(std::chrono::seconds(5));
-                task->state = "Pending";
-                task->messages.emplace_back(
-                    messages::taskPaused(std::to_string(task->index)));
+            std::this_thread::sleep_for(std::chrono::seconds(5));
+            task->state = "Pending";
+            task->messages.emplace_back(
+                messages::taskPaused(std::to_string(task->index)));
         }
     }
-
 }
 
 /*
@@ -3768,9 +3778,9 @@ inline void setSystemsPowerTransitionTimer(
         dbus::utility::DbusVariantType(powerTransitionTimeOut));
 }
 
-inline void
-    setHostTransitionTimer(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                           const uint64_t hostTransitionTimeOut)
+inline void setHostTransitionTimer(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const uint64_t hostTransitionTimeOut)
 {
     BMCWEB_LOG_ERROR("setHostTransitionTimer");
     crow::connections::systemBus->async_method_call(
@@ -3850,9 +3860,9 @@ inline void handleSystemActionResetError(
     }, serviceName, objectPath, interfaceName, method);
 }*/
 
-inline void
-    systemResetAction(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                      const std::string& resetType)
+inline void systemResetAction(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& resetType)
 {
     BMCWEB_LOG_ERROR("systemResetAction");
 
@@ -4009,10 +4019,10 @@ inline void handleComputerSystemResetActionPost(
         getHostState(process_Name, object_Path, interface_Name, propertyName);
     auto reqHostState = std::get<std::string>(value);
 
-    if (!json_util::readJsonAction( //
-            req, asyncResp->res, //
-            "ResetType", resetType, //
-            "OperationApplyTime", operationApplyTime, //
+    if (!json_util::readJsonAction(                                  //
+            req, asyncResp->res,                                     //
+            "ResetType", resetType,                                  //
+            "OperationApplyTime", operationApplyTime,                //
             "MaintenanceWindowStartTime", maintenanceWindowStartTime //
             ))
     {
@@ -4035,23 +4045,26 @@ inline void handleComputerSystemResetActionPost(
     if ((resetType == "On") || (resetType == "ForceOn"))
     {
         // Log DCPowerOn when the host is powered ON
-        std::string severity = "xyz.openbmc_project.Logging.Entry.Level.Warning";
+        std::string severity =
+            "xyz.openbmc_project.Logging.Entry.Level.Warning";
         auto bus = sdbusplus::bus::new_default_system();
-        sdbusplus::message::message m = bus.new_method_call("xyz.openbmc_project.Logging", "/xyz/openbmc_project/logging",
-                "xyz.openbmc_project.Logging.Create", "Create");
+        sdbusplus::message::message m = bus.new_method_call(
+            "xyz.openbmc_project.Logging", "/xyz/openbmc_project/logging",
+            "xyz.openbmc_project.Logging.Create", "Create");
         std::string journalMsg = "DCPowerOn"; // Logging power ON
         m.append(journalMsg, severity, std::map<std::string, std::string>());
         try
         {
-            bus.call(m);                
+            bus.call(m);
         }
         catch (const sdbusplus::exception_t& e)
         {
-            std::cerr << "Failed to create log entry: " << e.what() << std::endl;
+            std::cerr << "Failed to create log entry: " << e.what()
+                      << std::endl;
         }
-        
+
         if (reqHostState == "xyz.openbmc_project.State.Host.HostState.Running")
-        {        
+        {
             BMCWEB_LOG_ERROR(" Host is in Standby state");
             messages::noOperation(asyncResp->res);
             return;
@@ -4064,21 +4077,25 @@ inline void handleComputerSystemResetActionPost(
     {
         if (reqHostState != "xyz.openbmc_project.State.Host.HostState.Running")
         {
-             // Log DCPowerOff when the host is powered OFF
-             std::string severity = "xyz.openbmc_project.Logging.Entry.Level.Warning";
-             auto bus = sdbusplus::bus::new_default_system();
-             sdbusplus::message::message m = bus.new_method_call("xyz.openbmc_project.Logging", "/xyz/openbmc_project/logging",
-                       "xyz.openbmc_project.Logging.Create", "Create");
-             std::string journalMsg = "DCPowerOff"; // Logging power OFF
-             m.append(journalMsg, severity, std::map<std::string, std::string>());
-             try
-             {
-                 bus.call(m);                
-             }
-             catch (const sdbusplus::exception_t& e)
-             {
-                 std::cerr << "Failed to create log entry: " << e.what() << std::endl;
-             }
+            // Log DCPowerOff when the host is powered OFF
+            std::string severity =
+                "xyz.openbmc_project.Logging.Entry.Level.Warning";
+            auto bus = sdbusplus::bus::new_default_system();
+            sdbusplus::message::message m = bus.new_method_call(
+                "xyz.openbmc_project.Logging", "/xyz/openbmc_project/logging",
+                "xyz.openbmc_project.Logging.Create", "Create");
+            std::string journalMsg = "DCPowerOff"; // Logging power OFF
+            m.append(journalMsg, severity,
+                     std::map<std::string, std::string>());
+            try
+            {
+                bus.call(m);
+            }
+            catch (const sdbusplus::exception_t& e)
+            {
+                std::cerr << "Failed to create log entry: " << e.what()
+                          << std::endl;
+            }
 
             messages::noOperation(asyncResp->res);
             return;
@@ -4256,10 +4273,10 @@ void afterPortRequest(
     }
 }
 
-inline void
-    handleComputerSystemGet(crow::App& app, const crow::Request& req,
-                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                            const std::string& systemName)
+inline void handleComputerSystemGet(
+    crow::App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& systemName)
 {
     asyncResp->res.clearHeader(boost::beast::http::field::allow);
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
@@ -4296,7 +4313,8 @@ inline void
     asyncResp->res.addHeader(
         boost::beast::http::field::link,
         "</redfish/v1/JsonSchemas/ComputerSystem/ComputerSystem.json>; rel=describedby");
-    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("ComputerSystem");
+    asyncResp->res.jsonValue["@odata.type"] =
+        json_util::odataType("ComputerSystem");
     asyncResp->res.jsonValue["Name"] = BMCWEB_REDFISH_SYSTEM_URI_NAME;
     asyncResp->res.jsonValue["Id"] = BMCWEB_REDFISH_SYSTEM_URI_NAME;
     asyncResp->res.jsonValue["SystemType"] =
@@ -4567,8 +4585,8 @@ inline void handleComputerSystemPatch(
     {
         std::optional<bool> kvmServiceEnabled;
 
-        if (!json_util::readJson( //
-                *kvmConfig, asyncResp->res, //
+        if (!json_util::readJson(                   //
+                *kvmConfig, asyncResp->res,         //
                 "ServiceEnabled", kvmServiceEnabled //
                 ))
         {
@@ -4585,9 +4603,9 @@ inline void handleComputerSystemPatch(
     if (serialConsole)
     {
         std::optional<nlohmann::json> ssh;
-        if (!json_util::readJson( //
+        if (!json_util::readJson(               //
                 *serialConsole, asyncResp->res, //
-                "SSH", ssh //
+                "SSH", ssh                      //
                 ))
         {
             return;
@@ -4598,10 +4616,10 @@ inline void handleComputerSystemPatch(
             std::optional<bool> sshServiceEnabled;
 
             std::optional<uint16_t> sshPortNumber;
-            if (!json_util::readJson( //
-                    *ssh, asyncResp->res, //
+            if (!json_util::readJson(                    //
+                    *ssh, asyncResp->res,                //
                     "ServiceEnabled", sshServiceEnabled, //
-                    "Port", sshPortNumber //
+                    "Port", sshPortNumber                //
                     ))
             {
                 return;
@@ -4623,9 +4641,9 @@ inline void handleComputerSystemPatch(
     if (virtualMediaConfig)
     {
         std::optional<bool> vmServiceEnabled;
-        if (!json_util::readJson( //
+        if (!json_util::readJson(                    //
                 *virtualMediaConfig, asyncResp->res, //
-                "ServiceEnabled", vmServiceEnabled //
+                "ServiceEnabled", vmServiceEnabled   //
                 ))
         {
             return;
@@ -4638,7 +4656,7 @@ inline void handleComputerSystemPatch(
         }
     }
 
-     if (oem)
+    if (oem)
     {
         if (oem->empty())
         {
@@ -4648,10 +4666,7 @@ inline void handleComputerSystemPatch(
 
         std::optional<nlohmann::json> ami;
 
-        if (!json_util::readJson(
-                *oem, asyncResp->res,
-                "Ami", ami
-                ))
+        if (!json_util::readJson(*oem, asyncResp->res, "Ami", ami))
         {
             return;
         }
@@ -4668,12 +4683,10 @@ inline void handleComputerSystemPatch(
             std::optional<nlohmann::json> graphicalConsole;
             std::optional<nlohmann::json> virtualMediaConfigOem;
 
-            if (!json_util::readJson(
-                    *ami, asyncResp->res,
-                    "SerialConsole", serialConsoleOem,
-                    "GraphicalConsole", graphicalConsole,
-                    "VirtualMediaConfig", virtualMediaConfigOem
-                    ))
+            if (!json_util::readJson(*ami, asyncResp->res, "SerialConsole",
+                                     serialConsoleOem, "GraphicalConsole",
+                                     graphicalConsole, "VirtualMediaConfig",
+                                     virtualMediaConfigOem))
             {
                 return;
             }
@@ -4689,10 +4702,8 @@ inline void handleComputerSystemPatch(
                 }
 
                 std::optional<nlohmann::json> sshOem;
-                if (!json_util::readJson(
-                        *serialConsoleOem, asyncResp->res,
-                        "SSH", sshOem
-                        ))
+                if (!json_util::readJson(*serialConsoleOem, asyncResp->res,
+                                         "SSH", sshOem))
                 {
                     return;
                 }
@@ -4708,11 +4719,9 @@ inline void handleComputerSystemPatch(
                     std::optional<bool> sshMaskedOem;
                     std::optional<nlohmann::json> solsshList;
 
-                    if (!json_util::readJson(
-                            *sshOem, asyncResp->res,
-                            "Masked", sshMaskedOem,
-                            "SOLSSH", solsshList
-                            ))
+                    if (!json_util::readJson(*sshOem, asyncResp->res, "Masked",
+                                             sshMaskedOem, "SOLSSH",
+                                             solsshList))
                     {
                         return;
                     }
@@ -4729,9 +4738,9 @@ inline void handleComputerSystemPatch(
                     if (solsshList)
                     {
                         service_util::getAllAvailableTtyServices(
-                            asyncResp,
-                            [asyncResp, solsshList, sshMaskedOem](
-                                const std::vector<std::string>& availableTtys) mutable {
+                            asyncResp, [asyncResp, solsshList, sshMaskedOem](
+                                           const std::vector<std::string>&
+                                               availableTtys) mutable {
                                 if (availableTtys.empty())
                                 {
                                     return;
@@ -4748,42 +4757,46 @@ inline void handleComputerSystemPatch(
                                         std::optional<bool> masked;
 
                                         if (!json_util::readJson(
-                                                solsshItem,
-                                                asyncResp->res,
-                                                "Id", id,
-                                                "ServiceEnabled",
-                                                serviceEnabled,
-                                                "Masked", masked))
+                                                solsshItem, asyncResp->res,
+                                                "Id", id, "ServiceEnabled",
+                                                serviceEnabled, "Masked",
+                                                masked))
                                         {
                                             return;
                                         }
 
-                                            if (!id.starts_with("ttyS"))
-                                            {
-                                                messages::propertyValueFormatError(
-                                                    asyncResp->res, id, "Id");
-                                                return;
-                                            }
-                                            // Check if the TTY service exists
-                                            bool ttyExists = std::find(
-                                                                  availableTtys.begin(),
-                                                                  availableTtys.end(), id) !=
-                                                              availableTtys.end();
-                                            if (!ttyExists)
-                                            {
-                                                messages::propertyValueNotInList(
-                                                    asyncResp->res, id, "Id");
-                                                continue;
-                                            }
-                                            if (serviceEnabled)
-                                            {
-                                                service_util::setServiceEnabled(
-                                                    asyncResp, "obmc_2dconsole_40" + id, *serviceEnabled);
-                                            }
-                                            if (masked)
-                                            {
-                                                service_util::setMasked(asyncResp, "obmc_2dconsole_40" + id, *masked);
-                                            }
+                                        if (!id.starts_with("ttyS"))
+                                        {
+                                            messages::propertyValueFormatError(
+                                                asyncResp->res, id, "Id");
+                                            return;
+                                        }
+                                        // Check if the TTY service exists
+                                        bool ttyExists =
+                                            std::find(availableTtys.begin(),
+                                                      availableTtys.end(),
+                                                      id) !=
+                                            availableTtys.end();
+                                        if (!ttyExists)
+                                        {
+                                            messages::propertyValueNotInList(
+                                                asyncResp->res, id, "Id");
+                                            continue;
+                                        }
+                                        if (serviceEnabled)
+                                        {
+                                            service_util::setServiceEnabled(
+                                                asyncResp,
+                                                "obmc_2dconsole_40" + id,
+                                                *serviceEnabled);
+                                        }
+                                        if (masked)
+                                        {
+                                            service_util::setMasked(
+                                                asyncResp,
+                                                "obmc_2dconsole_40" + id,
+                                                *masked);
+                                        }
                                     }
                                 }
                             });
@@ -4856,7 +4869,6 @@ inline void afterGetAllowedHostTransitions(
     allowableValues.emplace_back(resource::ResetType::GracefulShutdown);
     //  allowableValues.emplace_back(resource::ResetType::Nmi);
 
-   
     nlohmann::json::object_t parameter;
     parameter["Name"] = "ResetType";
     parameter["Required"] = true;
@@ -4907,25 +4919,27 @@ inline void handleSystemCollectionResetActionGet(
     asyncResp->res.jsonValue["@odata.id"] =
         boost::urls::format("/redfish/v1/Systems/{}/ResetActionInfo",
                             BMCWEB_REDFISH_SYSTEM_URI_NAME);
-    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("ActionInfo");
+    asyncResp->res.jsonValue["@odata.type"] =
+        json_util::odataType("ActionInfo");
     asyncResp->res.jsonValue["Name"] = "Reset Action Info";
     asyncResp->res.jsonValue["Id"] = "ResetActionInfo";
-    asyncResp->res.jsonValue["Description"] = "This action is used to reset the Systems";
+    asyncResp->res.jsonValue["Description"] =
+        "This action is used to reset the Systems";
 
     // Look to see if system defines AllowedHostTransitions
-   
+
     afterGetAllowedHostTransitions(asyncResp);
-   
 }
 
-inline void handleComputerSystemPostDelete(App& app, const crow::Request& req,
-                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                       const std::string& systemName)
+inline void handleComputerSystemPostDelete(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& systemName)
 {
     asyncResp->res.clearHeader(boost::beast::http::field::allow);
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
-       return;
+        return;
     }
     if (!membersResponseGet(asyncResp, systemName, "ComputerSystemCollection"))
     {
@@ -4941,7 +4955,6 @@ inline void handleComputerSystemPostDelete(App& app, const crow::Request& req,
     messages::operationNotAllowed(asyncResp->res);
     return;
 }
-
 
 /**
  * SystemResetActionInfo derived class for delivering Computer Systems
@@ -4975,8 +4988,9 @@ inline void requestRoutesSystems(App& app)
             std::bind_front(handleComputerSystemPatch, std::ref(app)));
 
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/")
-    .privileges(redfish::privileges::getComputerSystem)
-    .methods(boost::beast::http::verb::post,boost::beast::http::verb::delete_)(
+        .privileges(redfish::privileges::getComputerSystem)
+        .methods(boost::beast::http::verb::post,
+                 boost::beast::http::verb::delete_)(
             std::bind_front(handleComputerSystemPostDelete, std::ref(app)));
 
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Actions/ComputerSystem.Reset/")

@@ -42,8 +42,8 @@ using DiscreteThresholdParams =
 using TriggerSensorsParams =
     std::vector<std::pair<sdbusplus::message::object_path, std::string>>;
 
-inline triggers::TriggerActionEnum
-    toRedfishTriggerAction(std::string_view dbusValue)
+inline triggers::TriggerActionEnum toRedfishTriggerAction(
+    std::string_view dbusValue)
 {
     if (dbusValue ==
         "xyz.openbmc_project.Telemetry.Trigger.TriggerAction.UpdateReport")
@@ -159,8 +159,8 @@ inline std::string toDbusActivation(std::string_view redfishValue)
     return "";
 }
 
-inline triggers::ThresholdActivation
-    toRedfishActivation(std::string_view dbusValue)
+inline triggers::ThresholdActivation toRedfishActivation(
+    std::string_view dbusValue)
 {
     if (dbusValue == "xyz.openbmc_project.Telemetry.Trigger.Direction.Either")
     {
@@ -248,8 +248,8 @@ inline std::optional<MetricType> getMetricType(const std::string& metricType)
     return std::nullopt;
 }
 
-inline std::optional<DiscreteCondition>
-    getDiscreteCondition(const std::string& discreteTriggerCondition)
+inline std::optional<DiscreteCondition> getDiscreteCondition(
+    const std::string& discreteTriggerCondition)
 {
     if (discreteTriggerCondition == "Specified")
     {
@@ -271,9 +271,9 @@ inline bool parseThreshold(crow::Response& res,
     std::string activation;
     std::string dwellTimeStr;
 
-    if (!json_util::readJsonObject( //
-            threshold, res, //
-            "Reading", reading, //
+    if (!json_util::readJsonObject(   //
+            threshold, res,           //
+            "Reading", reading,       //
             "Activation", activation, //
             "DwellTime", dwellTimeStr //
             ))
@@ -385,12 +385,12 @@ inline bool parseDiscreteTriggers(
         std::string dwellTimeStr;
         std::string severity;
 
-        if (!json_util::readJsonObject( //
-                thresholdInfo, res, //
-                "Name", name, //
-                "Value", value, //
+        if (!json_util::readJsonObject(    //
+                thresholdInfo, res,        //
+                "Name", name,              //
+                "Value", value,            //
                 "DwellTime", dwellTimeStr, //
-                "Severity", severity //
+                "Severity", severity       //
                 ))
         {
             return false;
@@ -711,8 +711,8 @@ inline void afterCreateTrigger(
     asyncResp->res.addHeader("Location", locationUrl.buffer());
 }
 
-inline std::optional<nlohmann::json::array_t>
-    getTriggerActions(const std::vector<std::string>& dbusActions)
+inline std::optional<nlohmann::json::array_t> getTriggerActions(
+    const std::vector<std::string>& dbusActions)
 {
     nlohmann::json::array_t triggerActions;
     for (const std::string& dbusAction : dbusActions)
@@ -805,8 +805,8 @@ inline std::optional<nlohmann::json> getMetricReportDefinitions(
     return {std::move(reports)};
 }
 
-inline std::vector<std::string>
-    getMetricProperties(const TriggerSensorsParams& sensors)
+inline std::vector<std::string> getMetricProperties(
+    const TriggerSensorsParams& sensors)
 {
     std::vector<std::string> metricProperties;
     metricProperties.reserve(sensors.size());

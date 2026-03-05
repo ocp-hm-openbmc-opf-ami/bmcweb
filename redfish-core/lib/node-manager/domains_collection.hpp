@@ -17,8 +17,9 @@
 #pragma once
 
 #include "nm_common.hpp"
-#include "utils/time_utils.hpp"
 #include "query.hpp"
+#include "utils/time_utils.hpp"
+
 #include <app.hpp>
 #include <http_request.hpp>
 #include <http_response.hpp>
@@ -38,27 +39,26 @@ constexpr const char* kDomainAttributesInterface =
 constexpr const char* acTotalPlatformPowerDomainId = "ACTotalPlatformPower";
 
 template <typename T>
-static void
-    setProperty(const std::shared_ptr<bmcweb::AsyncResp> response,
-                const std::string& service, const std::string& path,
-                const std::string& interface, const std::string& property,
-                T& value,
-                const std::shared_ptr<FinalCallback> finalCallback = nullptr)
+static void setProperty(
+    const std::shared_ptr<bmcweb::AsyncResp> response,
+    const std::string& service, const std::string& path,
+    const std::string& interface, const std::string& property, T& value,
+    const std::shared_ptr<FinalCallback> finalCallback = nullptr)
 {
     sdbusplus::asio::setProperty<double>(
         *crow::connections::systemBus, service, path, interface, property,
         std::move(value),
         [response, interface, property, value, path,
          finalCallback](boost::system::error_code ec) {
-        BMCWEB_LOG_DEBUG("Updating property {}.{} in {} with value: {}",
-                         interface, property, path, value);
-        if (ec)
-        {
-            BMCWEB_LOG_DEBUG("DBus response error: {}", ec);
-            messages::propertyValueIncorrect(response->res, property,
-                                             std::to_string(value));
-            return;
-        }
+            BMCWEB_LOG_DEBUG("Updating property {}.{} in {} with value: {}",
+                             interface, property, path, value);
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG("DBus response error: {}", ec);
+                messages::propertyValueIncorrect(response->res, property,
+                                                 std::to_string(value));
+                return;
+            }
         });
 }
 
@@ -77,50 +77,49 @@ inline void setCapabilities(
 
     if (capabilitiesMax == 0 && capabilitiesMin == 0)
     {
-	setProperty(response, kNodeManagerService, kDomainPath + domainName,
-			kCapabilitiesInterface, "Max", *capabilitiesMax,
-			finalCallback);
-	setProperty(response, kNodeManagerService, kDomainPath + domainName,
-			kCapabilitiesInterface, "Min",*capabilitiesMin,
-			finalCallback);
-    }
-    else
-    {
-    if (capabilitiesMax)
-    {
-	if(capabilitiesMax <= capabilitiesMin)
-	{
-	   response->res.result(boost::beast::http::status::bad_request);
-	   messages::propertyValueIncorrect(response->res, "Min",
-			std::to_string(*capabilitiesMin));
-	   return;
-	}
         setProperty(response, kNodeManagerService, kDomainPath + domainName,
                     kCapabilitiesInterface, "Max", *capabilitiesMax,
                     finalCallback);
-    }
-
-    if (capabilitiesMin)
-    {
-	if(capabilitiesMax <= capabilitiesMin)
-	{
-	  response->res.result(boost::beast::http::status::bad_request);
-	  messages::propertyValueIncorrect(response->res, "Min",
-			  std::to_string(*capabilitiesMin));
-	  return;
-	}
         setProperty(response, kNodeManagerService, kDomainPath + domainName,
                     kCapabilitiesInterface, "Min", *capabilitiesMin,
                     finalCallback);
     }
+    else
+    {
+        if (capabilitiesMax)
+        {
+            if (capabilitiesMax <= capabilitiesMin)
+            {
+                response->res.result(boost::beast::http::status::bad_request);
+                messages::propertyValueIncorrect(
+                    response->res, "Min", std::to_string(*capabilitiesMin));
+                return;
+            }
+            setProperty(response, kNodeManagerService, kDomainPath + domainName,
+                        kCapabilitiesInterface, "Max", *capabilitiesMax,
+                        finalCallback);
+        }
+
+        if (capabilitiesMin)
+        {
+            if (capabilitiesMax <= capabilitiesMin)
+            {
+                response->res.result(boost::beast::http::status::bad_request);
+                messages::propertyValueIncorrect(
+                    response->res, "Min", std::to_string(*capabilitiesMin));
+                return;
+            }
+            setProperty(response, kNodeManagerService, kDomainPath + domainName,
+                        kCapabilitiesInterface, "Min", *capabilitiesMin,
+                        finalCallback);
+        }
     }
 }
 
-inline void
-    setLimitBiases(const std::shared_ptr<bmcweb::AsyncResp>& response,
-                   const std::string& domainName,
-                   nlohmann::json& limitBiasCollection,
-                   const std::shared_ptr<FinalCallback> finalCallback = nullptr)
+inline void setLimitBiases(
+    const std::shared_ptr<bmcweb::AsyncResp>& response,
+    const std::string& domainName, nlohmann::json& limitBiasCollection,
+    const std::shared_ptr<FinalCallback> finalCallback = nullptr)
 {
     std::optional<double> absoluteLimitBias;
     std::optional<double> relativeLimitBias;
@@ -156,24 +155,24 @@ static void getComponentCapabilities(
             boost::container::flat_map<
                 std::string, boost::container::flat_map<std::string, double>>
                 capabilities) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("respHandler DBus error: {}", ec.message());
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        auto capabilitiesJson = nlohmann::json::array();
-        for (const auto& [capName, capValues] : capabilities)
-        {
-            nlohmann::json capJson;
-            capJson["Name"] = capName;
-            for (const auto& [valueName, valueVar] : capValues)
+            if (ec)
             {
-                capJson[valueName] = valueVar;
+                BMCWEB_LOG_ERROR("respHandler DBus error: {}", ec.message());
+                messages::internalError(asyncResp->res);
+                return;
             }
-            asyncResp->res.jsonValue["ComponentCapabilities"].push_back(
-                capJson);
-        }
+            auto capabilitiesJson = nlohmann::json::array();
+            for (const auto& [capName, capValues] : capabilities)
+            {
+                nlohmann::json capJson;
+                capJson["Name"] = capName;
+                for (const auto& [valueName, valueVar] : capValues)
+                {
+                    capJson[valueName] = valueVar;
+                }
+                asyncResp->res.jsonValue["ComponentCapabilities"].push_back(
+                    capJson);
+            }
         },
         kNodeManagerService, dbusPath,
         "xyz.openbmc_project.NodeManager.Capabilities",
@@ -189,122 +188,124 @@ static void getCapabilities(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const boost::container::flat_map<
                        std::string, std::variant<double, uint32_t, uint16_t>>&
                        properties) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("respHandler DBus error: {}", ec.message());
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        const double* max = nullptr;
-        const double* min = nullptr;
-        const uint32_t* maxCorrectionTimeInMs = nullptr;
-        const uint32_t* minCorrectionTimeInMs = nullptr;
-        const uint16_t* maxStatReportingPeriod = nullptr;
-        const uint16_t* minStatReportingPeriod = nullptr;
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("respHandler DBus error: {}", ec.message());
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            const double* max = nullptr;
+            const double* min = nullptr;
+            const uint32_t* maxCorrectionTimeInMs = nullptr;
+            const uint32_t* minCorrectionTimeInMs = nullptr;
+            const uint16_t* maxStatReportingPeriod = nullptr;
+            const uint16_t* minStatReportingPeriod = nullptr;
 
-        for (const auto& [key, value] : properties)
-        {
-            if ("Max" == key)
+            for (const auto& [key, value] : properties)
             {
-                max = std::get_if<double>(&value);
+                if ("Max" == key)
+                {
+                    max = std::get_if<double>(&value);
+                }
+                else if ("Min" == key)
+                {
+                    min = std::get_if<double>(&value);
+                }
+                else if ("MaxCorrectionTimeInMs" == key)
+                {
+                    maxCorrectionTimeInMs = std::get_if<uint32_t>(&value);
+                }
+                else if ("MinCorrectionTimeInMs" == key)
+                {
+                    minCorrectionTimeInMs = std::get_if<uint32_t>(&value);
+                }
+                else if ("MaxStatisticsReportingPeriod" == key)
+                {
+                    maxStatReportingPeriod = std::get_if<uint16_t>(&value);
+                }
+                else if ("MinStatisticsReportingPeriod" == key)
+                {
+                    minStatReportingPeriod = std::get_if<uint16_t>(&value);
+                }
             }
-            else if ("Min" == key)
-            {
-                min = std::get_if<double>(&value);
-            }
-            else if ("MaxCorrectionTimeInMs" == key)
-            {
-                maxCorrectionTimeInMs = std::get_if<uint32_t>(&value);
-            }
-            else if ("MinCorrectionTimeInMs" == key)
-            {
-                minCorrectionTimeInMs = std::get_if<uint32_t>(&value);
-            }
-            else if ("MaxStatisticsReportingPeriod" == key)
-            {
-                maxStatReportingPeriod = std::get_if<uint16_t>(&value);
-            }
-            else if ("MinStatisticsReportingPeriod" == key)
-            {
-                minStatReportingPeriod = std::get_if<uint16_t>(&value);
-            }
-        }
 
-        if (max)
-        {
-            asyncResp->res.jsonValue["Capabilities"]["Max"] = *max;
-        }
-        else
-        {
-            asyncResp->res.jsonValue["Capabilities"]["Max"] = nullptr;
-        }
-        if (min)
-        {
-            asyncResp->res.jsonValue["Capabilities"]["Min"] = *min;
-        }
-        else
-        {
-            asyncResp->res.jsonValue["Capabilities"]["Min"] = nullptr;
-        }
+            if (max)
+            {
+                asyncResp->res.jsonValue["Capabilities"]["Max"] = *max;
+            }
+            else
+            {
+                asyncResp->res.jsonValue["Capabilities"]["Max"] = nullptr;
+            }
+            if (min)
+            {
+                asyncResp->res.jsonValue["Capabilities"]["Min"] = *min;
+            }
+            else
+            {
+                asyncResp->res.jsonValue["Capabilities"]["Min"] = nullptr;
+            }
 
-        if (!maxCorrectionTimeInMs || !minCorrectionTimeInMs ||
-            !maxStatReportingPeriod || !minStatReportingPeriod)
-        {
-            BMCWEB_LOG_ERROR("Property type mismatch or property is missing");
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        asyncResp->res.jsonValue["Capabilities"]["MaxCorrectionTimeInMs"] =
-            *maxCorrectionTimeInMs;
-        asyncResp->res.jsonValue["Capabilities"]["MinCorrectionTimeInMs"] =
-            *minCorrectionTimeInMs;
-        asyncResp->res
-            .jsonValue["Capabilities"]["MaxStatisticsReportingPeriod"] =
-            time_utils::toDurationString(
-                std::chrono::duration_cast<std::chrono::milliseconds>(
-                    std::chrono::seconds(*maxStatReportingPeriod)));
-        asyncResp->res
-            .jsonValue["Capabilities"]["MinStatisticsReportingPeriod"] =
-            time_utils::toDurationString(
-                std::chrono::duration_cast<std::chrono::milliseconds>(
-                    std::chrono::seconds(*minStatReportingPeriod)));
-        ;
+            if (!maxCorrectionTimeInMs || !minCorrectionTimeInMs ||
+                !maxStatReportingPeriod || !minStatReportingPeriod)
+            {
+                BMCWEB_LOG_ERROR(
+                    "Property type mismatch or property is missing");
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            asyncResp->res.jsonValue["Capabilities"]["MaxCorrectionTimeInMs"] =
+                *maxCorrectionTimeInMs;
+            asyncResp->res.jsonValue["Capabilities"]["MinCorrectionTimeInMs"] =
+                *minCorrectionTimeInMs;
+            asyncResp->res
+                .jsonValue["Capabilities"]["MaxStatisticsReportingPeriod"] =
+                time_utils::toDurationString(
+                    std::chrono::duration_cast<std::chrono::milliseconds>(
+                        std::chrono::seconds(*maxStatReportingPeriod)));
+            asyncResp->res
+                .jsonValue["Capabilities"]["MinStatisticsReportingPeriod"] =
+                time_utils::toDurationString(
+                    std::chrono::duration_cast<std::chrono::milliseconds>(
+                        std::chrono::seconds(*minStatReportingPeriod)));
+            ;
         },
         kNodeManagerService, dbusPath, "org.freedesktop.DBus.Properties",
         "GetAll", "xyz.openbmc_project.NodeManager.Capabilities");
 }
 
-static void
-    getDomainTriggers(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                      const std::string& dbusPath)
+static void getDomainTriggers(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& dbusPath)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code ec,
                     const std::variant<std::vector<std::string>> response) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("respHandler DBus error: {}", ec.message());
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        auto* triggers = std::get_if<std::vector<std::string>>(&response);
-        if (!triggers)
-        {
-            BMCWEB_LOG_ERROR("Property type mismatch or property is missing");
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        auto triggersJson = nlohmann::json::array();
-        for (const auto& value : *triggers)
-        {
-            triggersJson.push_back(
-                {{"@odata.id",
-                  "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Triggers/" +
-                      value}});
-        }
-        asyncResp->res.jsonValue["SupportedTriggers"] = triggersJson;
-        asyncResp->res.jsonValue["SupportedTriggers@odata.count"] =
-            triggersJson.size();
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("respHandler DBus error: {}", ec.message());
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            auto* triggers = std::get_if<std::vector<std::string>>(&response);
+            if (!triggers)
+            {
+                BMCWEB_LOG_ERROR(
+                    "Property type mismatch or property is missing");
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            auto triggersJson = nlohmann::json::array();
+            for (const auto& value : *triggers)
+            {
+                triggersJson.push_back(
+                    {{"@odata.id",
+                      "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Triggers/" +
+                          value}});
+            }
+            asyncResp->res.jsonValue["SupportedTriggers"] = triggersJson;
+            asyncResp->res.jsonValue["SupportedTriggers@odata.count"] =
+                triggersJson.size();
         },
         kNodeManagerService, dbusPath, "org.freedesktop.DBus.Properties", "Get",
         "xyz.openbmc_project.NodeManager.DomainAttributes",
@@ -318,49 +319,49 @@ static void getLimitBias(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         *crow::connections::systemBus, kNodeManagerService, dbusPath,
         "xyz.openbmc_project.NodeManager.DomainAttributes", "LimitBiasAbsolute",
         [asyncResp](boost::system::error_code ec, double limitBiasAbsolute) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("respHandler DBus error: {}", ec.message());
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        asyncResp->res.jsonValue["LimitBias"]["AbsoluteLimitBias"] =
-            limitBiasAbsolute;
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("respHandler DBus error: {}", ec.message());
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            asyncResp->res.jsonValue["LimitBias"]["AbsoluteLimitBias"] =
+                limitBiasAbsolute;
         });
 
     sdbusplus::asio::getProperty<double>(
         *crow::connections::systemBus, kNodeManagerService, dbusPath,
         "xyz.openbmc_project.NodeManager.DomainAttributes", "LimitBiasRelative",
         [asyncResp](boost::system::error_code ec, double limitBiasRelative) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("respHandler DBus error: {}", ec.message());
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        asyncResp->res.jsonValue["LimitBias"]["RelativeLimitBias"] =
-            limitBiasRelative;
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("respHandler DBus error: {}", ec.message());
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            asyncResp->res.jsonValue["LimitBias"]["RelativeLimitBias"] =
+                limitBiasRelative;
         });
 }
 
-static void
-    getLimitingPolicies(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                        const std::string& dbusPath)
+static void getLimitingPolicies(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& dbusPath)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp](
             const boost::system::error_code ec,
             const std::vector<sdbusplus::message::object_path>& response) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("respHandler DBus error: {}", ec.message());
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        const auto& policiesJson = dbusPoliciesPathsToLinks(response);
-        asyncResp->res.jsonValue["LimitingPolicies"] = policiesJson;
-        asyncResp->res.jsonValue["LimitingPolicies@odata.count"] =
-            policiesJson.size();
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("respHandler DBus error: {}", ec.message());
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            const auto& policiesJson = dbusPoliciesPathsToLinks(response);
+            asyncResp->res.jsonValue["LimitingPolicies"] = policiesJson;
+            asyncResp->res.jsonValue["LimitingPolicies@odata.count"] =
+                policiesJson.size();
         },
         kNodeManagerService, dbusPath,
         "xyz.openbmc_project.NodeManager.PolicyManager", "GetSelectedPolicies");
@@ -375,40 +376,41 @@ void getDomainObjectPath(const crow::Request& req,
         [req, asyncResp, domainName,
          handler](const boost::system::error_code ec,
                   const std::vector<std::string>& objects) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("respHandler DBus error: {}", ec.message());
-            messages::internalError(asyncResp->res);
-        }
-
-        auto domainObjectPath =
-            std::find_if(objects.begin(), objects.end(),
-                         [&domainName](const std::string& objectPath) {
-            std::smatch match;
-            std::regex search(getDomainDbusPath(domainName) + "$");
-            if (std::regex_search(objectPath, match, search))
+            if (ec)
             {
-                return true;
+                BMCWEB_LOG_ERROR("respHandler DBus error: {}", ec.message());
+                messages::internalError(asyncResp->res);
             }
-            return false;
-            });
 
-        if (objects.end() == domainObjectPath)
-        {
-            messages::resourceNotFound(asyncResp->res, "Domains", domainName);
-            return;
-        }
-        std::string domainObjectPathValue = *domainObjectPath;
-        handler(domainObjectPathValue);
+            auto domainObjectPath = std::find_if(
+                objects.begin(), objects.end(),
+                [&domainName](const std::string& objectPath) {
+                    std::smatch match;
+                    std::regex search(getDomainDbusPath(domainName) + "$");
+                    if (std::regex_search(objectPath, match, search))
+                    {
+                        return true;
+                    }
+                    return false;
+                });
+
+            if (objects.end() == domainObjectPath)
+            {
+                messages::resourceNotFound(asyncResp->res, "Domains",
+                                           domainName);
+                return;
+            }
+            std::string domainObjectPathValue = *domainObjectPath;
+            handler(domainObjectPathValue);
         },
         kObjectMapperService, kObjectMapperObjectPath, kObjectMapperService,
         "GetSubTreePaths", kNodeManagerObjectPath, 0,
         std::vector<const char*>{kDomainAttributesInterface});
 }
 
-[[maybe_unused]] static void getDomain(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                      const std::string& domainName,
-                      const std::string& domainDbusPath)
+[[maybe_unused]] static void getDomain(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& domainName, const std::string& domainDbusPath)
 {
     getCapabilities(asyncResp, domainDbusPath);
     getComponentCapabilities(asyncResp, domainDbusPath);
@@ -428,22 +430,23 @@ void getDomainObjectPath(const crow::Request& req,
         [asyncResp, domainName](
             const boost::system::error_code& ec,
             const std::vector<sdbusplus::message::object_path>& paths) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("respHandler DBus error: {}", ec.message());
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        nlohmann::json& members = asyncResp->res.jsonValue["Links"]["Policies"];
-        members = dbusPoliciesPathsToLinks(paths);
-        asyncResp->res.jsonValue["Links"]["Policies@odata.count"] =
-            members.size();
-    };
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("respHandler DBus error: {}", ec.message());
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            nlohmann::json& members =
+                asyncResp->res.jsonValue["Links"]["Policies"];
+            members = dbusPoliciesPathsToLinks(paths);
+            asyncResp->res.jsonValue["Links"]["Policies@odata.count"] =
+                members.size();
+        };
 
-    asyncFindPolicies(addPolicies,
-                      [domainName](const nmDbus::DBusPropertiesMap& propMap) {
-        return createAttributePredicate("DomainId", domainName)(propMap);
-    });
+    asyncFindPolicies(
+        addPolicies, [domainName](const nmDbus::DBusPropertiesMap& propMap) {
+            return createAttributePredicate("DomainId", domainName)(propMap);
+        });
 
     asyncResp->res.jsonValue = {
         {"@odata.type", "#NmDomain.v1_4_0.NmDomain"},
@@ -470,30 +473,31 @@ inline void requestRoutesNodeManagerDomains([[maybe_unused]] App& app)
 #ifdef ONETREE_INTELSIPACK
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Domains/")
         .privileges(redfish::privileges::privilegeSetLogin)
-        .methods(boost::beast::http::verb::get)(
-            [&app](const crow::Request& req,
-               const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
-                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-                {
-                    return;
-                }
-        asyncResp->res.jsonValue = {
-            {"@odata.type", "#NmDomainCollection.NmDomainCollection"},
-            {"@odata.id",
-             "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Domains"},
-            {"Name", "NM Domains Collection"},
-	    {"Description", "The Collection of NodeManager Domains"},
-        };
+        .methods(
+            boost::beast::http::verb::
+                get)([&app](
+                         const crow::Request& req,
+                         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
+            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+            {
+                return;
+            }
+            asyncResp->res.jsonValue = {
+                {"@odata.type", "#NmDomainCollection.NmDomainCollection"},
+                {"@odata.id",
+                 "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Domains"},
+                {"Name", "NM Domains Collection"},
+                {"Description", "The Collection of NodeManager Domains"},
+            };
 
-        constexpr std::array<std::string_view, 1> interface {
-            "xyz.openbmc_project.NodeManager.DomainAttributes"
-        };
+            constexpr std::array<std::string_view, 1> interface{
+                "xyz.openbmc_project.NodeManager.DomainAttributes"};
 
-        collection_util::getCollectionMembers(
-            asyncResp,
-            boost::urls::url(
-                "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Domains"),
-            interface, "/xyz/openbmc_project/NodeManager");
+            collection_util::getCollectionMembers(
+                asyncResp,
+                boost::urls::url(
+                    "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Domains"),
+                interface, "/xyz/openbmc_project/NodeManager");
         });
 
     BMCWEB_ROUTE(
@@ -501,20 +505,21 @@ inline void requestRoutesNodeManagerDomains([[maybe_unused]] App& app)
         .privileges(redfish::privileges::privilegeSetLogin)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
-               const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-               const std::string& domainName) {
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const std::string& domainName) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
                     return;
                 }
-        asyncResp->res.clearHeader(boost::beast::http::field::allow);
-        asyncResp->res.addHeader("Allow", "GET, PATCH");
-        getDomainObjectPath(
-            req, asyncResp, domainName,
-            [asyncResp, domainName](const std::string& domainObjectPath) {
-            getDomain(asyncResp, domainName, domainObjectPath);
+                asyncResp->res.clearHeader(boost::beast::http::field::allow);
+                asyncResp->res.addHeader("Allow", "GET, PATCH");
+                getDomainObjectPath(
+                    req, asyncResp, domainName,
+                    [asyncResp,
+                     domainName](const std::string& domainObjectPath) {
+                        getDomain(asyncResp, domainName, domainObjectPath);
+                    });
             });
-        });
 
     BMCWEB_ROUTE(
         app, "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Domains/<str>/")
@@ -570,7 +575,7 @@ inline void requestRoutesNodeManagerDomains([[maybe_unused]] App& app)
                     kObjectMapperService, "GetSubTreePaths",
                     kNodeManagerObjectPath, 0,
                     std::vector<const char*>{kDomainAttributesInterface});
-    });
+            });
 
     BMCWEB_ROUTE(app,
                  "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Domains/<str>")
@@ -579,43 +584,48 @@ inline void requestRoutesNodeManagerDomains([[maybe_unused]] App& app)
             [](const crow::Request& req,
                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                const std::string& domainName) {
-        asyncResp->res.clearHeader(boost::beast::http::field::allow);
-        asyncResp->res.addHeader("Allow", "GET, PATCH");
-        
-        getDomainObjectPath(
-            req, asyncResp, domainName,
-            [req, asyncResp, domainName](const std::string& domainObjectPath) {
-            std::optional<nlohmann::json> capabilitiesCollection;
-            std::optional<nlohmann::json> limitBiasCollection;
-            if (!json_util::readJsonAction(req, asyncResp->res, "Capabilities",
-                                           capabilitiesCollection, "LimitBias",
-                                           limitBiasCollection))
-            {
-                return;
-            }
+                asyncResp->res.clearHeader(boost::beast::http::field::allow);
+                asyncResp->res.addHeader("Allow", "GET, PATCH");
 
-            std::shared_ptr<FinalCallback> finalCallback =
-                std::make_shared<FinalCallback>(
-                    [asyncResp, domainName, domainObjectPath]() {
-                if (asyncResp->res.result() == boost::beast::http::status::ok)
-                {
-                    getDomain(asyncResp, domainName, domainObjectPath);
-                }
-                });
+                getDomainObjectPath(
+                    req, asyncResp, domainName,
+                    [req, asyncResp,
+                     domainName](const std::string& domainObjectPath) {
+                        std::optional<nlohmann::json> capabilitiesCollection;
+                        std::optional<nlohmann::json> limitBiasCollection;
+                        if (!json_util::readJsonAction(
+                                req, asyncResp->res, "Capabilities",
+                                capabilitiesCollection, "LimitBias",
+                                limitBiasCollection))
+                        {
+                            return;
+                        }
 
-            if (capabilitiesCollection)
-            {
-                setCapabilities(asyncResp, domainName, *capabilitiesCollection,
-                                finalCallback);
-            }
+                        std::shared_ptr<FinalCallback> finalCallback =
+                            std::make_shared<FinalCallback>(
+                                [asyncResp, domainName, domainObjectPath]() {
+                                    if (asyncResp->res.result() ==
+                                        boost::beast::http::status::ok)
+                                    {
+                                        getDomain(asyncResp, domainName,
+                                                  domainObjectPath);
+                                    }
+                                });
 
-            if (limitBiasCollection)
-            {
-                setLimitBiases(asyncResp, domainName, *limitBiasCollection,
-                               finalCallback);
-            }
+                        if (capabilitiesCollection)
+                        {
+                            setCapabilities(asyncResp, domainName,
+                                            *capabilitiesCollection,
+                                            finalCallback);
+                        }
+
+                        if (limitBiasCollection)
+                        {
+                            setLimitBiases(asyncResp, domainName,
+                                           *limitBiasCollection, finalCallback);
+                        }
+                    });
             });
-        });
 
     BMCWEB_ROUTE(app,
                  "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Domains/<str>/"
@@ -625,20 +635,21 @@ inline void requestRoutesNodeManagerDomains([[maybe_unused]] App& app)
             [](const crow::Request& req,
                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                const std::string& domainName) {
-        BMCWEB_LOG_DEBUG("Domain.ResetStatistics");
-        getDomainObjectPath(
-            req, asyncResp, domainName,
-            [req, asyncResp, domainName](const std::string& domainObjectPath) {
-            resetStatistics(asyncResp, domainObjectPath);
+                BMCWEB_LOG_DEBUG("Domain.ResetStatistics");
+                getDomainObjectPath(
+                    req, asyncResp, domainName,
+                    [req, asyncResp,
+                     domainName](const std::string& domainObjectPath) {
+                        resetStatistics(asyncResp, domainObjectPath);
 
-            // in case of domain O (AcTotalPlatformPower) resets also stats
-            // from the main node
-            if (domainName == acTotalPlatformPowerDomainId)
-            {
-                resetStatistics(asyncResp, kNodeManagerObjectPath);
-            }
+                        // in case of domain O (AcTotalPlatformPower) resets
+                        // also stats from the main node
+                        if (domainName == acTotalPlatformPowerDomainId)
+                        {
+                            resetStatistics(asyncResp, kNodeManagerObjectPath);
+                        }
+                    });
             });
-        });
 
     BMCWEB_ROUTE(app,
                  "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Domains/<str>/"
@@ -648,16 +659,18 @@ inline void requestRoutesNodeManagerDomains([[maybe_unused]] App& app)
             [](const crow::Request& req,
                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                const std::string& domainName) {
-        getDomainObjectPath(
-            req, asyncResp, domainName,
-            [req, asyncResp, domainName](const std::string& domainObjectPath) {
-            changeDbusObjectState(req, asyncResp, domainName,
-                                  "Domain.ChangeState", domainObjectPath);
-            return;
+                getDomainObjectPath(
+                    req, asyncResp, domainName,
+                    [req, asyncResp,
+                     domainName](const std::string& domainObjectPath) {
+                        changeDbusObjectState(req, asyncResp, domainName,
+                                              "Domain.ChangeState",
+                                              domainObjectPath);
+                        return;
+                    });
+                return;
             });
-        return;
-        });
-    #endif    
+#endif
 }
 
 } // namespace redfish

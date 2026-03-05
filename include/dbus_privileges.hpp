@@ -35,9 +35,9 @@ struct UserPropertiesCache
 static UserPropertiesCache cachedUserProperties;
 
 // Populate session with user information.
-inline bool
-    populateUserInfo(persistent_data::UserSession& session,
-                     const dbus::utility::DBusPropertiesMap& userInfoMap)
+inline bool populateUserInfo(
+    persistent_data::UserSession& session,
+    const dbus::utility::DBusPropertiesMap& userInfoMap)
 {
     std::string userRole;
     bool remoteUser = false;
@@ -96,10 +96,9 @@ inline bool
     return true;
 }
 
-inline bool
-    isUserPrivileged(Request& req,
-                     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                     BaseRule& rule)
+inline bool isUserPrivileged(
+    Request& req, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    BaseRule& rule)
 {
     if (req.session == nullptr)
     {
@@ -141,7 +140,8 @@ inline bool afterGetUserInfoValidate(
 {
     if (!populateUserInfo(*req.session, userInfoMap))
     {
-        BMCWEB_LOG_DEBUG("Failed to populate user information; Insufficient Privilege");
+        BMCWEB_LOG_DEBUG(
+            "Failed to populate user information; Insufficient Privilege");
         redfish::messages::insufficientPrivilege(asyncResp->res);
         return false;
     }
@@ -171,24 +171,24 @@ inline bool afterGetUserInfoValidate(
 
 template <typename CallbackFn>
 void requestUserInfo(const std::string& username,
-                     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,  const boost::asio::ip::address& serverIp,
+                     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                     const boost::asio::ip::address& serverIp,
                      CallbackFn&& callback)
 {
-
     std::string ipStr = redfish::ip_util::extractIPv4FromMappedIPv6(serverIp);
 
     crow::connections::systemBus->async_method_call(
         [asyncResp, callback = std::forward<CallbackFn>(callback), serverIp](
             const boost::system::error_code& ec,
             const dbus::utility::DBusPropertiesMap& userInfoMap) mutable {
-        if (ec)
-        {
-            BMCWEB_LOG_DEBUG("GetUserInfo Dbus failed...");
-            asyncResp->res.result(
-                boost::beast::http::status::internal_server_error);
-            return;
-        }
-        callback(userInfoMap);
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG("GetUserInfo Dbus failed...");
+                asyncResp->res.result(
+                    boost::beast::http::status::internal_server_error);
+                return;
+            }
+            callback(userInfoMap);
         },
         "xyz.openbmc_project.User.Manager", "/xyz/openbmc_project/user",
         "xyz.openbmc_project.User.Manager", "GetUserInfo", username, ipStr);
@@ -208,31 +208,32 @@ void validatePrivilege(const std::shared_ptr<Request>& req,
         req->session->username, asyncResp, req->serverIPAddress,
         [req, asyncResp, &rule, callback = std::forward<CallbackFn>(callback)](
             const dbus::utility::DBusPropertiesMap& userInfoMap) mutable {
-        if (afterGetUserInfoValidate(*req, asyncResp, rule, userInfoMap))
-        {
-            callback();
-        }
+            if (afterGetUserInfoValidate(*req, asyncResp, rule, userInfoMap))
+            {
+                callback();
+            }
         });
 }
 
 template <typename CallbackFn>
 void getUserInfo(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                  const std::string& username,
-                 std::shared_ptr<persistent_data::UserSession>& session, const boost::asio::ip::address& serverIp,
+                 std::shared_ptr<persistent_data::UserSession>& session,
+                 const boost::asio::ip::address& serverIp,
                  CallbackFn&& callback)
 {
     requestUserInfo(
         username, asyncResp, serverIp,
         [asyncResp, session, callback = std::forward<CallbackFn>(callback)](
             const dbus::utility::DBusPropertiesMap& userInfoMap) {
-        if (!populateUserInfo(*session, userInfoMap))
-        {
-            BMCWEB_LOG_ERROR("Failed to populate user information");
-            asyncResp->res.result(
-                boost::beast::http::status::internal_server_error);
-            return;
-        }
-        callback();
+            if (!populateUserInfo(*session, userInfoMap))
+            {
+                BMCWEB_LOG_ERROR("Failed to populate user information");
+                asyncResp->res.result(
+                    boost::beast::http::status::internal_server_error);
+                return;
+            }
+            callback();
         });
 }
 

@@ -51,8 +51,7 @@ inline void getProcessorUUID(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
 {
     BMCWEB_LOG_DEBUG("Get Processor UUID");
     dbus::utility::getProperty<std::string>(
-        service, objPath,
-        "xyz.openbmc_project.Common.UUID", "UUID",
+        service, objPath, "xyz.openbmc_project.Common.UUID", "UUID",
         [objPath, asyncResp{std::move(asyncResp)}](
             const boost::system::error_code& ec, const std::string& property) {
             if (ec)
@@ -61,7 +60,7 @@ inline void getProcessorUUID(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
                 messages::internalError(asyncResp->res);
                 return;
             }
-            if(!property.empty())
+            if (!property.empty())
             {
                 asyncResp->res.jsonValue["UUID"] = property;
             }
@@ -255,8 +254,8 @@ inline void getCpuDataByService(
  * @return Returns as a string, the throttle cause in Redfish terms. If
  * translation cannot be done, returns "Unknown" throttle reason.
  */
-inline processor::ThrottleCause
-    dbusToRfThrottleCause(const std::string& dbusSource)
+inline processor::ThrottleCause dbusToRfThrottleCause(
+    const std::string& dbusSource)
 {
     if (dbusSource ==
         "xyz.openbmc_project.Control.Power.Throttle.ThrottleReasons.ClockLimit")
@@ -286,10 +285,10 @@ inline processor::ThrottleCause
     return processor::ThrottleCause::Invalid;
 }
 
-inline void
-    readThrottleProperties(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                           const boost::system::error_code& ec,
-                           const dbus::utility::DBusPropertiesMap& properties)
+inline void readThrottleProperties(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec,
+    const dbus::utility::DBusPropertiesMap& properties)
 {
     if (ec)
     {
@@ -559,10 +558,10 @@ inline void highSpeedCoreIdsHandler(
  * @param[in]       service     D-Bus service to query.
  * @param[in]       objPath     D-Bus object to query.
  */
-inline void
-    getCpuConfigData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                     const std::string& cpuId, const std::string& service,
-                     const std::string& objPath)
+inline void getCpuConfigData(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& cpuId, const std::string& service,
+    const std::string& objPath)
 {
     BMCWEB_LOG_INFO("Getting CPU operating configs for {}", cpuId);
 
@@ -1193,7 +1192,8 @@ inline void requestRoutesOperatingConfig(App& app)
                         }
 
                         nlohmann::json& json = asyncResp->res.jsonValue;
-                        json["@odata.type"] = json_util::odataType("OperatingConfig");
+                        json["@odata.type"] =
+                            json_util::odataType("OperatingConfig");
                         json["@odata.id"] = boost::urls::format(
                             "/redfish/v1/Systems/{}/Processors/{}/OperatingConfigs/{}",
                             BMCWEB_REDFISH_SYSTEM_URI_NAME, cpuName,
@@ -1309,7 +1309,8 @@ inline void requestRoutesProcessor(App& app)
                                            systemName);
                 return;
             }
-            if (!membersResponseGet(asyncResp, processorId, "ProcessorCollection"))
+            if (!membersResponseGet(asyncResp, processorId,
+                                    "ProcessorCollection"))
             {
                 return;
             }
@@ -1317,7 +1318,8 @@ inline void requestRoutesProcessor(App& app)
             asyncResp->res.addHeader(
                 boost::beast::http::field::link,
                 "</redfish/v1/JsonSchemas/Processor/Processor.json>; rel=describedby");
-            asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("Processor");
+            asyncResp->res.jsonValue["@odata.type"] =
+                json_util::odataType("Processor");
             asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
                 "/redfish/v1/Systems/{}/Processors/{}",
                 BMCWEB_REDFISH_SYSTEM_URI_NAME, processorId);
@@ -1352,13 +1354,14 @@ inline void requestRoutesProcessor(App& app)
                                                systemName);
                     return;
                 }
-                if (!membersResponseGet(asyncResp, processorId, "ProcessorCollection"))
+                if (!membersResponseGet(asyncResp, processorId,
+                                        "ProcessorCollection"))
                 {
                     return;
                 }
                 std::optional<std::string> appliedConfigUri;
-                if (!json_util::readJsonPatch( //
-                        req, asyncResp->res, //
+                if (!json_util::readJsonPatch(                               //
+                        req, asyncResp->res,                                 //
                         "AppliedOperatingConfig/@odata.id", appliedConfigUri //
                         ))
                 {
@@ -1385,7 +1388,8 @@ inline void requestRoutesProcessor(App& app)
                    const std::string& /* systemName */,
                    const std::string& processorId) {
                 asyncResp->res.clearHeader(boost::beast::http::field::allow);
-                if (!membersResponseGet(asyncResp, processorId, "ProcessorCollection"))
+                if (!membersResponseGet(asyncResp, processorId,
+                                        "ProcessorCollection"))
                 {
                     return;
                 }

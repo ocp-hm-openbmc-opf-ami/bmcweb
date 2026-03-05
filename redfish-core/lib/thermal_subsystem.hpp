@@ -60,7 +60,6 @@ inline void getFanRedundancy(
     redundancy["MaxSupportedInGroup"] = redundancy["RedundancyGroup"].size();
 
     asyncResp->res.jsonValue["FanRedundancy"].push_back(std::move(redundancy));
-
 }
 
 inline void doThermalSubsystemCollection(
@@ -78,7 +77,8 @@ inline void doThermalSubsystemCollection(
     asyncResp->res.addHeader(
         boost::beast::http::field::link,
         "</redfish/v1/JsonSchemas/ThermalSubsystem/ThermalSubsystem.json>; rel=describedby");
-    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("ThermalSubsystem");
+    asyncResp->res.jsonValue["@odata.type"] =
+        json_util::odataType("ThermalSubsystem");
     asyncResp->res.jsonValue["Name"] = "Thermal Subsystem";
     asyncResp->res.jsonValue["Id"] = "ThermalSubsystem";
     asyncResp->res.jsonValue["Description"] =
@@ -97,7 +97,8 @@ inline void doThermalSubsystemCollection(
 
     asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
     asyncResp->res.jsonValue["Status"]["Health"] = resource::Health::OK;
-    if (chassisId != "Cpld" && chassisId != "CDU" && chassisId != "PowerShelf" && chassisId != "Rack")
+    if (chassisId != "Cpld" && chassisId != "CDU" &&
+        chassisId != "PowerShelf" && chassisId != "Rack")
     {
         getFanPaths(asyncResp, *validChassisPath,
                     std::bind_front(getFanRedundancy, asyncResp, chassisId));

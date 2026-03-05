@@ -23,11 +23,11 @@ namespace redfish
  * @return None.
  */
 // TODO (Gunnar): Remove IndicatorLED after enough time has passed
-inline void
-    getIndicatorLedState(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void getIndicatorLedState(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     BMCWEB_LOG_DEBUG("Get led groups");
-     dbus::utility::getProperty<bool>(
+    dbus::utility::getProperty<bool>(
         "xyz.openbmc_project.LED.GroupManager",
         "/xyz/openbmc_project/led/groups/enclosure_identify_blink",
         "xyz.openbmc_project.Led.Group", "Asserted",
@@ -50,7 +50,7 @@ inline void
                 return;
             }
 
-             dbus::utility::getProperty<bool>(
+            dbus::utility::getProperty<bool>(
                 "xyz.openbmc_project.LED.GroupManager",
                 "/xyz/openbmc_project/led/groups/enclosure_identify",
                 "xyz.openbmc_project.Led.Group", "Asserted",
@@ -92,9 +92,9 @@ inline void
  * @return None.
  */
 // TODO (Gunnar): Remove IndicatorLED after enough time has passed
-inline void
-    setIndicatorLedState(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                         const std::string& ledState)
+inline void setIndicatorLedState(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& ledState)
 {
     BMCWEB_LOG_DEBUG("Set led groups");
     bool ledOn = false;
@@ -151,7 +151,7 @@ inline void getSystemLocationIndicatorActive(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     BMCWEB_LOG_DEBUG("Get LocationIndicatorActive");
-     dbus::utility::getProperty<bool>(
+    dbus::utility::getProperty<bool>(
         "xyz.openbmc_project.LED.GroupManager",
         "/xyz/openbmc_project/led/groups/enclosure_identify_blink",
         "xyz.openbmc_project.Led.Group", "Asserted",
@@ -173,7 +173,7 @@ inline void getSystemLocationIndicatorActive(
                 return;
             }
 
-             dbus::utility::getProperty<bool>(
+            dbus::utility::getProperty<bool>(
                 "xyz.openbmc_project.LED.GroupManager",
                 "/xyz/openbmc_project/led/groups/enclosure_identify",
                 "xyz.openbmc_project.Led.Group", "Asserted",
@@ -255,7 +255,8 @@ inline void setPhysicalLedState(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
 inline void getPhysicalLedState(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
 {
     BMCWEB_LOG_DEBUG("Get Physical Led");
-    aResp->res.jsonValue["Oem"]["Ami"]["PhysicalLED"]["@odata.type"] = json_util::odataType("OpenBMCComputerSystem", "PhysicalLED");
+    aResp->res.jsonValue["Oem"]["Ami"]["PhysicalLED"]["@odata.type"] =
+        json_util::odataType("OpenBMCComputerSystem", "PhysicalLED");
 
     dbus::utility::getProperty<bool>(
         "xyz.openbmc_project.LED.GroupManager",

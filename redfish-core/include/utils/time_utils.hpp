@@ -42,7 +42,9 @@ std::string getDateTimeUint(uint64_t secondsSinceEpoch);
 // Note that the maximum supported date is 9999-12-31T23:59:59+00:00, if
 // the given |secondsSinceEpoch| is too large, we return the maximum supported
 // date.
-std::string getDateTimeUintMs(uint64_t milliSecondsSinceEpoch, std::optional<std::string> timezone = std::nullopt);
+std::string getDateTimeUintMs(
+    uint64_t milliSecondsSinceEpoch,
+    std::optional<std::string> timezone = std::nullopt);
 
 // Returns the formatted date time string with microsecond precision
 std::string getDateTimeUintUs(uint64_t microSecondsSinceEpoch);

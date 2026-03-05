@@ -133,8 +133,8 @@ inline std::string getSensorId(std::string_view sensorName,
     return std::format("{}_{}", normalizedType, sensorName);
 }
 
-inline std::pair<std::string, std::string>
-    splitSensorNameAndType(std::string_view sensorId)
+inline std::pair<std::string, std::string> splitSensorNameAndType(
+    std::string_view sensorId)
 {
     size_t index = sensorId.find('_');
     if (index == std::string::npos)
@@ -186,7 +186,7 @@ inline std::string_view toReadingUnits(std::string_view sensorType)
     }
     if (sensorType == "airflow")
     {
-        //return "cft_i/min";
+        // return "cft_i/min";
         return "cft/min";
     }
     if (sensorType == "energy")
@@ -206,7 +206,7 @@ inline std::string_view toReadingUnits(std::string_view sensorType)
         return "RPM";
     }
     if (sensorType == "pwm")
-        {
+    {
         return "%";
     }
     if (sensorType == "hours")
@@ -470,7 +470,7 @@ inline void objectPropertiesToJson(
     {
         sensorJson["@odata.type"] = json_util::odataType("Sensor");
         sensorJson["Description"] = std::string(sensorName) + " Sensor";
-        
+
         sensor::ReadingType readingType = sensors::toReadingType(sensorType);
         if (readingType == sensor::ReadingType::Invalid)
         {
@@ -515,7 +515,8 @@ inline void objectPropertiesToJson(
     else if (sensorType == "temperature")
     {
         unit = "/ReadingCelsius"_json_pointer;
-        sensorJson["@odata.type"] = json_util::odataType("Thermal", "Temperature");
+        sensorJson["@odata.type"] =
+            json_util::odataType("Thermal", "Temperature");
         // TODO(ed) Documentation says that path should be type fan_tach,
         // implementation seems to implement fan
     }
@@ -547,7 +548,8 @@ inline void objectPropertiesToJson(
                                bmcweb::asciiToLower);
         if (lower == "total_power")
         {
-            sensorJson["@odata.type"] = json_util::odataType("Power", "PowerControl");
+            sensorJson["@odata.type"] =
+                json_util::odataType("Power", "PowerControl");
             // Put multiple "sensors" into a single PowerControl, so have
             // generic names for MemberId and Name. Follows Redfish mockup.
             sensorJson["MemberId"] = "0";
