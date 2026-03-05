@@ -212,7 +212,8 @@ inline void getEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                        const dbus::utility::ManagedObjectType& objects) {
             if (ec)
             {
-                messages::internalError(asyncResp->res);
+                // Don't report error; the field was already prepopulated with a
+                // safe default (false)
                 return;
             }
 
@@ -222,6 +223,9 @@ inline void getEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 if (matchService(path, serviceName))
                 {
                     serviceFound = true;
+                    bool isEnabled = false;
+                    bool isRunning = false;
+
                     for (const auto& [interface, properties] : interfaces)
                     {
                         if (interface != serviceConfigInterface)
@@ -241,26 +245,34 @@ inline void getEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                                     messages::internalError(asyncResp->res);
                                     return;
                                 }
-                                if (*enabled)
+                                isEnabled = *enabled;
+                            }
+                            else if (key == "Running")
+                            {
+                                const auto* runningStatus =
+                                    std::get_if<bool>(&val);
+                                if (runningStatus == nullptr)
                                 {
-                                    asyncResp->res.jsonValue[valueJsonPtr] =
-                                        true;
-                                    if (serviceName == "start_2dipkvm")
-                                        asyncResp->res.jsonValue
-                                            ["GraphicalConsole"]
-                                            ["MaxConcurrentSessions"] = 1;
+                                    messages::internalError(asyncResp->res);
                                     return;
                                 }
-                                else
-                                {
-                                    if (serviceName == "start_2dipkvm")
-                                        asyncResp->res.jsonValue
-                                            ["GraphicalConsole"]
-                                            ["MaxConcurrentSessions"] = 0;
-                                }
+                                isRunning = *runningStatus;
                             }
                         }
                     }
+
+                    // Service is enabled if either Enabled OR Running is true
+                    bool serviceIsEnabled = isEnabled || isRunning;
+                    asyncResp->res.jsonValue[valueJsonPtr] = serviceIsEnabled;
+
+                    if (serviceName == "start_2dipkvm" ||
+                        serviceName == "start_2dipkvm1")
+                    {
+                        asyncResp->res.jsonValue["GraphicalConsole"]
+                                                ["MaxConcurrentSessions"] =
+                            serviceIsEnabled ? 1 : 0;
+                    }
+                    return;
                 }
             }
             // Not populating the property when service is not found
@@ -439,6 +451,7 @@ inline void setPortNumber(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         serviceManagerService, "/xyz/openbmc_project/control/service",
         "org.freedesktop.DBus.ObjectManager", "GetManagedObjects");
 }
+
 inline void setServiceEnabled(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& serviceName, const bool enabled)

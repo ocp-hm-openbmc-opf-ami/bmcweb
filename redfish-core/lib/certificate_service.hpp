@@ -13,6 +13,7 @@
 #include "utils/json_utils.hpp"
 #include "utils/time_utils.hpp"
 
+#include <boost/asio/steady_timer.hpp>
 #include <boost/system/linux_error.hpp>
 #include <boost/url/format.hpp>
 #include <sdbusplus/asio/property.hpp>
@@ -20,6 +21,7 @@
 #include <sdbusplus/unpack_properties.hpp>
 
 #include <array>
+#include <chrono>
 #include <memory>
 #include <string_view>
 
@@ -296,13 +298,14 @@ inline void updateCertIssuerOrSubject(nlohmann::json& out,
 inline void getCertificateList(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& basePath, const nlohmann::json::json_pointer& listPtr,
-    const nlohmann::json::json_pointer& countPtr)
+    const nlohmann::json::json_pointer& countPtr,
+    const std::optional<std::string>& dbName, const std::string& systemName)
 {
     constexpr std::array<std::string_view, 1> interfaces = {
         certs::certPropIntf};
     dbus::utility::getSubTreePaths(
         basePath, 0, interfaces,
-        [asyncResp, listPtr, countPtr](
+        [asyncResp, listPtr, countPtr, dbName, systemName](
             const boost::system::error_code& ec,
             const dbus::utility::MapperGetSubTreePathsResponse& certPaths) {
             if (ec)
@@ -713,9 +716,10 @@ inline void handleCertificateLocationsGet(
         "Defines a resource that an administrator can use in order to "
         "locate all certificates installed on a given service";
 
-    getCertificateList(asyncResp, certs::baseObjectPath,
-                       "/Links/Certificates"_json_pointer,
-                       "/Links/Certificates@odata.count"_json_pointer);
+    getCertificateList(
+        asyncResp, certs::baseObjectPath, "/Links/Certificates"_json_pointer,
+        "/Links/Certificates@odata.count"_json_pointer, std::nullopt,
+        std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME));
 }
 
 inline void handleError(const std::string_view dbusErrorName,
@@ -813,6 +817,38 @@ inline void getCertificateType(
 
             callback(certificateType);
         });
+}
+
+inline void restartBmcweb()
+{
+    constexpr std::chrono::milliseconds delay(800);
+    auto& ioc = crow::connections::systemBus->get_io_context();
+
+    auto timer = std::make_shared<boost::asio::steady_timer>(ioc);
+    timer->expires_after(delay);
+    timer->async_wait([timer](const boost::system::error_code& ec) {
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR("Restart timer canceled: {}", ec.message());
+            return;
+        }
+
+        crow::connections::systemBus->async_method_call(
+            [](const boost::system::error_code& dbusEc, sdbusplus::message_t&) {
+                if (dbusEc)
+                {
+                    BMCWEB_LOG_ERROR("RestartUnit(bmcweb.service) failed: {}",
+                                     dbusEc.message());
+                }
+                else
+                {
+                    BMCWEB_LOG_INFO("RestartUnit(bmcweb.service) triggered");
+                }
+            },
+            "org.freedesktop.systemd1", "/org/freedesktop/systemd1",
+            "org.freedesktop.systemd1.Manager", "RestartUnit", "bmcweb.service",
+            "replace");
+    });
 }
 
 inline void handleReplaceCertificateAction(
@@ -1004,6 +1040,10 @@ inline void handleReplaceCertificateAction(
                                 boost::beast::http::field::location, certURI);
                             asyncResp->res.result(
                                 boost::beast::http::status::no_content);
+                            // Restart bmcweb to ensure the new certificate is
+                            // fully loaded
+                            if (service == certs::httpsServiceName)
+                                restartBmcweb();
                         },
                         service, objectPath, certs::certReplaceIntf, "Replace",
                         certFile->getCertFilePath());
@@ -1411,7 +1451,8 @@ inline void handleHTTPSCertificateCollectionGet(
 
     getCertificateList(asyncResp, certs::httpsObjectPath,
                        "/Members"_json_pointer,
-                       "/Members@odata.count"_json_pointer);
+                       "/Members@odata.count"_json_pointer, std::nullopt,
+                       std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME));
 }
 
 inline void handleHTTPSCertificateCollectionPost(
@@ -1608,7 +1649,8 @@ inline void handleLDAPCertificateCollectionGet(
 
     getCertificateList(asyncResp, certs::ldapObjectPath,
                        "/Members"_json_pointer,
-                       "/Members@odata.count"_json_pointer);
+                       "/Members@odata.count"_json_pointer, std::nullopt,
+                       std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME));
 }
 
 inline void handleLDAPCertificateCollectionPost(
@@ -1807,7 +1849,8 @@ inline void handleTrustStoreCertificateCollectionGet(
 
     getCertificateList(asyncResp, certs::authorityObjectPath,
                        "/Members"_json_pointer,
-                       "/Members@odata.count"_json_pointer);
+                       "/Members@odata.count"_json_pointer, std::nullopt,
+                       std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME));
 }
 
 inline void handleTrustStoreCertificateCollectionPost(

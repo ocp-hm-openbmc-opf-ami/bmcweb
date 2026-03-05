@@ -17,6 +17,8 @@
 #include "query.hpp"
 #include "redfish_util.hpp"
 #include "registries/privilege_registry.hpp"
+#include "system_utils.hpp"
+#include "systems_header.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/json_utils.hpp"
 #include "utils/pcie_util.hpp"
@@ -49,11 +51,47 @@
 namespace redfish
 {
 
+// D-Bus service and interface constants
+static constexpr const char* hostStateService =
+    "xyz.openbmc_project.State.Host0";
+static constexpr const char* singleHostPath =
+    "/xyz/openbmc_project/state/host0";
+static constexpr const char* chassisStateService =
+    "xyz.openbmc_project.State.Chassis0";
+static constexpr const char* singleChassisPath =
+    "/xyz/openbmc_project/state/chassis0";
+static constexpr const char* chassisStateInterface =
+    "xyz.openbmc_project.State.Chassis";
+
+// Common interface
+static constexpr const char* hostStateInterface =
+    "xyz.openbmc_project.State.Host";
+
+// Dual node D-Bus services and paths
+
+// Node 1 (Dual-node systems - first node)
+static constexpr const char* host1Service = "xyz.openbmc_project.State.Host1";
+static constexpr const char* host1Path = "/xyz/openbmc_project/state/host1";
+static constexpr const char* chassis1Service =
+    "xyz.openbmc_project.State.Chassis1";
+static constexpr const char* chassis1Path =
+    "/xyz/openbmc_project/state/chassis1";
+
+// Node 2 (Dual-node systems - second node)
+static constexpr const char* host2Service = "xyz.openbmc_project.State.Host2";
+static constexpr const char* host2Path = "/xyz/openbmc_project/state/host2";
+static constexpr const char* chassis2Service =
+    "xyz.openbmc_project.State.Chassis2";
+static constexpr const char* chassis2Path =
+    "/xyz/openbmc_project/state/chassis2";
+
+// Timeout service (uses node suffix)
+static constexpr const char* timeoutService = "xyz.openbmc_project.State.Host0";
+static constexpr const char* timeoutInterface =
+    "xyz.openbmc_project.State.OperatingSystem.Status";
+
 static constexpr const char* serialConsoleSshServiceName =
     "obmc_2dconsole_2dssh";
-static constexpr const char* virtualMediaServiceName =
-    "xyz_2eopenbmc_project_2eVirtualMedia";
-static constexpr const char* kvmServiceName = "start_2dipkvm";
 
 const static std::array<std::pair<std::string_view, std::string_view>, 2>
     protocolToDBusForSystems{
@@ -560,17 +598,41 @@ void getComputerSystem(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
  * @brief Retrieves host state properties over dbus
  *
  * @param[in] asyncResp     Shared pointer for completing asynchronous calls.
+ * @param[in] systemName    Optional system name to determine node-specific
+ * path. If empty, defaults to host0 for legacy support.
  *
  * @return None.
  */
-void getHostState(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+void getHostState(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                  const std::string& systemName)
 {
-    BMCWEB_LOG_DEBUG("Get host information.");
+    BMCWEB_LOG_DEBUG("Get host information for {}",
+                     systemName.empty() ? "default" : systemName);
+
+    std::string hostService = hostStateService; // default
+    std::string hostPath = singleHostPath;      // default
+
+    if (system_utils::isDualHostEnabled())
+    {
+        // Dual-node system
+        if (systemName == "system1")
+        {
+            // "system1" maps to Host2
+            hostService = host2Service;
+            hostPath = host2Path;
+        }
+        else
+        {
+            // "system" (default) maps to Host1 in dual-node mode
+            hostService = host1Service;
+            hostPath = host1Path;
+        }
+    }
+
     dbus::utility::getProperty<std::string>(
-        "xyz.openbmc_project.State.Host", "/xyz/openbmc_project/state/host0",
-        "xyz.openbmc_project.State.Host", "CurrentHostState",
-        [asyncResp](const boost::system::error_code& ec,
-                    const std::string& hostState) {
+        hostService, hostPath, hostStateInterface, "CurrentHostState",
+        [asyncResp, systemName](const boost::system::error_code& ec,
+                                const std::string& hostState) {
             if (ec)
             {
                 if (ec == boost::system::errc::host_unreachable)
@@ -585,43 +647,41 @@ void getHostState(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
                 return;
             }
 
-            BMCWEB_LOG_DEBUG("Host state: {}", hostState);
-            // Verify Host State
-            if (hostState == "xyz.openbmc_project.State.Host.HostState.Running")
+            BMCWEB_LOG_ERROR("Host state: {}", hostState);
+
+            std::string currentState =
+                hostState.substr(hostState.rfind('.') + 1);
+
+            // Verify Host State by comparing only the final state value
+            if (currentState == "Running")
             {
                 asyncResp->res.jsonValue["PowerState"] =
                     resource::PowerState::On;
                 asyncResp->res.jsonValue["Status"]["State"] =
                     resource::State::Enabled;
             }
-            else if (hostState ==
-                     "xyz.openbmc_project.State.Host.HostState.Quiesced")
+            else if (currentState == "Quiesced")
             {
                 asyncResp->res.jsonValue["PowerState"] =
                     resource::PowerState::On;
                 asyncResp->res.jsonValue["Status"]["State"] =
                     resource::State::Quiesced;
             }
-            else if (hostState ==
-                     "xyz.openbmc_project.State.Host.HostState.DiagnosticMode")
+            else if (currentState == "DiagnosticMode")
             {
                 asyncResp->res.jsonValue["PowerState"] =
                     resource::PowerState::On;
                 asyncResp->res.jsonValue["Status"]["State"] =
                     resource::State::InTest;
             }
-            else if (
-                hostState ==
-                "xyz.openbmc_project.State.Host.HostState.TransitioningToRunning")
+            else if (currentState == "TransitioningToRunning")
             {
                 asyncResp->res.jsonValue["PowerState"] =
                     resource::PowerState::PoweringOn;
                 asyncResp->res.jsonValue["Status"]["State"] =
                     resource::State::Starting;
             }
-            else if (
-                hostState ==
-                "xyz.openbmc_project.State.Host.HostState.TransitioningToOff")
+            else if (currentState == "TransitioningToOff")
             {
                 asyncResp->res.jsonValue["PowerState"] =
                     resource::PowerState::PoweringOff;
@@ -872,7 +932,7 @@ inline int assignBootParameters(const std::string& rfSource,
 inline void getBootProgress(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     dbus::utility::getProperty<std::string>(
-        "xyz.openbmc_project.State.Host", "/xyz/openbmc_project/state/host0",
+        hostStateService, singleHostPath,
         "xyz.openbmc_project.State.Boot.Progress", "BootProgress",
         [asyncResp](const boost::system::error_code& ec,
                     const std::string& bootProgressStr) {
@@ -901,7 +961,7 @@ void getBootProgressLastStateTime(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     dbus::utility::getProperty<uint64_t>(
-        "xyz.openbmc_project.State.Host", "/xyz/openbmc_project/state/host0",
+        hostStateService, singleHostPath,
         "xyz.openbmc_project.State.Boot.Progress", "BootProgressLastUpdate",
         [asyncResp](const boost::system::error_code& ec,
                     const uint64_t lastStateTime) {
@@ -1226,17 +1286,41 @@ void getBootProperties(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
  * last power operation time.
  *
  * @param[in] asyncResp     Shared pointer for generating response message.
+ * @param[in] systemName    Optional system name to determine node-specific
+ * path. If empty, defaults to chassis0 for legacy support.
  *
  * @return None.
  */
-void getLastResetTime(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+void getLastResetTime(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                      const std::string& systemName)
 {
-    BMCWEB_LOG_DEBUG("Getting System Last Reset Time");
+    BMCWEB_LOG_DEBUG("Getting System Last Reset Time for {}",
+                     systemName.empty() ? "default" : systemName);
+
+    std::string chassisService = chassisStateService; // default
+    std::string chassisPath = singleChassisPath;      // default
+
+    if (system_utils::isDualHostEnabled())
+    {
+        // Dual-node system
+        if (systemName == "system1")
+        {
+            // "system1" maps to Chassis2
+            chassisService = chassis2Service;
+            chassisPath = chassis2Path;
+        }
+        else
+        {
+            // "system" (default) maps to Chassis1 in dual-node mode
+            chassisService = chassis1Service;
+            chassisPath = chassis1Path;
+        }
+    }
+    // For single-node systems (no ONETREE_MULTI_HOST_SUPPORT), use defaults
 
     dbus::utility::getProperty<uint64_t>(
-        "xyz.openbmc_project.State.Chassis",
-        "/xyz/openbmc_project/state/chassis0",
-        "xyz.openbmc_project.State.Chassis", "LastStateChangeTime",
+        chassisService, chassisPath, chassisStateInterface,
+        "LastStateChangeTime",
         [asyncResp](const boost::system::error_code& ec,
                     uint64_t lastResetTime) {
             if (ec)
@@ -1273,7 +1357,7 @@ inline void getAutomaticRebootAttempts(
     BMCWEB_LOG_DEBUG("Get Automatic Retry policy");
 
     dbus::utility::getAllProperties(
-        "xyz.openbmc_project.State.Host", "/xyz/openbmc_project/state/host0",
+        hostStateService, singleHostPath,
         "xyz.openbmc_project.Control.Boot.RebootAttempts",
         [asyncResp{asyncResp}](
             const boost::system::error_code& ec,
@@ -1384,12 +1468,10 @@ inline void setAutomaticRetryAttempts(
     const uint32_t retryAttempts)
 {
     BMCWEB_LOG_DEBUG("Set Automatic Retry Attempts.");
-    setDbusProperty(
-        asyncResp, "Boot/AutomaticRetryAttempts",
-        "xyz.openbmc_project.State.Host",
-        sdbusplus::message::object_path("/xyz/openbmc_project/state/host0"),
-        "xyz.openbmc_project.Control.Boot.RebootAttempts", "RetryAttempts",
-        retryAttempts);
+    setDbusProperty(asyncResp, "Boot/AutomaticRetryAttempts", hostStateService,
+                    sdbusplus::message::object_path(singleHostPath),
+                    "xyz.openbmc_project.Control.Boot.RebootAttempts",
+                    "RetryAttempts", retryAttempts);
 }
 
 inline computer_system::PowerRestorePolicyTypes
@@ -2574,15 +2656,33 @@ inline std::string rfToDbusWDTTimeOutAct(const std::string& rfAction)
  * @brief Retrieves host watchdog timer properties over DBUS
  *
  * @param[in] asyncResp     Shared pointer for completing asynchronous calls.
+ * @param[in] systemName    Optional system name to determine node-specific
+ * watchdog. If empty, defaults to host0 for legacy support.
  *
  * @return None.
  */
-void getHostWatchdogTimer(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+void getHostWatchdogTimer(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                          const std::string& systemName)
 {
-    BMCWEB_LOG_DEBUG("Get host watchodg");
+    std::string watchdogServiceName = getWatchdogServiceName(systemName);
+    std::string watchdogService = "xyz.openbmc_project.Watchdog.host0";
+    std::string watchdogPath = "/xyz/openbmc_project/watchdog/host0";
+
+    if (system_utils::isDualHostEnabled())
+    {
+        if (systemName == "system1")
+        {
+            watchdogService = "xyz.openbmc_project.Watchdog.host1";
+            watchdogPath = "/xyz/openbmc_project/watchdog/host1";
+        }
+    }
+
+    sdbusplus::message::object_path serviceObjectPath(
+        std::string("/xyz/openbmc_project/State/SystemdUnit/") +
+        watchdogServiceName + "_2eservice");
+
     dbus::utility::getAllProperties(
-        "xyz.openbmc_project.Watchdog", "/xyz/openbmc_project/watchdog/host0",
-        "xyz.openbmc_project.State.Watchdog",
+        watchdogService, watchdogPath, "xyz.openbmc_project.State.Watchdog",
         [asyncResp](const boost::system::error_code& ec,
                     const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
@@ -2647,15 +2747,32 @@ void getHostWatchdogTimer(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
  * @param[in] wdtEnable  The WDTimer Enable value (true/false) from incoming
  *                       RF request.
  * @param[in] wdtTimeOutAction The WDT Timeout action, from incoming RF request.
+ * @param[in] systemName Optional system name to determine node-specific
+ * watchdog. If empty, defaults to host0 for legacy support.
  *
  * @return None.
  */
 inline void setWDTProperties(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::optional<bool> wdtEnable,
-    const std::optional<std::string>& wdtTimeOutAction)
+    const std::optional<std::string>& wdtTimeOutAction,
+    const std::string& systemName)
 {
-    BMCWEB_LOG_DEBUG("Set host watchdog");
+    BMCWEB_LOG_DEBUG("Set host watchdog for {}",
+                     systemName.empty() ? "default" : systemName);
+
+    std::string watchdogServiceName = getWatchdogServiceName(systemName);
+    std::string watchdogService = "xyz.openbmc_project.Watchdog.host0";
+    std::string watchdogPath = "/xyz/openbmc_project/watchdog/host0";
+
+    if (system_utils::isDualHostEnabled())
+    {
+        if (systemName == "system1")
+        {
+            watchdogService = "xyz.openbmc_project.Watchdog.host1";
+            watchdogPath = "/xyz/openbmc_project/watchdog/host1";
+        }
+    }
 
     if (wdtTimeOutAction)
     {
@@ -2671,9 +2788,8 @@ inline void setWDTProperties(
         }
 
         setDbusProperty(asyncResp, "HostWatchdogTimer/TimeoutAction",
-                        "xyz.openbmc_project.Watchdog",
-                        sdbusplus::message::object_path(
-                            "/xyz/openbmc_project/watchdog/host0"),
+                        watchdogService,
+                        sdbusplus::message::object_path(watchdogPath),
                         "xyz.openbmc_project.State.Watchdog", "ExpireAction",
                         wdtTimeOutActStr);
     }
@@ -3147,13 +3263,33 @@ void getSerialConsoleSshStatus(
  *
  * @return None.
  */
-void getVirtualMediaConfig(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+void getVirtualMediaConfig(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                           const std::string& systemName)
 {
-    service_util::getRunning(
-        asyncResp, virtualMediaServiceName,
+    BMCWEB_LOG_DEBUG("Get VirtualMediaConfig for the System: {}", systemName);
+    std::string vmServiceName;
+
+    if (system_utils::isDualHostEnabled())
+    {
+        if (systemName == "system1")
+        {
+            vmServiceName = getVirtualMediaServiceName("system1");
+        }
+        else
+        {
+            vmServiceName = getVirtualMediaServiceName("system");
+        }
+    }
+    else
+    {
+        vmServiceName = getVirtualMediaServiceName("system");
+    }
+    asyncResp->res.jsonValue["VirtualMediaConfig"]["ServiceEnabled"] = false;
+    service_util::getEnabled(
+        asyncResp, vmServiceName,
         nlohmann::json::json_pointer("/VirtualMediaConfig/ServiceEnabled"));
-    service_util::getMasked(asyncResp, virtualMediaServiceName,
-                            "VirtualMediaConfig", "Masked", "Ami");
+    service_util::getMasked(asyncResp, vmServiceName, "VirtualMediaConfig",
+                            "Masked", "Ami");
 }
 
 /**
@@ -3163,9 +3299,30 @@ void getVirtualMediaConfig(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
  *
  * @return None.
  */
-void getKvmConfig(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+void getKvmConfig(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                  const std::string& systemName)
 {
-    service_util::getRunning(
+    BMCWEB_LOG_DEBUG("Get VirtualMediaConfig for the System: {}", systemName);
+    std::string kvmServiceName;
+
+    if (system_utils::isDualHostEnabled())
+    {
+        if (systemName == "system1")
+        {
+            kvmServiceName = getKvmServiceName("system1");
+        }
+        else
+        {
+            kvmServiceName = getKvmServiceName("system");
+        }
+    }
+    else
+    {
+        kvmServiceName = getKvmServiceName("system");
+    }
+
+    asyncResp->res.jsonValue["GraphicalConsole"]["ServiceEnabled"] = false;
+    service_util::getEnabled(
         asyncResp, kvmServiceName,
         nlohmann::json::json_pointer("/GraphicalConsole/ServiceEnabled"));
     asyncResp->res.jsonValue["GraphicalConsole"]["ConnectTypesSupported"] = {
@@ -3207,25 +3364,55 @@ inline void handleComputerSystemCollectionGet(
 
     nlohmann::json& ifaceArray = asyncResp->res.jsonValue["Members"];
     ifaceArray = nlohmann::json::array();
-    if constexpr (BMCWEB_EXPERIMENTAL_REDFISH_MULTI_COMPUTER_SYSTEM)
-    {
-        asyncResp->res.jsonValue["Members@odata.count"] = 0;
-        // Option currently returns no systems.  TBD
-        return;
-    }
-    asyncResp->res.jsonValue["Members@odata.count"] = 1;
-    nlohmann::json::object_t system;
-    system["@odata.id"] = boost::urls::format("/redfish/v1/Systems/{}",
-                                              BMCWEB_REDFISH_SYSTEM_URI_NAME);
-    ifaceArray.emplace_back(std::move(system));
-    if constexpr (BMCWEB_HYPERVISOR_COMPUTER_SYSTEM)
-    {
-        BMCWEB_LOG_DEBUG("Hypervisor is available");
-        asyncResp->res.jsonValue["Members@odata.count"] = 2;
 
-        nlohmann::json::object_t hypervisor;
-        hypervisor["@odata.id"] = "/redfish/v1/Systems/hypervisor";
-        ifaceArray.emplace_back(std::move(hypervisor));
+    if (system_utils::isDualHostEnabled())
+    {
+        // Query ObjectMapper for available host nodes
+        crow::connections::systemBus->async_method_call(
+            [asyncResp, &ifaceArray](const boost::system::error_code ec,
+                                     const std::vector<std::string>& paths) {
+                if (ec)
+                {
+                    BMCWEB_LOG_ERROR("DBUS error: {}", ec);
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+                asyncResp->res.jsonValue["Members@odata.count"] = paths.size();
+                for (const auto& path : paths)
+                {
+                    std::string nodeName = "system";
+                    if (path.find("host1") != std::string::npos)
+                    {
+                        nodeName = "system1";
+                    }
+                    // host0 remains as "system" (default)
+                    nlohmann::json system;
+                    system["@odata.id"] =
+                        boost::urls::format("/redfish/v1/Systems/{}", nodeName);
+                    ifaceArray.emplace_back(std::move(system));
+                }
+            },
+            "xyz.openbmc_project.ObjectMapper",
+            "/xyz/openbmc_project/object_mapper",
+            "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
+            "/xyz/openbmc_project/state", 1,
+            std::vector<std::string>{hostStateInterface});
+    }
+    else
+    {
+        asyncResp->res.jsonValue["Members@odata.count"] = 1;
+        nlohmann::json::object_t system;
+        system["@odata.id"] = boost::urls::format(
+            "/redfish/v1/Systems/{}", BMCWEB_REDFISH_SYSTEM_URI_NAME);
+        ifaceArray.emplace_back(std::move(system));
+        if constexpr (BMCWEB_HYPERVISOR_COMPUTER_SYSTEM)
+        {
+            BMCWEB_LOG_DEBUG("Hypervisor is available");
+            asyncResp->res.jsonValue["Members@odata.count"] = 2;
+            nlohmann::json::object_t hypervisor;
+            hypervisor["@odata.id"] = "/redfish/v1/Systems/hypervisor";
+            ifaceArray.emplace_back(std::move(hypervisor));
+        }
     }
 }
 
@@ -3481,10 +3668,9 @@ void createSystemMaintenanceWindowTask(
             std::string index = std::to_string(taskData->index);
             msg.read(iface, values);
 
-            const char* processName = "xyz.openbmc_project.State.Host0";
-            const char* objectPath = "/xyz/openbmc_project/state/host0";
-            const char* interfaceName =
-                "xyz.openbmc_project.State.OperatingSystem.Status";
+            const char* processName = timeoutService;
+            const char* objectPath = singleHostPath;
+            const char* interfaceName = timeoutInterface;
             const char* propName = "PowerTransitionTimeOut";
 
             auto chassis_Value = getPowerTransitionTimeOut(
@@ -3790,10 +3976,8 @@ inline void setHostTransitionTimer(
                 messages::internalError(asyncResp->res);
             }
         },
-        "xyz.openbmc_project.State.Host0", "/xyz/openbmc_project/state/host0",
-        "org.freedesktop.DBus.Properties", "Set",
-        "xyz.openbmc_project.State.OperatingSystem.Status",
-        "HostTransitionTimeOut",
+        timeoutService, singleHostPath, "org.freedesktop.DBus.Properties",
+        "Set", timeoutInterface, "HostTransitionTimeOut",
         dbus::utility::DbusVariantType(hostTransitionTimeOut));
 }
 
@@ -3862,9 +4046,12 @@ inline void handleSystemActionResetError(
 
 inline void systemResetAction(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& resetType)
+    const std::string& resetType, const std::string& hostService,
+    const std::string& hostPath, const std::string& chassisService,
+    const std::string& chassisPath)
 {
-    BMCWEB_LOG_ERROR("systemResetAction");
+    BMCWEB_LOG_ERROR("systemResetAction - hostService: {}, hostPath: {}",
+                     hostService, hostPath);
 
     std::string command;
     bool hostCommand = true;
@@ -3916,10 +4103,8 @@ inline void systemResetAction(
     if (hostCommand)
     {
         sdbusplus::asio::setProperty(
-            *crow::connections::systemBus, "xyz.openbmc_project.State.Host",
-            "/xyz/openbmc_project/state/host0",
-            "xyz.openbmc_project.State.Host", "RequestedHostTransition",
-            command,
+            *crow::connections::systemBus, hostService, hostPath,
+            hostStateInterface, "RequestedHostTransition", command,
             [asyncResp, resetType](const boost::system::error_code& ec,
                                    sdbusplus::message_t& sdbusErrMsg) {
                 if (ec)
@@ -3934,10 +4119,8 @@ inline void systemResetAction(
     else
     {
         sdbusplus::asio::setProperty(
-            *crow::connections::systemBus, "xyz.openbmc_project.State.Chassis",
-            "/xyz/openbmc_project/state/chassis0",
-            "xyz.openbmc_project.State.Chassis", "RequestedPowerTransition",
-            command,
+            *crow::connections::systemBus, chassisService, chassisPath,
+            chassisStateInterface, "RequestedPowerTransition", command,
             [asyncResp, resetType](const boost::system::error_code& ec,
                                    sdbusplus::message_t& sdbusErrMsg) {
                 if (ec)
@@ -3960,131 +4143,131 @@ inline void handleComputerSystemResetActionPost(
         return;
     }
 
-    if constexpr (BMCWEB_HYPERVISOR_COMPUTER_SYSTEM)
+    if (system_utils::isDualHostEnabled())
     {
-        if (systemName == "hypervisor")
+        // Dual node code
+        // Map systemName to D-Bus host and chassis objects
+        std::string hostService, hostPath, chassisService, chassisPath;
+        if (systemName == "system1")
         {
-            handleHypervisorSystemResetPost(req, asyncResp);
+            // "system1" maps to Host2/Chassis2 in dual-node mode
+            hostService = host2Service;
+            hostPath = host2Path;
+            chassisService = chassis2Service;
+            chassisPath = chassis2Path;
+        }
+        else if (systemName == "system")
+        {
+            // "system" (default) maps to Host1/Chassis1 in dual-node mode
+            hostService = host1Service;
+            hostPath = host1Path;
+            chassisService = chassis1Service;
+            chassisPath = chassis1Path;
+        }
+        else
+        {
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
             return;
         }
-    }
 
-    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
-    {
-        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                   systemName);
-        return;
-    }
-    if constexpr (BMCWEB_EXPERIMENTAL_REDFISH_MULTI_COMPUTER_SYSTEM)
-    {
-        // Option currently returns no systems.  TBD
-        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                   systemName);
-        return;
-    }
-
-    const char* process_Name = "xyz.openbmc_project.State.Host";
-    const char* interface_Name = "xyz.openbmc_project.State.Host";
-    const char* propertyName = "CurrentHostState";
-    const char* object_Path = "/xyz/openbmc_project/state/host0";
-
-    const char* processName = "xyz.openbmc_project.State.Host0";
-    const char* objectPath = "/xyz/openbmc_project/state/host0";
-    const char* interfaceName =
-        "xyz.openbmc_project.State.OperatingSystem.Status";
-    const char* propName = "PowerTransitionTimeOut";
-    const char* prop_Name = "HostTransitionTimeOut";
-
-    std::string resetType;
-    std::optional<std::string> operationApplyTime;
-    std::optional<std::string> maintenanceWindowStartTime;
-    std::string startTime;
-
-    task::Payload payload(req);
-
-    // Current BMC Timezone
-    std::string redfishDateTimeOffset =
-        redfish::time_utils::getDateTimeOffsetNow().first;
-
-    auto host_Value = getHostTransitionTimeOut(processName, objectPath,
-                                               interfaceName, prop_Name);
-
-    auto requestedHostTransition = std::get<uint64_t>(host_Value);
-
-    auto chassis_Value = getPowerTransitionTimeOut(processName, objectPath,
-                                                   interfaceName, propName);
-    auto requestedPowerTransition = std::get<uint64_t>(chassis_Value);
-
-    auto value =
-        getHostState(process_Name, object_Path, interface_Name, propertyName);
-    auto reqHostState = std::get<std::string>(value);
-
-    if (!json_util::readJsonAction(                                  //
-            req, asyncResp->res,                                     //
-            "ResetType", resetType,                                  //
-            "OperationApplyTime", operationApplyTime,                //
-            "MaintenanceWindowStartTime", maintenanceWindowStartTime //
-            ))
-    {
-        return;
-    }
-
-    if ((resetType != "On") && (resetType != "ForceOn") &&
-        (resetType != "ForceOff") && (resetType != "ForceRestart") &&
-        (resetType != "GracefulShutdown") && (resetType != "GracefulRestart") &&
-        (resetType != "PowerCycle"))
-    {
-        messages::actionParameterNotSupported(asyncResp->res, resetType,
-                                              "ResetType");
-        return;
-    }
-
-    // To provide as a stringstream object
-    startTime = *maintenanceWindowStartTime;
-
-    if ((resetType == "On") || (resetType == "ForceOn"))
-    {
-        // Log DCPowerOn when the host is powered ON
-        std::string severity =
-            "xyz.openbmc_project.Logging.Entry.Level.Warning";
-        auto bus = sdbusplus::bus::new_default_system();
-        sdbusplus::message::message m = bus.new_method_call(
-            "xyz.openbmc_project.Logging", "/xyz/openbmc_project/logging",
-            "xyz.openbmc_project.Logging.Create", "Create");
-        std::string journalMsg = "DCPowerOn"; // Logging power ON
-        m.append(journalMsg, severity, std::map<std::string, std::string>());
-        try
+        std::string resetType;
+        if (!json_util::readJsonAction(req, asyncResp->res, "ResetType",
+                                       resetType))
         {
-            bus.call(m);
-        }
-        catch (const sdbusplus::exception_t& e)
-        {
-            std::cerr << "Failed to create log entry: " << e.what()
-                      << std::endl;
-        }
-
-        if (reqHostState == "xyz.openbmc_project.State.Host.HostState.Running")
-        {
-            BMCWEB_LOG_ERROR(" Host is in Standby state");
-            messages::noOperation(asyncResp->res);
             return;
         }
-    }
 
-    else if (resetType == "ForceOff" || resetType == "ForceRestart" ||
-             resetType == "GracefulShutdown" ||
-             resetType == "GracefulRestart" || resetType == "PowerCycle")
+        // Use the refactored systemResetAction with node-specific paths
+        systemResetAction(asyncResp, resetType, hostService, hostPath,
+                          chassisService, chassisPath);
+        messages::success(asyncResp->res);
+    }
+    else
     {
-        if (reqHostState != "xyz.openbmc_project.State.Host.HostState.Running")
+        // Single node code
+        if constexpr (BMCWEB_HYPERVISOR_COMPUTER_SYSTEM)
         {
-            // Log DCPowerOff when the host is powered OFF
+            if (systemName == "hypervisor")
+            {
+                handleHypervisorSystemResetPost(req, asyncResp);
+                return;
+            }
+        }
+
+        if (!system_utils::validateSystemName(asyncResp, systemName))
+        {
+            return;
+        }
+        if constexpr (BMCWEB_EXPERIMENTAL_REDFISH_MULTI_COMPUTER_SYSTEM)
+        {
+            // Option currently returns no systems.  TBD
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
+            return;
+        }
+
+        std::string resetType;
+        std::optional<std::string> operationApplyTime;
+        std::optional<std::string> maintenanceWindowStartTime;
+        std::string startTime;
+
+        task::Payload payload(req);
+
+        // Current BMC Timezone
+        std::string redfishDateTimeOffset =
+            redfish::time_utils::getDateTimeOffsetNow().first;
+
+        auto host_Value =
+            getHostTransitionTimeOut(timeoutService, singleHostPath,
+                                     timeoutInterface, "HostTransitionTimeOut");
+
+        auto requestedHostTransition = std::get<uint64_t>(host_Value);
+
+        auto chassis_Value = getPowerTransitionTimeOut(
+            timeoutService, singleHostPath, timeoutInterface,
+            "PowerTransitionTimeOut");
+        auto requestedPowerTransition = std::get<uint64_t>(chassis_Value);
+
+        // Get current host state synchronously for validation
+        auto value =
+            getHostTransitionTimeOut(hostStateService, singleHostPath,
+                                     hostStateInterface, "CurrentHostState");
+        auto reqHostState = std::get<std::string>(value);
+
+        if (!json_util::readJsonAction(                                  //
+                req, asyncResp->res,                                     //
+                "ResetType", resetType,                                  //
+                "OperationApplyTime", operationApplyTime,                //
+                "MaintenanceWindowStartTime", maintenanceWindowStartTime //
+                ))
+        {
+            return;
+        }
+
+        if ((resetType != "On") && (resetType != "ForceOn") &&
+            (resetType != "ForceOff") && (resetType != "ForceRestart") &&
+            (resetType != "GracefulShutdown") &&
+            (resetType != "GracefulRestart") && (resetType != "PowerCycle"))
+        {
+            messages::actionParameterNotSupported(asyncResp->res, resetType,
+                                                  "ResetType");
+            return;
+        }
+
+        // To provide as a stringstream object
+        startTime = *maintenanceWindowStartTime;
+
+        if ((resetType == "On") || (resetType == "ForceOn"))
+        {
+            // Log DCPowerOn when the host is powered ON
             std::string severity =
                 "xyz.openbmc_project.Logging.Entry.Level.Warning";
             auto bus = sdbusplus::bus::new_default_system();
             sdbusplus::message::message m = bus.new_method_call(
                 "xyz.openbmc_project.Logging", "/xyz/openbmc_project/logging",
                 "xyz.openbmc_project.Logging.Create", "Create");
-            std::string journalMsg = "DCPowerOff"; // Logging power OFF
+            std::string journalMsg = "DCPowerOn"; // Logging power ON
             m.append(journalMsg, severity,
                      std::map<std::string, std::string>());
             try
@@ -4097,123 +4280,173 @@ inline void handleComputerSystemResetActionPost(
                           << std::endl;
             }
 
-            messages::noOperation(asyncResp->res);
-            return;
-        }
-    }
-
-    if (!(resetType.empty()) && !operationApplyTime &&
-        !maintenanceWindowStartTime)
-    {
-        systemResetAction(asyncResp, resetType);
-        messages::success(asyncResp->res);
-        return;
-    }
-
-    if (operationApplyTime == "Immediate")
-    {
-        BMCWEB_LOG_ERROR("Immediate Reset");
-        if (!(maintenanceWindowStartTime))
-        {
-            SystemsImmediateResetTask(asyncResp, std::move(payload), resetType);
-            systemResetAction(asyncResp, resetType);
-            return;
-        }
-
-        else
-        {
-            BMCWEB_LOG_ERROR("Invalid Property for Immediate reboot");
-            messages::actionParameterNotSupported(
-                asyncResp->res, "MaintenanceWindowStartTime", "Immediate");
-            return;
-        }
-    }
-
-    else if (operationApplyTime == "AtMaintenanceWindowStart")
-    {
-        if (maintenanceWindowStartTime)
-        {
-            if (maintenanceWindowStartTime <= redfishDateTimeOffset)
+            if (reqHostState ==
+                "xyz.openbmc_project.State.Host.HostState.Running")
             {
-                BMCWEB_LOG_ERROR(
-                    "maintenanceWindowStartTime less than redfishDateTimeOffset");
-                messages::propertyValueIncorrect(
-                    asyncResp->res, "AtMaintenanceWindowStartTime", startTime);
+                BMCWEB_LOG_ERROR(" Host is in Standby state");
+                messages::noOperation(asyncResp->res);
                 return;
             }
+        }
 
-            std::stringstream stream1(startTime);
-            boost::posix_time::ptime posixTime_1;
-
-            // Facet gets deleted with the stringsteam
-            auto ifc1 =
-                std::make_unique<boost::local_time::local_time_input_facet>(
-                    "%Y-%m-%d %H:%M:%S%F %ZP");
-            stream1.imbue(std::locale(stream1.getloc(), ifc1.release()));
-            boost::local_time::local_date_time ldt1(
-                boost::local_time::not_a_date_time);
-
-            if (stream1 >> ldt1)
+        else if (resetType == "ForceOff" || resetType == "ForceRestart" ||
+                 resetType == "GracefulShutdown" ||
+                 resetType == "GracefulRestart" || resetType == "PowerCycle")
+        {
+            if (reqHostState !=
+                "xyz.openbmc_project.State.Host.HostState.Running")
             {
-                posixTime_1 = ldt1.utc_time();
+                // Log DCPowerOff when the host is powered OFF
+                std::string severity =
+                    "xyz.openbmc_project.Logging.Entry.Level.Warning";
+                auto bus = sdbusplus::bus::new_default_system();
+                sdbusplus::message::message m = bus.new_method_call(
+                    "xyz.openbmc_project.Logging",
+                    "/xyz/openbmc_project/logging",
+                    "xyz.openbmc_project.Logging.Create", "Create");
+                std::string journalMsg = "DCPowerOff"; // Logging power OFF
+                m.append(journalMsg, severity,
+                         std::map<std::string, std::string>());
+                try
+                {
+                    bus.call(m);
+                }
+                catch (const sdbusplus::exception_t& e)
+                {
+                    std::cerr << "Failed to create log entry: " << e.what()
+                              << std::endl;
+                }
+
+                messages::noOperation(asyncResp->res);
+                return;
+            }
+        }
+
+        if (!(resetType.empty()) && !operationApplyTime &&
+            !maintenanceWindowStartTime)
+        {
+            systemResetAction(asyncResp, resetType, hostStateService,
+                              singleHostPath, chassisStateService,
+                              singleChassisPath);
+            messages::success(asyncResp->res);
+            return;
+        }
+
+        if (operationApplyTime == "Immediate")
+        {
+            BMCWEB_LOG_ERROR("Immediate Reset");
+            if (!(maintenanceWindowStartTime))
+            {
+                SystemsImmediateResetTask(asyncResp, std::move(payload),
+                                          resetType);
+                systemResetAction(asyncResp, resetType, hostStateService,
+                                  singleHostPath, chassisStateService,
+                                  singleChassisPath);
+                return;
             }
 
             else
             {
-                BMCWEB_LOG_ERROR("MaintenanceWindowStartTime Format Error");
-                messages::propertyValueFormatError(
-                    asyncResp->res, startTime, "MaintenanceWindowStartTime");
+                BMCWEB_LOG_ERROR("Invalid Property for Immediate reboot");
+                messages::actionParameterNotSupported(
+                    asyncResp->res, "MaintenanceWindowStartTime", "Immediate");
                 return;
             }
+        }
 
-            // Difference of BMCTime and MaintenanceWindowStartTime
-            uint64_t timeOut =
-                handleSystemsDifferenceTime(posixTime_1, redfishDateTimeOffset);
-
-            if (resetType == "ForceOff")
+        else if (operationApplyTime == "AtMaintenanceWindowStart")
+        {
+            if (maintenanceWindowStartTime)
             {
-                if (requestedPowerTransition != 0)
+                if (maintenanceWindowStartTime <= redfishDateTimeOffset)
                 {
-                    messages::resourceInUse(asyncResp->res);
+                    BMCWEB_LOG_ERROR(
+                        "maintenanceWindowStartTime less than redfishDateTimeOffset");
+                    messages::propertyValueIncorrect(
+                        asyncResp->res, "AtMaintenanceWindowStartTime",
+                        startTime);
                     return;
                 }
 
-                setSystemsPowerTransitionTimer(asyncResp, timeOut);
-                createSystemMaintenanceWindowTask(asyncResp, std::move(payload),
-                                                  resetType);
-                systemResetAction(asyncResp, resetType);
-                return;
-            }
+                std::stringstream stream1(startTime);
+                boost::posix_time::ptime posixTime_1;
 
-            if (resetType != "ForceOff")
-            {
-                if (requestedHostTransition != 0)
+                // Facet gets deleted with the stringsteam
+                auto ifc1 =
+                    std::make_unique<boost::local_time::local_time_input_facet>(
+                        "%Y-%m-%d %H:%M:%S%F %ZP");
+                stream1.imbue(std::locale(stream1.getloc(), ifc1.release()));
+                boost::local_time::local_date_time ldt1(
+                    boost::local_time::not_a_date_time);
+
+                if (stream1 >> ldt1)
                 {
-                    messages::resourceInUse(asyncResp->res);
+                    posixTime_1 = ldt1.utc_time();
+                }
+
+                else
+                {
+                    BMCWEB_LOG_ERROR("MaintenanceWindowStartTime Format Error");
+                    messages::propertyValueFormatError(
+                        asyncResp->res, startTime,
+                        "MaintenanceWindowStartTime");
                     return;
                 }
 
-                setHostTransitionTimer(asyncResp, timeOut);
-                createResetMaintenanceWindowTask(asyncResp, std::move(payload),
-                                                 resetType);
-                systemResetAction(asyncResp, resetType);
+                // Difference of BMCTime and MaintenanceWindowStartTime
+                uint64_t timeOut = handleSystemsDifferenceTime(
+                    posixTime_1, redfishDateTimeOffset);
+
+                if (resetType == "ForceOff")
+                {
+                    if (requestedPowerTransition != 0)
+                    {
+                        messages::resourceInUse(asyncResp->res);
+                        return;
+                    }
+
+                    setSystemsPowerTransitionTimer(asyncResp, timeOut);
+                    createSystemMaintenanceWindowTask(
+                        asyncResp, std::move(payload), resetType);
+                    systemResetAction(asyncResp, resetType, hostStateService,
+                                      singleHostPath, chassisStateService,
+                                      singleChassisPath);
+                    return;
+                }
+
+                if (resetType != "ForceOff")
+                {
+                    if (requestedHostTransition != 0)
+                    {
+                        messages::resourceInUse(asyncResp->res);
+                        return;
+                    }
+
+                    setHostTransitionTimer(asyncResp, timeOut);
+                    createResetMaintenanceWindowTask(
+                        asyncResp, std::move(payload), resetType);
+                    systemResetAction(asyncResp, resetType, hostStateService,
+                                      singleHostPath, chassisStateService,
+                                      singleChassisPath);
+                    return;
+                }
+            }
+            else
+            {
+                BMCWEB_LOG_ERROR(
+                    "Missing Property AtMaintenanceWindowStartTime");
+                messages::actionParameterMissing(
+                    asyncResp->res, "Reset", "AtMaintenanceWindowStartTime");
                 return;
             }
         }
         else
         {
-            BMCWEB_LOG_ERROR("Missing Property AtMaintenanceWindowStartTime");
-            messages::actionParameterMissing(asyncResp->res, "Reset",
-                                             "AtMaintenanceWindowStartTime");
+            BMCWEB_LOG_ERROR("Missing Property OperationApplyTime");
+            messages::actionParameterNotSupported(
+                asyncResp->res, *operationApplyTime, "OperationApplyTime");
             return;
         }
-    }
-    else
-    {
-        BMCWEB_LOG_ERROR("Missing Property OperationApplyTime");
-        messages::actionParameterNotSupported(
-            asyncResp->res, *operationApplyTime, "OperationApplyTime");
-        return;
     }
 }
 
@@ -4304,79 +4537,82 @@ inline void handleComputerSystemGet(
         }
     }
 
-    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    if (system_utils::isDualHostEnabled())
     {
-        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                   systemName);
-        return;
+        // For dual node, accept system and system1
+        if (systemName != "system" && systemName != "system1")
+        {
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
+            return;
+        }
     }
+    else
+    {
+        if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+        {
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
+            return;
+        }
+    }
+
     asyncResp->res.addHeader(
         boost::beast::http::field::link,
         "</redfish/v1/JsonSchemas/ComputerSystem/ComputerSystem.json>; rel=describedby");
     asyncResp->res.jsonValue["@odata.type"] =
         json_util::odataType("ComputerSystem");
-    asyncResp->res.jsonValue["Name"] = BMCWEB_REDFISH_SYSTEM_URI_NAME;
-    asyncResp->res.jsonValue["Id"] = BMCWEB_REDFISH_SYSTEM_URI_NAME;
+    asyncResp->res.jsonValue["Name"] = systemName;
+    asyncResp->res.jsonValue["Id"] = systemName;
+    asyncResp->res.jsonValue["@odata.id"] =
+        boost::urls::format("/redfish/v1/Systems/{}", systemName);
+
+    // Common properties for both dual node and single node
     asyncResp->res.jsonValue["SystemType"] =
         computer_system::SystemType::Physical;
     asyncResp->res.jsonValue["Description"] = "Computer System";
-    asyncResp->res.jsonValue["ProcessorSummary"]["Count"] = 0;
-    asyncResp->res.jsonValue["MemorySummary"]["TotalSystemMemoryGiB"] =
-        double(0);
-    asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
-        "/redfish/v1/Systems/{}", BMCWEB_REDFISH_SYSTEM_URI_NAME);
-
-    asyncResp->res.jsonValue["Processors"]["@odata.id"] = boost::urls::format(
-        "/redfish/v1/Systems/{}/Processors", BMCWEB_REDFISH_SYSTEM_URI_NAME);
-    asyncResp->res.jsonValue["Memory"]["@odata.id"] = boost::urls::format(
-        "/redfish/v1/Systems/{}/Memory", BMCWEB_REDFISH_SYSTEM_URI_NAME);
-    asyncResp->res.jsonValue["Storage"]["@odata.id"] = boost::urls::format(
-        "/redfish/v1/Systems/{}/Storage", BMCWEB_REDFISH_SYSTEM_URI_NAME);
-    asyncResp->res.jsonValue["FabricAdapters"]["@odata.id"] =
-        boost::urls::format("/redfish/v1/Systems/{}/FabricAdapters",
-                            BMCWEB_REDFISH_SYSTEM_URI_NAME);
-#ifdef ONETREE_NIC
-    asyncResp->res.jsonValue["NetworkInterfaces"]["@odata.id"] =
-        boost::urls::format("/redfish/v1/Systems/{}/NetworkInterfaces",
-                            BMCWEB_REDFISH_SYSTEM_URI_NAME);
-#endif
 
     asyncResp->res.jsonValue["Actions"]["#ComputerSystem.Reset"]["target"] =
         boost::urls::format(
-            "/redfish/v1/Systems/{}/Actions/ComputerSystem.Reset",
-            BMCWEB_REDFISH_SYSTEM_URI_NAME);
+            "/redfish/v1/Systems/{}/Actions/ComputerSystem.Reset", systemName);
     asyncResp->res
         .jsonValue["Actions"]["#ComputerSystem.Reset"]["@Redfish.ActionInfo"] =
         boost::urls::format("/redfish/v1/Systems/{}/ResetActionInfo",
-                            BMCWEB_REDFISH_SYSTEM_URI_NAME);
+                            systemName);
 
-    asyncResp->res.jsonValue["LogServices"]["@odata.id"] = boost::urls::format(
-        "/redfish/v1/Systems/{}/LogServices", BMCWEB_REDFISH_SYSTEM_URI_NAME);
-    asyncResp->res.jsonValue["Bios"]["@odata.id"] = boost::urls::format(
-        "/redfish/v1/Systems/{}/Bios", BMCWEB_REDFISH_SYSTEM_URI_NAME);
+    asyncResp->res.jsonValue["LogServices"]["@odata.id"] =
+        boost::urls::format("/redfish/v1/Systems/{}/LogServices", systemName);
+
+    asyncResp->res.jsonValue["Storage"]["@odata.id"] =
+        boost::urls::format("/redfish/v1/Systems/{}/Storage", systemName);
 
     nlohmann::json::array_t managedBy;
     nlohmann::json& manager = managedBy.emplace_back();
     manager["@odata.id"] = boost::urls::format("/redfish/v1/Managers/{}",
                                                BMCWEB_REDFISH_MANAGER_URI_NAME);
     asyncResp->res.jsonValue["Links"]["ManagedBy"] = std::move(managedBy);
+
     asyncResp->res.jsonValue["Status"]["Health"] = resource::Health::OK;
-    asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
 
-    // Fill in SerialConsole info
-    asyncResp->res.jsonValue["SerialConsole"]["MaxConcurrentSessions"] = 1;
+    // SerialConsole - common setup
+    asyncResp->res.jsonValue["SerialConsole"]["MaxConcurrentSessions"] = 15;
     asyncResp->res.jsonValue["SerialConsole"]["IPMI"]["ServiceEnabled"] = true;
+    if constexpr (BMCWEB_VM_NBDPROXY)
+    {
+        asyncResp->res.jsonValue["VirtualMedia"]["@odata.id"] =
+            boost::urls::format("/redfish/v1/Systems/{}/VirtualMedia",
+                                systemName);
+    }
 
-    // SSH and IPMI service management now uses the D-Bus service
-    // "xyz.openbmc_project.Control.Service.Manager" for direct service control,
-    // replacing previous systemd socket unit via "org.freedesktop.systemd1"
-    // service.
-    // getPortStatusAndPath(std::span{protocolToDBusForSystems},
-    //                      std::bind_front(afterPortRequest, asyncResp));
+#if (BMCWEB_AMI_NIC_MACRO)
+    asyncResp->res.jsonValue["NetworkInterfaces"]["@odata.id"] =
+        boost::urls::format("/redfish/v1/Systems/{}/NetworkInterfaces",
+                            systemName);
+#endif
 
 #ifdef BMCWEB_VM_NBDPROXY
-    asyncResp->res.jsonValue["VirtualMedia"] = {
-        {"@odata.id", "/redfish/v1/Managers/bmc/VirtualMedia"}};
+    asyncResp->res.jsonValue["VirtualMedia"] =
+        boost::urls::format("/redfish/v1/Systems/{}/VirtualMedia", systemName);
 #endif
 #ifndef ONETREE_RM
     getMainChassisId(
@@ -4389,33 +4625,67 @@ inline void handleComputerSystemGet(
             aRsp->res.jsonValue["Links"]["Chassis"] = std::move(chassisArray);
         });
 #endif
-    getSystemLocationIndicatorActive(asyncResp);
-    // TODO (Gunnar): Remove IndicatorLED after enough time has passed
-    // getIndicatorLedState(asyncResp);
+
     getPhysicalLedState(asyncResp);
-    getComputerSystem(asyncResp);
-    getHostState(asyncResp);
-    getBootProperties(asyncResp);
-    getBootProgress(asyncResp);
-    getBootProgressLastStateTime(asyncResp);
-    getCPLDBootProgress(asyncResp);
-    pcie_util::getPCIeDeviceList(asyncResp,
-                                 nlohmann::json::json_pointer("/PCIeDevices"));
-    getHostWatchdogTimer(asyncResp);
+    getHostWatchdogTimer(asyncResp, systemName);
     getPowerRestorePolicy(asyncResp);
-    getStopBootOnFault(asyncResp);
-    getAutomaticRetryPolicy(asyncResp);
-    getLastResetTime(asyncResp);
-    if constexpr (BMCWEB_REDFISH_PROVISIONING_FEATURE)
+    getKvmConfig(asyncResp, systemName);
+    getVirtualMediaConfig(asyncResp, systemName);
+    getHostState(asyncResp, systemName);
+    getLastResetTime(asyncResp, systemName);
+
+    if (system_utils::isDualHostEnabled())
     {
-        getProvisioningStatus(asyncResp);
+        // Dual node mode: minimal response, return early
+        return;
     }
-    getTrustedModuleRequiredToBoot(asyncResp);
-    getPowerMode(asyncResp);
-    getIdlePowerSaver(asyncResp);
-    getSerialConsoleSshStatus(asyncResp);
-    getKvmConfig(asyncResp);
-    getVirtualMediaConfig(asyncResp);
+    else
+    {
+        // Single node mode: additional properties and full feature set
+        asyncResp->res.jsonValue["ProcessorSummary"]["Count"] = 0;
+        asyncResp->res.jsonValue["MemorySummary"]["TotalSystemMemoryGiB"] =
+            double(0);
+        asyncResp->res.jsonValue["@odata.id"] =
+            boost::urls::format("/redfish/v1/Systems/{}", systemName);
+
+        asyncResp->res.jsonValue["Processors"]["@odata.id"] =
+            boost::urls::format("/redfish/v1/Systems/{}/Processors",
+                                systemName);
+        asyncResp->res.jsonValue["Memory"]["@odata.id"] =
+            boost::urls::format("/redfish/v1/Systems/{}/Memory", systemName);
+        asyncResp->res.jsonValue["Storage"]["@odata.id"] =
+            boost::urls::format("/redfish/v1/Systems/{}/Storage", systemName);
+        asyncResp->res.jsonValue["FabricAdapters"]["@odata.id"] =
+            boost::urls::format("/redfish/v1/Systems/{}/FabricAdapters",
+                                systemName);
+#ifdef ONETREE_NIC
+        asyncResp->res.jsonValue["NetworkInterfaces"]["@odata.id"] =
+            boost::urls::format("/redfish/v1/Systems/{}/NetworkInterfaces",
+                                systemName);
+#endif
+
+        asyncResp->res.jsonValue["Bios"]["@odata.id"] =
+            boost::urls::format("/redfish/v1/Systems/{}/Bios", systemName);
+
+        getSystemLocationIndicatorActive(asyncResp);
+        getComputerSystem(asyncResp);
+        getBootProperties(asyncResp);
+        getBootProgress(asyncResp);
+        getBootProgressLastStateTime(asyncResp);
+        getCPLDBootProgress(asyncResp);
+        pcie_util::getPCIeDeviceList(
+            asyncResp, nlohmann::json::json_pointer("/PCIeDevices"));
+        getStopBootOnFault(asyncResp);
+        getAutomaticRetryPolicy(asyncResp);
+        if constexpr (BMCWEB_REDFISH_PROVISIONING_FEATURE)
+        {
+            getProvisioningStatus(asyncResp);
+        }
+        getTrustedModuleRequiredToBoot(asyncResp);
+        getPowerMode(asyncResp);
+        getIdlePowerSaver(asyncResp);
+        getSerialConsoleSshStatus(asyncResp);
+    }
 }
 
 inline void handleComputerSystemPatch(
@@ -4439,10 +4709,8 @@ inline void handleComputerSystemPatch(
                                    systemName);
         return;
     }
-    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    if (!system_utils::validateSystemName(asyncResp, systemName))
     {
-        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                   systemName);
         return;
     }
     asyncResp->res.addHeader(
@@ -4515,6 +4783,7 @@ inline void handleComputerSystemPatch(
     }
     // clang-format on
     asyncResp->res.result(boost::beast::http::status::no_content);
+
     if (assetTag)
     {
         setAssetTag(asyncResp, *assetTag);
@@ -4522,7 +4791,7 @@ inline void handleComputerSystemPatch(
 
     if (wdtEnable || wdtTimeOutAction)
     {
-        setWDTProperties(asyncResp, wdtEnable, wdtTimeOutAction);
+        setWDTProperties(asyncResp, wdtEnable, wdtTimeOutAction, systemName);
     }
 
     if (bootSource || bootType || bootEnable)
@@ -4595,7 +4864,7 @@ inline void handleComputerSystemPatch(
 
         if (kvmServiceEnabled)
         {
-            service_util::setEnabled(asyncResp, kvmServiceName,
+            service_util::setEnabled(asyncResp, getKvmServiceName(systemName),
                                      *kvmServiceEnabled);
         }
     }
@@ -4651,7 +4920,8 @@ inline void handleComputerSystemPatch(
 
         if (vmServiceEnabled)
         {
-            service_util::setEnabled(asyncResp, virtualMediaServiceName,
+            service_util::setEnabled(asyncResp,
+                                     getVirtualMediaServiceName(systemName),
                                      *vmServiceEnabled);
         }
     }
@@ -4816,7 +5086,8 @@ inline void handleComputerSystemPatch(
 
                 if (masked)
                 {
-                    service_util::setMasked(asyncResp, kvmServiceName, *masked);
+                    service_util::setMasked(
+                        asyncResp, getKvmServiceName(systemName), *masked);
                 }
             }
 
@@ -4832,8 +5103,9 @@ inline void handleComputerSystemPatch(
 
                 if (masked)
                 {
-                    service_util::setMasked(asyncResp, virtualMediaServiceName,
-                                            *masked);
+                    service_util::setMasked(
+                        asyncResp, getVirtualMediaServiceName(systemName),
+                        *masked);
                 }
             }
         }
@@ -4854,8 +5126,50 @@ inline void handleSystemCollectionResetActionHead(
         "</redfish/v1/JsonSchemas/ActionInfo/ActionInfo.json>; rel=describedby");
 }
 
+/**
+ * @brief Translates allowed host transitions to redfish string
+ *
+ * @param[in]  dbusAllowedHostTran The allowed host transition on dbus
+ * @param[out] allowableValues     The translated host transition(s)
+ *
+ * @return Emplaces corresponding Redfish translated value(s) in
+ * allowableValues. If translation not possible, does nothing to
+ * allowableValues.
+ */
+inline void dbusToRfAllowedHostTransitions(
+    const std::string& dbusAllowedHostTran,
+    nlohmann::json::array_t& allowableValues)
+{
+    if (dbusAllowedHostTran == "xyz.openbmc_project.State.Host.Transition.On")
+    {
+        allowableValues.emplace_back(resource::ResetType::On);
+        allowableValues.emplace_back(resource::ResetType::ForceOn);
+    }
+    else if (dbusAllowedHostTran ==
+             "xyz.openbmc_project.State.Host.Transition.Off")
+    {
+        allowableValues.emplace_back(resource::ResetType::GracefulShutdown);
+    }
+    else if (dbusAllowedHostTran ==
+             "xyz.openbmc_project.State.Host.Transition.GracefulWarmReboot")
+    {
+        allowableValues.emplace_back(resource::ResetType::GracefulRestart);
+    }
+    else if (dbusAllowedHostTran ==
+             "xyz.openbmc_project.State.Host.Transition.ForceWarmReboot")
+    {
+        allowableValues.emplace_back(resource::ResetType::ForceRestart);
+    }
+    else
+    {
+        BMCWEB_LOG_WARNING("Unsupported host tran {}", dbusAllowedHostTran);
+    }
+}
+
 inline void afterGetAllowedHostTransitions(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec,
+    const std::vector<std::string>& allowedHostTransitions)
 {
     nlohmann::json::array_t allowableValues;
 
@@ -4868,6 +5182,21 @@ inline void afterGetAllowedHostTransitions(
     allowableValues.emplace_back(resource::ResetType::GracefulRestart);
     allowableValues.emplace_back(resource::ResetType::GracefulShutdown);
     //  allowableValues.emplace_back(resource::ResetType::Nmi);
+
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("DBUS response error {}", ec);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    else
+    {
+        for (const std::string& transition : allowedHostTransitions)
+        {
+            BMCWEB_LOG_DEBUG("Found allowed host tran {}", transition);
+            dbusToRfAllowedHostTransitions(transition, allowableValues);
+        }
+    }
 
     nlohmann::json::object_t parameter;
     parameter["Name"] = "ResetType";
@@ -4905,10 +5234,8 @@ inline void handleSystemCollectionResetActionGet(
         }
     }
 
-    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    if (!system_utils::validateSystemName(asyncResp, systemName))
     {
-        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                   systemName);
         return;
     }
 
@@ -4927,8 +5254,14 @@ inline void handleSystemCollectionResetActionGet(
         "This action is used to reset the Systems";
 
     // Look to see if system defines AllowedHostTransitions
-
-    afterGetAllowedHostTransitions(asyncResp);
+    dbus::utility::getProperty<std::vector<std::string>>(
+        hostStateService, singleHostPath, hostStateInterface,
+        "AllowedHostTransitions",
+        [asyncResp](const boost::system::error_code& ec,
+                    const std::vector<std::string>& allowedHostTransitions) {
+            afterGetAllowedHostTransitions(asyncResp, ec,
+                                           allowedHostTransitions);
+        });
 }
 
 inline void handleComputerSystemPostDelete(

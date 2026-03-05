@@ -564,6 +564,7 @@ inline void handleDecoratorAssetProperties(
     nlohmann::json::object_t manager;
     manager["@odata.id"] = boost::urls::format("/redfish/v1/Managers/{}",
                                                BMCWEB_REDFISH_MANAGER_URI_NAME);
+
     managedBy.emplace_back(std::move(manager));
 #ifdef ONETREE_PSM
     nlohmann::json::array_t managersInChassis = managedBy;

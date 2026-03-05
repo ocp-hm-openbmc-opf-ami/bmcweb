@@ -9,6 +9,7 @@
 #include "generated/enums/resource.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
+#include "system_utils.hpp"
 #include "utils/collection.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/pcie_util.hpp"
@@ -106,10 +107,8 @@ inline void handlePCIeDeviceCollectionGet(
                                    systemName);
         return;
     }
-    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    if (!system_utils::validateSystemName(asyncResp, systemName))
     {
-        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                   systemName);
         return;
     }
 
@@ -574,10 +573,8 @@ inline void handlePCIeDeviceGet(
                                    systemName);
         return;
     }
-    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    if (!system_utils::validateSystemName(asyncResp, systemName))
     {
-        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                   systemName);
         return;
     }
     if (!membersResponseGet(asyncResp, pcieDeviceId, "PCIeDeviceCollection"))
@@ -823,10 +820,8 @@ inline void handlePCIeFunctionGet(
                                    systemName);
         return;
     }
-    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    if (!system_utils::validateSystemName(asyncResp, systemName))
     {
-        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                   systemName);
         return;
     }
     if (!membersResponseGet(asyncResp, pcieFunctionIdStr,

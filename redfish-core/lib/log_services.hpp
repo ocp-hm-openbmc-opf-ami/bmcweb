@@ -20,6 +20,7 @@
 #include "registries/base_message_registry.hpp"
 #include "registries/openbmc_message_registry.hpp"
 #include "registries/privilege_registry.hpp"
+#include "system_utils.hpp"
 #include "task.hpp"
 #include "task_messages.hpp"
 #include "utils/dbus_event_log_entry.hpp"
@@ -488,6 +489,7 @@ inline void getDumpEntryCollection(
                 thisEntry["Id"] = entryID;
                 thisEntry["EntryType"] = "Event";
                 thisEntry["Name"] = dumpType + " Dump Entry";
+                thisEntry["Description"] = dumpType + " Dump Entry";
                 thisEntry["Created"] =
                     redfish::time_utils::getDateTimeUintUs(timestampUs);
 
@@ -583,6 +585,8 @@ inline void getDumpEntryById(
                 asyncResp->res.jsonValue["Id"] = entryID;
                 asyncResp->res.jsonValue["EntryType"] = "Event";
                 asyncResp->res.jsonValue["Name"] = dumpType + " Dump Entry";
+                asyncResp->res.jsonValue["Description"] =
+                    dumpType + " Dump Entry";
                 asyncResp->res.jsonValue["Created"] =
                     redfish::time_utils::getDateTimeUintUs(timestampUs);
 
@@ -775,10 +779,8 @@ inline void downloadEventLogEntry(
                                    systemName);
         return;
     }
-    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    if (!system_utils::validateSystemName(asyncResp, systemName))
     {
-        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                   systemName);
         return;
     }
 
@@ -1277,10 +1279,8 @@ inline void requestRoutesSystemLogServiceCollection(App& app)
                                            systemName);
                 return;
             }
-            if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+            if (!system_utils::validateSystemName(asyncResp, systemName))
             {
-                messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                           systemName);
                 return;
             }
 
@@ -1400,10 +1400,8 @@ inline void requestRoutesEventLogService(App& app)
             {
                 return;
             }
-            if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+            if (!system_utils::validateSystemName(asyncResp, systemName))
             {
-                messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                           systemName);
                 return;
             }
             asyncResp->res.jsonValue["@odata.id"] =
@@ -1447,10 +1445,8 @@ inline void handleSystemsLogServicesEventLogActionsClearPost(
     {
         return;
     }
-    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    if (!system_utils::validateSystemName(asyncResp, systemName))
     {
-        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                   systemName);
         return;
     }
 
@@ -1812,6 +1808,8 @@ inline void fillSELEntryFromPropertyMap(
         BMCWEB_REDFISH_MANAGER_URI_NAME, std::to_string(entry.Id));
     objectToFillOut["Name"] = "Managers SEL Log Entry";
     objectToFillOut["Id"] = std::to_string(entry.Id);
+    objectToFillOut["Description"] =
+        "SEL Log Entry " + std::to_string(entry.Id);
     std::string msgID, msgForm;
     LogParseError status = fillMessageEntry(entry.Message, msgID, msgForm);
     if (status != LogParseError::success)
@@ -1950,10 +1948,8 @@ inline void handleSystemsLogServiceEventLogLogEntryCollection(
                                    systemName);
         return;
     }
-    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    if (!system_utils::validateSystemName(asyncResp, systemName))
     {
-        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                   systemName);
         return;
     }
 
@@ -2059,10 +2055,8 @@ inline void handleSystemsLogServiceEventLogEntriesGet(
                                    systemName);
         return;
     }
-    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    if (!system_utils::validateSystemName(asyncResp, systemName))
     {
-        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                   systemName);
         return;
     }
     if (!membersResponseGet(asyncResp, param, "LogEntryCollection"))
@@ -2189,10 +2183,8 @@ inline void requestRoutesDBusEventLogEntryCollection(App& app)
                                                systemName);
                     return;
                 }
-                if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                if (!system_utils::validateSystemName(asyncResp, systemName))
                 {
-                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                               systemName);
                     return;
                 }
                 dBusEventLogEntryCollection(asyncResp);
@@ -2507,10 +2499,8 @@ inline void requestRoutesDBusEventLogEntry(App& app)
                                                systemName);
                     return;
                 }
-                if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                if (!system_utils::validateSystemName(asyncResp, systemName))
                 {
-                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                               systemName);
                     return;
                 }
                 if (!membersResponseGet(asyncResp, entryId,
@@ -2542,10 +2532,8 @@ inline void requestRoutesDBusEventLogEntry(App& app)
                                                systemName);
                     return;
                 }
-                if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                if (!system_utils::validateSystemName(asyncResp, systemName))
                 {
-                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                               systemName);
                     return;
                 }
                 if (!membersResponseGet(asyncResp, entryId,
@@ -2591,10 +2579,8 @@ inline void requestRoutesDBusEventLogEntry(App& app)
                                                systemName);
                     return;
                 }
-                if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                if (!system_utils::validateSystemName(asyncResp, systemName))
                 {
-                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                               systemName);
                     return;
                 }
                 if (!membersResponseGet(asyncResp, param, "LogEntryCollection"))
@@ -3272,10 +3258,8 @@ inline void handleLogServicesDumpCollectDiagnosticDataComputerSystemPost(
                                    systemName);
         return;
     }
-    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    if (!system_utils::validateSystemName(asyncResp, systemName))
     {
-        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                   systemName);
         return;
     }
     createDump(asyncResp, req, "System");
@@ -3315,10 +3299,8 @@ inline void handleLogServicesDumpClearLogComputerSystemPost(
                                    systemName);
         return;
     }
-    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    if (!system_utils::validateSystemName(asyncResp, systemName))
     {
-        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                   systemName);
         return;
     }
     clearDump(asyncResp, "System");
@@ -3745,10 +3727,8 @@ inline void requestRoutesCrashdumpService(App& app)
                                            systemName);
                 return;
             }
-            if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+            if (!system_utils::validateSystemName(asyncResp, systemName))
             {
-                messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                           systemName);
                 return;
             }
 
@@ -3809,10 +3789,8 @@ inline void requestRoutesCrashdumpService(App& app)
                                                systemName);
                     return;
                 }
-                if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                if (!system_utils::validateSystemName(asyncResp, systemName))
                 {
-                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                               systemName);
                     return;
                 }
 
@@ -4032,10 +4010,8 @@ void inline requestRoutesCrashdumpClear(App& app)
                                                systemName);
                     return;
                 }
-                if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                if (!system_utils::validateSystemName(asyncResp, systemName))
                 {
-                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                               systemName);
                     return;
                 }
                 crow::connections::systemBus->async_method_call(
@@ -4153,10 +4129,8 @@ inline void requestRoutesCrashdumpEntryCollection(App& app)
                                            systemName);
                 return;
             }
-            if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+            if (!system_utils::validateSystemName(asyncResp, systemName))
             {
-                messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                           systemName);
                 return;
             }
 
@@ -4232,10 +4206,8 @@ inline void requestRoutesCrashdumpEntry(App& app)
                                                systemName);
                     return;
                 }
-                if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                if (!system_utils::validateSystemName(asyncResp, systemName))
                 {
-                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                               systemName);
                     return;
                 }
                 const std::string& logID = param;
@@ -4271,10 +4243,8 @@ inline void requestRoutesCrashdumpFile(App& app)
                                                systemName);
                     return;
                 }
-                if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                if (!system_utils::validateSystemName(asyncResp, systemName))
                 {
-                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                               systemName);
                     return;
                 }
 
@@ -4381,10 +4351,8 @@ inline void requestRoutesCrashdumpCollect(App& app)
                                                systemName);
                     return;
                 }
-                if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                if (!system_utils::validateSystemName(asyncResp, systemName))
                 {
-                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                               systemName);
                     return;
                 }
 
@@ -4539,10 +4507,8 @@ inline void requestRoutesDBusLogServiceActionsClear(App& app)
                                                systemName);
                     return;
                 }
-                if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                if (!system_utils::validateSystemName(asyncResp, systemName))
                 {
-                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                               systemName);
                     return;
                 }
                 dBusEntryDelete(asyncResp, "default", "0");
@@ -4578,10 +4544,8 @@ void handleSyslogCertificatePatch(
     {
         return;
     }
-    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    if (!system_utils::validateSystemName(asyncResp, systemName))
     {
-        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                   systemName);
         return;
     }
     std::optional<uint16_t> filesize;
@@ -4786,10 +4750,8 @@ void handleSyslogCertificateGet(
     {
         return;
     }
-    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    if (!system_utils::validateSystemName(asyncResp, systemName))
     {
-        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                   systemName);
         return;
     }
     dbus::utility::getAllProperties(
@@ -5023,10 +4985,8 @@ void handleSyslogCertificateUploadAction(
     {
         return;
     }
-    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    if (!system_utils::validateSystemName(asyncResp, systemName))
     {
-        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                   systemName);
         return;
     }
     std::string_view contentType = req.getHeaderValue("Content-Type");

@@ -104,6 +104,7 @@ inline void createTimeOutTask(
             dbus::utility::DBusPropertiesMap values;
 
             std::string index = std::to_string(taskData->index);
+
             msg.read(iface, values);
 
             if (iface == "xyz.openbmc_project.State.BMC")
@@ -132,16 +133,6 @@ inline void createTimeOutTask(
                         return !task::completed;
                     }
                 }
-                /*if (timeOutValue != nullptr && *timeOutValue != 0)
-                {
-                        redfish::taskservice::setTaskState("Pending",
-                                    static_cast<size_t>( std::stoi(index)));
-                        taskData->state = "Pending";
-                        taskData->messages.emplace_back(messages::taskPaused(index));
-                        syslog(LOG_INFO, "BMC Reboot Task Pending\r\n");
-                        return !task::completed;
-                }
-                */
             }
             return !task::completed;
         },
@@ -485,31 +476,6 @@ inline void requestRoutesManagerResetAction(App& app)
         });
 }
 
-inline void handleFactoryDefaultGet(
-    crow::App& app, const crow::Request& req,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& managerId)
-{
-    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-    {
-        return;
-    }
-
-    if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
-    {
-        messages::resourceNotFound(asyncResp->res, "Manager", managerId);
-        return;
-    }
-
-    asyncResp->res.jsonValue["@odata.type"] =
-        json_util::odataType("AMIResetToDefaults");
-    asyncResp->res.jsonValue["@odata.id"] =
-        boost::urls::format("/redfish/v1/Managers/{}/Oem/Ami/ResetToDefaults",
-                            BMCWEB_REDFISH_MANAGER_URI_NAME);
-    asyncResp->res.jsonValue["Name"] = "AMI ResetToDefaults";
-    asyncResp->res.jsonValue["Id"] = "AMIResetToDefaults";
-    redfish::getPreserveConfig(asyncResp, "Managers");
-}
 inline void requestRoutesManagerResetToDefaults(App& app)
 {
     /**
@@ -624,6 +590,7 @@ inline void requestRoutesManagerResetActionInfo(App& app)
                     BMCWEB_REDFISH_MANAGER_URI_NAME);
                 asyncResp->res.jsonValue["Name"] = "Reset Action Info";
                 asyncResp->res.jsonValue["Id"] = "ResetActionInfo";
+                asyncResp->res.jsonValue["Description"] = "Reset Action Info";
                 nlohmann::json::object_t parameter;
                 parameter["Name"] = "ResetType";
                 parameter["Required"] = true;
@@ -2580,13 +2547,6 @@ inline void handleManagersInstanceGet(
     }
 #endif
 #if (!defined(ONETREE_RM)) && (!defined(ONETREE_PSM))
-    if constexpr (BMCWEB_VM_NBDPROXY)
-    {
-        asyncResp->res.jsonValue["VirtualMedia"]["@odata.id"] =
-            boost::urls::format("/redfish/v1/Managers/{}/VirtualMedia",
-                                BMCWEB_REDFISH_MANAGER_URI_NAME);
-    }
-
     // default oem data
     nlohmann::json& oem = asyncResp->res.jsonValue["Oem"];
     nlohmann::json& oemOpenbmc = oem["OpenBmc"];

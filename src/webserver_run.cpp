@@ -22,6 +22,7 @@
 #include "task.hpp"
 #include "user_monitor.hpp"
 #include "vm_websocket.hpp"
+#include "vm_websocket1.hpp"
 #include "webassets.hpp"
 
 #include <boost/asio/io_context.hpp>
@@ -108,6 +109,7 @@ int run()
     }
 
     crow::obmc_vm::requestRoutes(app);
+    crow::obmc_vm1::requestRoutes(app);
 
     if constexpr (BMCWEB_IBM_MANAGEMENT_CONSOLE)
     {

@@ -14,6 +14,7 @@
 #include <boost/container/flat_set.hpp>
 
 #include <random>
+#include <regex>
 #include <variant>
 
 namespace crow
@@ -243,6 +244,15 @@ inline void handleLogin(const crow::Request& req,
 
     if (!username.empty() && !password.empty())
     {
+        // Check for special characters before proceeding
+        const std::regex usernameRegex("^[a-zA-Z0-9_]+$");
+        if (!std::regex_match(username.begin(), username.end(), usernameRegex))
+        {
+            BMCWEB_LOG_ERROR("Username contains invalid special characters");
+            asyncResp->res.result(boost::beast::http::status::unauthorized);
+            return;
+        }
+
         int pamrc = pamAuthenticateUser(username, password, std::nullopt,
                                         req.ipAddress);
         bool isConfigureSelfOnly = pamrc == PAM_NEW_AUTHTOK_REQD;

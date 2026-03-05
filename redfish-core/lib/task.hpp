@@ -725,7 +725,8 @@ inline void requestRoutesTaskMonitor(App& app)
             });
     BMCWEB_ROUTE(app, "/redfish/v1/TaskService/TaskMonitors/<str>/")
         .methods(boost::beast::http::verb::post,
-                 boost::beast::http::verb::patch)(
+                 boost::beast::http::verb::patch,
+                 boost::beast::http::verb::put)(
             [&app](const crow::Request&,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& strParam) {
@@ -742,6 +743,12 @@ inline void requestRoutesTaskMonitor(App& app)
                         // strtoul returns 0
                         return std::to_string(task->index) == strParam;
                     });
+                if (find == task::tasks.end())
+                {
+                    messages::resourceNotFound(asyncResp->res, "Task",
+                                               strParam);
+                    return;
+                }
                 std::shared_ptr<task::TaskData>& ptr = *find;
                 std::string statusval = ptr->state;
                 if (statusval == "Completed")
@@ -828,6 +835,7 @@ inline void requestRoutesTask(App& app)
                 asyncResp->res.jsonValue["TaskMonitor"] = boost::urls::format(
                     "/redfish/v1/TaskService/TaskMonitors/{}", strParam);
             }
+
             asyncResp->res.jsonValue["HidePayload"] = !ptr->payload;
 
             std::string uri;

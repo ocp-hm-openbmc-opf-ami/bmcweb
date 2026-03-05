@@ -11,6 +11,7 @@
 #include "generated/enums/resource.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
+#include "system_utils.hpp"
 #include "utils/collection.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/json_utils.hpp"
@@ -1075,10 +1076,8 @@ inline void requestRoutesOperatingConfigCollection(App& app)
                 return;
             }
 
-            if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+            if (!system_utils::validateSystemName(asyncResp, systemName))
             {
-                messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                           systemName);
                 return;
             }
             asyncResp->res.jsonValue["@odata.type"] =
@@ -1158,10 +1157,8 @@ inline void requestRoutesOperatingConfig(App& app)
                 return;
             }
 
-            if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+            if (!system_utils::validateSystemName(asyncResp, systemName))
             {
-                messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                           systemName);
                 return;
             }
             // Ask for all objects implementing OperatingConfig so we can search
@@ -1243,10 +1240,8 @@ inline void requestRoutesProcessorCollection(App& app)
                 return;
             }
 
-            if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+            if (!system_utils::validateSystemName(asyncResp, systemName))
             {
-                messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                           systemName);
                 return;
             }
 
@@ -1303,10 +1298,8 @@ inline void requestRoutesProcessor(App& app)
                                            systemName);
                 return;
             }
-            if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+            if (!system_utils::validateSystemName(asyncResp, systemName))
             {
-                messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                           systemName);
                 return;
             }
             if (!membersResponseGet(asyncResp, processorId,
@@ -1348,10 +1341,8 @@ inline void requestRoutesProcessor(App& app)
                                                systemName);
                     return;
                 }
-                if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                if (!system_utils::validateSystemName(asyncResp, systemName))
                 {
-                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                               systemName);
                     return;
                 }
                 if (!membersResponseGet(asyncResp, processorId,

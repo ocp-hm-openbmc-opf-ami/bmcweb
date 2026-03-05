@@ -9,6 +9,7 @@
 #include "managers.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
+#include "system_utils.hpp"
 #include "systems.hpp"
 #include "utility.hpp"
 #include "utils/json_utils.hpp"
@@ -204,7 +205,11 @@ inline void OverviewPage(App& /*app*/, const crow::Request& /*req*/,
     // Inventory and LED Info
     getSystemLocationIndicatorActive(asyncResp);
     getPhysicalLedState(asyncResp);
-    getHostState(asyncResp);
+    getHostState(asyncResp, "system");
+
+    // Checking Dual Node support enable or not
+    asyncResp->res.jsonValue["DualNodeEnabled"] =
+        redfish::system_utils::isDualHostEnabled();
 
     // erase led odataType
     asyncResp->res.jsonValue["Oem"]["Ami"]["PhysicalLED"].erase("@odata.type");
