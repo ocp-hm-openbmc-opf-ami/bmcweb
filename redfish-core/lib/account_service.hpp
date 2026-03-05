@@ -18,6 +18,8 @@
 #include "utils/json_utils.hpp"
 #include "multipart_parser.hpp"
 #include "utils/ip_utils.hpp"
+#include "ethernet.hpp"
+
 
 #include <boost/url/format.hpp>
 #include <boost/url/url.hpp>
@@ -3101,10 +3103,14 @@ inline void handleAccountRadiusPatch(
                     if (radiusObject.host != "")
                     {
                         const std::string& ipAddress = *radiusObject.host;
+                        // Check IPv4, IPv6, and domain name validation
                         if (!ip_util::isValidIPv4Addr(
                                 *radiusObject.host,
-                                ip_util::Type::IP4_ADDRESS)) // checking the
-                                                             // IPv4 Address
+                                ip_util::Type::IP4_ADDRESS) && 
+                            !ip_util::validateIPv6address(
+                                *radiusObject.host,
+                                ip_util::Type::IP6_ADDRESS) &&
+                            !isDomainnameValid(*radiusObject.host))
                         {
                             messages::invalidip(asyncResp->res,
                                                 "ServiceAddress", ipAddress);
