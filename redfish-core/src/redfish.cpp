@@ -194,6 +194,9 @@ RedfishService::RedfishService(App& app)
     requestRoutesOdata(app);
     requestRoutesDashboard(app);
 
+#if ONETREE_RM
+    redfish::rm::registerRmRoutes(app);
+#endif
     requestRoutesNodeManagerService(app);
     requestRoutesNodeManagerDomains(app);
     requestRoutesNodeManagerPolicies(app);
@@ -213,11 +216,13 @@ RedfishService::RedfishService(App& app)
     requestRoutesNetworkProtocol(app);
     requestRoutesSession(app);
     requestEthernetInterfacesRoutes(app);
+#if (!defined(ONETREE_RM))
     if constexpr (BMCWEB_REDFISH_ALLOW_DEPRECATED_POWER_THERMAL)
     {
         requestRoutesThermal(app);
         requestRoutesPower(app);
     }
+#endif
 #ifdef ONETREE_AMD_CHALUPA
     {
         requestRoutesPower(app);
@@ -252,7 +257,9 @@ RedfishService::RedfishService(App& app)
     requestRoutesChassisResetActionInfo(app);
     requestRoutesChassisDrive(app);
     requestRoutesChassisDriveName(app);
+#if (!defined(ONETREE_RM))
     requestRoutesUpdateService(app);
+#endif
     // requestRoutesStorageCollection(app);
     // requestRoutesStorage(app);
 
@@ -385,7 +392,9 @@ RedfishService::RedfishService(App& app)
     requestRoutesTaskService(app);
     requestRoutesTaskCollection(app);
     requestRoutesTask(app);
+#if (!defined(ONETREE_RM))
     requestRoutesEventService(app);
+#endif
     requestRoutesEventServiceSse(app);
     requestRoutesEventDestinationCollection(app);
     requestRoutesEventDestination(app);
@@ -442,9 +451,6 @@ RedfishService::RedfishService(App& app)
     registerCxlRoutes(app);
 #endif
 
-#ifdef ONETREE_RM
-    redfish::rm::registerRmRoutes(app);
-#endif
 #ifdef ONETREE_PSM
     redfish::psm::registerPsmRoutes(app);
 #endif
@@ -508,9 +514,7 @@ RedfishService::RedfishService(App& app)
     registerErotDumpRoutes(app);
     registerAuxResetRoutes(app);
 #endif
-#ifdef ONETREE_RM
-    redfish::rm::registerRmRoutes(app);
-#endif
+
 #ifdef ONETREE_PSM
     redfish::psm::registerPsmRoutes(app);
 #endif
@@ -522,3 +526,4 @@ RedfishService::RedfishService(App& app)
 }
 
 } // namespace redfish
+

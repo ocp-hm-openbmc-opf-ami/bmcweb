@@ -1033,12 +1033,14 @@ inline void getSessionServiceInfo(
     // asyncResp->res.jsonValue["SessionTimeout"] =
     //     persistent_data::SessionStore::getInstance().getTimeoutInSeconds();
     asyncResp->res.jsonValue["ServiceEnabled"] = true;
+#if !defined(ONETREE_RM)
     asyncResp->res.jsonValue["Oem"]["Ami"]["KvmMaxSession"] =
         persistent_data::SessionStore::getInstance().loadMaxSession(
             "start-ipkvm");
     asyncResp->res.jsonValue["Oem"]["Ami"]["VmMaxSession"] =
         persistent_data::SessionStore::getInstance().loadMaxSession(
             "xyz.openbmc_project.VirtualMedia");
+#endif
     asyncResp->res.jsonValue["Oem"]["Ami"]["SshMaxSession"] =
         persistent_data::SessionStore::getInstance().loadMaxSession("dropbear");
     asyncResp->res.jsonValue["Oem"]["Ami"]["WebMaxSession"] =
@@ -1076,6 +1078,7 @@ inline void getSessionServiceInfo(
         return;
     }
 
+#if !defined(ONETREE_RM)
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code ec,
                     const std::variant<uint64_t>& value) {
@@ -1116,6 +1119,7 @@ inline void getSessionServiceInfo(
         "/xyz/openbmc_project/control/service/start_2dipkvm",
         "org.freedesktop.DBus.Properties", "Get",
         "xyz.openbmc_project.Control.Service.SocketAttributes", "Port");
+#endif
 }
 
 inline void handleSessionServiceGet(
@@ -1413,3 +1417,4 @@ inline void requestRoutesSession(App& app)
 }
 
 } // namespace redfish
+

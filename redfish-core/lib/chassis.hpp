@@ -499,8 +499,14 @@ inline void handleDecoratorAssetProperties(
 
     if constexpr (BMCWEB_REDFISH_ALLOW_DEPRECATED_POWER_THERMAL)
     {
-        asyncResp->res.jsonValue["Thermal"]["@odata.id"] =
-            boost::urls::format("/redfish/v1/Chassis/{}/Thermal", chassisId);
+#ifdef ONETREE_RM
+        // Skip Thermal link for Rack chassis
+        if (chassisId != "Rack")
+#endif
+        {
+            asyncResp->res.jsonValue["Thermal"]["@odata.id"] =
+                boost::urls::format("/redfish/v1/Chassis/{}/Thermal", chassisId);
+        }
     }
 
     if constexpr (BMCWEB_REDFISH_NEW_POWERSUBSYSTEM_THERMALSUBSYSTEM)
@@ -530,6 +536,7 @@ inline void handleDecoratorAssetProperties(
             boost::urls::format("/redfish/v1/Chassis/{}/Power", chassisId);
     }
 #endif
+#ifndef ONETREE_RM
     // FRU Device
     asyncResp->res.jsonValue["Oem"]["AMI"]["FRU"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Chassis/{}/FRU", chassisId);
@@ -537,6 +544,7 @@ inline void handleDecoratorAssetProperties(
         json_util::odataType("OemAMIChassis");
     asyncResp->res.jsonValue["Oem"]["AMI"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Chassis/{}#/Oem/AMI", chassisId);
+#endif
     // SensorCollection
     asyncResp->res.jsonValue["Sensors"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Chassis/{}/Sensors", chassisId);
@@ -731,19 +739,25 @@ inline void handleChassisGetSubTree(
             boost::urls::format("/redfish/v1/Chassis/{}", chassisId);
         asyncResp->res.jsonValue["Name"] = "Chassis Collection";
         asyncResp->res.jsonValue["Description"] = "The Collection of Chassis";
-        asyncResp->res.jsonValue["Actions"]["#Chassis.Reset"]["target"] =
-            boost::urls::format("/redfish/v1/Chassis/{}/Actions/Chassis.Reset",
-                                chassisId);
-        asyncResp->res
-            .jsonValue["Actions"]["#Chassis.Reset"]["@Redfish.ActionInfo"] =
-            boost::urls::format("/redfish/v1/Chassis/{}/ResetActionInfo",
-                                chassisId);
+#ifdef ONETREE_RM
+        // Skip Actions for Rack chassis
+        if (chassisId != "Rack")
+#endif
+        {
+            asyncResp->res.jsonValue["Actions"]["#Chassis.Reset"]["target"] =
+                boost::urls::format("/redfish/v1/Chassis/{}/Actions/Chassis.Reset",
+                                    chassisId);
+            asyncResp->res
+                .jsonValue["Actions"]["#Chassis.Reset"]["@Redfish.ActionInfo"] =
+                boost::urls::format("/redfish/v1/Chassis/{}/ResetActionInfo",
+                                    chassisId);
+        }
         dbus::utility::getSubTree(
             "/xyz/openbmc_project", 0, interfaces3,
             std::bind_front(handlePhysicalSecurityGetSubTree, asyncResp));
         getMinMaxValues(asyncResp);
 
-#if (defined(ONETREE_RTP)) && (!defined(ONETREE_PSM))
+#if (defined(ONETREE_RTP)) && (!defined(ONETREE_PSM)) && (!defined(ONETREE_RM))
         asyncResp->res.jsonValue["PCIeSlots"] = {
             {"@odata.id", boost::urls::format(
                               "/redfish/v1/Chassis/{}/PCIeSlots", chassisId)}};
@@ -1834,3 +1848,4 @@ inline void requestRoutesChassisResetActionInfo(App& app)
 }
 
 } // namespace redfish
+
