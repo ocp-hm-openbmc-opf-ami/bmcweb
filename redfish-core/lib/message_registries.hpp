@@ -23,6 +23,10 @@
 #include "ext/include/registries/ami_privilege_mapping.hpp"
 #endif
 
+#if (BMCWEB_AMI_CONTROLS_MACRO)
+#include "ext/include/registries/amioem_controls_privilege_mapping.hpp"
+#endif
+
 #ifdef ONETREE_ACD
 #include "ext/lib/acd/include/registries/acd_service_message_registry.hpp"
 #endif
@@ -231,6 +235,13 @@ inline void fillPrivilegeRegistry(
     // Add AMI-specific entities to PrivilegeRegistry
     addEntitiesToMappings(
         mappings, redfish::registries::AMIPrivilegeMapping::AMIEntities);
+#endif
+
+#if (BMCWEB_AMI_CONTROLS_MACRO)
+    // Add AMI-specific Controls entities to PrivilegeRegistry
+    addEntitiesToMappings(
+        mappings,
+        redfish::registries::AMIPrivilegeMapping::AMIOemControlsEntities);
 #endif
 }
 
