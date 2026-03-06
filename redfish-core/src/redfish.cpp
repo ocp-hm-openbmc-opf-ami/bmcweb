@@ -526,4 +526,3 @@ RedfishService::RedfishService(App& app)
 }
 
 } // namespace redfish
-

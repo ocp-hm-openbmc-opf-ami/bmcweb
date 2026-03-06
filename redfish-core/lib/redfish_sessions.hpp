@@ -1417,4 +1417,3 @@ inline void requestRoutesSession(App& app)
 }
 
 } // namespace redfish
-

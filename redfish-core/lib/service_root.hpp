@@ -193,4 +193,3 @@ inline void requestRoutesServiceRoot(App& app)
 }
 
 } // namespace redfish
-

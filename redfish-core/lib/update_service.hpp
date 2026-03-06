@@ -2978,4 +2978,3 @@ inline void requestRoutesUpdateService(App& app)
 }
 
 } // namespace redfish
-

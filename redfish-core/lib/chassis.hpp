@@ -505,7 +505,8 @@ inline void handleDecoratorAssetProperties(
 #endif
         {
             asyncResp->res.jsonValue["Thermal"]["@odata.id"] =
-                boost::urls::format("/redfish/v1/Chassis/{}/Thermal", chassisId);
+                boost::urls::format("/redfish/v1/Chassis/{}/Thermal",
+                                    chassisId);
         }
     }
 
@@ -745,8 +746,8 @@ inline void handleChassisGetSubTree(
 #endif
         {
             asyncResp->res.jsonValue["Actions"]["#Chassis.Reset"]["target"] =
-                boost::urls::format("/redfish/v1/Chassis/{}/Actions/Chassis.Reset",
-                                    chassisId);
+                boost::urls::format(
+                    "/redfish/v1/Chassis/{}/Actions/Chassis.Reset", chassisId);
             asyncResp->res
                 .jsonValue["Actions"]["#Chassis.Reset"]["@Redfish.ActionInfo"] =
                 boost::urls::format("/redfish/v1/Chassis/{}/ResetActionInfo",
@@ -1848,4 +1849,3 @@ inline void requestRoutesChassisResetActionInfo(App& app)
 }
 
 } // namespace redfish
-
