@@ -5084,15 +5084,15 @@ inline void afterGetAllowedHostTransitions(
 
     if (ec)
     {
-        BMCWEB_LOG_ERROR("DBUS response error {}", ec);
-        messages::internalError(asyncResp->res);
-        return;
+        // D-Bus call failed (e.g., AllowedHostTransitions property not available)
+        // Log the error but continue with default allowed values
+        BMCWEB_LOG_ERROR("bmcweb D-Bus property AllowedHostTransitions not available: {}", ec);
     }
     else
     {
         for (const std::string& transition : allowedHostTransitions)
         {
-            BMCWEB_LOG_DEBUG("Found allowed host tran {}", transition);
+            BMCWEB_LOG_DEBUG("bmcweb Found allowed host tran {}", transition);
             dbusToRfAllowedHostTransitions(transition, allowableValues);
         }
     }
@@ -5144,16 +5144,37 @@ inline void handleSystemCollectionResetActionGet(
 
     asyncResp->res.jsonValue["@odata.id"] =
         boost::urls::format("/redfish/v1/Systems/{}/ResetActionInfo",
-                            BMCWEB_REDFISH_SYSTEM_URI_NAME);
-    asyncResp->res.jsonValue["@odata.type"] =
-        json_util::odataType("ActionInfo");
+                            systemName);
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("ActionInfo");
+    asyncResp->res.jsonValue["Description"] = "This action is used to reset the Systems";
     asyncResp->res.jsonValue["Name"] = "Reset Action Info";
     asyncResp->res.jsonValue["Id"] = "ResetActionInfo";
 
+    // Select the appropriate D-Bus service and path based on system name
+    std::string hostService = hostStateService;
+    std::string hostPath = singleHostPath;
+
+    if (system_utils::isDualHostEnabled())
+    {
+        // Dual-node system
+        if (systemName == "system1")
+        {
+            // "system1" maps to Host2
+            hostService = host2Service;
+            hostPath = host2Path;
+        }
+        else
+        {
+            // "system" (default) maps to Host1 in dual-node mode
+            hostService = host1Service;
+            hostPath = host1Path;
+        }
+    }
+
     // Look to see if system defines AllowedHostTransitions
     dbus::utility::getProperty<std::vector<std::string>>(
-        hostStateService, singleHostPath, hostStateInterface,
-        "AllowedHostTransitions",
+        hostService, hostPath,
+        hostStateInterface, "AllowedHostTransitions",
         [asyncResp](const boost::system::error_code& ec,
                     const std::vector<std::string>& allowedHostTransitions) {
             afterGetAllowedHostTransitions(asyncResp, ec,
