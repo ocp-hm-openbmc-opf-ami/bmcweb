@@ -2565,7 +2565,7 @@ inline void handleManagersInstanceGet(
         boost::urls::format("/redfish/v1/Managers/bmc#/Oem#/OpenBmc/",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
 
-#if (!BMCWEB_ARBEL_NUVOTON_MACRO)
+#ifndef ONETREE_EVB_NUVOTON_NPCM845
     nlohmann::json::object_t jpeg;
     jpeg["@odata.id"] =
         boost::urls::format("/redfish/v1/Managers/{}/Oem/OpenBmc/Jpeg",
