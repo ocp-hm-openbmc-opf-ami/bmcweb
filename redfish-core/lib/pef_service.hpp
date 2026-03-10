@@ -25,10 +25,45 @@ static constexpr const char* pefAlertSensorNumberIface =
     "xyz.openbmc_project.pef.alert.SensorNumber";
 static constexpr const char* pefConfIface =
     "xyz.openbmc_project.pef.PEFConfInfo";
+static constexpr const char* pefRetryConfService =
+    "xyz.openbmc_project.pef.alerting";
+static constexpr const char* pefRetryConfPath =
+    "/xyz/openbmc_project/pef/alerting";
+static constexpr const char* pefRetryConfIface =
+    "xyz.openbmc_project.pef.pefTask";
 
 using GetSubTreeType = std::vector<
     std::pair<std::string,
               std::vector<std::pair<std::string, std::vector<std::string>>>>>;
+
+// DestinationType mapping between D-Bus uint8_t values and Redfish string
+// values
+static const std::unordered_map<uint8_t, std::string> destTypeToString = {
+    {0, "SnmpTrap"}, {1, "SMTP"}, {2, "Both"}};
+
+static const std::unordered_map<std::string, uint8_t> stringToDestType = {
+    {"SnmpTrap", 0}, {"SMTP", 1}, {"Both", 2}};
+
+// Holds PEF configuration parameters for patching
+struct PefPatchParams
+{
+    std::optional<std::vector<uint8_t>> filterEnable;
+    std::optional<std::string> destinationType;
+    std::optional<int64_t> retryCountLimit;
+    std::optional<int64_t> retryTimeInterval;
+    std::optional<int64_t> pendingAlertsLimit;
+    std::optional<uint8_t> pefActionGblControl;
+    std::optional<bool> retryEnable;
+
+    bool hasValue() const
+    {
+        return filterEnable.has_value() || pefActionGblControl.has_value() ||
+               destinationType.has_value() || retryEnable.has_value() ||
+               retryCountLimit.has_value() || retryTimeInterval.has_value() ||
+               pendingAlertsLimit.has_value();
+    }
+};
+
 inline void getFilterEnable(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
 {
     crow::connections::systemBus->async_method_call(
@@ -195,20 +230,17 @@ inline void getDestinationType(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
                 return;
             }
 
-            std::string destinationTypeString;
-            if (destinationType == 1)
+            auto it = destTypeToString.find(destinationType);
+            if (it != destTypeToString.end())
             {
-                destinationTypeString = "SMTP";
+                aResp->res.jsonValue["DestinationType"] = it->second;
             }
-            else if (destinationType == 0)
+            else
             {
-                destinationTypeString = "SnmpTrap";
+                BMCWEB_LOG_WARNING("Unknown destination type: {}",
+                                   destinationType);
+                aResp->res.jsonValue["DestinationType"] = nullptr;
             }
-            else if (destinationType == 2)
-            {
-                destinationTypeString = "Both";
-            }
-            aResp->res.jsonValue["DestinationType"] = destinationTypeString;
             nlohmann::json::array_t allowed;
             allowed.emplace_back("SnmpTrap");
             allowed.emplace_back("SMTP");
@@ -267,25 +299,15 @@ inline void setPefConfParam(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
 void setDestinationType(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                         const std::optional<std::string>& destinationType)
 {
-    uint8_t desType;
-    if (destinationType == "SnmpTrap")
-    {
-        desType = 0;
-    }
-    else if (destinationType == "SMTP")
-    {
-        desType = 1;
-    }
-    else if (destinationType == "Both")
-    {
-        desType = 2;
-    }
-    else
+    auto it = stringToDestType.find(*destinationType);
+    if (it == stringToDestType.end())
     {
         messages::propertyValueIncorrect(aResp->res, "DestinationType",
                                          *destinationType);
         return;
     }
+
+    uint8_t desType = it->second;
     sdbusplus::asio::setProperty(
         *crow::connections::systemBus, "xyz.openbmc_project.pef.alert.manager",
         "/xyz/openbmc_project/PefAlertManager/DestinationSelector/Entry1",
@@ -295,6 +317,163 @@ void setDestinationType(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
             {
                 BMCWEB_LOG_DEBUG(
                     "D-Bus response error setting Destination Type.");
+                messages::internalError(aResp->res);
+                return;
+            }
+        });
+}
+
+// Get Retry Configuration
+inline void getRetryConfiguration(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp)
+{
+    crow::connections::systemBus->async_method_call(
+        [aResp](const boost::system::error_code& ec,
+                const std::vector<std::pair<
+                    std::string, dbus::utility::DbusVariantType>>& properties) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR(
+                    "D-BUS response error on Retry Configuration GetAll: {}",
+                    ec);
+                return;
+            }
+
+            // Parse all retry configuration properties
+            for (const auto& [key, value] : properties)
+            {
+                if (key == "retryEnable")
+                {
+                    if (const bool* dbus_value = std::get_if<bool>(&value))
+                    {
+                        aResp->res.jsonValue["RetryEnable"] = *dbus_value;
+                    }
+                }
+                else if (key == "retryCount")
+                {
+                    if (const uint8_t* dbus_value =
+                            std::get_if<uint8_t>(&value))
+                    {
+                        aResp->res.jsonValue["RetryCountLimit"] = *dbus_value;
+                    }
+                }
+                else if (key == "timeInterval")
+                {
+                    if (const uint32_t* dbus_value =
+                            std::get_if<uint32_t>(&value))
+                    {
+                        aResp->res.jsonValue["RetryTimeInterval"] = *dbus_value;
+                    }
+                }
+                else if (key == "alertsLimit")
+                {
+                    if (const uint8_t* dbus_value =
+                            std::get_if<uint8_t>(&value))
+                    {
+                        aResp->res.jsonValue["PendingAlertsLimit"] =
+                            *dbus_value;
+                    }
+                }
+            }
+        },
+        pefRetryConfService, pefRetryConfPath,
+        "org.freedesktop.DBus.Properties", "GetAll", pefRetryConfIface);
+}
+
+// Set RetryEnable
+inline void setRetryEnable(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+                           const std::optional<bool>& retryEnable)
+{
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus, pefRetryConfService, pefRetryConfPath,
+        pefRetryConfIface, "retryEnable", *retryEnable,
+        [aResp](const boost::system::error_code& ec) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("D-Bus response error setting RetryEnable: {}",
+                                 ec);
+                messages::internalError(aResp->res);
+                return;
+            }
+        });
+}
+
+// Set RetryCountLimit
+inline void setRetryCountLimit(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+                               const std::optional<int64_t>& retryCountLimit)
+{
+    // Validate range 0-10
+    if (*retryCountLimit < 0 || *retryCountLimit > 10)
+    {
+        messages::propertyValueOutOfRange(aResp->res, *retryCountLimit,
+                                          "RetryCountLimit");
+        return;
+    }
+
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus, pefRetryConfService, pefRetryConfPath,
+        pefRetryConfIface, "retryCount", static_cast<uint8_t>(*retryCountLimit),
+        [aResp](const boost::system::error_code& ec) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR(
+                    "D-Bus response error setting RetryCountLimit: {}", ec);
+                messages::internalError(aResp->res);
+                return;
+            }
+        });
+}
+
+// Set RetryTimeInterval
+inline void setRetryTimeInterval(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+    const std::optional<int64_t>& retryTimeInterval)
+{
+    // Validate range 0-3600
+    if (*retryTimeInterval < 0 || *retryTimeInterval > 3600)
+    {
+        messages::propertyValueOutOfRange(aResp->res, *retryTimeInterval,
+                                          "RetryTimeInterval");
+        return;
+    }
+
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus, pefRetryConfService, pefRetryConfPath,
+        pefRetryConfIface, "timeInterval",
+        static_cast<uint32_t>(*retryTimeInterval),
+        [aResp](const boost::system::error_code& ec) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR(
+                    "D-Bus response error setting RetryTimeInterval: {}", ec);
+                messages::internalError(aResp->res);
+                return;
+            }
+        });
+}
+
+// SetPendingAlertsLimit
+inline void setPendingAlertsLimit(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+    const std::optional<int64_t>& pendingAlertsLimit)
+{
+    // Validate range 0-100
+    if (*pendingAlertsLimit < 0 || *pendingAlertsLimit > 100)
+    {
+        messages::propertyValueOutOfRange(aResp->res, *pendingAlertsLimit,
+                                          "PendingAlertsLimit");
+        return;
+    }
+
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus, pefRetryConfService, pefRetryConfPath,
+        pefRetryConfIface, "alertsLimit",
+        static_cast<uint8_t>(*pendingAlertsLimit),
+        [aResp](const boost::system::error_code& ec) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR(
+                    "D-Bus response error setting PendingAlertsLimit: {}", ec);
                 messages::internalError(aResp->res);
                 return;
             }
@@ -325,7 +504,7 @@ void getEventEntries(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                     continue;
                 }
                 entriesArray.push_back(
-                    {{"@odata.id", "/redfish/v1/PefService/" +
+                    {{"@odata.id", "/redfish/v1/Oem/Ami/PefService/" +
                                        objpath.substr(lastPos + 1)}});
                 std::cerr << "PEF getEventEntries entry details : " << objpath;
             }
@@ -411,6 +590,198 @@ const PropertyValue getSmtpEnable(const std::string& interfaceName)
     return value;
 }
 
+// Applies PEF patch parameters with validation and deferred D-Bus calls
+inline void handlePefPatch(PefPatchParams&& input,
+                           const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                           bool currentRetryEnable,
+                           std::function<void(bool, bool)> onComplete)
+{
+    bool pefAnyFailure = false;
+    bool pefAnySuccess = false;
+
+    // Applies PEF patch parameters with validation and deferred D-Bus calls
+    bool effectiveRetryEnable =
+        input.retryEnable ? *input.retryEnable : currentRetryEnable;
+
+    // If retryEnable is being set to FALSE, reject dependent properties
+    if (input.retryEnable && !(*input.retryEnable))
+    {
+        if (input.retryCountLimit)
+        {
+            pefAnyFailure = true;
+            messages::propertyValueConflict(
+                asyncResp->res, "RetryCountLimit",
+                "Cannot configure when RetryEnable is false");
+        }
+        if (input.retryTimeInterval)
+        {
+            pefAnyFailure = true;
+            messages::propertyValueConflict(
+                asyncResp->res, "RetryTimeInterval",
+                "Cannot configure when RetryEnable is false");
+        }
+        if (input.pendingAlertsLimit)
+        {
+            pefAnyFailure = true;
+            messages::propertyValueConflict(
+                asyncResp->res, "PendingAlertsLimit",
+                "Cannot configure when RetryEnable is false");
+        }
+    }
+    // If retryEnable is NOT in payload and current state is FALSE, reject
+    // dependent properties
+    else if (!input.retryEnable && !currentRetryEnable)
+    {
+        if (input.retryCountLimit)
+        {
+            pefAnyFailure = true;
+            messages::propertyValueConflict(
+                asyncResp->res, "RetryCountLimit",
+                "Cannot configure when RetryEnable is false");
+        }
+        if (input.retryTimeInterval)
+        {
+            pefAnyFailure = true;
+            messages::propertyValueConflict(
+                asyncResp->res, "RetryTimeInterval",
+                "Cannot configure when RetryEnable is false");
+        }
+        if (input.pendingAlertsLimit)
+        {
+            pefAnyFailure = true;
+            messages::propertyValueConflict(
+                asyncResp->res, "PendingAlertsLimit",
+                "Cannot configure when RetryEnable is false");
+        }
+    }
+
+    // Validate range constraints for allowed properties - validate ALL
+    // independently
+    bool retryCountLimitValid = true;
+    if (input.retryCountLimit)
+    {
+        if (*input.retryCountLimit < 0 || *input.retryCountLimit > 10)
+        {
+            retryCountLimitValid = false;
+            pefAnyFailure = true;
+            messages::propertyValueOutOfRange(
+                asyncResp->res, *input.retryCountLimit, "RetryCountLimit");
+        }
+    }
+
+    bool retryTimeIntervalValid = true;
+    if (input.retryTimeInterval)
+    {
+        if (*input.retryTimeInterval < 0 || *input.retryTimeInterval > 3600)
+        {
+            retryTimeIntervalValid = false;
+            pefAnyFailure = true;
+            messages::propertyValueOutOfRange(
+                asyncResp->res, *input.retryTimeInterval, "RetryTimeInterval");
+        }
+    }
+
+    bool pendingAlertsLimitValid = true;
+    if (input.pendingAlertsLimit)
+    {
+        if (*input.pendingAlertsLimit < 0 || *input.pendingAlertsLimit > 100)
+        {
+            pendingAlertsLimitValid = false;
+            pefAnyFailure = true;
+            messages::propertyValueOutOfRange(asyncResp->res,
+                                              *input.pendingAlertsLimit,
+                                              "PendingAlertsLimit");
+        }
+    }
+
+    // APPLY CHANGES - both valid properties and independent properties
+    // filterEnable: must be exactly 18 elements, each 0 or 1
+    if (input.filterEnable)
+    {
+        bool filterEnableValid = true;
+        if (input.filterEnable->size() != 18)
+        {
+            pefAnyFailure = true;
+            messages::propertyValueIncorrect(
+                asyncResp->res, "FilterEnable",
+                "Array must contain exactly 18 elements");
+            filterEnableValid = false;
+        }
+        else
+        {
+            // Check each element is 0 or 1
+            for (uint8_t val : *input.filterEnable)
+            {
+                if (val != 0 && val != 1)
+                {
+                    pefAnyFailure = true;
+                    messages::propertyValueIncorrect(
+                        asyncResp->res, "FilterEnable",
+                        "Each element must be 0 or 1");
+                    filterEnableValid = false;
+                    break;
+                }
+            }
+        }
+        if (filterEnableValid)
+        {
+            setFilterEnable(asyncResp, *input.filterEnable);
+            pefAnySuccess = true;
+        }
+    }
+    // pefActionGblControl: uint8_t, any value is acceptable
+    if (input.pefActionGblControl)
+    {
+        setPefConfParam(asyncResp, input.pefActionGblControl);
+        pefAnySuccess = true;
+    }
+    // destinationType: must be one of "SnmpTrap", "SMTP", "Both"
+    if (input.destinationType)
+    {
+        auto it = stringToDestType.find(*input.destinationType);
+        if (it == stringToDestType.end())
+        {
+            pefAnyFailure = true;
+            messages::propertyValueIncorrect(asyncResp->res, "DestinationType",
+                                             *input.destinationType);
+        }
+        else
+        {
+            setDestinationType(asyncResp, input.destinationType);
+            pefAnySuccess = true;
+        }
+    }
+
+    // RetryEnable - always applied if provided
+    if (input.retryEnable)
+    {
+        setRetryEnable(asyncResp, input.retryEnable);
+        pefAnySuccess = true;
+    }
+
+    // Dependent properties - only applied if valid AND effective state is true
+    if (effectiveRetryEnable && input.retryCountLimit && retryCountLimitValid)
+    {
+        setRetryCountLimit(asyncResp, input.retryCountLimit);
+        pefAnySuccess = true;
+    }
+    if (effectiveRetryEnable && input.retryTimeInterval &&
+        retryTimeIntervalValid)
+    {
+        setRetryTimeInterval(asyncResp, input.retryTimeInterval);
+        pefAnySuccess = true;
+    }
+    if (effectiveRetryEnable && input.pendingAlertsLimit &&
+        pendingAlertsLimitValid)
+    {
+        setPendingAlertsLimit(asyncResp, input.pendingAlertsLimit);
+        pefAnySuccess = true;
+    }
+
+    // Invoke completion callback with validation results
+    onComplete(pefAnyFailure, pefAnySuccess);
+}
+
 void getPefServiceInfo(crow::App& app, const crow::Request& req,
                        const std::shared_ptr<bmcweb::AsyncResp>& aResp)
 {
@@ -419,24 +790,28 @@ void getPefServiceInfo(crow::App& app, const crow::Request& req,
         return;
     }
 
-    aResp->res.jsonValue = {{"@odata.type", "#PefService.v1_0_0.PefService"},
-                            {"@odata.id", "/redfish/v1/PefService"},
-                            {"Id", "Pef Service"},
-                            {"Name", "Pef Service"},
-                            {"Description", "Pef Service Collections"}};
-    aResp->res.jsonValue["Actions"]["#PefService.SendAlertMail"]["target"] =
-        "/redfish/v1/PefService/Actions/"
-        "PefService.SendAlertMail";
-    aResp->res.jsonValue["Actions"]["#PefService.SendAlertSNMPTrap"]["target"] =
-        "/redfish/v1/PefService/Actions/"
-        "PefService.SendAlertSNMPTrap";
-    nlohmann::json& entriesntrollerArray = aResp->res.jsonValue["Members"];
-    entriesntrollerArray = nlohmann::json::array();
+    aResp->res.jsonValue = nlohmann::json{
+        {"@odata.type", "#PefService.v1_0_0.PefService"},
+        {"@odata.id", "/redfish/v1/Oem/Ami/PefService"},
+        {"Id", "Pef Service"},
+        {"Name", "Pef Service"},
+        {"Description", "Pef Service Collections"},
+        {"Members", nlohmann::json::array()},
+        {"Actions",
+         {{"#PefService.SendAlertMail",
+           {{"target",
+             "/redfish/v1/Oem/Ami/PefService/Actions/PefService.SendAlertMail"}}},
+          {"#PefService.SendAlertSNMPTrap",
+           {{"target",
+             "/redfish/v1/Oem/Ami/PefService/Actions/PefService.SendAlertSNMPTrap"}}}}}};
 
-    getEventEntries(aResp, entriesntrollerArray);
+    nlohmann::json& entriesControllerArray = aResp->res.jsonValue["Members"];
+
+    getEventEntries(aResp, entriesControllerArray);
     getFilterEnable(aResp);
     getPefConfParam(aResp);
     getDestinationType(aResp);
+    getRetryConfiguration(aResp);
 }
 
 void getPefServiceInfoId(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -493,7 +868,7 @@ void getPefServiceInfoId(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
 inline void requestRoutesPefService(App& app)
 {
-    BMCWEB_ROUTE(app, "/redfish/v1/PefService/")
+    BMCWEB_ROUTE(app, "/redfish/v1/Oem/Ami/PefService/")
         .privileges(redfish::privileges::getPefService)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
@@ -501,40 +876,96 @@ inline void requestRoutesPefService(App& app)
                 getPefServiceInfo(app, req, aResp);
             });
 
-    BMCWEB_ROUTE(app, "/redfish/v1/PefService/")
+    BMCWEB_ROUTE(app, "/redfish/v1/Oem/Ami/PefService/")
         .privileges(redfish::privileges::patchPefService)
-        .methods(boost::beast::http::verb::patch)(
-            [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& aResp) {
-                std::optional<std::vector<uint8_t>> filterEnable;
-                std::optional<uint8_t> pefActionGblControl;
-                std::optional<std::string> destinationType;
+        .methods(
+            boost::beast::http::verb::
+                patch)([&app](const crow::Request& req,
+                              const std::shared_ptr<bmcweb::AsyncResp>& aResp) {
+            if (!redfish::setUpRedfishRoute(app, req, aResp))
+            {
+                return;
+            }
 
-                if (!json_util::readJsonPatch(                      //
-                        req, aResp->res,                            //
-                        "FilterEnable", filterEnable,               //
-                        "PEFActionGblControl", pefActionGblControl, //
-                        "DestinationType", destinationType          //
-                        ))
-                {
-                    return;
-                }
-                if (filterEnable)
-                {
-                    setFilterEnable(aResp, *filterEnable);
-                }
-                if (pefActionGblControl)
-                {
-                    setPefConfParam(aResp, pefActionGblControl);
-                }
-                if (destinationType)
-                {
-                    setDestinationType(aResp, destinationType);
-                }
-                getPefServiceInfo(app, req, aResp);
-            });
+            PefPatchParams pefConfig;
 
-    BMCWEB_ROUTE(app, "/redfish/v1/PefService/<str>")
+            if (!json_util::readJsonPatch(                                //
+                    req, aResp->res,                                      //
+                    "FilterEnable", pefConfig.filterEnable,               //
+                    "PEFActionGblControl", pefConfig.pefActionGblControl, //
+                    "DestinationType", pefConfig.destinationType,         //
+                    "RetryEnable", pefConfig.retryEnable,                 //
+                    "RetryCountLimit", pefConfig.retryCountLimit,         //
+                    "RetryTimeInterval", pefConfig.retryTimeInterval,     //
+                    "PendingAlertsLimit", pefConfig.pendingAlertsLimit    //
+                    ))
+            {
+                return;
+            }
+
+            // Only process if there are values to patch
+            if (!pefConfig.hasValue())
+            {
+                return;
+            }
+
+            // Fetch current retryEnable state to determine effective state
+            // for validation This is required if incoming payload doesn't
+            // have retryEnable
+            dbus::utility::getProperty<bool>(
+                pefRetryConfService, pefRetryConfPath, pefRetryConfIface,
+                "retryEnable",
+                [&app, req, aResp, pefConfig = std::move(pefConfig)](
+                    const boost::system::error_code& ec,
+                    bool currentRetryEnable) mutable {
+                    if (ec)
+                    {
+                        BMCWEB_LOG_DEBUG(
+                            "Failed to get current RetryEnable, assuming false");
+                        currentRetryEnable = false;
+                    }
+
+                    // Completion callback - handles response based on
+                    // validation results
+                    auto onComplete = [&app, req, aResp](bool pefAnyFailure,
+                                                         bool pefAnySuccess) {
+                        if (pefAnyFailure && !pefAnySuccess)
+                        {
+                            aResp->res.result(
+                                boost::beast::http::status::bad_request);
+                            return;
+                        }
+
+                        nlohmann::json errorsToPreserve =
+                            nlohmann::json::object();
+                        if (aResp->res.jsonValue.contains("error"))
+                        {
+                            errorsToPreserve = aResp->res.jsonValue["error"];
+                        }
+
+                        // Set success status
+                        aResp->res.result(boost::beast::http::status::ok);
+
+                        // Fetch and populate resource data
+                        getPefServiceInfo(app, req, aResp);
+
+                        if (pefAnyFailure && pefAnySuccess &&
+                            !errorsToPreserve.empty())
+                        {
+                            if (!aResp->res.jsonValue.contains("error"))
+                            {
+                                aResp->res.jsonValue["error"] =
+                                    errorsToPreserve;
+                            }
+                        }
+                    };
+
+                    handlePefPatch(std::move(pefConfig), aResp,
+                                   currentRetryEnable, onComplete);
+                });
+        });
+
+    BMCWEB_ROUTE(app, "/redfish/v1/Oem/Ami/PefService/<str>/")
         .privileges(redfish::privileges::getPefService)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
@@ -550,7 +981,7 @@ inline void requestRoutesPefService(App& app)
                 getPefServiceInfoId(asyncResp, entryId);
             });
 
-    BMCWEB_ROUTE(app, "/redfish/v1/PefService/<str>")
+    BMCWEB_ROUTE(app, "/redfish/v1/Oem/Ami/PefService/<str>/")
         .privileges(redfish::privileges::patchPefService)
         .methods(
             boost::beast::http::verb::
@@ -575,8 +1006,8 @@ inline void requestRoutesPefService(App& app)
                         return;
                     }
 
-                    // Loop through the event entries and check if the requested
-                    // entryId is valid
+                    // Loop through the event entries and check if the
+                    // requested entryId is valid
                     bool isValid = false;
                     for (const std::string& objpath : storageList)
                     {
@@ -643,7 +1074,7 @@ inline void requestRoutesPefService(App& app)
                     "xyz.openbmc_project.pef.EventFilterTable"});
         });
 
-    BMCWEB_ROUTE(app, "/redfish/v1/PefService/<str>")
+    BMCWEB_ROUTE(app, "/redfish/v1/Oem/Ami/PefService/<str>/")
         .privileges(redfish::privileges::postPefService)
         .methods(boost::beast::http::verb::post,
                  boost::beast::http::verb::
@@ -669,8 +1100,8 @@ inline void requestRoutesPefService(App& app)
                         return;
                     }
 
-                    // Loop through the event entries and check if the requested
-                    // entryId is valid
+                    // Loop through the event entries and check if the
+                    // requested entryId is valid
                     bool isValid = false;
                     for (const std::string& objpath : storageList)
                     {
@@ -701,8 +1132,8 @@ inline void requestRoutesPefService(App& app)
                     "xyz.openbmc_project.pef.EventFilterTable"});
         });
 
-    BMCWEB_ROUTE(app,
-                 "/redfish/v1/PefService/Actions/PefService.SendAlertMail/")
+    BMCWEB_ROUTE(
+        app, "/redfish/v1/Oem/Ami/PefService/Actions/PefService.SendAlertMail/")
         .privileges(redfish::privileges::postPefService)
         .methods(boost::beast::http::verb::post)(
             [](const crow::Request& req,
@@ -782,8 +1213,9 @@ inline void requestRoutesPefService(App& app)
 
 inline void requestRoutesSendTrap(App& app)
 {
-    BMCWEB_ROUTE(app,
-                 "/redfish/v1/PefService/Actions/PefService.SendAlertSNMPTrap/")
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/Oem/Ami/PefService/Actions/PefService.SendAlertSNMPTrap/")
         .privileges(redfish::privileges::postPefService)
         .methods(
             boost::beast::http::verb::

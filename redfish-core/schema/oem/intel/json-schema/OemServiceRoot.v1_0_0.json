@@ -26,6 +26,12 @@
                     "description": "The link to AMI License Control.",
                     "longDescription": "This property shall contain the link to AMI License Control Service.",
                     "readonly": true
+                },
+                "PefService": {
+                    "$ref": "/redfish/v1/schema/PefService.json#/definitions/PefService",
+                    "description": "The link to Platform Event Filtering Service.",
+                    "longDescription": "This property shall contain the link to PEF Service for platform event filtering and alerting.",
+                    "readonly": true
                 }
             },
             "type": "object"
@@ -79,6 +85,16 @@
                     "anyOf": [
                         {
                             "$ref": "#/definitions/Intel"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                },
+                "Ami": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/definitions/Ami"
                         },
                         {
                             "type": "null"

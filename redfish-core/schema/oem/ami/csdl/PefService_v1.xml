@@ -57,7 +57,7 @@
         </Annotation>
         <Annotation Term="Redfish.Uris">
           <Collection>
-            <String>/redfish/v1/PefService</String>
+            <String>/redfish/v1/Oem/Ami/PefService</String>
           </Collection>
         </Annotation>
       </EntityType>
@@ -126,6 +126,32 @@
             </Collection>
     	    </Annotation>
 	</Property>
+        <Property Name="RetryEnable" Type="Edm.Boolean" Nullable="false" DefaultValue="false">
+            <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+            <Annotation Term="OData.Description" String="Enables retry configuration for alerts."/>
+            <Annotation Term="OData.LongDescription" String="When this is set to true, alerts are not sent immediately. Instead, they are queued as tasks and retried according to configured limits."/>
+        </Property>
+        <Property Name="RetryCountLimit" Type="Edm.Int64" Nullable="false" DefaultValue="0">
+            <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+            <Annotation Term="OData.Description" String="The number of times an alert should be retried."/>
+            <Annotation Term="OData.LongDescription" String="This property shall contain the maximum number of retry attempts for failed alerts."/>
+            <Annotation Term="Validation.Minimum" Int="0"/>
+            <Annotation Term="Validation.Maximum" Int="100"/>
+        </Property>
+        <Property Name="RetryTimeInterval" Type="Edm.Int64" Nullable="false" DefaultValue="0">
+            <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+            <Annotation Term="OData.Description" String="The delay between retries in seconds."/>
+            <Annotation Term="OData.LongDescription" String="This property shall define the time interval in seconds between retry attempts."/>
+            <Annotation Term="Validation.Minimum" Int="0"/>
+            <Annotation Term="Validation.Maximum" Int="3600"/>
+        </Property>
+        <Property Name="PendingAlertsLimit" Type="Edm.Int64" Nullable="false" DefaultValue="0">
+            <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+            <Annotation Term="OData.Description" String="The maximum number of alerts that can be queued."/>
+            <Annotation Term="OData.LongDescription" String="This property shall contain the maximum number of alerts that can be processed as pending tasks."/>
+            <Annotation Term="Validation.Minimum" Int="0"/>
+            <Annotation Term="Validation.Maximum" Int="100"/>
+        </Property>
 	<Property Name="Actions" Type="PefService.v1_0_0.Actions" Nullable="false">
           <Annotation Term="OData.Description" String="The available actions for this resource."/>
           <Annotation Term="OData.LongDescription" String="This property shall contain the available actions for this resource."/>

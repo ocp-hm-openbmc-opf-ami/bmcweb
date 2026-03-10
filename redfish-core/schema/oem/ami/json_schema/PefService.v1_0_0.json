@@ -150,6 +150,30 @@
                     "longDescription": "This property shall contain the Global Action Control flag of PefService.",
                     "readonly": false,
                     "type": "integer"
+                },
+                "RetryEnable": {
+                    "description": "Enables retry configuration for alerts.",
+                    "longDescription": "When this is set to true, alerts are not sent immediately. Instead, they are queued as tasks and retried according to configured limits.",
+                    "readonly": false,
+                    "type": "boolean"
+                },
+                "RetryCountLimit": {
+                    "description": "The number of times an alert should be retried.",
+                    "longDescription": "This property shall contain the maximum number of retry attempts for failed alerts.",
+                    "readonly": false,
+                    "type": "integer"
+                },
+                "RetryTimeInterval": {
+                    "description": "The delay between retries in seconds.",
+                    "longDescription": "This property shall define the time interval in seconds between retry attempts.",
+                    "readonly": false,
+                    "type": "integer"
+                },
+                "PendingAlertsLimit": {
+                    "description": "The maximum number of alerts that can be queued.",
+                    "longDescription": "This property shall contain the maximum number of alerts that can be processed as pending tasks.",
+                    "readonly": false,
+                    "type": "integer"
                 }
             },
             "required": [
