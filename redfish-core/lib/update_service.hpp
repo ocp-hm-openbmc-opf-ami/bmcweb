@@ -1781,6 +1781,14 @@ inline void getpreserveProperties(
         propertyname = objectPaths.substr(lastPosition + 1);
     }
 
+#if ONETREE_RM
+    // When Rack Manager is enabled, hide KVM and Boot_Override from response
+    if (propertyname == "KVM" || propertyname == "Boot_Override")
+    {
+        return;
+    }
+#endif
+
     dbus::utility::getProperty<bool>(
         *crow::connections::systemBus, "xyz.openbmc_project.EntityManager",
         objectPaths, "xyz.openbmc_project.Configuration.Preserve", "isEnable",
@@ -2579,8 +2587,10 @@ inline void handleUpdateServicePatch(
                 }
                 if (kvm)
                 {
+#if (!defined(ONETREE_RM))
                     setPreserveConfigEnable(asyncResp, preserve_config + "KVM",
                                             *kvm);
+#endif
                 }
                 if (smtp)
                 {
@@ -2639,9 +2649,11 @@ inline void handleUpdateServicePatch(
                 }
                 if (boot_override)
                 {
+#if (!defined(ONETREE_RM))
                     setPreserveConfigEnable(asyncResp,
                                             network_config + "Boot_Override",
                                             *boot_override);
+#endif
                 }
                 if (extlog)
                 {

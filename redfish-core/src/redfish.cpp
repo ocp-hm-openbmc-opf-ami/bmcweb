@@ -155,6 +155,14 @@
 #include "ext/lib/redebugserv/redebugserv.hpp"
 #endif
 
+#ifdef ONETREE_RM
+#include "ext/src/rm.hpp"
+#endif
+
+#ifdef ONETREE_PSM
+#include "ext/src/psm.hpp"
+#endif
+
 #ifdef ONETREE_RPC
 #include "ext/src/rackpowercontroller.hpp"
 #endif
@@ -186,6 +194,9 @@ RedfishService::RedfishService(App& app)
     requestRoutesOdata(app);
     requestRoutesDashboard(app);
 
+#if ONETREE_RM
+    redfish::rm::registerRmRoutes(app);
+#endif
     requestRoutesNodeManagerService(app);
     requestRoutesNodeManagerDomains(app);
     requestRoutesNodeManagerPolicies(app);
@@ -205,11 +216,13 @@ RedfishService::RedfishService(App& app)
     requestRoutesNetworkProtocol(app);
     requestRoutesSession(app);
     requestEthernetInterfacesRoutes(app);
+#if (!defined(ONETREE_RM))
     if constexpr (BMCWEB_REDFISH_ALLOW_DEPRECATED_POWER_THERMAL)
     {
         requestRoutesThermal(app);
         requestRoutesPower(app);
     }
+#endif
 #ifdef ONETREE_AMD_CHALUPA
     {
         requestRoutesPower(app);
@@ -245,7 +258,9 @@ RedfishService::RedfishService(App& app)
     requestRoutesChassisResetActionInfo(app);
     requestRoutesChassisDrive(app);
     requestRoutesChassisDriveName(app);
+#if (!defined(ONETREE_RM))
     requestRoutesUpdateService(app);
+#endif
     // requestRoutesStorageCollection(app);
     // requestRoutesStorage(app);
 
@@ -378,7 +393,9 @@ RedfishService::RedfishService(App& app)
     requestRoutesTaskService(app);
     requestRoutesTaskCollection(app);
     requestRoutesTask(app);
+#if (!defined(ONETREE_RM))
     requestRoutesEventService(app);
+#endif
     requestRoutesEventServiceSse(app);
     requestRoutesEventDestinationCollection(app);
     requestRoutesEventDestination(app);
@@ -435,9 +452,6 @@ RedfishService::RedfishService(App& app)
     registerCxlRoutes(app);
 #endif
 
-#ifdef ONETREE_RM
-    redfish::rm::registerRmRoutes(app);
-#endif
 #ifdef ONETREE_PSM
     redfish::psm::registerPsmRoutes(app);
 #endif
@@ -500,6 +514,10 @@ RedfishService::RedfishService(App& app)
     registerResetRoutes(app);
     registerErotDumpRoutes(app);
     registerAuxResetRoutes(app);
+#endif
+
+#ifdef ONETREE_PSM
+    redfish::psm::registerPsmRoutes(app);
 #endif
 #ifdef ONETREE_ARM_SBMR
     registerSystemExtensionRoutes(app);

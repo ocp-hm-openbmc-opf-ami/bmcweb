@@ -2637,7 +2637,8 @@ inline void handleManagersInstanceGet(
     asyncResp->res.jsonValue["CommandShell"]["MaxConcurrentSessions"] = 1;
     asyncResp->res.jsonValue["CommandShell"]["ConnectTypesSupported"] = {
         "SSH", "IPMI"};
-#if !defined(ONETREE_PSM) && !BMCWEB_EXPERIMENTAL_REDFISH_MULTI_COMPUTER_SYSTEM
+#if !defined(ONETREE_PSM) &&                                                   \
+    !BMCWEB_EXPERIMENTAL_REDFISH_MULTI_COMPUTER_SYSTEM && !defined(ONETREE_RM)
     {
         asyncResp->res.jsonValue["Links"]["ManagerForServers@odata.count"] = 1;
 

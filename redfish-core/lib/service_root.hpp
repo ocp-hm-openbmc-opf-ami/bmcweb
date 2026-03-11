@@ -78,7 +78,7 @@ inline void handleServiceRootGetImpl(
         "/redfish/v1/EventService";
     asyncResp->res.jsonValue["TelemetryService"]["@odata.id"] =
         "/redfish/v1/TelemetryService";
-#ifndef ONETREE_PSM
+#if (!defined(ONETREE_RM)) && (!defined(ONETREE_PSM))
     asyncResp->res.jsonValue["Cables"]["@odata.id"] = "/redfish/v1/Cables";
 #endif
 #if (!defined(ONETREE_RM)) && (!defined(ONETREE_PSM))
