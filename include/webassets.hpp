@@ -248,6 +248,13 @@ inline void requestRoutes(App& app)
 
     for (const std::filesystem::directory_entry& dir : paths)
     {
+        // skip the redfish directories
+        std::string pathStr = dir.path().string();
+        if (pathStr.find("/redfish") != std::string::npos)
+        {
+            continue;
+        }
+
         if (std::filesystem::is_directory(dir))
         {
             // don't recurse into hidden directories or symlinks
