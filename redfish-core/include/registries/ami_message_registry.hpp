@@ -2,8 +2,8 @@
 // SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 /****************************************************************
-* This header contains definitions for AMI custom Redfish messages.
-***************************************************************/
+ * This header contains definitions for AMI custom Redfish messages.
+ ***************************************************************/
 #include "registries.hpp"
 
 #include <array>
