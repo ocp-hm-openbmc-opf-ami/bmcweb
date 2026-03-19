@@ -14,6 +14,7 @@
 #include "mutual_tls.hpp"
 #include "ssl_key_handler.hpp"
 #include "str_utility.hpp"
+#include "system_utils.hpp"
 #include "utility.hpp"
 
 #include <boost/asio/io_context.hpp>
@@ -35,7 +36,9 @@
 #include <cctype>
 #include <chrono>
 #include <filesystem>
+#include <format>
 #include <memory>
+#include <string>
 #include <vector>
 
 namespace crow
@@ -53,8 +56,27 @@ constexpr uint64_t peciCmdsReqBodyLimit = smallPayloadLimit * 2; // 2 MiB
 constexpr uint64_t telemetryBodyLimit = 1024UL * 128UL;
 constexpr uint64_t localMediaUploadLimit =
     1024UL * 1024UL * BMCWEB_LOCAL_MEDIA_UPLOAD_LIMIT;
-constexpr std::string_view localMediaUploadPath =
-    "/redfish/v1/Managers/bmc/Actions/Oem/AMIManager.LocalMediaUpload";
+
+inline bool isLocalMediaUploadPath(std::string_view target)
+{
+    std::vector<std::string> systemInstances = {"system"};
+    if (redfish::system_utils::isDualHostEnabled())
+    {
+        systemInstances.emplace_back("system1");
+    }
+    for (const auto& systemName : systemInstances)
+    {
+        std::string path = std::format(
+            "/redfish/v1/Systems/{}/Actions/Oem/AmiVirtualMedia.LocalMediaUpload",
+            systemName);
+        if (target == path)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
 // clang-format off
 constexpr static auto perRouteReqBodyLimit =
   std::to_array<std::tuple<std::string_view, uint64_t,boost::beast::http::verb>>({
@@ -68,7 +90,8 @@ constexpr static auto perRouteReqBodyLimit =
     {"/redfish/v1/TelemetryService/Triggers", telemetryBodyLimit, boost::beast::http::verb::post},
     {"/redfish/v1/TelemetryService/Triggers", telemetryBodyLimit, boost::beast::http::verb::put},
     {"/redfish/v1/TelemetryService/Triggers", telemetryBodyLimit, boost::beast::http::verb::patch},
-    {"/redfish/v1/Managers/bmc/Actions/Oem/AMIManager.LocalMediaUpload",  localMediaUploadLimit, boost::beast::http::verb::post},
+    {"/redfish/v1/Systems/system/Actions/Oem/AmiVirtualMedia.LocalMediaUpload",  localMediaUploadLimit, boost::beast::http::verb::post},
+    {"/redfish/v1/Systems/system1/Actions/Oem/AmiVirtualMedia.LocalMediaUpload",  localMediaUploadLimit, boost::beast::http::verb::post},
   });
 // clang-format on
 
@@ -511,7 +534,7 @@ class Connection :
             {
                 maxBodySize = limit;
 
-                if (target == localMediaUploadPath)
+                if (isLocalMediaUploadPath(target))
                 {
                     std::error_code ec;
 
@@ -588,7 +611,7 @@ class Connection :
             // in
             if (*contentLength > loggedOutPostBodyLimit &&
                 *contentLength < httpReqBodyLimit &&
-                parser->get().target() != localMediaUploadPath)
+                !isLocalMediaUploadPath(parser->get().target()))
             {
                 BMCWEB_LOG_DEBUG(
                     "{} Content length {} valid, but greater than logged out"
@@ -682,7 +705,7 @@ class Connection :
 
         parser->body_limit(getContentLengthLimit(method, target));
 
-        if (target == localMediaUploadPath)
+        if (isLocalMediaUploadPath(target))
         {
             // Resolve destination filename before body streaming begins
             std::string_view fileNameHeader = parser->get()["X-File-Name"];
