@@ -1934,7 +1934,7 @@ inline void handleAuthMethodsPatch(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const AuthMethods& auth)
 {
-    persistent_data::AuthConfigMethods& authMethodsConfig =
+    persistent_data::AuthConfigMethods authMethodsConfig =
         persistent_data::SessionStore::getInstance().getAuthMethodsConfig();
 
     if (auth.basicAuth)
@@ -2003,8 +2003,9 @@ inline void handleAuthMethodsPatch(
         !authMethodsConfig.tls)
     {
         // Do not allow user to disable everything
-        messages::actionNotSupported(asyncResp->res,
-                                     "of disabling all available methods");
+        messages::actionNotSupported(
+            asyncResp->res,
+            "Attempted to disable all available authentication methods");
         return;
     }
 
@@ -2013,8 +2014,7 @@ inline void handleAuthMethodsPatch(
     // Save configuration immediately
     persistent_data::getConfig().writeData();
 
-    // messages::success(asyncResp->res);
-    // asyncResp->res.result(boost::beast::http::status::no_content);
+    messages::success(asyncResp->res);
 }
 
 /**
