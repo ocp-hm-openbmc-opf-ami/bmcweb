@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!---->
+<!--################################################################################       -->
+<!--# Redfish Schema:  AmiCertificate  v1.0.0                                              -->
+<!--#                                                                                      -->
+<!--# Copyright American Megatrends, Inc. (AMI).                                           -->
+<!--################################################################################       -->
+<!---->
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
+    <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Capabilities.V1.xml">
+    <edmx:Include Namespace="Org.OData.Capabilities.V1" Alias="Capabilities"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
+    <edmx:Include Namespace="Resource"/>
+    <edmx:Include Namespace="Resource.v1_0_0"/>
+  </edmx:Reference>
+  <edmx:DataServices>
+
+	<Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AmiCertificate">
+		<Annotation Term="Redfish.OwningEntity" String="Ami"/>
+		<Annotation Term="Redfish.Release" String="1.0"/>
+		<ComplexType Name="AmiCertificate" Bool="false">
+			<Annotation Term="OData.Description" String="This is the schema definition for the AmiCertificate."/>
+			<Annotation Term="OData.LongDescription" String="This schema define the properties which is used in the AmiCertificate."/>
+			<Annotation Term="Capabilities.InsertRestrictions">
+				<Record>
+					<PropertyValue Property="Insertable" Bool="false"/>
+				</Record>
+			</Annotation>
+			<Annotation Term="Capabilities.UpdateRestrictions">
+				<Record>
+					<PropertyValue Property="Updatable" Bool="false"/>
+				</Record>
+			</Annotation>
+			<Annotation Term="Capabilities.DeleteRestrictions">
+				<Record>
+					<PropertyValue Property="Deletable" Bool="false"/>
+				</Record>
+			</Annotation>
+		</ComplexType>
+  </Schema>	
+        <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AmiCertificate.v1_0_0">
+          <Annotation Term="Redfish.OwningEntity" String="Ami"/>
+          <Annotation Term="Redfish.Release" String="1.0"/>
+          <ComplexType Name="AmiCertificate" BaseType="AmiCertificate.AmiCertificate">
+              <Annotation Term="OData.AdditionalProperties" Bool="true" />
+              <Annotation Term="OData.Description" String="Oem properties for AmiCertificate." />
+              <Annotation Term="OData.LongDescription" String="Oem properties for AmiCertificate." />
+              <Property Name="CertificateVersion" Type="Edm.String" Nullable="false">
+                <Annotation Term="OData.Description" String="The version of the certificate used for authentication and encryption." />
+                <Annotation Term="OData.LongDescription" String="This property indicates the version of the certificate, which is vital for ensuring compatibility with authentication and encryption protocols. The certificate version helps in managing updates or changes in the security standards, ensuring that the communication remains secure and compliant with the latest protocols." />
+              </Property>
+              <Property Name="PublicKey" Type="Edm.Int16" Nullable="false">
+                  <Annotation Term="OData.Description" String="The public key used for certificate-based authentication and encryption." />
+                  <Annotation Term="OData.LongDescription" String="This property holds the public key in string format, which is part of the certificate used for secure communication and data encryption. It is essential for verifying authenticity in certificate-based authentication protocols and ensuring the confidentiality of exchanged data." />
+              </Property>
+          </ComplexType>
+
+        </Schema>
+    </edmx:DataServices>
+</edmx:Edmx>

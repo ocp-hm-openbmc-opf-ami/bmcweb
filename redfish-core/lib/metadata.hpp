@@ -150,7 +150,7 @@ inline void requestRoutesMetadata(App& app)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleMetadataGet, std::ref(app)));
 
-    BMCWEB_ROUTE(app, "/redfish/v1/schema/<str>/")
+    BMCWEB_ROUTE(app, "/redfish/v1/Schemas/<str>/")
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleSchemaGet, std::ref(app)));
 }

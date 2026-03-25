@@ -2940,10 +2940,9 @@ inline void getSensorFromDbus(
                         else
                         {
                             asyncResp->res.jsonValue["Oem"]["Ami"]["States"] =
-                                nullptr;
+                                nlohmann::json::array();
                         }
-                        asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] =
-                            json_util::odataType("AMISensor");
+                        asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] = json_util::odataType("AmiSensor");
                         asyncResp->res.jsonValue["Status"]["State"] =
                             sensor_utils::getState(nullptr, true);
                         asyncResp->res.jsonValue["Status"]["Health"] =
@@ -3726,7 +3725,7 @@ inline void handleSensorHistoryGet(
                             "/redfish/v1/Chassis/" + chassisId + "/" +
                             "Sensors/" + sensorId + "/Oem/SensorHistory" +
                             "#/SensorReadings/" + std::to_string(sensorCount++);
-                        historyItem["@odata.type"] = "#OemSensorHistory.v1_0_0";
+                        historyItem["@odata.type"] = json_util::odataType("AmiSensorHistory");
                         historyItem["Time"] = time;
                         historyItem["Value"] = value;
                         historyArray.push_back(historyItem);

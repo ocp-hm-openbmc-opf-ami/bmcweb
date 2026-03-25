@@ -2,7 +2,7 @@
     "$id": "/redfish/v1/JsonSchemas/AmiLicenseControl/AmiLicenseControl.v1_0_0.json",
     "$ref": "#/definitions/AmiLicenseControl",
     "$schema": "http://redfish.dmtf.org/schemas/v1/redfish-schema-v1.json",
-    "copyright": "Copyright American Megatrends, Inc. (AMI)",
+    "copyright": "Copyright American Megatrends, Inc. (AMI).",
     "definitions": {
         "AmiLicenseControl": {
             "additionalProperties": false,
@@ -100,5 +100,6 @@
         }
     },
     "owningEntity": "Ami",
+    "release": "1.0",
     "title": "#AmiLicenseControl.v1_0_0.AmiLicenseControl"
 }

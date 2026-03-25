@@ -1,7 +1,7 @@
 {
     "$id": "/redfish/v1/JsonSchemas/AmiManagerAccount/AmiManagerAccount.v1_0_0.json",
     "$schema": "http://redfish.dmtf.org/schemas/v1/redfish-schema-v1.json",
-    "copyright": "Copyright American Megatrends, Inc. (AMI)",
+    "copyright": "Copyright American Megatrends, Inc. (AMI).",
     "definitions": {
         "Actions": {
             "additionalProperties": true,
@@ -192,24 +192,6 @@
                 }
             },
             "properties": {
-                "Access": {
-                    "description": "Indicates if SNMP User has a Read/Write is enabled.",
-                    "longDescription": "This property indicates if SNMP user has a Read/Write is enabled.",
-                    "readonly": false,
-                    "type": "string"
-                },
-                "Algorithm": {
-                    "description": "The authentication protocol for SNMPv3.",
-                    "longDescription": "This property shall contain the SNMPv3 authentication protocol.",
-                    "readonly": false,
-                    "type": "string"
-                },
-                "Encryption": {
-                    "description": "The encryption protocol for SNMPv3.",
-                    "longDescription": "This property shall contain the SNMPv3 encryption protocol.",
-                    "readonly": false,
-                    "type": "string"
-                },
                 "SNMPAccessEnableStatus": {
                     "description": "Indicates if SNMP User is enabled.",
                     "longDescription": "This property indicates if SNMP user is enabled.",
@@ -253,5 +235,6 @@
         }
     },
     "owningEntity": "Ami",
-    "title": "#AmiManagerAccount.v1_0_0"
+    "release": "1.0",
+    "title": "#AmiManagerAccount.v1_0_0.AmiManagerAccount"
 }

@@ -419,24 +419,28 @@ void getPefServiceInfo(crow::App& app, const crow::Request& req,
         return;
     }
 
-    aResp->res.jsonValue = {{"@odata.type", "#PefService.v1_0_0.PefService"},
-                            {"@odata.id", "/redfish/v1/PefService"},
-                            {"Id", "Pef Service"},
-                            {"Name", "Pef Service"},
-                            {"Description", "Pef Service Collections"}};
-    aResp->res.jsonValue["Actions"]["#PefService.SendAlertMail"]["target"] =
-        "/redfish/v1/PefService/Actions/"
-        "PefService.SendAlertMail";
-    aResp->res.jsonValue["Actions"]["#PefService.SendAlertSNMPTrap"]["target"] =
-        "/redfish/v1/PefService/Actions/"
-        "PefService.SendAlertSNMPTrap";
-    nlohmann::json& entriesntrollerArray = aResp->res.jsonValue["Members"];
-    entriesntrollerArray = nlohmann::json::array();
+    aResp->res.jsonValue = {
+                    {"@odata.type", "#AmiPefService.v1_0_0.AmiPefService"},
+                    {"@odata.id", "/redfish/v1/PefService"},
+                    {"Id", "Pef Service"},
+                    {"Name", "Pef Service"},
+                    {"Description", "Pef Service Collections"}};
+                aResp->res.jsonValue["Actions"]["#PefService.SendAlertMail"]
+                                    ["target"] =
+                    "/redfish/v1/PefService/Actions/"
+                    "PefService.SendAlertMail";
+                aResp->res.jsonValue["Actions"]["#PefService.SendAlertSNMPTrap"]
+                                    ["target"] =
+                    "/redfish/v1/PefService/Actions/"
+                    "PefService.SendAlertSNMPTrap";
+                nlohmann::json& entriesntrollerArray =
+                    aResp->res.jsonValue["Members"];
+                entriesntrollerArray = nlohmann::json::array();
 
-    getEventEntries(aResp, entriesntrollerArray);
-    getFilterEnable(aResp);
-    getPefConfParam(aResp);
-    getDestinationType(aResp);
+                getEventEntries(aResp, entriesntrollerArray);
+                getFilterEnable(aResp);
+                getPefConfParam(aResp);
+                getDestinationType(aResp);
 }
 
 void getPefServiceInfoId(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -689,9 +693,16 @@ inline void requestRoutesPefService(App& app)
                                                    entryId);
                         return;
                     }
-                    asyncResp->res.addHeader("Allow", "GET, PATCH");
-                    messages::operationNotAllowed(asyncResp->res);
-                    return;
+                    else
+                    {
+                        asyncResp->res.jsonValue = {
+                            {"@odata.type", "#AmiPefEntry.v1_0_0.AmiPefEntry"},
+                            {"@odata.id", "/redfish/v1/PefService/" + entryId},
+                            {"Id", entryId},
+                            {"Name", "Pef Service Entry"}
+                        };
+                        getEventSeverity(asyncResp, entryId);
+                    }
                 },
                 "xyz.openbmc_project.ObjectMapper",
                 "/xyz/openbmc_project/object_mapper",

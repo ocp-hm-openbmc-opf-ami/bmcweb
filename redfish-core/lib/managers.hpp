@@ -2523,7 +2523,7 @@ inline void handleManagersInstanceGet(
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
 #if (!defined(ONETREE_RM)) && (!defined(ONETREE_PSM))
     asyncResp->res.jsonValue["SerialInterfaces"]["@odata.id"] =
-        boost::urls::format("/redfish/v1/Managers/{}/SerialInterfaces",
+        boost::urls::format("/redfish/v1/Managers/{}/SerialInterfaces/",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
 #endif
     asyncResp->res.jsonValue["EthernetInterfaces"]["@odata.id"] =

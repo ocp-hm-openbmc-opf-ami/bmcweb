@@ -123,8 +123,7 @@ inline void handleLicenseControlGet(
 
     asyncResp->res.jsonValue["@odata.id"] =
         "/redfish/v1/Oem/Ami/LicenseControl";
-    asyncResp->res.jsonValue["@odata.type"] =
-        json_util::odataType("AmiLicenseControl");
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("AmiLicenseControl");
     asyncResp->res.jsonValue["Name"] = "License Control";
     asyncResp->res.jsonValue["Id"] = "License Control";
 
