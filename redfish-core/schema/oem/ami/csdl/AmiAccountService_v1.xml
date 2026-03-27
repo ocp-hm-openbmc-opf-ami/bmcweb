@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!---->
+<!--################################################################################       -->
+<!--# Redfish Schema:  AmiAccountService  v1.0.0                                           -->
+<!--#                                                                                      -->
+<!--# Copyright American Megatrends, Inc. (AMI).                                           -->
+<!--################################################################################       -->
+<!---->
+
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+    <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
+        <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData" />
+    </edmx:Reference>
+    <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
+        <edmx:Include Namespace="Validation.v1_0_0" Alias="Validation"/>
+        <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+    </edmx:Reference>
+    <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/AccountService_v1.xml">
+        <edmx:Include Namespace="AccountService"/>
+        <edmx:Include Namespace="AccountService.v1_15_0"/>
+    </edmx:Reference>
+    <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
+        <edmx:Include Namespace="Resource"/>
+        <edmx:Include Namespace="Resource.v1_0_0"/>
+    </edmx:Reference>
+    <edmx:DataServices>
+
+	<Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AmiAccountService">
+		<Annotation Term="Redfish.OwningEntity" String="Ami"/>
+		<Annotation Term="Redfish.Release" String="1.0"/>
+		<ComplexType Name="AmiAccountService" Bool="false">
+			<Annotation Term="OData.Description" String="This is the schema definition for the AmiAccountService."/>
+			<Annotation Term="OData.LongDescription" String="This schema define the properties which is used in the AmiAccountService."/>
+			<Annotation Term="Capabilities.InsertRestrictions">
+				<Record>
+					<PropertyValue Property="Insertable" Bool="false"/>
+				</Record>
+			</Annotation>
+			<Annotation Term="Capabilities.UpdateRestrictions">
+				<Record>
+					<PropertyValue Property="Updatable" Bool="false"/>
+				</Record>
+			</Annotation>
+			<Annotation Term="Capabilities.DeleteRestrictions">
+				<Record>
+					<PropertyValue Property="Deletable" Bool="false"/>
+				</Record>
+			</Annotation>
+		</ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AmiAccountService.v1_0_0">
+    <Annotation Term="Redfish.OwningEntity" String="Ami" />
+        <Annotation Term="Redfish.Release" String="1.0" />
+        <ComplexType Name="AmiAccountService" BaseType="AmiAccountService.AmiAccountService">
+            <Annotation Term="OData.Description" String="AmiAccountService Oem properties." />
+            <Annotation Term="OData.LongDescription" String="AmiAccountService Oem properties." />
+            <Property Name="Configuration" Type="AmiAccountService.v1_0_0.Configuration">
+            </Property>
+        </ComplexType>
+
+        <ComplexType Name="Configuration" Abstract="true">
+            <Annotation Term="OData.AdditionalProperties" Bool="false" />
+            <Annotation Term="OData.Description" String="Configuration of  pamOrder." />
+            <Property Name="PamOrder" Type="Collection(Edm.String)" Nullable="false">
+                <Annotation Term="OData.Description" String="PamOrder reorder the PAM module." />
+                <Annotation Term="OData.LongDescription" String="PamOrder reorder the PAM modules." />
+            </Property>
+        </ComplexType>
+    </Schema>
+</edmx:DataServices>
+</edmx:Edmx>
+ 

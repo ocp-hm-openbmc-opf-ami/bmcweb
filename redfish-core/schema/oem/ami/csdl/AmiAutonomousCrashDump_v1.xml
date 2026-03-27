@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!---->
+<!--################################################################################       -->
+<!--# Redfish Schema:  AmiAutonomousCrashDump.v1_0_0                                          -->
+<!--#                                                                                      -->
+<!--# For a detailed change log, see the README file contained in the DSP8010 bundle,      -->
+<!--# available at http://www.dmtf.org/standards/redfish                                   -->
+<!--# Copyright 2020 DMTF.                                                                 -->
+<!--# For the full DMTF copyright policy, see http://www.dmtf.org/about/policies/copyright -->
+<!--################################################################################       -->
+<!---->
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+	<edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
+		<edmx:Include Namespace="Resource.v1_0_0"/>
+	</edmx:Reference>
+	<edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Capabilities.V1.xml">
+		<edmx:Include Namespace="Org.OData.Capabilities.V1" Alias="Capabilities"/>
+	</edmx:Reference>
+	<edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
+		<edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
+	</edmx:Reference>
+	<edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
+		<edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+	</edmx:Reference>
+	<edmx:DataServices>
+		<Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AmiAutonomousCrashDump">
+			<Annotation Term="Redfish.OwningEntity" String="Ami"/>
+			<EntityType Name="AmiAutonomousCrashDump" BaseType="Resource.v1_0_0.Resource" Abstract="true">
+				<Annotation Term="OData.Description" String="Parameters for AmiAutonomousCrashDump."/>
+				<Annotation Term="OData.LongDescription" String="Parameters for AmiAutonomousCrashDump."/>
+				<Annotation Term="Capabilities.InsertRestrictions">
+					<Record>
+						<PropertyValue Property="Insertable" Bool="false"/>
+					</Record>
+				</Annotation>
+				<Annotation Term="Capabilities.UpdateRestrictions">
+					<Record>
+						<PropertyValue Property="Updatable" Bool="false"/>
+					</Record>
+				</Annotation>
+				<Annotation Term="Capabilities.DeleteRestrictions">
+					<Record>
+						<PropertyValue Property="Deletable" Bool="false"/>
+					</Record>
+				</Annotation>
+			</EntityType>
+		</Schema>
+		<Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AmiAutonomousCrashDump.v1_0_0">
+			<Annotation Term="Redfish.OwningEntity" String="Ami"/>
+			<Annotation Term="Redfish.Release" String="1.0"/>
+			<EntityType Name="AmiAutonomousCrashDump" BaseType="AmiAutonomousCrashDump.AmiAutonomousCrashDump">
+				<Property Name="CrashDumpLog" Type="AmiAutonomousCrashDump.v1_0_0.CrashDumpLog" Nullable="false">
+					<Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+					<Annotation Term="OData.Description" String="Configuration settings for crashdump log."/>
+					<Annotation Term="OData.LongDescription" String="Configuration settings for crashdump log."/>
+				</Property>
+				<Property Name="Enabled" Type="Edm.Boolean" Nullable="false">
+					<Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+					<Annotation Term="OData.Description" String="The property signifies if the AutonomousCrashDump is enabled or disabled."/>
+					<Annotation Term="OData.LongDescription" String="The property signifies if the AutonomousCrashDump is enabled or disabled."/>
+				</Property>
+				<Property Name="DumpFiles" Type="Collection(AmiAutonomousCrashDump.v1_0_0.DumpFiles)" Nullable="false">
+					<Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+					<Annotation Term="OData.Description" String="The URL for Collection of Debug Files."/>
+					<Annotation Term="OData.LongDescription" String="The URL for Collection of Debug Files."/>
+				</Property>
+			</EntityType>
+			<ComplexType Name="DataArea" Nullable="false">
+				<Annotation Term="OData.Description" String="Configuration settings for the data area associated with crashdump log."/>
+				<Annotation Term="OData.LongDescription" String="AutonomousCrashDump will generate the crashdump log by the following settings."/>
+				<Annotation Term="OData.AdditionalProperties" Bool="false"/>
+				<Property Name="Bigcore" Type="Edm.Boolean" Nullable="false">
+					<Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+					<Annotation Term="OData.Description" String="The data area field in the crashdump log."/>
+					<Annotation Term="OData.LongDescription" String="If set to true, the crashdump log will include this section."/>
+				</Property>
+				<Property Name="Crashlog" Type="Edm.Boolean" Nullable="false">
+					<Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+					<Annotation Term="OData.Description" String="The data area field in the crashdump log."/>
+					<Annotation Term="OData.LongDescription" String="If set to true, the crashdump log will include this section."/>
+				</Property>
+				<Property Name="MCA" Type="Edm.Boolean" Nullable="false">
+					<Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+					<Annotation Term="OData.Description" String="The data area field in the crashdump log."/>
+					<Annotation Term="OData.LongDescription" String="If set to true, the crashdump log will include this section."/>
+				</Property>
+				<Property Name="TOR" Type="Edm.Boolean" Nullable="false">
+					<Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+					<Annotation Term="OData.Description" String="The data area field in the crashdump log."/>
+					<Annotation Term="OData.LongDescription" String="If set to true, the crashdump log will include this section."/>
+				</Property>
+				<Property Name="Uncore" Type="Edm.Boolean" Nullable="false">
+					<Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+					<Annotation Term="OData.Description" String="The data area field in the crashdump log."/>
+					<Annotation Term="OData.LongDescription" String="If set to true, the crashdump log will include this section."/>
+				</Property>
+				<Property Name="Rdiamsr" Type="Edm.Boolean" Nullable="false">
+					<Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+					<Annotation Term="OData.Description" String="The data area field in the crashdump log."/>
+					<Annotation Term="OData.LongDescription" String="If set to true, the crashdump log will include this section."/>
+				</Property>
+			</ComplexType>
+			<ComplexType Name="CrashDumpLog" Nullable="false">
+				<Annotation Term="OData.Description" String="Configuration settings for crashdump log."/>
+				<Annotation Term="OData.LongDescription" String="Configuration settings for crashdump log."/>
+				<Annotation Term="OData.AdditionalProperties" Bool="false"/>
+				<Property Name="DataArea" Type="AmiAutonomousCrashDump.v1_0_0.DataArea" Nullable="false">
+					<Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+					<Annotation Term="OData.Description" String="Configuration settings for the data area associated with crashdump log."/>
+					<Annotation Term="OData.LongDescription" String="AutonomousCrashDump will generate the crashdump log by the following settings."/>
+				</Property>
+			</ComplexType>
+			<ComplexType Name="DumpFiles" Nullable="false">
+				<Annotation Term="OData.Description" String="The URL for Collection of Debug Files."/>
+				<Annotation Term="OData.LongDescription" String="The URL for Collection of Debug Files."/>
+				<Annotation Term="OData.AdditionalProperties" Bool="false"/>
+				<Property Name="Created" Type="Edm.String" Nullable="false">
+					<Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+					<Annotation Term="OData.Description" String="Log file of creation time."/>
+					<Annotation Term="OData.LongDescription" String="Log file of creation time."/>
+				</Property>
+				<Property Name="FilePath" Type="Edm.String" Nullable="false">
+					<Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+					<Annotation Term="OData.Description" String="The URL for debug log file."/>
+					<Annotation Term="OData.LongDescription" String="The URL for debug log file."/>
+				</Property>
+			</ComplexType>
+		</Schema>
+	</edmx:DataServices>
+</edmx:Edmx>
+
+

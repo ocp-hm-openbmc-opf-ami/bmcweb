@@ -1,4 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!---->
+<!--################################################################################       -->
+<!--# Redfish Schema:  AmiEventService                                                     -->
+<!--#                                                                                      -->
+<!--# For a detailed change log, see the README file contained in the DSP8010 bundle,      -->
+<!--# available at http://www.dmtf.org/standards/redfish                                   -->
+<!--# Copyright 2014-2020 DMTF.                                                            -->
+<!--# For the full DMTF copyright policy, see http://www.dmtf.org/about/policies/copyright -->
+<!--################################################################################       -->
+<!---->
 <edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
 
    <edmx:Reference
@@ -20,6 +30,25 @@
    <edmx:DataServices>
 
       <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AmiEventService">
+         <ComplexType Name="AmiEventService" Bool="false">
+            <Annotation Term="OData.Description" String="This is the schema definition for the AmiEventService."/>
+            <Annotation Term="OData.LongDescription" String="This schema define the properties which is used in the AmiEventService."/>
+            <Annotation Term="Capabilities.InsertRestrictions">
+               <Record>
+                  <PropertyValue Property="Insertable" Bool="false"/>
+               </Record>
+            </Annotation>
+            <Annotation Term="Capabilities.UpdateRestrictions">
+               <Record>
+                  <PropertyValue Property="Updatable" Bool="false"/>
+               </Record>
+            </Annotation>
+            <Annotation Term="Capabilities.DeleteRestrictions">
+               <Record>
+                  <PropertyValue Property="Deletable" Bool="false"/>
+               </Record>
+            </Annotation>
+         </ComplexType>
          <Action Name="PrimaryConfiguration" IsBound="true">
             <Annotation Term="OData.Description"
                String="This action sends SNMP trap alert from Pef Service." />
@@ -48,11 +77,16 @@
                </Collection>
             </Annotation>
          </Action>
-         <ComplexType Name="Oem" BaseType="Resource.OemObject">
+      </Schema>
+
+      <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AmiEventService.v1_0_0"> 
+        <Annotation Term="Redfish.OwningEntity" String="Ami"/>
+        <Annotation Term="Redfish.Release" String="1.0"/>
+         <ComplexType Name="AmiEventService" BaseType="AmiEventService.AmiEventService">
             <Annotation Term="OData.AdditionalProperties" Bool="true" />
-            <Annotation Term="OData.Description" String="AmiEventService Oem properties." />
+            <Annotation Term="OData.Description" String="Oem properties for AmiEventService." />
             <Annotation Term="OData.AutoExpand" />
-            <Property Name="Ami" Type="AmiEventService.Ami" />
+            <Property Name="SMTP" Type="AmiEventService.v1_0_0.SMTP" />
          </ComplexType>
 
          <ComplexType Name="Ami" BaseType="Resource.OemObject">
@@ -62,15 +96,15 @@
             <Property Name="SMTP" Type="AmiEventService.SMTP" />
          </ComplexType>
 
-         <ComplexType Name="SMTP" BaseType="Resource.OemObject">
+         <ComplexType Name="SMTP">
             <Annotation Term="OData.AdditionalProperties" Bool="true" />
-            <Annotation Term="OData.Description" String="Ami oem smtp properties." />
+            <Annotation Term="OData.Description" String="AmiEventService smtp properties." />
             <Annotation Term="OData.AutoExpand" />
-            <Property Name="PrimaryConfiguration" Type="AmiEventService.PrimaryConfiguration" />
-            <Property Name="SecondaryConfiguration" Type="AmiEventService.SecondaryConfiguration" />
+            <Property Name="PrimaryConfiguration" Type="AmiEventService.v1_0_0.PrimaryConfiguration" />
+            <Property Name="SecondaryConfiguration" Type="AmiEventService.v1_0_0.SecondaryConfiguration" />
          </ComplexType>
 
-         <ComplexType Name="PrimaryConfiguration" BaseType="Resource.OemObject">
+         <ComplexType Name="PrimaryConfiguration">
             <Annotation Term="OData.AdditionalProperties" Bool="false" />
             <Annotation Term="OData.Description" String="An indication by boolean value." />
             <Property Name="Authentication" Type="Edm.Boolean">
@@ -166,7 +200,7 @@
                <Annotation Term="OData.LongDescription" String="This property shall contain the available actions for this resource."/>
              </Property>  
          </ComplexType>
-         <ComplexType Name="SecondaryConfiguration" BaseType="Resource.OemObject">
+         <ComplexType Name="SecondaryConfiguration">
             <Annotation Term="OData.AdditionalProperties" Bool="false" />
             <Annotation Term="OData.Description" String="An indication by boolean value." />
             <Property Name="Authentication" Type="Edm.Boolean">

@@ -1018,24 +1018,23 @@ inline void doMountVmLegacy(
             messages::unrecognizedRequestBody(asyncResp->res);
             return;
         }
-
-        // Open pipe
-        secretPipe = std::make_shared<CredentialsPipe>(
-            crow::connections::systemBus->get_io_context());
-        fd = secretPipe->releaseFd();
-
-        // Pass secret over pipe
-        secretPipe->asyncWrite(
-            std::move(userName), std::move(password),
-            [asyncResp,
-             secretPipe](const boost::system::error_code& ec, std::size_t) {
-                if (ec)
-                {
-                    BMCWEB_LOG_ERROR("Failed to pass secret: {}", ec);
-                    messages::internalError(asyncResp->res);
-                }
-            });
     }
+    // Open pipe
+    secretPipe = std::make_shared<CredentialsPipe>(
+        crow::connections::systemBus->get_io_context());
+    fd = secretPipe->releaseFd();
+
+    // Pass secret over pipe
+    secretPipe->asyncWrite(
+        std::move(userName), std::move(password),
+        [asyncResp,
+         secretPipe](const boost::system::error_code& ec, std::size_t) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("Failed to pass secret: {}", ec);
+                messages::internalError(asyncResp->res);
+            }
+        });
     std::string objectPath;
     if (systemName == "system1")
     {
@@ -1316,10 +1315,9 @@ inline void validateParams(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         return;
     }
 
-    // validate the Username and Password for CIFS and HTTPS
+    // validate the Username and Password for CIFS
 
-    if (actionParams.transferProtocolType == "CIFS" ||
-        actionParams.transferProtocolType == "HTTPS")
+    if (actionParams.transferProtocolType == "CIFS")
     {
         if (!actionParams.userName || actionParams.userName == "")
 
@@ -1340,6 +1338,37 @@ inline void validateParams(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                                              "Password");
 
             return;
+        }
+    }
+
+    // validate the Username and Password for HTTPS, if provided.
+    if (actionParams.transferProtocolType == "HTTPS")
+    {
+        if (actionParams.userName.has_value() ||
+            actionParams.password.has_value())
+        {
+            // if username have some value then check the value weather is " "
+            // or empty.
+            if (!actionParams.userName.has_value() ||
+                actionParams.userName.value().empty())
+            {
+                BMCWEB_LOG_ERROR(
+                    "Request action parameter UserName is Missing.");
+                messages::actionParameterMissing(asyncResp->res, "InsertMedia",
+                                                 "Username");
+                return;
+            }
+            // if Password have some value then check the value weather is " "
+            // or empty.
+            if (!actionParams.password.has_value() ||
+                actionParams.password.value().empty())
+            {
+                BMCWEB_LOG_ERROR(
+                    "Request action parameter Password is Missing.");
+                messages::actionParameterMissing(asyncResp->res, "InsertMedia",
+                                                 "Password");
+                return;
+            }
         }
     }
 

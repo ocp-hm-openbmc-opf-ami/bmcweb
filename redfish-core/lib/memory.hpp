@@ -808,7 +808,7 @@ inline void requestRoutesMemoryCollection(App& app)
                 }
 
                 asyncResp->res.jsonValue["@odata.type"] =
-                    "#MemoryCollection.MemoryCollection";
+                    json_util::odataType("MemoryCollection");
                 asyncResp->res.jsonValue["Name"] = "Memory Module Collection";
                 asyncResp->res.jsonValue["Description"] =
                     "Collection of Memories for this system";

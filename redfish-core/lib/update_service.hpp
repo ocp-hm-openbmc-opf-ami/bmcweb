@@ -1905,7 +1905,7 @@ inline void handleUpdateServiceGet(
 
     getPreserveConfig(asyncResp, "UpdateService");
     asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] =
-        json_util::odataType("AMIUpdateService", "Ami");
+        json_util::odataType("AmiUpdateService", "Ami");
 
 #if defined(ONETREE_EGS) || defined(ONETREE_BHS) ||                            \
     defined(ONETREE_ASPEED_SDK_LAYER) || defined(ONETREE_EVB_AST2600)

@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!---->
+<!--################################################################################       -->
+<!--# Redfish Schema:  AmiPefServiceRoot  v1.0.0                                           -->
+<!--#                                                                                      -->
+<!--# Copyright American Megatrends, Inc. (AMI).                                           -->
+<!--################################################################################       -->
+<!---->
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
+    <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Measures.V1.xml">
+    <edmx:Include Namespace="Org.OData.Measures.V1" Alias="Measures"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
+    <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
+    <edmx:Include Namespace="Resource"/>
+    <edmx:Include Namespace="Resource.v1_0_0"/>
+  </edmx:Reference>
+
+  <edmx:Reference Uri="/redfish/v1/schema/AmiPefService_v1.xml">
+    <edmx:Include Namespace="AmiPefService"/>
+    <edmx:Include Namespace="AmiPefService.v1_0_0"/>
+  </edmx:Reference>
+
+  <edmx:DataServices>
+
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AmiPefServiceRoot.v1_0_0">
+      <Annotation Term="Redfish.OwningEntity" String="Ami"/>
+      <Annotation Term="Redfish.Release" String="1.0"/>
+
+        <ComplexType Name="AmiPefServiceRoot" BaseType="AmiPefServiceRoot.AmiPefServiceRoot">
+          <Annotation Term="OData.Description" String="Oem properties for AmiPefServiceRoot."/>
+          <Annotation Term="OData.LongDescription" String="Oem properties for AmiPefServiceRoot."/>
+          <NavigationProperty Name="PefService" Type="AmiPefService.v1_0_0.AmiPefService" Nullable="false">
+            <Annotation Term="OData.Description" String="The link to the Pef Service."/>
+          </NavigationProperty>
+        </ComplexType>
+    </Schema>
+
+  </edmx:DataServices>
+</edmx:Edmx>
+

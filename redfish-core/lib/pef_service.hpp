@@ -791,7 +791,7 @@ void getPefServiceInfo(crow::App& app, const crow::Request& req,
     }
 
     aResp->res.jsonValue = nlohmann::json{
-        {"@odata.type", "#PefService.v1_0_0.PefService"},
+        {"@odata.type", "#AmiPefService.v1_0_0.AmiPefService"},
         {"@odata.id", "/redfish/v1/Oem/Ami/PefService"},
         {"Id", "Pef Service"},
         {"Name", "Pef Service"},
@@ -1120,9 +1120,15 @@ inline void requestRoutesPefService(App& app)
                                                    entryId);
                         return;
                     }
-                    asyncResp->res.addHeader("Allow", "GET, PATCH");
-                    messages::operationNotAllowed(asyncResp->res);
-                    return;
+                    else
+                    {
+                        asyncResp->res.jsonValue = {
+                            {"@odata.type", "#AmiPefEntry.v1_0_0.AmiPefEntry"},
+                            {"@odata.id", "/redfish/v1/PefService/" + entryId},
+                            {"Id", entryId},
+                            {"Name", "Pef Service Entry"}};
+                        getEventSeverity(asyncResp, entryId);
+                    }
                 },
                 "xyz.openbmc_project.ObjectMapper",
                 "/xyz/openbmc_project/object_mapper",

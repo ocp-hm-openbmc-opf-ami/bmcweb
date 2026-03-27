@@ -1,0 +1,270 @@
+{
+    "$id": "/redfish/v1/JsonSchemas/AmiPefService.v1_0_0.json",
+    "$ref": "#/definitions/AmiPefService",
+    "$schema": "http://redfish.dmtf.org/schemas/v1/redfish-schema-v1.json",
+    "copyright": "Copyright American Megatrends, Inc. (AMI).",
+    "definitions": {
+        "Actions": {
+            "additionalProperties": true,
+            "description": "The available actions for this resource.",
+            "longDescription": "This type shall contain the available actions for this resource.",
+            "patternProperties": {
+                "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
+                    "description": "This property shall specify a valid odata or Redfish property.",
+                    "type": [
+                        "array",
+                        "boolean",
+                        "integer",
+                        "number",
+                        "null",
+                        "object",
+                        "string"
+                    ]
+                }
+            },
+            "properties": {
+                "#AmiPefService.SendAlertMail": {
+                    "$ref": "#/definitions/SendAlertMail"
+                },
+                "#AmiPefService.SendAlertSNMPTrap": {
+                    "$ref": "#/definitions/SendAlertSNMPTrap"
+                },
+                "Oem": {
+                    "$ref": "#/definitions/OemActions",
+                    "description": "The available OEM-specific actions for this resource.",
+                    "longDescription": "This property shall contain the available OEM-specific actions for this resource."
+                }
+            },
+            "type": "object"
+        },
+        "AmiPefService": {
+            "additionalProperties": false,
+            "description": "The PefService schema describes the Pef Alert and Alert Mail service.",
+            "longDescription": "The PefService schema describes the root of the Pef Service. All Pef Alert and Alert Mail propertiesshowcased with this schema.",
+            "patternProperties": {
+                "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
+                    "description": "This property shall specify a valid odata or Redfish property.",
+                    "type": [
+                        "array",
+                        "boolean",
+                        "integer",
+                        "number",
+                        "null",
+                        "object",
+                        "string"
+                    ]
+                }
+            },
+            "properties": {
+                "@odata.context": {
+                    "$ref": "http://redfish.dmtf.org/schemas/v1/odata-v4.json#/definitions/context"
+                },
+                "@odata.etag": {
+                    "$ref": "http://redfish.dmtf.org/schemas/v1/odata-v4.json#/definitions/etag"
+                },
+                "@odata.id": {
+                    "$ref": "http://redfish.dmtf.org/schemas/v1/odata-v4.json#/definitions/id"
+                },
+                "@odata.type": {
+                    "$ref": "http://redfish.dmtf.org/schemas/v1/odata-v4.json#/definitions/type"
+                },
+                "Actions": {
+                    "$ref": "#/definitions/Actions",
+                    "description": "The available actions for this resource.",
+                    "longDescription": "This property shall contain the available actions for this resource."
+                },
+                "Description": {
+                    "anyOf": [
+                        {
+                            "$ref": "http://redfish.dmtf.org/schemas/v1/Resource.json#/definitions/Description"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "readonly": true
+                },
+                "DestinationType": {
+                    "description": "The DestinationType either be SMTP or SnmpTrap.",
+                    "longDescription": "This property shall contain the SMTP or SnmpTrap value of PefService.",
+                    "readonly": false,
+                    "type": "string"
+                },
+                "FilterEnable": {
+                    "description": "The array of different filters required for PefService.",
+                    "items": {
+                        "type": "integer"
+                    },
+                    "longDescription": "This property shall contain the array of bytes of different sensors filters flags.",
+                    "readonly": false,
+                    "type": "array"
+                },
+                "Id": {
+                    "$ref": "http://redfish.dmtf.org/schemas/v1/Resource.json#/definitions/Id",
+                    "readonly": true
+                },
+                "Members": {
+                    "description": "The members of this collection.",
+                    "items": {
+                        "$ref": "/redfish/v1/schema/AmiPefEntry.json#/definitions/AmiPefEntry"
+                    },
+                    "longDescription": "This property shall contain an array of links to the members of this collection.",
+                    "readonly": false,
+                    "type": "array"
+                },
+                "Members@odata.count": {
+                    "$ref": "http://redfish.dmtf.org/schemas/v1/odata-v4.json#/definitions/count"
+                },
+                "Name": {
+                    "$ref": "http://redfish.dmtf.org/schemas/v1/Resource.json#/definitions/Name",
+                    "readonly": true
+                },
+                "Oem": {
+                    "$ref": "http://redfish.dmtf.org/schemas/v1/Resource.json#/definitions/Oem",
+                    "description": "The OEM extension property.",
+                    "longDescription": "This property shall contain the OEM extensions.  All values for properties that this object contains shall conform to the Redfish Specification-described requirements."
+                },
+                "PEFActionGblControl": {
+                    "description": "The Global Action Control flag of Pef Service.",
+                    "longDescription": "This property shall contain the Global Action Control flag of PefService.",
+                    "readonly": false,
+                    "type": "integer"
+                },
+                "RetryEnable": {
+                    "description": "Enables retry configuration for alerts.",
+                    "longDescription": "When this is set to true, alerts are not sent immediately. Instead, they are queued as tasks and retried according to configured limits.",
+                    "readonly": false,
+                    "type": "boolean"
+                },
+                "RetryCountLimit": {
+                    "description": "The number of times an alert should be retried.",
+                    "longDescription": "This property shall contain the maximum number of retry attempts for failed alerts.",
+                    "readonly": false,
+                    "type": "integer"
+                },
+                "RetryTimeInterval": {
+                    "description": "The delay between retries in seconds.",
+                    "longDescription": "This property shall define the time interval in seconds between retry attempts.",
+                    "readonly": false,
+                    "type": "integer"
+                },
+                "PendingAlertsLimit": {
+                    "description": "The maximum number of alerts that can be queued.",
+                    "longDescription": "This property shall contain the maximum number of alerts that can be processed as pending tasks.",
+                    "readonly": false,
+                    "type": "integer"
+                }
+            },
+            "required": [
+                "Members",
+                "Members@odata.count",
+                "@odata.id",
+                "@odata.type",
+                "Id",
+                "Name"
+            ],
+            "type": "object"
+        },
+        "OemActions": {
+            "additionalProperties": true,
+            "description": "The available OEM-specific actions for this resource.",
+            "longDescription": "This type shall contain the available OEM-specific actions for this resource.",
+            "patternProperties": {
+                "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
+                    "description": "This property shall specify a valid odata or Redfish property.",
+                    "type": [
+                        "array",
+                        "boolean",
+                        "integer",
+                        "number",
+                        "null",
+                        "object",
+                        "string"
+                    ]
+                }
+            },
+            "properties": {},
+            "type": "object"
+        },
+        "SendAlertMail": {
+            "additionalProperties": false,
+            "description": "This action sends alert mail from Pef Service.",
+            "longDescription": "This action shall sends alert mail from Pef Service.",
+            "parameters": {
+                "MailContent": {
+                    "description": "The MailContent of the mail to send the Pef Alert Mail.",
+                    "longDescription": "This parameter shall contain the mail content of the mail to send the Pef Alert Mail.",
+                    "type": "string"
+                },
+                "Subject": {
+                    "description": "The Subject of the mail to send the Pef Alert Mail.",
+                    "longDescription": "This parameter shall contain the subject of the mail to send the Pef Alert Mail.",
+                    "type": "string"
+                }
+            },
+            "patternProperties": {
+                "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
+                    "description": "This property shall specify a valid odata or Redfish property.",
+                    "type": [
+                        "array",
+                        "boolean",
+                        "integer",
+                        "number",
+                        "null",
+                        "object",
+                        "string"
+                    ]
+                }
+            },
+            "properties": {
+                "target": {
+                    "description": "Link to invoke action",
+                    "format": "uri-reference",
+                    "type": "string"
+                },
+                "title": {
+                    "description": "Friendly action name",
+                    "type": "string"
+                }
+            },
+            "type": "object",
+            "versionAdded": "v1_0_0"
+        },
+        "SendAlertSNMPTrap": {
+            "additionalProperties": false,
+            "description": "This action sends SNMP trap alert from Pef Service.",
+            "longDescription": "This action shall sends SNMP trap alert from Pef Service.",
+            "parameters": {},
+            "patternProperties": {
+                "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
+                    "description": "This property shall specify a valid odata or Redfish property.",
+                    "type": [
+                        "array",
+                        "boolean",
+                        "integer",
+                        "number",
+                        "null",
+                        "object",
+                        "string"
+                    ]
+                }
+            },
+            "properties": {
+                "target": {
+                    "description": "Link to invoke action",
+                    "format": "uri-reference",
+                    "type": "string"
+                },
+                "title": {
+                    "description": "Friendly action name",
+                    "type": "string"
+                }
+            },
+            "type": "object",
+            "versionAdded": "v1_0_0"
+        }
+    },
+    "owningEntity": "Ami",
+    "release": "1.0",
+    "title": "#AmiPefService.v1_0_0.AmiPefService"
+}

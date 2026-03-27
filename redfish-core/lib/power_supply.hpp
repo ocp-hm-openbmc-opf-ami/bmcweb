@@ -66,7 +66,7 @@ inline void doPowerSupplyCollection(
         boost::beast::http::field::link,
         "</redfish/v1/JsonSchemas/PowerSupplyCollection/PowerSupplyCollection.json>; rel=describedby");
     asyncResp->res.jsonValue["@odata.type"] =
-        "#PowerSupplyCollection.PowerSupplyCollection";
+        json_util::odataType("PowerSupplyCollection");
     asyncResp->res.jsonValue["Name"] = "Power Supply Collection";
     asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
         "/redfish/v1/Chassis/{}/PowerSubsystem/PowerSupplies", chassisId);

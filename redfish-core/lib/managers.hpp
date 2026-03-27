@@ -2531,7 +2531,7 @@ inline void handleManagersInstanceGet(
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
 #if (!defined(ONETREE_RM)) && (!defined(ONETREE_PSM))
     asyncResp->res.jsonValue["SerialInterfaces"]["@odata.id"] =
-        boost::urls::format("/redfish/v1/Managers/{}/SerialInterfaces",
+        boost::urls::format("/redfish/v1/Managers/{}/SerialInterfaces/",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
 #endif
     asyncResp->res.jsonValue["EthernetInterfaces"]["@odata.id"] =
@@ -2573,7 +2573,7 @@ inline void handleManagersInstanceGet(
         boost::urls::format("/redfish/v1/Managers/bmc#/Oem#/OpenBmc/",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
 
-#if (!BMCWEB_ARBEL_NUVOTON_MACRO)
+#ifndef ONETREE_EVB_NUVOTON_NPCM845
     nlohmann::json::object_t jpeg;
     jpeg["@odata.id"] =
         boost::urls::format("/redfish/v1/Managers/{}/Oem/OpenBmc/Jpeg",

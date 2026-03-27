@@ -544,7 +544,7 @@ inline void handleDecoratorAssetProperties(
     asyncResp->res.jsonValue["Oem"]["AMI"]["FRU"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Chassis/{}/FRU", chassisId);
     asyncResp->res.jsonValue["Oem"]["AMI"]["@odata.type"] =
-        json_util::odataType("OemAMIChassis");
+        json_util::odataType("AmiChassis");
     asyncResp->res.jsonValue["Oem"]["AMI"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Chassis/{}#/Oem/AMI", chassisId);
 #endif
@@ -558,7 +558,7 @@ inline void handleDecoratorAssetProperties(
         boost::urls::format("/redfish/v1/Chassis/{}/Sensors/Oem/Ami/Threshold",
                             chassisId);
     asyncResp->res.jsonValue["Oem"]["AMI"]["SensorThreshold"]["@odata.type"] =
-        json_util::odataType("OemAMISensor");
+        json_util::odataType("AmiSensor");
 #endif
 #ifndef ONETREE_PSM
     nlohmann::json::array_t computerSystems;

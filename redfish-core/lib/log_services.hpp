@@ -4787,7 +4787,7 @@ void handleSyslogCertificateGet(
             asyncResp->res.jsonValue["@odata.type"] =
                 json_util::odataType("LogService");
             asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] =
-                "#AMISyslog.v1_0_0.AMISyslog";
+                json_util::odataType("AmiSyslog");
             asyncResp->res.jsonValue["Actions"]["Oem"]["Ami"]
                                     ["#Rsyslog.RemoteServerCertificateUpload"]
                                     ["target"] = std::format(

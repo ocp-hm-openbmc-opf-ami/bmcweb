@@ -66,7 +66,7 @@
 #include "utils/json_utils.hpp"
 #include "virtual_media.hpp"
 
-#ifdef ONETREE_EVB_NUVOTON_NPCM845
+#ifndef ONETREE_EVB_NUVOTON_NPCM845
 #include "bsodjpeg.hpp"
 #endif
 
@@ -247,7 +247,7 @@ RedfishService::RedfishService(App& app)
     requestRoutesManagerResetActionInfo(app);
     requestRoutesManagerResetToDefaults(app);
     requestRoutesManagerDiagnosticData(app);
-#ifdef ONETREE_EVB_NUVOTON_NPCM845
+#ifndef ONETREE_EVB_NUVOTON_NPCM845
     requestRoutesBsodjpeg(app);
     requestRoutesDeleteBsodjpeg(app);
     requestRoutesTriggerBsodjpeg(app);

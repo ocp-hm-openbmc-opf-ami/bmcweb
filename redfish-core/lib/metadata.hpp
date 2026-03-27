@@ -115,11 +115,44 @@ inline void handleMetadataGet(
     asyncResp->res.write(std::move(xml));
 }
 
+void handleSchemaGet(App& app, const crow::Request& req,
+                     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                     const std::string& schema)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    std::filesystem::path filePath("/usr/share/www/redfish/v1/schema");
+    filePath /= schema;
+
+    asyncResp->res.addHeader(boost::beast::http::field::content_type,
+                             "application/xml");
+
+    crow::OpenCode ec = asyncResp->res.openFile(filePath);
+    if (ec == crow::OpenCode::FileDoesNotExist)
+    {
+        BMCWEB_LOG_ERROR("File Not Found {}", filePath.string());
+        messages::resourceNotFound(asyncResp->res, "schemaFile", schema);
+        return;
+    }
+    else if (ec != crow::OpenCode::Success)
+    {
+        BMCWEB_LOG_ERROR("Failed to open file {}", filePath.string());
+        messages::internalError(asyncResp->res);
+        return;
+    }
+}
+
 inline void requestRoutesMetadata(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/$metadata/")
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleMetadataGet, std::ref(app)));
+
+    BMCWEB_ROUTE(app, "/redfish/v1/Schemas/<str>/")
+        .methods(boost::beast::http::verb::get)(
+            std::bind_front(handleSchemaGet, std::ref(app)));
 }
 
 } // namespace redfish

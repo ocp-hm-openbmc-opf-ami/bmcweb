@@ -24,8 +24,11 @@
     <edmx:Include Namespace="NodeManager" />
     <edmx:Include Namespace="NodeManager.v1_0_0" />
   </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NmDomain_v1.xml">
+      <edmx:Include Namespace="NmDomain.v1_4_0"/>
+  </edmx:Reference>
   <edmx:Reference Uri="/redfish/v1/schema/NmPolicy_v1.xml">
-    <edmx:Include Namespace="NmPolicy" />
+      <edmx:Include Namespace="NmPolicy.v1_2_0"/>
   </edmx:Reference>
   <edmx:Reference Uri="/redfish/v1/schema/NmTrigger_v1.xml">
     <edmx:Include Namespace="NmTrigger" />

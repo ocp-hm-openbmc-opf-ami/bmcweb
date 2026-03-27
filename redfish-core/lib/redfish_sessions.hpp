@@ -210,7 +210,7 @@ inline void fillSessionObject(crow::Response& res,
         "/redfish/v1/SessionService/Sessions/{}#/Oem/AMI_WebSession",
         session.uniqueId);
     res.jsonValue["Oem"]["AMI_WebSession"]["@odata.type"] =
-        json_util::odataType("AMIWebSession", "WebSession");
+        json_util::odataType("AmiWebSession");
     res.jsonValue["Oem"]["AMI_WebSession"]["KvmActive"] =
         static_cast<bool>(session.kvmConnections);
     res.jsonValue["Oem"]["AMI_WebSession"]["VmActive"] =
@@ -361,7 +361,7 @@ inline void getSessionInfo(
                     UserId;
                 asyncResp->res
                     .jsonValue["Oem"]["AMI_WebSession"]["@odata.type"] =
-                    json_util::odataType("AMIWebSession", "WebSession");
+                    json_util::odataType("AmiWebSession");
             }
         }
     }
@@ -1092,7 +1092,7 @@ inline void getSessionServiceInfo(
             asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.id"] =
                 "/redfish/v1/SessionService#/Oem/Ami";
             asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] =
-                json_util::odataType("AMISessionService", "Ami");
+                json_util::odataType("AmiSessionService");
             asyncResp->res.jsonValue["Oem"]["Ami"]["KVMSessionTimeout"] = *s;
         },
         "xyz.openbmc_project.Control.Service.Manager",
@@ -1112,7 +1112,7 @@ inline void getSessionServiceInfo(
             asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.id"] =
                 "/redfish/v1/SessionService#/Oem/Ami";
             asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] =
-                json_util::odataType("AMISessionService", "Ami");
+                json_util::odataType("AmiSessionService", "AmiSessionService");
             asyncResp->res.jsonValue["Oem"]["Ami"]["KVMPort"] = *s;
         },
         "xyz.openbmc_project.Control.Service.Manager",

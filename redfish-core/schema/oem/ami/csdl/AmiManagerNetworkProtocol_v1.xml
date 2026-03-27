@@ -1,4 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!---->
+<!--################################################################################       -->
+<!--# Redfish Schema:  AmiManagerNetworkProtocol  v1.0.0                                   -->
+<!--#                                                                                      -->
+<!--# Copyright American Megatrends, Inc. (AMI).                                           -->
+<!--################################################################################       -->
+<!---->
 <edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
     <edmx:Reference
         Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
@@ -20,9 +27,11 @@
         <edmx:Include Namespace="AmiBIOSInventoryCRC.v1_0_0" />
     </edmx:Reference>
     <edmx:DataServices>
+
+
         <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AmiManagerNetworkProtocol">
             <Annotation Term="Redfish.OwningEntity" String="Ami" />
-            <ComplexType Name="ManagerNetworkProtocol" Abstract="true">
+            <ComplexType Name="AmiManagerNetworkProtocol" Abstract="true">
                 <Annotation Term="OData.Description" String="This schemas defines the properties and actions which is used in the ManagerNetworkProtocol."/>
                 <Annotation Term="OData.LongDescription" String="This schemas defines the properties and actions which is used in the ManagerNetworkProtocol."/>
                 <Annotation Term="Capabilities.InsertRestrictions">
@@ -42,10 +51,11 @@
                 </Annotation>
             </ComplexType>
         </Schema>
+
         <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AmiManagerNetworkProtocol.v1_0_0">
             <Annotation Term="Redfish.OwningEntity" String="Ami" />
             <Annotation Term="Redfish.Release" String="1.0" />
-            <ComplexType Name="ManagerNetworkProtocol" BaseType="AmiManagerNetworkProtocol.ManagerNetworkProtocol">
+            <ComplexType Name="AmiManagerNetworkProtocol" BaseType="AmiManagerNetworkProtocol.AmiManagerNetworkProtocol">
                 <Annotation Term="OData.Description" String="Ami OEM Extension for Web Session" />
                 <Annotation Term="OData.LongDescription" String="Ami OEM Extension for Web Session" />
                 <Property Name="HTTPS" Type="AmiManagerNetworkProtocol.v1_0_0.CommonProperties" Nullable="false">
@@ -63,7 +73,7 @@
                     <Annotation Term="OData.Description" String="The settings for this manager's IPMI protocol support." />
                     <Annotation Term="OData.LongDescription" String="This object shall contain the IPMI protocol settings for this manager.  The default Port property value should be `443` for compatibility with established client implementations." />
                 </Property>
-                <Property Name="IPMB" Type="AmiManagerNetworkProtocol.v1_0_0.AmiIPMB" Nullable="false">
+                <Property Name="IPMB" Type="AmiManagerNetworkProtocol.v1_0_0.AMIIPMB" Nullable="false">
                     <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
                     <Annotation Term="OData.Description" String="The settings for this manager's IPMB protocol support." />
                     <Annotation Term="OData.LongDescription" String="This object shall contain the IPMB protocol settings for this manager." />

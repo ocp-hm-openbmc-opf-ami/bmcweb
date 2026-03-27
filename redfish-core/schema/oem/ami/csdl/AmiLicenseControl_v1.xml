@@ -22,6 +22,7 @@
 
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AmiLicenseControl">
       <Annotation Term="Redfish.OwningEntity" String="Ami"/>
+      <Annotation Term="Redfish.Release" String="1.0"/>
 
       <EntityType Name="AmiLicenseControl" BaseType="Resource.v1_0_0.Resource" Abstract="true">
         <Annotation Term="OData.Description" String="This is the schema definition for the License Control in License."/>
@@ -51,6 +52,7 @@
 
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AmiLicenseControl.v1_0_0">
       <Annotation Term="Redfish.OwningEntity" String="Ami"/>
+      <Annotation Term="Redfish.Release" String="1.0"/>
 
       <EntityType Name="AmiLicenseControl" BaseType="AmiLicenseControl.AmiLicenseControl">
        <Property Name="AlertMessage" Type="Edm.String" Nullable="false">

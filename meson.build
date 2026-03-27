@@ -386,40 +386,25 @@ srcfiles_bmcweb = files(
 
 grep_prog = find_program('grep', required: false)
 if grep_prog.found()
-    if run_command(grep_prog, '-q', '^#define ONETREE_NIC true', join_paths(meson.build_root(), 'config', 'bmcweb_config.h')).returncode() == 0
-        srcfiles_bmcweb += 'ext/src/nic.cpp'
-    endif
-    if run_command(grep_prog, '-q', '^#define ONETREE_RTP true', join_paths(meson.build_root(), 'config', 'bmcweb_config.h')).returncode() == 0
-        srcfiles_bmcweb += ['ext/src/rep.cpp', 'ext/include/ami_errors.cpp']
-    endif
-    if run_command(grep_prog, '-q', '^#define ONETREE_BRCMRAID true', join_paths(meson.build_root(), 'config', 'bmcweb_config.h')).returncode() == 0
-        srcfiles_bmcweb += 'ext/lib/brcm/raid_brcm.cpp'
-    endif
-    if run_command(grep_prog, '-q', '^#define ONETREE_BRCMRAID8 true', join_paths(meson.build_root(), 'config', 'bmcweb_config.h')).returncode() == 0
-        srcfiles_bmcweb += 'ext/lib/brcm/raid_brcm.cpp'
-    endif
-    if run_command(grep_prog, '-q', '^#define ONETREE_ACD true', join_paths(meson.build_root(), 'config', 'bmcweb_config.h')).returncode() == 0
-        srcfiles_bmcweb += 'ext/lib/acd/include/acd_errors.cpp'
-    endif
-    if run_command(grep_prog, '-q', '^#define ONETREE_RM true', join_paths(meson.build_root(), 'config', 'bmcweb_config.h')).returncode() == 0
-        srcfiles_bmcweb += 'ext/src/rm.cpp'
-    endif
-    if run_command(grep_prog, '-q', '^#define ONETREE_PSM true', join_paths(meson.build_root(), 'config', 'bmcweb_config.h')).returncode() == 0
-        srcfiles_bmcweb += 'ext/src/psm.cpp'
-    endif
-    if run_command(grep_prog, '-q', '^#define ONETREE_RPC true', join_paths(meson.build_root(), 'config', 'bmcweb_config.h')).returncode() == 0
-        srcfiles_bmcweb += 'ext/src/rackpowercontroller.cpp'
-    endif
-    if run_command(grep_prog, '-q', '^#define ONETREE_NVIDIASIPACK true', join_paths(meson.build_root(), 'config', 'bmcweb_config.h')).returncode() == 0
-        srcfiles_bmcweb += ['ext/cper/src/cper.cpp', 'ext/src/reset.cpp', 'ext/src/erot_dump.cpp', 'ext/src/auxreset.cpp', 
-        'ext/dot/src/dot.cpp', 'ext/spdm/src/spdm.cpp', 'ext/sbmr/src/sbmr.cpp']
-    endif
-    if run_command(grep_prog, '-q', '^#define ONETREE_GPGPU true', join_paths(meson.build_root(), 'config', 'bmcweb_config.h')).returncode() == 0
-        srcfiles_bmcweb += 'ext/src/gpgpu.cpp'
-    endif
-    if run_command(grep_prog, '-q', '^#define ONETREE_ARM_SBMR true', join_paths(meson.build_root(), 'config', 'bmcweb_config.h')).returncode() == 0
-        srcfiles_bmcweb += 'ext/src/arm_redfish.cpp'
-    endif
+    onetree_sources = {
+        'ONETREE_NIC': ['ext/src/nic.cpp'],
+        'ONETREE_RTP': ['ext/src/rep.cpp', 'ext/include/ami_errors.cpp'],
+        'ONETREE_BRCMRAID': ['ext/lib/brcm/raid_brcm.cpp'],
+        'ONETREE_BRCMRAID8': ['ext/lib/brcm/raid_brcm.cpp'],
+        'ONETREE_ACD': ['ext/lib/acd/include/acd_errors.cpp'],
+        'ONETREE_RM': ['ext/src/rm.cpp'],
+        'ONETREE_PSM': ['ext/src/psm.cpp'],
+        'ONETREE_NVIDIASIPACK': ['ext/cper/src/cper.cpp', 'ext/src/reset.cpp', 'ext/src/erot_dump.cpp', 'ext/src/auxreset.cpp', 'ext/dot/src/dot.cpp', 'ext/spdm/src/spdm.cpp', 'ext/sbmr/src/sbmr.cpp'],
+        'ONETREE_GPGPU': ['ext/src/gpgpu.cpp'],
+        'ONETREE_ARM_SBMR': ['ext/src/arm_redfish.cpp'],
+	'ONETREE_RPC': ['ext/src/rackpowercontroller.cpp'],
+    }
+
+    foreach define, sources : onetree_sources
+        if run_command(grep_prog, '-q', '^#define ' + define + ' true', join_paths(meson.project_build_root(), 'config', 'bmcweb_config.h')).returncode() == 0
+            srcfiles_bmcweb += sources
+        endif
+    endforeach
 endif
 
 if get_option('ami-cxl').enabled()
