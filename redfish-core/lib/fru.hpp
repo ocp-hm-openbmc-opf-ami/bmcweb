@@ -168,8 +168,7 @@ inline void setFru(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     {
         asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
             "/redfish/v1/Chassis/{}/FRU/{}", chassisId, fruName);
-        asyncResp->res.jsonValue["@odata.type"] =
-            json_util::odataType("AmiChassisFRU");
+        asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("AmiChassisFRU");
         asyncResp->res.jsonValue["Name"] = fruName;
         asyncResp->res.jsonValue["Description"] = "FRU Device Information";
         asyncResp->res.jsonValue["Id"] = "FRU Value";

@@ -209,8 +209,7 @@ inline void fillSessionObject(crow::Response& res,
     res.jsonValue["Oem"]["AMI_WebSession"]["@odata.id"] = boost::urls::format(
         "/redfish/v1/SessionService/Sessions/{}#/Oem/AMI_WebSession",
         session.uniqueId);
-    res.jsonValue["Oem"]["AMI_WebSession"]["@odata.type"] =
-        json_util::odataType("AmiWebSession");
+    res.jsonValue["Oem"]["AMI_WebSession"]["@odata.type"] = json_util::odataType("AmiWebSession");
     res.jsonValue["Oem"]["AMI_WebSession"]["KvmActive"] =
         static_cast<bool>(session.kvmConnections);
     res.jsonValue["Oem"]["AMI_WebSession"]["VmActive"] =
@@ -359,9 +358,7 @@ inline void getSessionInfo(
                 asyncResp->res.jsonValue["Roles"] = std::move(roles);
                 asyncResp->res.jsonValue["Oem"]["AMI_WebSession"]["UserId"] =
                     UserId;
-                asyncResp->res
-                    .jsonValue["Oem"]["AMI_WebSession"]["@odata.type"] =
-                    json_util::odataType("AmiWebSession");
+                asyncResp->res.jsonValue["Oem"]["AMI_WebSession"]["@odata.type"] = json_util::odataType("AmiWebSession");
             }
         }
     }
@@ -1091,8 +1088,7 @@ inline void getSessionServiceInfo(
             const uint64_t* s = std::get_if<uint64_t>(&value);
             asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.id"] =
                 "/redfish/v1/SessionService#/Oem/Ami";
-            asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] =
-                json_util::odataType("AmiSessionService");
+            asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] = json_util::odataType("AmiSessionService");
             asyncResp->res.jsonValue["Oem"]["Ami"]["KVMSessionTimeout"] = *s;
         },
         "xyz.openbmc_project.Control.Service.Manager",
@@ -1111,9 +1107,8 @@ inline void getSessionServiceInfo(
             const uint16_t* s = std::get_if<uint16_t>(&value);
             asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.id"] =
                 "/redfish/v1/SessionService#/Oem/Ami";
-            asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] =
-                json_util::odataType("AmiSessionService", "AmiSessionService");
-            asyncResp->res.jsonValue["Oem"]["Ami"]["KVMPort"] = *s;
+	    asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] = json_util::odataType("AmiSessionService", "AmiSessionService");
+	    asyncResp->res.jsonValue["Oem"]["Ami"]["KVMPort"] = *s;
         },
         "xyz.openbmc_project.Control.Service.Manager",
         "/xyz/openbmc_project/control/service/start_2dipkvm",

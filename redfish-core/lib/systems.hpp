@@ -5084,11 +5084,9 @@ inline void afterGetAllowedHostTransitions(
 
     if (ec)
     {
-        // D-Bus call failed (e.g., AllowedHostTransitions property not
-        // available) Log the error but continue with default allowed values
-        BMCWEB_LOG_ERROR(
-            "bmcweb D-Bus property AllowedHostTransitions not available: {}",
-            ec);
+        // D-Bus call failed (e.g., AllowedHostTransitions property not available)
+        // Log the error but continue with default allowed values
+        BMCWEB_LOG_ERROR("bmcweb D-Bus property AllowedHostTransitions not available: {}", ec);
     }
     else
     {
@@ -5144,12 +5142,11 @@ inline void handleSystemCollectionResetActionGet(
         boost::beast::http::field::link,
         "</redfish/v1/JsonSchemas/ActionInfo/ActionInfo.json>; rel=describedby");
 
-    asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
-        "/redfish/v1/Systems/{}/ResetActionInfo", systemName);
-    asyncResp->res.jsonValue["@odata.type"] =
-        json_util::odataType("ActionInfo");
-    asyncResp->res.jsonValue["Description"] =
-        "This action is used to reset the Systems";
+    asyncResp->res.jsonValue["@odata.id"] =
+        boost::urls::format("/redfish/v1/Systems/{}/ResetActionInfo",
+                            systemName);
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("ActionInfo");
+    asyncResp->res.jsonValue["Description"] = "This action is used to reset the Systems";
     asyncResp->res.jsonValue["Name"] = "Reset Action Info";
     asyncResp->res.jsonValue["Id"] = "ResetActionInfo";
 
@@ -5176,7 +5173,8 @@ inline void handleSystemCollectionResetActionGet(
 
     // Look to see if system defines AllowedHostTransitions
     dbus::utility::getProperty<std::vector<std::string>>(
-        hostService, hostPath, hostStateInterface, "AllowedHostTransitions",
+        hostService, hostPath,
+        hostStateInterface, "AllowedHostTransitions",
         [asyncResp](const boost::system::error_code& ec,
                     const std::vector<std::string>& allowedHostTransitions) {
             afterGetAllowedHostTransitions(asyncResp, ec,

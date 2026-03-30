@@ -4782,12 +4782,10 @@ void handleSyslogCertificateGet(
                 return;
             }
             asyncResp->res.jsonValue["@odata.id"] =
-                std::format("/redfish/v1/Systems/{}/LogServices/Syslog",
-                            BMCWEB_REDFISH_SYSTEM_URI_NAME);
-            asyncResp->res.jsonValue["@odata.type"] =
-                json_util::odataType("LogService");
-            asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] =
-                json_util::odataType("AmiSyslog");
+            std::format("/redfish/v1/Systems/{}/LogServices/Syslog",
+                        BMCWEB_REDFISH_SYSTEM_URI_NAME);
+            asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("LogService");
+            asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] = json_util::odataType("AmiSyslog");
             asyncResp->res.jsonValue["Actions"]["Oem"]["Ami"]
                                     ["#Rsyslog.RemoteServerCertificateUpload"]
                                     ["target"] = std::format(

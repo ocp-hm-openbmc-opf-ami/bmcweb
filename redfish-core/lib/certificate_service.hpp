@@ -554,9 +554,9 @@ inline void getCertificateProperties(
                 asyncResp->res.jsonValue["Oem"]["Ami"]["PublicKey"] =
                     *publicKey;
             }
-            asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.id"] = certURL;
-            asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] =
-                json_util::odataType("AmiCertificate", "AmiCertificate");
+            asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.id"] =
+                certURL;
+            asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] = json_util::odataType("AmiCertificate", "AmiCertificate");
 
             asyncResp->res.addHeader(
                 boost::beast::http::field::location,

@@ -2912,8 +2912,7 @@ inline void handleAccountRadiusGet(
         "/redfish/v1/AccountService/ExternalAccountProviders/RADIUS";
     json["@odata.type"] = json_util::odataType("ExternalAccountProvider");
     json["AccountProviderType"] = "OEM";
-    json["Oem"]["Ami"]["@odata.type"] = json_util::odataType(
-        "AmiExternalAccountProvider", "AmiExternalAccountProvider");
+    json["Oem"]["Ami"]["@odata.type"] = json_util::odataType("AmiExternalAccountProvider","AmiExternalAccountProvider");
     json["Id"] = "RADIUS";
     json["Name"] = "RADIUS Settings";
     json["Description"] = "RADIUS server settings";
@@ -4878,11 +4877,8 @@ inline void handleAccountGet(
                         return;
                     }
 
-                    asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] =
-                        json_util::odataType("AmiManagerAccount",
-                                             "ManagerAccount");
-                    populateOEMAMIChannelInfo(userPrivileges, userChannelAccess,
-                                              asyncResp, req);
+                    asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"]= json_util::odataType("AmiManagerAccount", "ManagerAccount");
+                    populateOEMAMIChannelInfo(userPrivileges, userChannelAccess, asyncResp, req);
 
                     if (snmpAccessEnableStatus == nullptr)
                     {
