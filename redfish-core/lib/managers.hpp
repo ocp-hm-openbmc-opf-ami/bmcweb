@@ -2598,7 +2598,7 @@ inline void handleManagersInstanceGet(
         "/redfish/v1/Managers/{}/Actions/Manager.ResetToDefaults",
         BMCWEB_REDFISH_MANAGER_URI_NAME);
     ResetToDefaults["@Redfish.ActionInfo"] =
-        boost::urls::format("/redfish/v1/Managers/{}/ResetActionInfo",
+        boost::urls::format("/redfish/v1/Managers/{}/ResetToDefaultsActionInfo",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
 #endif
 #ifndef ONETREE_PSM
