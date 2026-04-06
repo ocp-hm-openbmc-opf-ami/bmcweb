@@ -5206,7 +5206,8 @@ inline void updateUserProperties(
                         }
                     };
 
-                if (*userParams.username != *extUserParams.username)
+                if (userParams.username && extUserParams.username &&
+                    *userParams.username != *extUserParams.username)
                 {
                     addPropertyIfSuccessful(
                         "UserName", "UserName",
@@ -6085,7 +6086,8 @@ inline void handleAccountPatch(
                         return;
                     }
 
-                    if (!(extUserParams.channelPrivilege->empty()))
+                    if (extUserParams.channelPrivilege &&
+                        !(extUserParams.channelPrivilege->empty()))
                     {
                         std::string_view defaultUserPrivilege =
                             extUserParams.channelPrivilege->front();
