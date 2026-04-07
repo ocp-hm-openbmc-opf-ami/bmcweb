@@ -1475,8 +1475,14 @@ inline void createMaintenanceWindowTask(
             auto timeOut_value = getchassisHostTransitionTimeOut(
                 servicePath, objectName, interfacePath, property_Name);
 
-            auto reqchassisHostTransitionTimeOut =
-                std::get<uint64_t>(timeOut_value);
+            const auto* timeOutPtr = std::get_if<uint64_t>(&timeOut_value);
+            if (timeOutPtr == nullptr)
+            {
+                taskData->messages.emplace_back(messages::internalError());
+                taskData->state = "Cancelled";
+                return task::completed;
+            }
+            auto reqchassisHostTransitionTimeOut = *timeOutPtr;
 
             if (iface == "xyz.openbmc_project.State.OperatingSystem.Status")
             {
@@ -1604,7 +1610,6 @@ inline void handleChassisResetActionInfoPost(
             {
                 messages::internalError(asyncResp->res);
                 return;
-                return;
             }
             for (const std::string& object : objects)
             {
@@ -1645,12 +1650,26 @@ inline void handleChassisResetActionInfoPost(
 
                 auto value = getHostState(processName, objectPath,
                                           interfaceName, propName);
-                auto reqHostState = std::get<std::string>(value);
+                const auto* reqHostStatePtr = std::get_if<std::string>(&value);
+                if (reqHostStatePtr == nullptr)
+                {
+                    BMCWEB_LOG_ERROR("Failed to get host state");
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+                const std::string& reqHostState = *reqHostStatePtr;
 
                 auto timeOut_value = getchassisHostTransitionTimeOut(
                     servicePath, objectName, interfacePath, property_Name);
-                auto reqchassisHostTransitionTimeOut =
-                    std::get<uint64_t>(timeOut_value);
+                const auto* timeOutPtr = std::get_if<uint64_t>(&timeOut_value);
+                if (timeOutPtr == nullptr)
+                {
+                    BMCWEB_LOG_ERROR(
+                        "Failed to get ChassisHostTransitionTimeOut");
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+                auto reqchassisHostTransitionTimeOut = *timeOutPtr;
 
                 if (!json_util::readJsonAction(                   //
                         req, asyncResp->res,                      //
@@ -1664,7 +1683,10 @@ inline void handleChassisResetActionInfoPost(
                 }
 
                 // To provide as a stringstream object
-                startTime = *maintenanceWindowStartTime;
+                if (maintenanceWindowStartTime)
+                {
+                    startTime = *maintenanceWindowStartTime;
+                }
 
                 if (resetType != "PowerCycle")
                 {

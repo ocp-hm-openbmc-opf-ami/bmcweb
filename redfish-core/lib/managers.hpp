@@ -381,11 +381,22 @@ inline void requestRoutesManagerResetAction(App& app)
             }
 
             // To provide as a stringstream object
-            startTime = *maintenanceWindowStartTime;
+            if (maintenanceWindowStartTime)
+            {
+                startTime = *maintenanceWindowStartTime;
+            }
 
             auto value =
                 getProperty(servicePath, objectPath, interface, propName);
-            auto requestedBMCTransition = std::get<std::string>(value);
+            const auto* requestedBMCTransitionPtr =
+                std::get_if<std::string>(&value);
+            if (requestedBMCTransitionPtr == nullptr)
+            {
+                BMCWEB_LOG_ERROR("Failed to get RequestedBMCTransition");
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            auto requestedBMCTransition = *requestedBMCTransitionPtr;
             /*   if (requestedBMCTransition !=
                    "xyz.openbmc_project.State.BMC.Transition.None")
                {

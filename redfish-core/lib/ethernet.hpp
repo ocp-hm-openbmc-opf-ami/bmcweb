@@ -2002,7 +2002,8 @@ inline void handleDHCPv4v6Patch(
     }
     if (v6dhcpParms.dhcpv6OperatingMode && flag)
     {
-        setDHCP(ifaceId, "DHCP6", (*v6dhcpParms.dhcpv6OperatingMode == "Enabled"), asyncResp);
+        setDHCP(ifaceId, "DHCP6",
+                (*v6dhcpParms.dhcpv6OperatingMode == "Enabled"), asyncResp);
     }
 }
 
@@ -2287,7 +2288,8 @@ inline void handleIPv4StaticPatch(
             // current request.
             if (address)
             {
-                if (address && defaultGatewayValue && (*address == *defaultGatewayValue))
+                if (address && defaultGatewayValue &&
+                    (*address == *defaultGatewayValue))
                 {
                     // If IPv4 is in DHCP mode and invalid IPv4 static addresses
                     // are attempted to patch, re-enable DHCP to prevent IP
@@ -2458,26 +2460,25 @@ inline void handleIPv4StaticPatch(
 
             if (!address.has_value() || !gateway.has_value())
             {
-                messages::propertyMissing(
-                    asyncResp->res,
-                    !address ? pathString + "/Address"
-                    : pathString + "/Gateway");
+                messages::propertyMissing(asyncResp->res,
+                                          !address ? pathString + "/Address"
+                                                   : pathString + "/Gateway");
                 return;
             }
 
             if (nicIpEntry != ipv4Data.cend())
             {
-                deleteAndCreateIPAddress(IpVersion::IpV4, ifaceId,
-                                         nicIpEntry->id, prefixLength, address.value(),
-                                         gateway.value(), ipv4Data, asyncResp);
+                deleteAndCreateIPAddress(
+                    IpVersion::IpV4, ifaceId, nicIpEntry->id, prefixLength,
+                    address.value(), gateway.value(), ipv4Data, asyncResp);
                 nicIpEntry =
                     getNextStaticIpEntry(++nicIpEntry, ipv4Data.cend());
                 preserveGateway = true;
             }
             else
             {
-                createIPv4(ifaceId, prefixLength, gateway.value(), address.value(),
-                           asyncResp);
+                createIPv4(ifaceId, prefixLength, gateway.value(),
+                           address.value(), asyncResp);
                 preserveGateway = true;
             }
             entryIdx++;
@@ -2594,7 +2595,7 @@ inline void handleIPv6StaticAddressesPatch(
                 if (nicIpEntry == ipv6Data.cend())
                 {
                     messages::propertyMissing(asyncResp->res,
-                                            pathString + "/Address");
+                                              pathString + "/Address");
                     return;
                 }
                 address = nicIpEntry->address;
@@ -2605,7 +2606,7 @@ inline void handleIPv6StaticAddressesPatch(
                 if (nicIpEntry == ipv6Data.cend())
                 {
                     messages::propertyMissing(asyncResp->res,
-                                            pathString + "/PrefixLength");
+                                              pathString + "/PrefixLength");
                     return;
                 }
                 prefixLength = nicIpEntry->prefixLength;
@@ -2614,9 +2615,8 @@ inline void handleIPv6StaticAddressesPatch(
             if (!address.has_value() || !prefixLength.has_value())
             {
                 messages::propertyMissing(
-                    asyncResp->res,
-                    !address ? pathString + "/Address"
-                            : pathString + "/PrefixLength");
+                    asyncResp->res, !address ? pathString + "/Address"
+                                             : pathString + "/PrefixLength");
                 return;
             }
 
@@ -2629,14 +2629,14 @@ inline void handleIPv6StaticAddressesPatch(
                         getNextStaticIpEntry(++nicIpEntry, ipv6Data.cend());
                 }
                 totalOperations++;
-                createIPv6(ifaceId, prefixLength.value(), address.value(), asyncResp,
-                           completionHandler);
+                createIPv6(ifaceId, prefixLength.value(), address.value(),
+                           asyncResp, completionHandler);
             }
             else
             {
                 totalOperations++;
-                createIPv6(ifaceId, prefixLength.value(), address.value(), asyncResp,
-                           completionHandler);
+                createIPv6(ifaceId, prefixLength.value(), address.value(),
+                           asyncResp, completionHandler);
             }
             entryIdx++;
         }
