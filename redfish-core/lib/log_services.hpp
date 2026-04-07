@@ -1517,6 +1517,7 @@ inline LogParseError fillMessageEntry(const std::string& logEntry,
         {
             return LogParseError::parseFailed;
         }
+        return LogParseError::success;
     }
     // Checking the MessageID with Arguments.
     char foundChar = logEntry[pos];
