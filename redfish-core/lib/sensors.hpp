@@ -3254,6 +3254,51 @@ inline void handleSensorThreshPatch(
         return;
     }
 
+    // Validate thresholds: no duplicates, and correct ordering
+    // Expected order: LowerFatal < LowerCritical < LowerCaution
+    //                 < UpperCaution < UpperCritical < UpperFatal
+    // Insert provided values in expected ascending order; a single pass
+    // checking each adjacent pair catches both duplicates and misordering.
+    std::vector<std::pair<std::string_view, double>> orderedThresholds;
+    orderedThresholds.reserve(6);
+    if (lowerFatal)
+    {
+        orderedThresholds.emplace_back("LowerFatal", *lowerFatal);
+    }
+    if (lowerCritical)
+    {
+        orderedThresholds.emplace_back("LowerCritical", *lowerCritical);
+    }
+    if (lowerCaution)
+    {
+        orderedThresholds.emplace_back("LowerCaution", *lowerCaution);
+    }
+    if (upperCaution)
+    {
+        orderedThresholds.emplace_back("UpperCaution", *upperCaution);
+    }
+    if (upperCritical)
+    {
+        orderedThresholds.emplace_back("UpperCritical", *upperCritical);
+    }
+    if (upperFatal)
+    {
+        orderedThresholds.emplace_back("UpperFatal", *upperFatal);
+    }
+
+    for (size_t i = 1; i < orderedThresholds.size(); ++i)
+    {
+        if (orderedThresholds[i - 1].second >= orderedThresholds[i].second)
+        {
+            messages::propertyValueConflict(
+                asyncResp->res,
+                std::string("Thresholds/").append(orderedThresholds[i].first),
+                std::string("Thresholds/")
+                    .append(orderedThresholds[i - 1].first));
+            return;
+        }
+    }
+
     asyncResp->res.jsonValue = {
         {"@odata.type", "#SensorThreshold.v1_0_0.SensorThreshold"},
         {"@odata.id", "/redfish/v1/Chassis/" + chassisId + "/" +
