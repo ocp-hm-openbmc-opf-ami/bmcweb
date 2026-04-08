@@ -2662,15 +2662,20 @@ void getHostWatchdogTimer(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                           const std::string& systemName)
 {
     std::string watchdogServiceName = getWatchdogServiceName(systemName);
-    std::string watchdogService = "xyz.openbmc_project.Watchdog.host0";
+    std::string watchdogService = "xyz.openbmc_project.Watchdog";
     std::string watchdogPath = "/xyz/openbmc_project/watchdog/host0";
 
     if (system_utils::isDualHostEnabled())
     {
-        if (systemName == "system1")
+        if (systemName == "system")
         {
             watchdogService = "xyz.openbmc_project.Watchdog.host1";
             watchdogPath = "/xyz/openbmc_project/watchdog/host1";
+        }
+        else if (systemName == "system1")
+        {
+            watchdogService = "xyz.openbmc_project.Watchdog.host2";
+            watchdogPath = "/xyz/openbmc_project/watchdog/host2";
         }
     }
 
@@ -2759,15 +2764,20 @@ inline void setWDTProperties(
                      systemName.empty() ? "default" : systemName);
 
     std::string watchdogServiceName = getWatchdogServiceName(systemName);
-    std::string watchdogService = "xyz.openbmc_project.Watchdog.host0";
+    std::string watchdogService = "xyz.openbmc_project.Watchdog";
     std::string watchdogPath = "/xyz/openbmc_project/watchdog/host0";
 
     if (system_utils::isDualHostEnabled())
     {
-        if (systemName == "system1")
+        if (systemName == "system")
         {
             watchdogService = "xyz.openbmc_project.Watchdog.host1";
             watchdogPath = "/xyz/openbmc_project/watchdog/host1";
+        }
+        else if (systemName == "system1")
+        {
+            watchdogService = "xyz.openbmc_project.Watchdog.host2";
+            watchdogPath = "/xyz/openbmc_project/watchdog/host2";
         }
     }
 
