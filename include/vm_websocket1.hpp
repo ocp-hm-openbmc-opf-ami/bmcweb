@@ -557,13 +557,7 @@ inline void requestRoutes(App& app)
 
     if constexpr (BMCWEB_VM_NBDPROXY)
     {
-        std::cerr << "BMCWEB_VM_NBDPROXY VM 1 is enabled\n";
-        BMCWEB_ROUTE(app, "/nbd/<str>")
-            .privileges({{"ConfigureComponents", "ConfigureManager"}})
-            .websocket()
-            .onopen(nbd_proxy::onOpen)
-            .onclose(nbd_proxy::onClose)
-            .onmessageex(nbd_proxy::onMessage);
+        BMCWEB_LOG_DEBUG("BMCWEB_VM_NBDPROXY VM 1 is enabled\n");
 
         BMCWEB_ROUTE(app, "/vm/1/0")
             .privileges({{"ConfigureComponents", "ConfigureManager"}})
