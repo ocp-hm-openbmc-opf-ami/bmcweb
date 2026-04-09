@@ -1059,14 +1059,9 @@ inline bool extractIPv6DefaultGatewayData(
             bool success = sdbusplus::unpackPropertiesNoThrow(
                 redfish::dbus_utils::UnpackErrorPrinter(), interface.second,
                 "DefaultGateway6", gatewayValue);
-            if (!success)
+            if (!success || gatewayValue.empty())
             {
-                return false;
-            }
-
-            if (gatewayValue.empty())
-            {
-                // Skip this entry if DefaultGateway6 is empty
+                // Skip this entry if DefaultGateway6 is missing or empty
                 continue;
             }
             StaticGatewayData& staticGateway =
@@ -1519,6 +1514,7 @@ void getEthernetIfaceData(const std::string& ethifaceId,
                                                ipv6GatewayData))
             {
                 callback(false, ethData, ipv4Data, ipv6Data, ipv6GatewayData);
+                return;
             }
             // Finally make a callback with useful data
             callback(true, ethData, ipv4Data, ipv6Data, ipv6GatewayData);
