@@ -112,6 +112,12 @@ class ConfigFile
                     }
                     else if (item.first == "sessions")
                     {
+                        // Sessions should be invalidated when the service
+                        // restarts
+                        BMCWEB_LOG_INFO(
+                            "Skipping session restoration on bmcweb restart");
+                        // Commented out session restoration code:
+                        /*
                         for (const auto& elem : item.second)
                         {
                             std::shared_ptr<UserSession> newSession =
@@ -131,6 +137,7 @@ class ConfigFile
                             SessionStore::getInstance().authTokens.emplace(
                                 newSession->sessionToken, newSession);
                         }
+                        */
                     }
                     else if (item.first == "timeout")
                     {
