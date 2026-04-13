@@ -218,7 +218,7 @@ inline bool validateSnmpRequestFields(
 
     if (encryption && !encryption->empty())
     {
-        if (*encryption != "AES" && *encryption != "DES")
+        if (*encryption != "AES")
         {
             messages::propertyValueNotInList(asyncResp->res, *encryption,
                                              "Encryption");
@@ -228,8 +228,7 @@ inline bool validateSnmpRequestFields(
 
     if (algorithm && !algorithm->empty())
     {
-        if (*algorithm != "SHA-224" && *algorithm != "SHA-256" &&
-            *algorithm != "SHA-512" && *algorithm != "SHA-384")
+        if (*algorithm != "SHA-512" && *algorithm != "SHA-384")
         {
             messages::propertyValueNotInList(asyncResp->res, *algorithm,
                                              "Algorithm");
