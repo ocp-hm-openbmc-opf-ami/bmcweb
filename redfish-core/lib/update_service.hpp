@@ -2004,7 +2004,7 @@ inline void handleUpdateServiceGet(
                 asyncResp->res
                     .jsonValue["HttpPushUriOptions"]["HttpPushUriApplyTime"]
                               ["MaintenanceWindowStartTime"] =
-                    redfish::time_utils::getDateTimeUint(
+                    redfish::time_utils::getDateTimeUintWithLocalZone(
                         *maintenanceWindowStartTime);
             }
 

@@ -65,6 +65,12 @@ std::pair<std::string, std::string> getDateTimeOffsetNow();
 using usSinceEpoch = std::chrono::duration<int64_t, std::micro>;
 std::optional<usSinceEpoch> dateStringToEpoch(std::string_view datetime);
 
+// Returns the formatted date time string adjusted to the local timezone.
+// If the local timezone cannot be resolved (e.g. /etc/timezone contains an
+// offset string instead of an IANA name), falls back to getDateTimeUint()
+// which returns the time in UTC with +00:00 suffix.
+std::string getDateTimeUintWithLocalZone(uint64_t secondsSinceEpoch);
+
 /**
  * @brief Returns the datetime in ISO 8601 format
  *
