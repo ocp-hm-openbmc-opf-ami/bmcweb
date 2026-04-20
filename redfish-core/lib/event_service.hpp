@@ -182,7 +182,8 @@ inline void getSmtpConfig(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 messages::internalError(asyncResp->res);
                 return;
             }
-            asyncResp->res.jsonValue["Oem"]["OpenBmc"]["@odata.type"] = json_util::odataType("AmiEventService");
+            asyncResp->res.jsonValue["Oem"]["OpenBmc"]["@odata.type"] =
+                json_util::odataType("AmiEventService");
             asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"][configuration]
                                     ["Authentication"] = authentication;
 
@@ -1036,12 +1037,12 @@ void getEventServiceInfo(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
                   "SecondaryConfiguration");
     getSmtpSSLCertificates(asyncResp);
 
-            asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]
-                                    ["PrimaryConfiguration"]["@odata.type"] =
-                "#AmiEventService.PrimaryConfiguration";
-            asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]
-                                    ["SecondaryConfiguration"]["@odata.type"] =
-                "#AmiEventService.SecondaryConfiguration";
+    asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]["PrimaryConfiguration"]
+                            ["@odata.type"] =
+        "#AmiEventService.PrimaryConfiguration";
+    asyncResp->res.jsonValue["Oem"]["OpenBmc"]["SMTP"]["SecondaryConfiguration"]
+                            ["@odata.type"] =
+        "#AmiEventService.SecondaryConfiguration";
 
     asyncResp->res
         .jsonValue["Oem"]["OpenBmc"]["SMTP"]["PrimaryConfiguration"]["Actions"]
