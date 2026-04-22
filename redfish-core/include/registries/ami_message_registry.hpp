@@ -70,10 +70,10 @@ constexpr std::array registry =
 
 enum class Index
 {
-    invalidImageSize = 1,
-    dumpQuotaExceeded = 2,
-    firmwareUpdateFailed = 3,
-    passwordCorruption = 4,
+    invalidImageSize = 0,
+    dumpQuotaExceeded = 1,
+    firmwareUpdateFailed = 2,
+    passwordCorruption = 3,
 };
 } // namespace redfish::registries::custom
  
