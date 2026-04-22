@@ -2815,12 +2815,9 @@ inline void handleSensorThreshCollectionGet(
                             std::string sensorName =
                                 objpath.substr(lastSlashPos + 1);
 
-                            if (sensorType == "fan_tach")
-                            {
-                                sensorType = "fantach";
-                            }
                             std::string sensorTypeName =
-                                sensorType + "_" + sensorName;
+                                redfish::sensor_utils::getSensorId(sensorName,
+                                                                   sensorType);
 
                             sensorPathList.push_back(
                                 {"@odata.id",
@@ -2942,7 +2939,8 @@ inline void getSensorFromDbus(
                             asyncResp->res.jsonValue["Oem"]["Ami"]["States"] =
                                 nlohmann::json::array();
                         }
-                        asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] = json_util::odataType("AmiSensor");
+                        asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] =
+                            json_util::odataType("AmiSensor");
                         asyncResp->res.jsonValue["Status"]["State"] =
                             sensor_utils::getState(nullptr, true);
                         asyncResp->res.jsonValue["Status"]["Health"] =
@@ -3725,7 +3723,8 @@ inline void handleSensorHistoryGet(
                             "/redfish/v1/Chassis/" + chassisId + "/" +
                             "Sensors/" + sensorId + "/Oem/SensorHistory" +
                             "#/SensorReadings/" + std::to_string(sensorCount++);
-                        historyItem["@odata.type"] = json_util::odataType("AmiSensorHistory");
+                        historyItem["@odata.type"] =
+                            json_util::odataType("AmiSensorHistory");
                         historyItem["Time"] = time;
                         historyItem["Value"] = value;
                         historyArray.push_back(historyItem);

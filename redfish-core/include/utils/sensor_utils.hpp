@@ -148,6 +148,13 @@ inline std::pair<std::string, std::string> splitSensorNameAndType(
     {
         sensorType.insert(3, 1, '_');
     }
+    // PLDM base_unit_XX types: "baseunitNN" -> "base_unit_NN"
+    else if (sensorType.starts_with("baseunit"))
+    {
+        std::string digits = sensorType.substr(8);
+        sensorType = "base_unit_" + digits;
+    }
+
     return std::make_pair(sensorType, sensorName);
 }
 
