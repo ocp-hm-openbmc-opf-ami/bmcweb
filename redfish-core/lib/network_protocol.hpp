@@ -522,14 +522,16 @@ inline void afterSetNTP(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 inline void handleNTPProtocolEnabled(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, bool ntpEnabled)
 {
-    bool interactive = false;
-    auto callback = [asyncResp](const boost::system::error_code& ec) {
-        afterSetNTP(asyncResp, ec);
-    };
-    crow::connections::systemBus->async_method_call(
-        std::move(callback), "org.freedesktop.timedate1",
-        "/org/freedesktop/timedate1", "org.freedesktop.timedate1", "SetNTP",
-        ntpEnabled, interactive);
+    std::string syncMethod =
+        ntpEnabled ? "xyz.openbmc_project.Time.Synchronization.Method.NTP"
+                   : "xyz.openbmc_project.Time.Synchronization.Method.Manual";
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus, "xyz.openbmc_project.Settings",
+        "/xyz/openbmc_project/time/sync_method",
+        "xyz.openbmc_project.Time.Synchronization", "TimeSyncMethod",
+        syncMethod, [asyncResp](const boost::system::error_code& ec) {
+            afterSetNTP(asyncResp, ec);
+        });
 }
 
 // Redfish states that ip addresses can be
