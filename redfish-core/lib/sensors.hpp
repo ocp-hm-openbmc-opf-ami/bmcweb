@@ -2815,12 +2815,9 @@ inline void handleSensorThreshCollectionGet(
                             std::string sensorName =
                                 objpath.substr(lastSlashPos + 1);
 
-                            if (sensorType == "fan_tach")
-                            {
-                                sensorType = "fantach";
-                            }
                             std::string sensorTypeName =
-                                sensorType + "_" + sensorName;
+                                redfish::sensor_utils::getSensorId(sensorName,
+                                                                   sensorType);
 
                             sensorPathList.push_back(
                                 {"@odata.id",

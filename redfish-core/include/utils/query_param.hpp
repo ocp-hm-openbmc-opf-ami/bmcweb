@@ -530,6 +530,8 @@ inline bool processOnly(crow::App& app, crow::Response& res,
     }
     // New request has the same credentials as the old request
     newReq->session = req.session;
+    newReq->ipAddress = req.ipAddress;
+    newReq->serverIPAddress = req.serverIPAddress;
 
     auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
     BMCWEB_LOG_DEBUG("setting completion handler on {}",

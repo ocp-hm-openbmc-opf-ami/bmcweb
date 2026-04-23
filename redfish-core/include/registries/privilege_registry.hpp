@@ -603,7 +603,7 @@ const static auto& deleteEthernetInterfaceCollection = privilegeSetConfigureMana
 // SubOverManagerEthernetInterfaceCollection
 const static auto& getSubOverManagerEthernetInterfaceCollection = privilegeSetLogin;
 const static auto& headSubOverManagerEthernetInterfaceCollection = privilegeSetLogin;
-const static auto& patchSubOverManagerEthernetInterfaceCollection = privilegeSetConfigureComponents;
+const static auto& patchSubOverManagerEthernetInterfaceCollection = privilegeSetConfigureManager;
 const static auto& postSubOverManagerEthernetInterfaceCollection = privilegeSetConfigureManager;
 const static auto& putSubOverManagerEthernetInterfaceCollection = privilegeSetConfigureManager;
 const static auto& deleteSubOverManagerEthernetInterfaceCollection = privilegeSetConfigureManager;

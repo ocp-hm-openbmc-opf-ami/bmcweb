@@ -18,6 +18,7 @@
 #include <cstdint>
 #include <ctime>
 #include <format>
+#include <iomanip>
 #include <optional>
 #include <ratio>
 #include <sstream>
@@ -436,6 +437,31 @@ std::string getDateTimeUintUs(uint64_t microSecondsSinceEpoch)
     using DurationType = std::chrono::duration<uint64_t, std::micro>;
     DurationType sinceEpoch(microSecondsSinceEpoch);
     return details::toISO8061ExtendedStr(sinceEpoch);
+}
+
+std::string getDateTimeUintWithLocalZone(uint64_t secondsSinceEpoch)
+{
+    std::string timeZoneName =
+        crow::utility::getTimeZone(crow::utility::localTimeZone);
+    try
+    {
+        const std::chrono::time_zone* tz =
+            std::chrono::locate_zone(timeZoneName);
+        auto now = std::chrono::system_clock::now();
+        std::chrono::sys_info tzInfo =
+            tz->get_info(std::chrono::floor<std::chrono::seconds>(now));
+        uint64_t localEpoch =
+            secondsSinceEpoch + static_cast<uint64_t>(tzInfo.offset.count());
+        std::time_t localTime = static_cast<std::time_t>(localEpoch);
+        std::tm gmTime = *std::gmtime(&localTime);
+        std::ostringstream oss;
+        oss << std::put_time(&gmTime, "%Y-%m-%dT%H:%M:%SZ");
+        return oss.str();
+    }
+    catch (const std::exception&)
+    {
+        return getDateTimeUint(secondsSinceEpoch);
+    }
 }
 
 std::string getDateTimeStdtime(std::time_t secondsSinceEpoch)
