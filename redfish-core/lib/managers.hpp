@@ -2188,12 +2188,23 @@ inline void getCurrentDateTimeValue(
                 tz->get_info(std::chrono::floor<std::chrono::seconds>(now));
             auto offset = tzInfo.offset;
 
-            uint64_t epochTime = timeUSec / 1000000;
-            epochTime += static_cast<uint64_t>(offset.count());
-            std::time_t time = static_cast<std::time_t>(epochTime);
+            int64_t offsetSecs = offset.count();
+            int64_t epochTimeSigned =
+                static_cast<int64_t>(timeUSec / 1000000) + offsetSecs;
+            std::time_t time = static_cast<std::time_t>(epochTimeSigned);
             std::tm gmTime = *std::gmtime(&time);
+
+            // Format offset as +HH:MM or -HH:MM
+            char sign = (offsetSecs >= 0) ? '+' : '-';
+            int64_t absOffsetSecs =
+                (offsetSecs >= 0) ? offsetSecs : -offsetSecs;
+            int offsetHours = static_cast<int>(absOffsetSecs / 3600);
+            int offsetMins = static_cast<int>((absOffsetSecs % 3600) / 60);
+
             std::ostringstream oss;
-            oss << std::put_time(&gmTime, "%Y-%m-%dT%H:%M:%SZ");
+            oss << std::put_time(&gmTime, "%Y-%m-%dT%H:%M:%S");
+            oss << sign << std::setfill('0') << std::setw(2) << offsetHours
+                << ":" << std::setfill('0') << std::setw(2) << offsetMins;
             asyncResp->res.jsonValue["DateTime"] = oss.str();
         });
 }

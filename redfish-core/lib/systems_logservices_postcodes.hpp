@@ -53,11 +53,9 @@ inline void handleSystemsLogServicesPostCodesGet(
         std::format("/redfish/v1/Systems/{}/LogServices/PostCodes/Entries",
                     BMCWEB_REDFISH_SYSTEM_URI_NAME);
 
-    std::pair<std::string, std::string> redfishDateTimeOffset =
-        redfish::time_utils::getDateTimeOffsetNow();
-    asyncResp->res.jsonValue["DateTime"] = redfishDateTimeOffset.first;
-    asyncResp->res.jsonValue["DateTimeLocalOffset"] =
-        redfishDateTimeOffset.second;
+    auto [dateTime, offsetStr] = redfish::time_utils::getLocalDateTimeOffset();
+    asyncResp->res.jsonValue["DateTime"] = dateTime;
+    asyncResp->res.jsonValue["DateTimeLocalOffset"] = offsetStr;
 
     asyncResp->res
         .jsonValue["Actions"]["#LogService.ClearLog"]["target"] = std::format(
@@ -200,9 +198,11 @@ static bool fillPostCodeEntry(
         // currentCodeIndex is within top and skip or equal to specified code
         // index
 
-        // Get the Created time from the timestamp
+        // Get the Created time from the timestamp (second precision, no
+        // sub-seconds)
         std::string entryTimeStr;
-        entryTimeStr = redfish::time_utils::getDateTimeUintUs(usecSinceEpoch);
+        entryTimeStr =
+            redfish::time_utils::getDateTimeUint(usecSinceEpoch / 1000000);
 
         // assemble messageArgs: BootIndex, TimeOffset(100us), PostCode(hex)
         std::ostringstream hexCode;

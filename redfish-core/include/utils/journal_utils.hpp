@@ -63,7 +63,7 @@ inline bool getEntryTimestamp(sd_journal* journal, std::string& entryTimestamp)
         BMCWEB_LOG_ERROR("Failed to read entry timestamp: {}", ret);
         return false;
     }
-    entryTimestamp = redfish::time_utils::getDateTimeUintUs(timestamp);
+    entryTimestamp = redfish::time_utils::getDateTimeUint(timestamp / 1000000);
     return true;
 }
 

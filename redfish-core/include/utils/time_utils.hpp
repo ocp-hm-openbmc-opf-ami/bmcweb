@@ -62,6 +62,14 @@ std::string getDateTimeStdtime(std::time_t secondsSinceEpoch);
  */
 std::pair<std::string, std::string> getDateTimeOffsetNow();
 
+/**
+ * Returns the current local DateTime string and its UTC offset string.
+ * DateTime is formatted as "YYYY-MM-DDTHH:MM:SS+HH:MM" (Redfish
+ * Edm.DateTimeOffset). Offset is formatted as "+HH:MM" or "-HH:MM". The
+ * timezone is read from crow::utility::localTimeZone.
+ */
+std::pair<std::string, std::string> getLocalDateTimeOffset();
+
 using usSinceEpoch = std::chrono::duration<int64_t, std::micro>;
 std::optional<usSinceEpoch> dateStringToEpoch(std::string_view datetime);
 

@@ -256,6 +256,15 @@ constexpr std::tuple<IntType, unsigned, unsigned> civilFromDays(
     return std::tuple<IntType, unsigned, unsigned>(y + (m <= 2), m, d);
 }
 
+// Converts a timezone offset string (e.g. "+05:30" or "-08:00") to seconds.
+inline int64_t offsetToSeconds(const std::string& offSet)
+{
+    int tzSign = (offSet[0] == '+') ? 1 : -1;
+    int tzH = std::stoi(offSet.substr(1, 2));
+    int tzM = std::stoi(offSet.substr(4, 2));
+    return tzSign * (int64_t(tzH) * 3600 + tzM * 60);
+}
+
 template <typename IntType, typename Period>
 std::string toISO8061ExtendedStr(
     std::chrono::duration<IntType, Period> t,
@@ -271,6 +280,8 @@ std::string toISO8061ExtendedStr(
         timeZone = crow::utility::getTimeZone(crow::utility::localTimeZone);
     }
     std::string offSet = crow::utility::getOffset(std::move(timeZone));
+    t += std::chrono::duration_cast<std::chrono::duration<IntType, Period>>(
+        std::chrono::seconds(offsetToSeconds(offSet)));
 
     using seconds = std::chrono::duration<int>;
     using minutes = std::chrono::duration<int, std::ratio<60>>;
@@ -353,6 +364,8 @@ std::string toISO8061ExtendedStr(
         timeZone = crow::utility::getTimeZone(crow::utility::localTimeZone);
     }
     std::string offSet = crow::utility::getOffset(std::move(timeZone));
+    dur += std::chrono::duration_cast<std::chrono::duration<IntType, Period>>(
+        std::chrono::seconds(offsetToSeconds(offSet)));
 
     using namespace std::literals::chrono_literals;
 
@@ -497,6 +510,33 @@ std::pair<std::string, std::string> getDateTimeOffsetNow()
     }
 
     return std::make_pair(dateTime, timeOffset);
+}
+
+std::pair<std::string, std::string> getLocalDateTimeOffset()
+{
+    try
+    {
+        std::string tzName =
+            crow::utility::getTimeZone(crow::utility::localTimeZone);
+        const std::chrono::time_zone* tz = std::chrono::locate_zone(tzName);
+        auto tp = std::chrono::floor<std::chrono::seconds>(
+            std::chrono::system_clock::now());
+        int64_t offsetSecs = tz->get_info(tp).offset.count();
+        int64_t absOffset = (offsetSecs >= 0) ? offsetSecs : -offsetSecs;
+        char sign = (offsetSecs >= 0) ? '+' : '-';
+        std::string offsetStr = std::format(
+            "{}{:02d}:{:02d}", sign, absOffset / 3600, (absOffset % 3600) / 60);
+        std::chrono::zoned_time zt{tz, tp};
+        std::string dateTime = std::format("{:%FT%T}{}", zt, offsetStr);
+        return std::make_pair(dateTime, offsetStr);
+    }
+    catch (const std::exception& e)
+    {
+        BMCWEB_LOG_ERROR("Failed to get local datetime offset: {}", e.what());
+        // Fallback to UTC
+        std::string dateTime = getDateTimeStdtime(std::time(nullptr));
+        return std::make_pair(dateTime, std::string("+00:00"));
+    }
 }
 
 using usSinceEpoch = std::chrono::duration<int64_t, std::micro>;
