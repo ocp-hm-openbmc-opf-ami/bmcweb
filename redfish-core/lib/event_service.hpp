@@ -1955,6 +1955,7 @@ void handleEventServiceSubscriptionPost(
         if (!protocolStatus)
         {
             messages::serviceDisabled(asyncResp->res, "SNMP");
+            asyncResp->res.result(boost::beast::http::status::bad_request);
             return;
         }
         if (protocol == "SNMPv2c" || protocol == "SNMPv1")
