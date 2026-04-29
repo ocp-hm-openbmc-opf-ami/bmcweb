@@ -17,6 +17,7 @@
 #include "update_service.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/json_utils.hpp"
+#include "utils/service_utils.hpp"
 #include "utils/sw_utils.hpp"
 #include "utils/systemd_utils.hpp"
 #include "utils/time_utils.hpp"
@@ -67,11 +68,25 @@ inline std::string getBMCUpdateServicePath()
  */
 constexpr const char* MANAGER_DBUS_PROPERTY_IFACE =
     "org.freedesktop.DBus.Properties";
+constexpr const char* consoleDbusInterface = "xyz.openbmc_project.Console.UART";
+
 constexpr const char* consoleDbusService =
     "xyz.openbmc_project.Console.default";
 constexpr const char* consoleDbusObject =
     "/xyz/openbmc_project/console/default";
-constexpr const char* consoleDbusInterface = "xyz.openbmc_project.Console.UART";
+
+// for dual host system, use different dbus service and object for console
+constexpr const char* console1DbusService = "xyz.openbmc_project.Console.host1";
+constexpr const char* console1DbusObject = "/xyz/openbmc_project/console/host1";
+
+// Service manager names for obmc-console instances (encoded: '-'->_2d,
+// '@'->_40)
+constexpr const char* consoleServiceName = "obmc_2dconsole_40default";
+constexpr const char* console1ServiceName = "obmc_2dconsole_40host1";
+
+// In dual-node mode, the correct obmc-console@ tty service is resolved
+// dynamically via getManagedObjects on the Service.Manager (supporting
+// both LPC ttyS13/ttyS3 and eSPI ttyVUART0/ttyVUART1 boards).
 
 using namespace std;
 using managerPropertyValue = std::variant<uint8_t, uint16_t, std::string,
@@ -2534,7 +2549,7 @@ inline void handleManagersInstanceGet(
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
 #if (!defined(ONETREE_RM)) && (!defined(ONETREE_PSM))
     asyncResp->res.jsonValue["SerialInterfaces"]["@odata.id"] =
-        boost::urls::format("/redfish/v1/Managers/{}/SerialInterfaces/",
+        boost::urls::format("/redfish/v1/Managers/{}/SerialInterfaces",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
 #endif
     asyncResp->res.jsonValue["EthernetInterfaces"]["@odata.id"] =
@@ -3015,79 +3030,218 @@ inline void requestRoutesManagerCollection(App& app)
 
 inline void handleManagerSerialInterfaceGet(
     App& app, const crow::Request& req,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& serialName)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
     }
+    std::string serialInterfaceService, serialInterfaceObject;
+    if (serialName == "IPMI-SOL")
+    {
+        serialInterfaceService = consoleDbusService;
+        serialInterfaceObject = consoleDbusObject;
+    }
+    else if (system_utils::isDualHostEnabled() && serialName == "IPMI-SOL1")
+    {
+        serialInterfaceService = console1DbusService;
+        serialInterfaceObject = console1DbusObject;
+    }
+    else
+    {
+        messages::resourceNotFound(asyncResp->res, "SerialInterface",
+                                   serialName);
+        return;
+    }
+    // Determine the service manager name for the masked check.
+    // In dual-node mode, dynamically resolve the correct obmc-console tty
+    // service (LPC: ttyS13/ttyS3, eSPI: ttyVUART0/ttyVUART1) by querying
+    // the Service.Manager's managed objects.
+    // In single-node mode fall back to the default/host1 instance names.
+    if (system_utils::isDualHostEnabled())
+    {
+        service_util::resolveConsoleServiceName(
+            asyncResp, serialName,
+            [asyncResp, serialName, serialInterfaceService,
+             serialInterfaceObject](const std::string& consoleMgrService) {
+                if (consoleMgrService.empty())
+                {
+                    // resolveConsoleServiceName already set internalError
+                    return;
+                }
+                service_util::getMaskedStatus(
+                    asyncResp, consoleMgrService, "SerialInterface", "Masked",
+                    [asyncResp, serialName, serialInterfaceService,
+                     serialInterfaceObject](bool isMasked) {
+                        if (asyncResp->res.result() !=
+                            boost::beast::http::status::ok)
+                        {
+                            BMCWEB_LOG_ERROR(
+                                "getMaskedStatus failed for SerialInterface {}, response already has error",
+                                serialName);
+                            return;
+                        }
+                        if (isMasked)
+                        {
+                            messages::serviceDisabled(
+                                asyncResp->res,
+                                "/redfish/v1/Managers/" +
+                                    std::string(
+                                        BMCWEB_REDFISH_MANAGER_URI_NAME) +
+                                    "/SerialInterfaces/" + serialName);
+                            return;
+                        }
 
-    dbus::utility::getProperty<uint64_t>(
-        consoleDbusService, consoleDbusObject, consoleDbusInterface, "Baud",
-        [asyncResp](const boost::system::error_code& ec, uint64_t val) {
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR("Error while getting BitRate");
-                messages::internalError(asyncResp->res);
-                return;
-            }
-            asyncResp->res.jsonValue["@odata.type"] =
-                json_util::odataType("SerialInterface");
-            asyncResp->res.jsonValue["Id"] = "IPMI-SOL";
-            asyncResp->res.jsonValue["Name"] = "Manager Serial Interface";
-            asyncResp->res.jsonValue["Description"] =
-                "Management for Serial Interface";
-            asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
-                "/redfish/v1/Managers/{}/SerialInterfaces/IPMI-SOL",
-                BMCWEB_REDFISH_MANAGER_URI_NAME);
-            asyncResp->res.jsonValue["BitRate"] = std::to_string(val);
-        });
+                        dbus::utility::getProperty<uint64_t>(
+                            serialInterfaceService, serialInterfaceObject,
+                            consoleDbusInterface, "Baud",
+                            [asyncResp,
+                             serialName](const boost::system::error_code& ec,
+                                         uint64_t val) {
+                                if (ec)
+                                {
+                                    BMCWEB_LOG_ERROR(
+                                        "D-Bus error getting Baud rate for SerialInterface {}: {}",
+                                        serialName, ec);
+                                    messages::internalError(asyncResp->res);
+                                    return;
+                                }
+                                asyncResp->res.jsonValue["@odata.type"] =
+                                    json_util::odataType("SerialInterface");
+                                asyncResp->res.jsonValue["Id"] = serialName;
+                                asyncResp->res.jsonValue["Name"] =
+                                    "Manager Serial Interface";
+                                asyncResp->res.jsonValue["Description"] =
+                                    "Management for Serial Interface";
+                                asyncResp->res.jsonValue
+                                    ["@odata.id"] = boost::urls::format(
+                                    "/redfish/v1/Managers/{}/SerialInterfaces/{}",
+                                    BMCWEB_REDFISH_MANAGER_URI_NAME,
+                                    serialName);
+                                asyncResp->res.jsonValue["BitRate"] =
+                                    std::to_string(val);
+                            });
+                    });
+            });
+    }
+    else
+    {
+        std::string consoleMgrService =
+            (serialName == "IPMI-SOL") ? consoleServiceName
+                                       : console1ServiceName;
+
+        service_util::getMaskedStatus(
+            asyncResp, consoleMgrService, "SerialInterface", "Masked",
+            [asyncResp, serialName, serialInterfaceService,
+             serialInterfaceObject](bool isMasked) {
+                // getMaskedStatus calls this callback even on D-Bus error
+                // (passing false). Guard against proceeding when the response
+                // already carries an error set by getMaskedStatus itself.
+
+                if (asyncResp->res.result() != boost::beast::http::status::ok)
+                {
+                    BMCWEB_LOG_ERROR(
+                        "getMaskedStatus failed for SerialInterface {}, response already has error",
+                        serialName);
+                    return;
+                }
+                if (isMasked)
+                {
+                    messages::serviceDisabled(
+                        asyncResp->res,
+                        "/redfish/v1/Managers/" +
+                            std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
+                            "/SerialInterfaces/" + serialName);
+                    return;
+                }
+
+                dbus::utility::getProperty<uint64_t>(
+                    serialInterfaceService, serialInterfaceObject,
+                    consoleDbusInterface, "Baud",
+                    [asyncResp, serialName](const boost::system::error_code& ec,
+                                            uint64_t val) {
+                        if (ec)
+                        {
+                            BMCWEB_LOG_ERROR(
+                                "D-Bus error getting Baud rate for SerialInterface {}: {}",
+                                serialName, ec);
+                            messages::internalError(asyncResp->res);
+                            return;
+                        }
+                        asyncResp->res.jsonValue["@odata.type"] =
+                            json_util::odataType("SerialInterface");
+                        asyncResp->res.jsonValue["Id"] = serialName;
+                        asyncResp->res.jsonValue["Name"] =
+                            "Manager Serial Interface";
+                        asyncResp->res.jsonValue["Description"] =
+                            "Management for Serial Interface";
+                        asyncResp->res.jsonValue["@odata.id"] =
+                            boost::urls::format(
+                                "/redfish/v1/Managers/{}/SerialInterfaces/{}",
+                                BMCWEB_REDFISH_MANAGER_URI_NAME, serialName);
+                        asyncResp->res.jsonValue["BitRate"] =
+                            std::to_string(val);
+                    });
+            });
+    }
 }
+
 inline void requestRoutesManagerSerialInterface(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/SerialInterfaces/")
         .privileges(redfish::privileges::getSerialInterfaceCollection)
-        .methods(boost::beast::http::verb::get)(
-            [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   const std::string& managerId) {
-                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-                {
-                    return;
-                }
+        .methods(
+            boost::beast::http::verb::
+                get)([&app](const crow::Request& req,
+                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                            const std::string& managerId) {
+            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+            {
+                return;
+            }
 
-                if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
-                {
-                    messages::resourceNotFound(asyncResp->res, "Manager",
-                                               managerId);
-                    return;
-                }
-                asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
-                    "/redfish/v1/Managers/{}/SerialInterfaces/",
-                    BMCWEB_REDFISH_MANAGER_URI_NAME);
-                asyncResp->res.jsonValue["@odata.type"] =
-                    "#SerialInterfaceCollection.SerialInterfaceCollection";
-                // asyncResp->res.jsonValue["Id"] =
-                //   BMCWEB_REDFISH_MANAGER_URI_NAME;
-                asyncResp->res.jsonValue["Name"] =
-                    "Serial Interface Collection";
-                asyncResp->res.jsonValue["Description"] =
-                    "Collection of Serial Interfaces for this System";
-                asyncResp->res.jsonValue["Members@odata.count"] = 1;
-                nlohmann::json::array_t members;
-                nlohmann::json& bmc = members.emplace_back();
-                bmc["@odata.id"] = boost::urls::format(
-                    "/redfish/v1/Managers/{}/SerialInterfaces/IPMI-SOL",
-                    BMCWEB_REDFISH_MANAGER_URI_NAME);
-                asyncResp->res.jsonValue["Members"] = std::move(members);
-            });
+            if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
+            {
+                messages::resourceNotFound(asyncResp->res, "Manager",
+                                           managerId);
+                return;
+            }
+            asyncResp->res.jsonValue["@odata.id"] =
+                boost::urls::format("/redfish/v1/Managers/{}/SerialInterfaces/",
+                                    BMCWEB_REDFISH_MANAGER_URI_NAME);
+            asyncResp->res.jsonValue["@odata.type"] =
+                "#SerialInterfaceCollection.SerialInterfaceCollection";
+            // asyncResp->res.jsonValue["Id"] =
+            //   BMCWEB_REDFISH_MANAGER_URI_NAME;
+            asyncResp->res.jsonValue["Name"] = "Serial Interface Collection";
+            asyncResp->res.jsonValue["Description"] =
+                "Collection of Serial Interfaces for this System";
+            nlohmann::json::array_t members;
+            members.emplace_back(nlohmann::json::object(
+                {{"@odata.id",
+                  boost::urls::format(
+                      "/redfish/v1/Managers/{}/SerialInterfaces/IPMI-SOL",
+                      BMCWEB_REDFISH_MANAGER_URI_NAME)}}));
+            if (system_utils::isDualHostEnabled())
+            {
+                members.emplace_back(nlohmann::json::object(
+                    {{"@odata.id",
+                      boost::urls::format(
+                          "/redfish/v1/Managers/{}/SerialInterfaces/IPMI-SOL1",
+                          BMCWEB_REDFISH_MANAGER_URI_NAME)}}));
+            }
+            asyncResp->res.jsonValue["Members@odata.count"] = members.size();
+            asyncResp->res.jsonValue["Members"] = std::move(members);
+        });
 
-    BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/SerialInterfaces/IPMI-SOL")
+    BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/SerialInterfaces/<str>")
         .privileges(redfish::privileges::getSerialInterface)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   const std::string& managerId) {
+                   const std::string& managerId,
+                   const std::string& serialName) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
                     return;
@@ -3099,15 +3253,16 @@ inline void requestRoutesManagerSerialInterface(App& app)
                                                managerId);
                     return;
                 }
-                handleManagerSerialInterfaceGet(app, req, asyncResp);
+                handleManagerSerialInterfaceGet(app, req, asyncResp,
+                                                serialName);
             });
-    BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/SerialInterfaces/IPMI-SOL")
+    BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/SerialInterfaces/<str>")
         .privileges(redfish::privileges::patchSerialInterface)
         .methods(boost::beast::http::verb::patch)(
-
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   const std::string& managerId) {
+                   const std::string& managerId,
+                   const std::string& serialName) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
                     return;
@@ -3116,6 +3271,24 @@ inline void requestRoutesManagerSerialInterface(App& app)
                 {
                     messages::resourceNotFound(asyncResp->res, "Manager",
                                                managerId);
+                    return;
+                }
+                std::string serialInterfaceService, serialInterfaceObject;
+                if (serialName == "IPMI-SOL")
+                {
+                    serialInterfaceService = consoleDbusService;
+                    serialInterfaceObject = consoleDbusObject;
+                }
+                else if (system_utils::isDualHostEnabled() &&
+                         serialName == "IPMI-SOL1")
+                {
+                    serialInterfaceService = console1DbusService;
+                    serialInterfaceObject = console1DbusObject;
+                }
+                else
+                {
+                    messages::resourceNotFound(asyncResp->res,
+                                               "SerialInterface", serialName);
                     return;
                 }
                 std::optional<std::string> bitRate;
@@ -3147,37 +3320,200 @@ inline void requestRoutesManagerSerialInterface(App& app)
                     asyncResp->res.result(
                         boost::beast::http::status::bad_request);
                 }
-                if (bitRate)
+
+                // Check if the service is masked before attempting to modify
+                if (system_utils::isDualHostEnabled())
                 {
-                    if (bitRate == "9600" || bitRate == "19200" ||
-                        bitRate == "38400" || bitRate == "57600" ||
-                        bitRate == "115200")
-                    {
-                        uint64_t baudRate = std::stoull(*bitRate);
-                        sdbusplus::asio::setProperty(
-                            *crow::connections::systemBus, consoleDbusService,
-                            consoleDbusObject, consoleDbusInterface, "Baud",
-                            baudRate,
-                            [&app, asyncResp,
-                             &req](const boost::system::error_code& ec) {
-                                if (ec)
+                    service_util::
+                        resolveConsoleServiceName(asyncResp, serialName,
+                                                  [asyncResp, serialName,
+                                                   serialInterfaceService,
+                                                   serialInterfaceObject,
+                                                   bitRate, &app, &req](
+                                                      const std::string&
+                                                          consoleMgrService) {
+                                                      if (consoleMgrService
+                                                              .empty())
+                                                      {
+                                                          // resolveConsoleServiceName
+                                                          // already set
+                                                          // internalError
+                                                          return;
+                                                      }
+                                                      service_util::
+                                                          getMaskedStatus(asyncResp,
+                                                                          consoleMgrService,
+                                                                          "SerialInterface",
+                                                                          "Masked",
+                                                                          [asyncResp,
+                                                                           serialName,
+                                                                           serialInterfaceService,
+                                                                           serialInterfaceObject,
+                                                                           bitRate,
+                                                                           &app,
+                                                                           &req](
+                                                                              bool
+                                                                                  isMasked) {
+                                                                              if (asyncResp
+                                                                                      ->res
+                                                                                      .result() !=
+                                                                                  boost::beast::
+                                                                                      http::status::
+                                                                                          ok)
+                                                                              {
+                                                                                  BMCWEB_LOG_ERROR(
+                                                                                      "getMaskedStatus failed for SerialInterface {}, response already has error",
+                                                                                      serialName);
+                                                                                  return;
+                                                                              }
+                                                                              if (isMasked)
+                                                                              {
+                                                                                  messages::serviceDisabled(
+                                                                                      asyncResp
+                                                                                          ->res,
+                                                                                      "/redfish/v1/Managers/" +
+                                                                                          std::string(
+                                                                                              BMCWEB_REDFISH_MANAGER_URI_NAME) +
+                                                                                          "/SerialInterfaces/" +
+                                                                                          serialName);
+                                                                                  return;
+                                                                              }
+
+                                                                              if (bitRate)
+                                                                              {
+                                                                                  if (bitRate ==
+                                                                                          "9600" ||
+                                                                                      bitRate ==
+                                                                                          "19200" ||
+                                                                                      bitRate ==
+                                                                                          "38400" ||
+                                                                                      bitRate ==
+                                                                                          "57600" ||
+                                                                                      bitRate ==
+                                                                                          "115200")
+                                                                                  {
+                                                                                      uint64_t baudRate =
+                                                                                          std::stoull(
+                                                                                              *bitRate);
+                                                                                      sdbusplus::asio::setProperty(
+                                                                                          *crow::connections::
+                                                                                              systemBus,
+                                                                                          serialInterfaceService,
+                                                                                          serialInterfaceObject,
+                                                                                          consoleDbusInterface,
+                                                                                          "Baud",
+                                                                                          baudRate,
+                                                                                          [&app,
+                                                                                           asyncResp,
+                                                                                           &req,
+                                                                                           serialName](
+                                                                                              const boost::
+                                                                                                  system::error_code&
+                                                                                                      ec) {
+                                                                                              if (ec)
+                                                                                              {
+                                                                                                  BMCWEB_LOG_DEBUG(
+                                                                                                      "Unable to set BitRate");
+                                                                                                  messages::internalError(
+                                                                                                      asyncResp
+                                                                                                          ->res);
+                                                                                                  return;
+                                                                                              }
+                                                                                              handleManagerSerialInterfaceGet(
+                                                                                                  app,
+                                                                                                  req,
+                                                                                                  asyncResp,
+                                                                                                  serialName);
+                                                                                          });
+                                                                                  }
+                                                                                  else
+                                                                                  {
+                                                                                      std::string numberStr =
+                                                                                          bitRate.has_value()
+                                                                                              ? bitRate
+                                                                                                    .value()
+                                                                                              : "No value";
+                                                                                      messages::propertyValueNotInList(
+                                                                                          asyncResp
+                                                                                              ->res,
+                                                                                          numberStr,
+                                                                                          "BitRate");
+                                                                                      return;
+                                                                                  }
+                                                                              }
+                                                                          });
+                                                  });
+                }
+                else
+                {
+                    std::string consoleMgrService =
+                        (serialName == "IPMI-SOL") ? consoleServiceName
+                                                   : console1ServiceName;
+
+                    service_util::getMaskedStatus(
+                        asyncResp, consoleMgrService, "SerialInterface",
+                        "Masked",
+                        [asyncResp, serialName, serialInterfaceService,
+                         serialInterfaceObject, bitRate, &app,
+                         &req](bool isMasked) {
+                            if (asyncResp->res.result() !=
+                                boost::beast::http::status::ok)
+                            {
+                                BMCWEB_LOG_ERROR(
+                                    "getMaskedStatus failed for SerialInterface {}, response already has error",
+                                    serialName);
+                                return;
+                            }
+                            if (isMasked)
+                            {
+                                messages::serviceDisabled(
+                                    asyncResp->res,
+                                    "/redfish/v1/Managers/" +
+                                        std::string(
+                                            BMCWEB_REDFISH_MANAGER_URI_NAME) +
+                                        "/SerialInterfaces/" + serialName);
+                                return;
+                            }
+
+                            if (bitRate)
+                            {
+                                if (bitRate == "9600" || bitRate == "19200" ||
+                                    bitRate == "38400" || bitRate == "57600" ||
+                                    bitRate == "115200")
                                 {
-                                    BMCWEB_LOG_DEBUG("Unable to set BitRate");
-                                    messages::internalError(asyncResp->res);
+                                    uint64_t baudRate = std::stoull(*bitRate);
+                                    sdbusplus::asio::setProperty(
+                                        *crow::connections::systemBus,
+                                        serialInterfaceService,
+                                        serialInterfaceObject,
+                                        consoleDbusInterface, "Baud", baudRate,
+                                        [&app, asyncResp, &req, serialName](
+                                            const boost::system::error_code&
+                                                ec) {
+                                            if (ec)
+                                            {
+                                                BMCWEB_LOG_DEBUG(
+                                                    "Unable to set BitRate");
+                                                messages::internalError(
+                                                    asyncResp->res);
+                                                return;
+                                            }
+                                            handleManagerSerialInterfaceGet(
+                                                app, req, asyncResp,
+                                                serialName);
+                                        });
+                                }
+                                else
+                                {
+                                    std::string numberStr =
+                                        bitRate.has_value() ? bitRate.value()
+                                                            : "No value";
+                                    messages::propertyValueNotInList(
+                                        asyncResp->res, numberStr, "BitRate");
                                     return;
                                 }
-                                handleManagerSerialInterfaceGet(app, req,
-                                                                asyncResp);
-                            });
-                    }
-                    else
-                    {
-                        std::string numberStr =
-                            bitRate.has_value() ? bitRate.value() : "No value";
-                        messages::propertyValueNotInList(asyncResp->res,
-                                                         numberStr, "BitRate");
-                        return;
-                    }
+                            }
+                        });
                 }
             });
 }

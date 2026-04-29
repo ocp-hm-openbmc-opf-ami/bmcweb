@@ -122,12 +122,87 @@ inline void getMaskedStatus(
          callback](const boost::system::error_code& ec, bool eventValue) {
             if (ec)
             {
-                messages::internalError(asyncResp->res);
+                BMCWEB_LOG_ERROR("D-BUS response error on {} Get for {}: {}",
+                                 propertyName, ObjectName, ec);
                 callback(false); // Default to false on error
                 return;
             }
             BMCWEB_LOG_DEBUG("getMaskedStatus = {}", eventValue);
             callback(eventValue); // Pass the result to the callback
+        });
+}
+
+// Resolve the correct obmc-console service name for a dual-node serial
+// interface by enumerating the service manager's managed objects and
+// looking for object paths containing "obmc_2dconsole_40tty".
+//
+// Mapping (IPMI-SOL = node1, IPMI-SOL1 = node2):
+//   LPC  : ttyS13  -> IPMI-SOL,   ttyS3     -> IPMI-SOL1
+//   eSPI : ttyVUART0 -> IPMI-SOL, ttyVUART1 -> IPMI-SOL1
+//
+// Once the service name is resolved, the callback is invoked with it.
+// On failure (no matching service found), an internalError is set and
+// the callback receives an empty string.
+inline void resolveConsoleServiceName(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& serialName,
+    std::function<void(const std::string&)> callback)
+{
+    sdbusplus::message::object_path basePath(
+        "/xyz/openbmc_project/control/service");
+
+    dbus::utility::getManagedObjects(
+        serviceManagerService, basePath,
+        [asyncResp, serialName, callback = std::move(callback)](
+            const boost::system::error_code& ec,
+            const dbus::utility::ManagedObjectType& objects) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR(
+                    "Failed to getManagedObjects from Service.Manager: {}", ec);
+                messages::internalError(asyncResp->res);
+                callback("");
+                return;
+            }
+
+            // Collect all obmc_2dconsole_40tty* object names
+            // and find the one that maps to the requested serialName.
+            //
+            // IPMI-SOL  (node1): ttyS13 or ttyVUART0
+            // IPMI-SOL1 (node2): ttyS3  or ttyVUART1
+            std::string resolved;
+            for (const auto& [objPath, interfaces] : objects)
+            {
+                std::string filename = objPath.filename();
+                if (filename.find("obmc_2dconsole_40tty") == std::string::npos)
+                {
+                    continue;
+                }
+
+                bool matchesNode1 = (filename == "obmc_2dconsole_40ttyS13" ||
+                                     filename == "obmc_2dconsole_40ttyVUART0");
+                bool matchesNode2 = (filename == "obmc_2dconsole_40ttyS3" ||
+                                     filename == "obmc_2dconsole_40ttyVUART1");
+
+                if (serialName == "IPMI-SOL" && matchesNode1)
+                {
+                    resolved = filename;
+                    break;
+                }
+                if (serialName == "IPMI-SOL1" && matchesNode2)
+                {
+                    resolved = filename;
+                    break;
+                }
+            }
+
+            if (resolved.empty())
+            {
+                BMCWEB_LOG_ERROR("No obmc-console tty service found for {}",
+                                 serialName);
+                messages::internalError(asyncResp->res);
+            }
+            callback(resolved);
         });
 }
 
@@ -362,17 +437,22 @@ static inline void setProperty(
 }
 
 inline void setMasked(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                      const std::string& serviceName, const bool enabled)
+                      const std::string& serviceName, const bool masked,
+                      std::function<void()> onSuccess = nullptr)
 {
     sdbusplus::asio::setProperty(
         *crow::connections::systemBus, serviceManagerService,
         serviceManagerPath + serviceName, serviceConfigInterface, "Masked",
-        enabled, [asyncResp](const boost::system::error_code& ec) {
+        masked, [asyncResp, onSuccess](const boost::system::error_code& ec) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
                 messages::internalError(asyncResp->res);
                 return;
+            }
+            if (onSuccess)
+            {
+                onSuccess();
             }
         });
 }
@@ -474,9 +554,14 @@ inline void getAllAvailableTtyServices(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     std::function<void(const std::vector<std::string>&)> callback)
 {
-    crow::connections::systemBus->async_method_call(
-        [asyncResp, callback](const boost::system::error_code ec,
-                              const dbus::utility::ManagedObjectType& objects) {
+    constexpr std::array<std::string_view, 1> interfaces = {
+        serviceConfigInterface};
+
+    dbus::utility::getSubTreePaths(
+        "/xyz/openbmc_project/control/service", 0, interfaces,
+        [asyncResp, callback](
+            const boost::system::error_code& ec,
+            const dbus::utility::MapperGetSubTreePathsResponse& subtreePaths) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("D-Bus error when getting TTY services: {}",
@@ -488,23 +573,26 @@ inline void getAllAvailableTtyServices(
 
             std::vector<std::string> availableTtys;
             // Look for console services matching the pattern
-            // obmc_2dconsole_40ttyS*
-            for (const auto& [path, _] : objects)
+            // obmc_2dconsole_40tty*
+            for (const std::string& path : subtreePaths)
             {
-                std::string serviceName = path.filename();
-                if (serviceName.find("obmc_2dconsole_40ttyS") == 0)
+                const size_t lastSlash = path.rfind('/');
+                if (lastSlash == std::string::npos)
                 {
-                    // Extract the ttyS part (e.g., "ttyS0" from
+                    continue;
+                }
+
+                std::string serviceName = path.substr(lastSlash + 1);
+                if (serviceName.find("obmc_2dconsole_40tty") == 0)
+                {
+                    // Extract the tty part (e.g., "ttyS0" from
                     // "obmc_2dconsole_40ttyS0")
                     availableTtys.push_back(serviceName.substr(
                         std::string("obmc_2dconsole_40").size()));
                 }
             }
-
             callback(availableTtys);
-        },
-        serviceManagerService, "/xyz/openbmc_project/control/service",
-        "org.freedesktop.DBus.ObjectManager", "GetManagedObjects");
+        });
 }
 
 } // namespace service_util
