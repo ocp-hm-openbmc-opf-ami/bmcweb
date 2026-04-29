@@ -227,6 +227,15 @@ std::optional<std::string> toDurationStringFromUint(uint64_t timeMs)
 
 namespace details
 {
+// Converts a timezone offset string (e.g. "+05:30" or "-08:00") to seconds.
+inline int64_t offsetToSeconds(const std::string& offSet)
+{
+    int tzSign = (offSet[0] == '+') ? 1 : -1;
+    int tzH = std::stoi(offSet.substr(1, 2));
+    int tzM = std::stoi(offSet.substr(4, 2));
+    return tzSign * (int64_t(tzH) * 3600 + tzM * 60);
+}
+
 // This code is left for support of gcc < 13 which didn't have support for
 // timezones. It should be removed at some point in the future.
 #if __cpp_lib_chrono < 201907L
@@ -254,15 +263,6 @@ constexpr std::tuple<IntType, unsigned, unsigned> civilFromDays(
     unsigned m = mp < 10 ? mp + 3 : mp - 9;                 // [1, 12]
 
     return std::tuple<IntType, unsigned, unsigned>(y + (m <= 2), m, d);
-}
-
-// Converts a timezone offset string (e.g. "+05:30" or "-08:00") to seconds.
-inline int64_t offsetToSeconds(const std::string& offSet)
-{
-    int tzSign = (offSet[0] == '+') ? 1 : -1;
-    int tzH = std::stoi(offSet.substr(1, 2));
-    int tzM = std::stoi(offSet.substr(4, 2));
-    return tzSign * (int64_t(tzH) * 3600 + tzM * 60);
 }
 
 template <typename IntType, typename Period>
