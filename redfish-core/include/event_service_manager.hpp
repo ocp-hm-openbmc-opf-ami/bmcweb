@@ -1013,13 +1013,15 @@ class EventServiceManager
         {
             std::shared_ptr<Subscription> entry = it.second;
             std::string prot = entry->userSub->protocol;
-            if (entry->userSub->eventFormatType == "Event" &&
-                messageID != "EventSubscriptionRemoved" &&
-                messageID != "EventSubscriptionAdded")
+            if (entry->userSub->eventFormatType == "Event")
             {
                 if (prot != "SNMPv1" && prot != "SNMPv2c" && prot != "SNMPv3")
                 {
-                    entry->filterAndSendEventLogs(eventRecords);
+                    if (messageID != "EventSubscriptionRemoved" &&
+                        messageID != "EventSubscriptionAdded")
+                    {
+                        entry->filterAndSendEventLogs(eventRecords);
+                    }
                     // break;
                 }
                 else if (!snmpNotified)
