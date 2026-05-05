@@ -1166,6 +1166,14 @@ void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 const sd_bus_error* dbusError = msg.get_error();
                 if (dbusError == nullptr)
                 {
+                    /* With the upstream fix of sdbuplus (commit
+                     * https://github.com/openbmc/sdbusplus/commit/9ed557ee627e4b4b43086dfb98acd8e8201d718d):
+                     * we can remove the EIO workaround*/
+                    if (ec.value() == EIO)
+                    {
+                        messages::resourceInUse(asyncResp->res);
+                        return;
+                    }
                     messages::internalError(asyncResp->res);
                     return;
                 }
