@@ -3407,16 +3407,18 @@ inline void handleEthernetInterfacePost(
 
     if (validateVlanPriority(asyncResp, vlanPriorityVal))
     {
-        crow::connections::systemBus->async_method_call(
-            [asyncResp, parentInterfaceUri, vlanInterface, vlanId,
-             vlanPriorityVal](const boost::system::error_code& ec,
-                              const sdbusplus::message_t& m) {
-                afterVlanCreate(asyncResp, parentInterfaceUri, vlanInterface,
-                                vlanPriorityVal, vlanId, ec, m);
-            },
+        sdbusplus::message_t m = crow::connections::systemBus->new_method_call(
             "xyz.openbmc_project.Network", "/xyz/openbmc_project/network",
-            "xyz.openbmc_project.Network.VLAN.Create", "VLAN", parentInterface,
-            vlanId);
+            "xyz.openbmc_project.Network.VLAN.Create", "VLAN");
+        m.append(parentInterface, vlanId);
+
+        crow::connections::systemBus->async_send(
+            m, [asyncResp, parentInterfaceUri, vlanInterface, vlanId,
+                vlanPriorityVal](boost::system::error_code ec,
+                                 sdbusplus::message_t& reply) {
+                afterVlanCreate(asyncResp, parentInterfaceUri, vlanInterface,
+                                vlanPriorityVal, vlanId, ec, reply);
+            });
     }
 }
 inline void requestEthernetInterfacesRoutes(App& app)
