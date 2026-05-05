@@ -59,9 +59,14 @@ void setDbusProperty(
     std::string interfaceStr(interface);
     std::string dbusPropertyStr(dbusProperty);
 
-    sdbusplus::asio::setProperty(
-        *crow::connections::systemBus, processNameStr, path.str, interfaceStr,
-        dbusPropertyStr, prop,
+    sdbusplus::message_t m = crow::connections::systemBus->new_method_call(
+        processNameStr.c_str(), path.str.c_str(),
+        "org.freedesktop.DBus.Properties", "Set");
+    m.append(interfaceStr, dbusPropertyStr,
+             std::variant<std::decay_t<PropertyType>>(prop));
+
+    crow::connections::systemBus->async_send(
+        m,
         [asyncResp, redfishPropertyNameStr = std::string{redfishPropertyName},
          jsonProp = nlohmann::json(prop)](const boost::system::error_code& ec,
                                           const sdbusplus::message_t& msg) {
