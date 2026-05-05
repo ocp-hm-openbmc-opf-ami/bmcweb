@@ -3310,15 +3310,15 @@ inline void handleEthernetInterfaceInstanceDelete(
         asyncResp->res.addHeader(boost::beast::http::field::allow,
                                  "GET, PATCH");
     }
-
-    crow::connections::systemBus->async_method_call(
-        [asyncResp, ifaceId](const boost::system::error_code& ec,
-                             const sdbusplus::message_t& m) {
-            afterDelete(asyncResp, ifaceId, ec, m);
-        },
+    sdbusplus::message_t m = crow::connections::systemBus->new_method_call(
         "xyz.openbmc_project.Network",
-        std::string("/xyz/openbmc_project/network/") + ifaceId,
+        (std::string("/xyz/openbmc_project/network/") + ifaceId).c_str(),
         "xyz.openbmc_project.Object.Delete", "Delete");
+    crow::connections::systemBus->async_send(
+        m, [asyncResp, ifaceId](boost::system::error_code ec,
+                                sdbusplus::message_t& reply) {
+            afterDelete(asyncResp, ifaceId, ec, reply);
+        });
 }
 inline void handleEthernetInterfacePost(
     App& app, const crow::Request& req,
