@@ -3190,13 +3190,12 @@ inline IPType checkIPTypes(const std::vector<std::string>& ipAddresses)
         {
             hasIPv6 = true;
         }
-
-        if (hasIPv4 && hasIPv6)
-        {
-            return IPType::Both;
-        }
     }
 
+    if (hasIPv4 && hasIPv6)
+    {
+        return IPType::Both;
+    }
     if (hasIPv4)
     {
         return IPType::IPv4;
