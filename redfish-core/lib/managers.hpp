@@ -618,46 +618,53 @@ inline void requestRoutesManagerResetActionInfo(App& app)
 
                 asyncResp->res.jsonValue["Parameters"] = std::move(parameters);
             });
+
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/ResetToDefaultsActionInfo/")
         .privileges(redfish::privileges::getActionInfo)
-        .methods(boost::beast::http::verb::get)(
-            [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   const std::string& managerId) {
-                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-                {
-                    return;
-                }
+        .methods(
+            boost::beast::http::verb::
+                get)([&app](const crow::Request& req,
+                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                            const std::string& managerId) {
+            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+            {
+                return;
+            }
 
-                if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
-                {
-                    messages::resourceNotFound(asyncResp->res, "Manager",
-                                               managerId);
-                    return;
-                }
+            if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
+            {
+                messages::resourceNotFound(asyncResp->res, "Manager",
+                                           managerId);
+                return;
+            }
 
-                asyncResp->res.jsonValue["@odata.type"] =
-                    json_util::odataType("ActionInfo");
-                asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
-                    "/redfish/v1/Managers/{}/ResetToDefaultsActionInfo",
-                    BMCWEB_REDFISH_MANAGER_URI_NAME);
-                asyncResp->res.jsonValue["Name"] =
-                    "ResetToDefaults Action Info";
-                asyncResp->res.jsonValue["Id"] = "ResetToDefaultsActionInfo";
-                nlohmann::json::object_t parameter;
-                parameter["Name"] = "ResetType";
-                parameter["Required"] = true;
-                parameter["DataType"] = action_info::ParameterTypes::String;
+            asyncResp->res.jsonValue["@odata.type"] =
+                json_util::odataType("ActionInfo");
+            asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
+                "/redfish/v1/Managers/{}/ResetToDefaultsActionInfo",
+                BMCWEB_REDFISH_MANAGER_URI_NAME);
+            asyncResp->res.jsonValue["Name"] = "ResetToDefaults Action Info";
+            asyncResp->res.jsonValue["Id"] = "ResetToDefaultsActionInfo";
+            asyncResp->res.jsonValue["Description"] =
+                "The `ActionInfo` schema defines the supported parameters and other "
+                "information for a Redfish action.  Supported parameters can "
+                "differ among vendors and even among resource instances.  "
+                "This data can ensure that action requests from applications "
+                "contain supported parameters.";
+            nlohmann::json::object_t parameter;
+            parameter["Name"] = "ResetType";
+            parameter["Required"] = true;
+            parameter["DataType"] = action_info::ParameterTypes::String;
 
-                nlohmann::json::array_t allowableValues;
-                allowableValues.emplace_back("ResetAll");
-                parameter["AllowableValues"] = std::move(allowableValues);
+            nlohmann::json::array_t allowableValues;
+            allowableValues.emplace_back("ResetAll");
+            parameter["AllowableValues"] = std::move(allowableValues);
 
-                nlohmann::json::array_t parameters;
-                parameters.emplace_back(std::move(parameter));
+            nlohmann::json::array_t parameters;
+            parameters.emplace_back(std::move(parameter));
 
-                asyncResp->res.jsonValue["Parameters"] = std::move(parameters);
-            });
+            asyncResp->res.jsonValue["Parameters"] = std::move(parameters);
+        });
 }
 
 static constexpr const char* objectManagerIface =

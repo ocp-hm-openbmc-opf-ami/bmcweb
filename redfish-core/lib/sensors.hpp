@@ -2758,6 +2758,7 @@ inline void handleSensorThreshCollectionGet(
             "Collection of Threshold Sensors of this Chassis";
         asyncResp->res.jsonValue["Name"] = "Threshold Sensors";
         nlohmann::json& sensorPathList = asyncResp->res.jsonValue["Members"];
+        asyncResp->res.jsonValue["Members@odata.count"] = 0;
         sensorPathList = nlohmann::json::array();
         std::string chassisSensorPath = *chassisPath + "/all_sensors";
         ::dbus::utility::getAssociationEndPoints(
