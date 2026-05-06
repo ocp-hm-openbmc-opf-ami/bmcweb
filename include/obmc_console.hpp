@@ -3,6 +3,7 @@
 #pragma once
 #include "app.hpp"
 #include "async_resp.hpp"
+#include "system_utils.hpp"
 #include "websocket.hpp"
 
 #include <sys/socket.h>
@@ -285,6 +286,11 @@ inline void onOpen(crow::websocket::Connection& conn)
     {
         consoleLeaf = "default";
     }
+    else if (redfish::system_utils::isDualHostEnabled() &&
+             conn.url().path() == "/console1")
+    {
+        consoleLeaf = "host1";
+    }
     else
     {
         // Get the console id from console router path and prepare the console
@@ -331,6 +337,16 @@ inline void requestRoutes(App& app)
         .onopen(onOpen)
         .onclose(onClose)
         .onmessage(onMessage);
+
+    if (redfish::system_utils::isDualHostEnabled())
+    {
+        BMCWEB_ROUTE(app, "/console1")
+            .websocket()
+            .privileges(redfish::privileges::privilegeSetConfigureManager)
+            .onopen(onOpen)
+            .onclose(onClose)
+            .onmessage(onMessage);
+    }
 
     BMCWEB_ROUTE(app, "/console/<str>")
         .privileges({{"OpenBMCHostConsole"}})

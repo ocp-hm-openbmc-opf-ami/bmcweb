@@ -1291,15 +1291,10 @@ inline bool ensureOpensslKeyPresentAndValid(const std::string& filepath)
 inline void getRADIUSConfigData(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    bool isCAFileUsed = false;
-    bool isPrivateKeyUsed = false;
-    bool isClientCertUsed = false;
-
     dbus::utility::getAllProperties(
         radisuDBusService, radiusConfigObjectPath, radiusConfigInterface,
-        [asyncResp, &isCAFileUsed, &isPrivateKeyUsed, &isClientCertUsed](
-            const boost::system::error_code& ec,
-            const dbus::utility::DBusPropertiesMap& propertiesList) {
+        [asyncResp](const boost::system::error_code& ec,
+                    const dbus::utility::DBusPropertiesMap& propertiesList) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR(
@@ -1348,9 +1343,11 @@ inline void getRADIUSConfigData(
             }
 
             // File checks
-            isCAFileUsed = ensureOpensslKeyPresentAndValid(caCertFile);
-            isClientCertUsed = ensureOpensslKeyPresentAndValid(clientCertFile);
-            isPrivateKeyUsed = ensureOpensslKeyPresentAndValid(privateKeyFile);
+            bool isCAFileUsed = ensureOpensslKeyPresentAndValid(caCertFile);
+            bool isClientCertUsed =
+                ensureOpensslKeyPresentAndValid(clientCertFile);
+            bool isPrivateKeyUsed =
+                ensureOpensslKeyPresentAndValid(privateKeyFile);
 
             asyncResp->res
                 .jsonValue["Oem"]["Ami"]["RADIUS"]["isCAFilePresent"] =

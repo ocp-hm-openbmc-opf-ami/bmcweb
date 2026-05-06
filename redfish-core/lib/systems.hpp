@@ -3139,14 +3139,16 @@ inline void setIdlePowerSaver(
 + * @return None.
  */
 void getSerialConsoleSshStatus(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& systemName)
 {
     constexpr std::array<std::string_view, 1> interfaces = {
         "xyz.openbmc_project.Control.Service.Attributes"};
-    dbus::utility::getSubTree(
+    dbus::utility::getSubTreePaths(
         "/xyz/openbmc_project/control/service", 0, interfaces,
-        [asyncResp](const boost::system::error_code& ec,
-                    const dbus::utility::MapperGetSubTreeResponse& subtree) {
+        [asyncResp, systemName](
+            const boost::system::error_code& ec,
+            const dbus::utility::MapperGetSubTreePathsResponse& subtreePaths) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR(
@@ -3155,38 +3157,54 @@ void getSerialConsoleSshStatus(
                 return;
             }
 
-            if (subtree.empty())
+            if (subtreePaths.empty())
             {
                 BMCWEB_LOG_DEBUG("No subtree found");
                 return;
             }
 
             std::string sshService;
-            std::vector<std::string> ttySServices;
-
-            // Parse all services in a single pass
-            for (const auto& [path, interfaces] : subtree)
+            std::vector<std::string> ttyServices;
+            for (const std::string& path : subtreePaths)
             {
                 const size_t lastSlash = path.rfind('/');
                 if (lastSlash == std::string::npos)
                 {
                     continue;
                 }
-
                 const std::string objName = path.substr(lastSlash + 1);
-
-                // Check for standard SSH service
-                if (objName == "obmc_2dconsole_2dssh")
+                if (system_utils::isDualHostEnabled())
                 {
-                    sshService = objName;
-                    break;
+                    static const std::unordered_map<std::string,
+                                                    std::vector<std::string>>
+                        dualHostMap = {
+                            {"system",
+                             {"obmc_2dconsole_40ttyS13",
+                              "obmc_2dconsole_40ttyVUART0"}},
+                            {"system1",
+                             {"obmc_2dconsole_40ttyS3",
+                              "obmc_2dconsole_40ttyVUART1"}},
+                        };
+
+                    auto it = dualHostMap.find(systemName);
+                    if (it != dualHostMap.end() &&
+                        std::find(it->second.begin(), it->second.end(),
+                                  objName) != it->second.end())
+                    {
+                        ttyServices.emplace_back(objName);
+                    }
                 }
-
-                // Collect Multi SOL SSH services (only if standard SSH not
-                // found yet)
-                if (objName.starts_with("obmc_2dconsole_40ttyS"))
+                else
                 {
-                    ttySServices.emplace_back(std::move(objName));
+                    if (objName == "obmc_2dconsole_2dssh")
+                    {
+                        sshService = objName;
+                        break;
+                    }
+                    if (objName.starts_with("obmc_2dconsole_40tty"))
+                    {
+                        ttyServices.emplace_back(objName);
+                    }
                 }
             }
 
@@ -3218,30 +3236,30 @@ void getSerialConsoleSshStatus(
             }
 
             // Handle Multi SOL SSH services
-            if (!ttySServices.empty())
+            if (!ttyServices.empty())
             {
                 nlohmann::json solArray = nlohmann::json::array();
 
-                for (size_t i = 0; i < ttySServices.size(); ++i)
+                for (size_t i = 0; i < ttyServices.size(); ++i)
                 {
                     nlohmann::json solObj;
 
-                    solObj["Id"] = ttySServices[i].substr(
+                    solObj["Id"] = ttyServices[i].substr(
                         std::string("obmc_2dconsole_40").size());
 
                     const std::string indexStr = std::to_string(i);
                     service_util::getEnabled(
-                        asyncResp, ttySServices[i],
+                        asyncResp, ttyServices[i],
                         nlohmann::json::json_pointer(
                             "/Oem/Ami/SerialConsole/SSH/SOLSSH/" + indexStr +
                             "/ServiceEnabled"));
                     service_util::getSerialConsoleSshMasked(
-                        asyncResp, ttySServices[i],
+                        asyncResp, ttyServices[i],
                         nlohmann::json::json_pointer(
                             "/Oem/Ami/SerialConsole/SSH/SOLSSH/" + indexStr +
                             "/Masked"));
                     service_util::getRunning(
-                        asyncResp, ttySServices[i],
+                        asyncResp, ttyServices[i],
                         nlohmann::json::json_pointer(
                             "/Oem/Ami/SerialConsole/SSH/SOLSSH/" + indexStr +
                             "/Running"));
@@ -4633,6 +4651,7 @@ inline void handleComputerSystemGet(
     getVirtualMediaConfig(asyncResp, systemName);
     getHostState(asyncResp, systemName);
     getLastResetTime(asyncResp, systemName);
+    getSerialConsoleSshStatus(asyncResp, systemName);
 
     if (system_utils::isDualHostEnabled())
     {
@@ -4684,7 +4703,7 @@ inline void handleComputerSystemGet(
         getTrustedModuleRequiredToBoot(asyncResp);
         getPowerMode(asyncResp);
         getIdlePowerSaver(asyncResp);
-        getSerialConsoleSshStatus(asyncResp);
+        getSerialConsoleSshStatus(asyncResp, systemName);
     }
 }
 
@@ -4964,10 +4983,14 @@ inline void handleComputerSystemPatch(
             // Handle SerialConsole
             if (serialConsoleOem)
             {
+                if (!serialConsoleOem->is_object())
+                {
+                    messages::propertyValueTypeError(
+                        asyncResp->res, *serialConsoleOem, "SerialConsole");
+                    return;
+                }
                 if (serialConsoleOem->empty())
                 {
-                    messages::propertyNotWritable(asyncResp->res,
-                                                  "SerialConsole");
                     return;
                 }
 
@@ -4980,9 +5003,14 @@ inline void handleComputerSystemPatch(
 
                 if (sshOem)
                 {
+                    if (!sshOem->is_object())
+                    {
+                        messages::propertyValueTypeError(asyncResp->res,
+                                                         *sshOem, "SSH");
+                        return;
+                    }
                     if (sshOem->empty())
                     {
-                        messages::propertyNotWritable(asyncResp->res, "SSH");
                         return;
                     }
 
@@ -4993,6 +5021,14 @@ inline void handleComputerSystemPatch(
                                              sshMaskedOem, "SOLSSH",
                                              solsshList))
                     {
+                        return;
+                    }
+                    // SOLSSH must be an array of objects, not
+                    // null/object/scalar
+                    if (solsshList && !solsshList->is_array())
+                    {
+                        messages::propertyValueTypeError(asyncResp->res,
+                                                         *solsshList, "SOLSSH");
                         return;
                     }
 
@@ -5008,9 +5044,10 @@ inline void handleComputerSystemPatch(
                     if (solsshList)
                     {
                         service_util::getAllAvailableTtyServices(
-                            asyncResp, [asyncResp, solsshList, sshMaskedOem](
-                                           const std::vector<std::string>&
-                                               availableTtys) mutable {
+                            asyncResp,
+                            [asyncResp, solsshList, sshMaskedOem, systemName](
+                                const std::vector<std::string>&
+                                    availableTtys) mutable {
                                 if (availableTtys.empty())
                                 {
                                     return;
@@ -5025,17 +5062,31 @@ inline void handleComputerSystemPatch(
                                         std::string id;
                                         std::optional<bool> serviceEnabled;
                                         std::optional<bool> masked;
+                                        std::optional<nlohmann::json> running;
 
                                         if (!json_util::readJson(
                                                 solsshItem, asyncResp->res,
-                                                "Id", id, "ServiceEnabled",
-                                                serviceEnabled, "Masked",
-                                                masked))
+                                                "Id", id, "Masked", masked,
+                                                "ServiceEnabled",
+                                                serviceEnabled, "Running",
+                                                running))
                                         {
                                             return;
                                         }
 
-                                        if (!id.starts_with("ttyS"))
+                                        // Running is a read-only status
+                                        // property; reject PATCH attempts.
+                                        if (running)
+                                        {
+                                            messages::propertyNotWritable(
+                                                asyncResp->res, "Running");
+                                            asyncResp->res.result(
+                                                boost::beast::http::status::
+                                                    bad_request);
+                                            return;
+                                        }
+
+                                        if (!id.starts_with("tty"))
                                         {
                                             messages::propertyValueFormatError(
                                                 asyncResp->res, id, "Id");
@@ -5055,10 +5106,29 @@ inline void handleComputerSystemPatch(
                                         }
                                         if (serviceEnabled)
                                         {
-                                            service_util::setServiceEnabled(
-                                                asyncResp,
-                                                "obmc_2dconsole_40" + id,
-                                                *serviceEnabled);
+                                            messages::propertyNotWritable(
+                                                asyncResp->res,
+                                                "ServiceEnabled");
+                                            asyncResp->res.result(
+                                                boost::beast::http::status::
+                                                    bad_request);
+                                            return;
+                                        }
+                                        if (system_utils::isDualHostEnabled())
+                                        {
+                                            if ((systemName == "system" &&
+                                                 (id == "ttyS3" ||
+                                                  id == "ttyVUART1")) ||
+                                                (systemName == "system1" &&
+                                                 (id == "ttyS13" ||
+                                                  id == "ttyVUART0")))
+                                            {
+                                                messages::
+                                                    propertyValueNotInList(
+                                                        asyncResp->res, id,
+                                                        "Id");
+                                                continue;
+                                            }
                                         }
                                         if (masked)
                                         {

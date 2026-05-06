@@ -101,6 +101,17 @@ enum class DumpCreationProgress
     DUMP_CREATE_INPROGRESS
 };
 
+inline std::string timeFormat(std::string timestamp)
+{
+    std::size_t dot = timestamp.find_first_of('.');
+    std::size_t plus = timestamp.find_first_of('+');
+    if (dot != std::string::npos && plus != std::string::npos)
+    {
+        timestamp.erase(dot, plus - dot);
+    }
+    return timestamp;
+}
+
 inline std::string translateSeverityDbusToRedfish(const std::string& s)
 {
     if ((s == "xyz.openbmc_project.Logging.Entry.Level.Alert") ||
@@ -490,8 +501,8 @@ inline void getDumpEntryCollection(
                 thisEntry["EntryType"] = "Event";
                 thisEntry["Name"] = dumpType + " Dump Entry";
                 thisEntry["Description"] = dumpType + " Dump Entry";
-                thisEntry["Created"] =
-                    redfish::time_utils::getDateTimeUintUs(timestampUs);
+                thisEntry["Created"] = timeFormat(
+                    redfish::time_utils::getDateTimeUintUs(timestampUs));
 
                 if (!originatorId.empty())
                 {
@@ -587,8 +598,8 @@ inline void getDumpEntryById(
                 asyncResp->res.jsonValue["Name"] = dumpType + " Dump Entry";
                 asyncResp->res.jsonValue["Description"] =
                     dumpType + " Dump Entry";
-                asyncResp->res.jsonValue["Created"] =
-                    redfish::time_utils::getDateTimeUintUs(timestampUs);
+                asyncResp->res.jsonValue["Created"] = timeFormat(
+                    redfish::time_utils::getDateTimeUintUs(timestampUs));
 
                 if (!originatorId.empty())
                 {
@@ -1417,13 +1428,10 @@ inline void requestRoutesEventLogService(App& app)
                 log_service::OverWritePolicy::WrapsWhenFull;
             asyncResp->res.jsonValue["MaxNumberOfRecords"] = 1250;
 
-            std::pair<std::string, std::string> redfishDateTimeOffset =
-                redfish::time_utils::getDateTimeOffsetNow();
-
-            asyncResp->res.jsonValue["DateTime"] = redfishDateTimeOffset.first;
-            asyncResp->res.jsonValue["DateTimeLocalOffset"] =
-                redfishDateTimeOffset.second;
-
+            auto [dateTime,
+                  offsetStr] = redfish::time_utils::getLocalDateTimeOffset();
+            asyncResp->res.jsonValue["DateTime"] = dateTime;
+            asyncResp->res.jsonValue["DateTimeLocalOffset"] = offsetStr;
             asyncResp->res.jsonValue["Entries"]["@odata.id"] = std::format(
                 "/redfish/v1/Systems/{}/LogServices/EventLog/Entries",
                 BMCWEB_REDFISH_SYSTEM_URI_NAME);
@@ -1485,17 +1493,6 @@ inline void requestRoutesJournalEventLogClear(App& app)
         .privileges({{"ConfigureComponents"}})
         .methods(boost::beast::http::verb::post)(std::bind_front(
             handleSystemsLogServicesEventLogActionsClearPost, std::ref(app)));
-}
-
-std::string timeFormat(std::string timestamp)
-{
-    std::size_t dot = timestamp.find_first_of('.');
-    std::size_t plus = timestamp.find_first_of('+');
-    if (dot != std::string::npos && plus != std::string::npos)
-    {
-        timestamp.erase(dot, plus - dot);
-    }
-    return timestamp;
 }
 
 inline LogParseError fillMessageEntry(const std::string& logEntry,
@@ -1772,10 +1769,10 @@ inline void afterLogEntriesGetManagedObjects(
         auto& entry = entriesArray.emplace_back();
         fillEventLogLogEntryFromPropertyMap(asyncResp, propsFlattened, entry);
         entry["@odata.type"] = logEntryOdata; // common for all entries
-        entry["Created"] =
-            redfish::time_utils::getDateTimeUintMs(entry["Created"], timeZone);
-        entry["Modified"] =
-            redfish::time_utils::getDateTimeUintMs(entry["Modified"], timeZone);
+        entry["Created"] = timeFormat(
+            redfish::time_utils::getDateTimeUintMs(entry["Created"], timeZone));
+        entry["Modified"] = timeFormat(redfish::time_utils::getDateTimeUintMs(
+            entry["Modified"], timeZone));
     }
 
     std::ranges::sort(entriesArray, [](const nlohmann::json& left,
@@ -2355,11 +2352,11 @@ inline void dBusEventLogEntryGet(
             std::string timeZone =
                 crow::utility::getTimeZone(crow::utility::localTimeZone);
             asyncResp->res.jsonValue["Created"] =
-                redfish::time_utils::getDateTimeUintMs(
-                    asyncResp->res.jsonValue["Created"], timeZone);
+                timeFormat(redfish::time_utils::getDateTimeUintMs(
+                    asyncResp->res.jsonValue["Created"], timeZone));
             asyncResp->res.jsonValue["Modified"] =
-                redfish::time_utils::getDateTimeUintMs(
-                    asyncResp->res.jsonValue["Modified"], timeZone);
+                timeFormat(redfish::time_utils::getDateTimeUintMs(
+                    asyncResp->res.jsonValue["Modified"], timeZone));
         });
 }
 
@@ -2847,11 +2844,9 @@ inline void getDumpServiceInfo(
         asyncResp->res.jsonValue["MaxNumberOfRecords"] = 150;
     }
 
-    std::pair<std::string, std::string> redfishDateTimeOffset =
-        redfish::time_utils::getDateTimeOffsetNow();
-    asyncResp->res.jsonValue["DateTime"] = redfishDateTimeOffset.first;
-    asyncResp->res.jsonValue["DateTimeLocalOffset"] =
-        redfishDateTimeOffset.second;
+    auto [dateTime, offsetStr] = redfish::time_utils::getLocalDateTimeOffset();
+    asyncResp->res.jsonValue["DateTime"] = dateTime;
+    asyncResp->res.jsonValue["DateTimeLocalOffset"] = offsetStr;
 
     asyncResp->res.jsonValue["Entries"]["@odata.id"] = dumpPath + "/Entries";
 
@@ -3750,11 +3745,10 @@ inline void requestRoutesCrashdumpService(App& app)
             asyncResp->res.jsonValue["MaxNumberOfRecords"] = 150;
 #endif
 
-            std::pair<std::string, std::string> redfishDateTimeOffset =
-                redfish::time_utils::getDateTimeOffsetNow();
-            asyncResp->res.jsonValue["DateTime"] = redfishDateTimeOffset.first;
-            asyncResp->res.jsonValue["DateTimeLocalOffset"] =
-                redfishDateTimeOffset.second;
+            auto [dateTime,
+                  offsetStr] = redfish::time_utils::getLocalDateTimeOffset();
+            asyncResp->res.jsonValue["DateTime"] = dateTime;
+            asyncResp->res.jsonValue["DateTimeLocalOffset"] = offsetStr;
 
             asyncResp->res.jsonValue["Entries"]["@odata.id"] = std::format(
                 "/redfish/v1/Systems/{}/LogServices/Crashdump/Entries",
@@ -4080,7 +4074,7 @@ inline void logCrashdumpEntry(
             logEntry["AdditionalDataURI"] = std::move(crashdumpURI);
             logEntry["DiagnosticDataType"] = "OEM";
             logEntry["OEMDiagnosticDataType"] = "PECICrashdump";
-            logEntry["Created"] = std::move(timestamp);
+            logEntry["Created"] = timeFormat(timestamp);
 
             // If logEntryJson references an array of LogEntry resources
             // ('Members' list), then push this as a new entry, otherwise set it

@@ -101,7 +101,8 @@ void getTrustedModuleRequiredToBoot(
 void getPowerMode(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp);
 void getIdlePowerSaver(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp);
 void getSerialConsoleSshStatus(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp);
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& systemName);
 void getKvmConfig(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                   const std::string& systemName);
 void getVirtualMediaConfig(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
