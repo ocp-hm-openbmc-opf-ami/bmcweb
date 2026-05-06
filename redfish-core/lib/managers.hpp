@@ -3174,8 +3174,8 @@ inline void handleManagerSerialInterfaceGet(
             dbus::utility::getProperty<uint64_t>(
                 serialInterfaceService, serialInterfaceObject,
                 consoleDbusInterface, "Baud",
-                [asyncResp, serialName](const boost::system::error_code& ec,
-                                        uint64_t val) {
+                [asyncResp, serialName, setCommonSerialInterfaceFields](
+                    const boost::system::error_code& ec, uint64_t val) {
                     if (ec)
                     {
                         BMCWEB_LOG_ERROR(
@@ -3255,8 +3255,9 @@ inline void handleManagerSerialInterfaceGet(
 #endif
     }
 
-    auto fillSerialResponseCb = [asyncResp,
-                                 serialName](const char* resourceName) {
+    auto fillSerialResponseCb = [asyncResp, serialName,
+                                 setCommonSerialInterfaceFields](
+                                    const char* resourceName) {
         std::vector<std::string> tokens;
         bool check = false;
         bool stopBits = false;
