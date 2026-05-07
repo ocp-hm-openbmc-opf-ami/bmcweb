@@ -51,9 +51,9 @@ inline std::span<const MessageEntry> getRegistryFromPrefix(
     {
         return {eventlog::registry};
     }
-    if (ami::header.registryPrefix == registryName)
+    if (custom::header.registryPrefix == registryName)
     {
-        return {ami::registry};
+        return {custom::registry};
     }
     return {openbmc::registry};
 }

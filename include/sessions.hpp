@@ -67,8 +67,8 @@ struct UserSession
     int userId;
     // Use counter since one user can have multiple kvm connections
     int kvmConnections = 0;
-    // currently there is only 2 nbd slots
-    std::array<bool, 2> vmNbdActive = {false, false};
+    // Track both proxy slots for each virtual media service.
+    std::array<bool, 4> vmNbdActive = {false, false, false, false};
 
     // There are two sources of truth for isConfigureSelfOnly:
     //  1. When pamAuthenticateUser() returns PAM_NEW_AUTHTOK_REQD.
@@ -588,13 +588,19 @@ class SessionStore
                             "xyz.openbmc_project.SessionManager",
                             "SessionUnregister", sessionId, sessionType, 1);
                     }
-                    for (size_t i = 0; i < 2; ++i)
+                    for (size_t i = 0; i < session->vmNbdActive.size(); ++i)
                     {
                         if (session->vmNbdActive[i])
                         {
-                            std::string vmPath =
-                                "/xyz/openbmc_project/VirtualMedia/Proxy/Slot_" +
-                                std::to_string(i);
+                            const bool host1Slot = i >= 2;
+                            const std::string vmService =
+                                host1Slot ? "xyz.openbmc_project.VirtualMedia1"
+                                          : "xyz.openbmc_project.VirtualMedia";
+                            const std::string vmPath = std::format(
+                                "{}/Proxy/Slot_{}",
+                                host1Slot ? "/xyz/openbmc_project/VirtualMedia1"
+                                          : "/xyz/openbmc_project/VirtualMedia",
+                                host1Slot ? i - 2 : i);
                             crow::connections::systemBus->async_method_call(
                                 [](const boost::system::error_code ec,
                                    bool success) {
@@ -607,7 +613,7 @@ class SessionStore
                                         return;
                                     }
                                 },
-                                "xyz.openbmc_project.VirtualMedia", vmPath,
+                                vmService, vmPath,
                                 "xyz.openbmc_project.VirtualMedia.Proxy",
                                 "Unmount");
                         }

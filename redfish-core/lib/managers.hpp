@@ -184,56 +184,47 @@ inline const managerPropertyValue getProperty(
 
 void doBMCGracefulRestart(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    const char* processName = "xyz.openbmc_project.State.BMC";
-    const char* objectPath = "/xyz/openbmc_project/state/bmc0";
-    const char* interfaceName = "xyz.openbmc_project.State.BMC";
-    const std::string& propertyValue =
-        "xyz.openbmc_project.State.BMC.Transition.Reboot";
-    const char* destProperty = "RequestedBMCTransition";
-
-    // Create the D-Bus variant for D-Bus call.
-    dbus::utility::DbusVariantType dbusPropertyValue(propertyValue);
-
-    crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code& ec) {
-            // Use "Set" method to set the property value.
+    // Set success before the async call because the BMC may start
+    // rebooting immediately, causing the D-Bus reply to never arrive.
+    messages::success(asyncResp->res);
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus, "xyz.openbmc_project.State.BMC",
+        "/xyz/openbmc_project/state/bmc0", "xyz.openbmc_project.State.BMC",
+        "RequestedBMCTransition",
+        std::string("xyz.openbmc_project.State.BMC.Transition.Reboot"),
+        [](const boost::system::error_code& ec) {
             if (ec)
             {
-                BMCWEB_LOG_DEBUG("[Set] Bad D-Bus request error: {}", ec);
-                messages::internalError(asyncResp->res);
-                return;
+                BMCWEB_LOG_ERROR(
+                    "[doBMCGracefulRestart] D-Bus error (may be expected "
+                    "during reboot): {}",
+                    ec.message());
             }
-        },
-        processName, objectPath, "org.freedesktop.DBus.Properties", "Set",
-        interfaceName, destProperty, dbusPropertyValue);
+        });
 }
 
 inline void doBMCForceRestart(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    const char* processName = "xyz.openbmc_project.State.BMC";
-    const char* objectPath = "/xyz/openbmc_project/state/bmc0";
-    const char* interfaceName = "xyz.openbmc_project.State.BMC";
-    const std::string& propertyValue =
-        "xyz.openbmc_project.State.BMC.Transition.HardReboot";
-    const char* destProperty = "RequestedBMCTransition";
-
-    // Create the D-Bus variant for D-Bus call.
-    dbus::utility::DbusVariantType dbusPropertyValue(propertyValue);
-
-    crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code& ec) {
-            // Use "Set" method to set the property value.
+    // Set success before the async call because the BMC may start
+    // rebooting immediately, causing the D-Bus reply to never arrive.
+    messages::success(asyncResp->res);
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus, "xyz.openbmc_project.State.BMC",
+        "/xyz/openbmc_project/state/bmc0", "xyz.openbmc_project.State.BMC",
+        "RequestedBMCTransition",
+        std::string("xyz.openbmc_project.State.BMC.Transition.HardReboot"),
+        [](const boost::system::error_code& ec) {
             if (ec)
             {
-                BMCWEB_LOG_DEBUG("[Set] Bad D-Bus request error: {}", ec);
-                messages::internalError(asyncResp->res);
-                return;
+                BMCWEB_LOG_ERROR(
+                    "[doBMCForceRestart] D-Bus error (may be expected "
+                    "during reboot): {}",
+                    ec.message());
             }
-        },
-        processName, objectPath, "org.freedesktop.DBus.Properties", "Set",
-        interfaceName, destProperty, dbusPropertyValue);
+        });
 }
+
 /**
  * Fun to choose the resetType for the reset action
  *
@@ -379,18 +370,10 @@ inline void requestRoutesManagerResetAction(App& app)
             }
 
             // To provide as a stringstream object
-            startTime = *maintenanceWindowStartTime;
-
-            auto value =
-                getProperty(servicePath, objectPath, interface, propName);
-            /*auto requestedBMCTransition = std::get<std::string>(value);
-            if (requestedBMCTransition !=
-                "xyz.openbmc_project.State.BMC.Transition.None")
+            if (maintenanceWindowStartTime)
             {
-                BMCWEB_LOG_ERROR("Already One Reboot Task is running");
-                messages::resourceInUse(asyncResp->res);
-                return;
-            }*/ //commented to avoid 503 server error
+                startTime = *maintenanceWindowStartTime;
+            }
 
             if ((resetType == "GracefulRestart" ||
                  resetType == "ForceRestart") &&
@@ -398,7 +381,6 @@ inline void requestRoutesManagerResetAction(App& app)
             {
                 setTimer(asyncResp, 0);
                 resetOperation(asyncResp, resetType);
-                messages::success(asyncResp->res);
                 return;
             }
 
@@ -562,7 +544,6 @@ inline void requestRoutesManagerResetToDefaults(App& app)
                         // Factory Reset doesn't actually happen until a reboot
                         // Can't erase what the BMC is running on
                         doBMCGracefulRestart(asyncResp);
-                        messages::success(asyncResp->res);
                     },
                     "xyz.openbmc_project.Software.BMC.Updater",
                     "/xyz/openbmc_project/software",

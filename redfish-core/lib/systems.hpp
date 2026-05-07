@@ -2665,15 +2665,20 @@ void getHostWatchdogTimer(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                           const std::string& systemName)
 {
     std::string watchdogServiceName = getWatchdogServiceName(systemName);
-    std::string watchdogService = "xyz.openbmc_project.Watchdog.host0";
+    std::string watchdogService = "xyz.openbmc_project.Watchdog";
     std::string watchdogPath = "/xyz/openbmc_project/watchdog/host0";
 
     if (system_utils::isDualHostEnabled())
     {
-        if (systemName == "system1")
+        if (systemName == "system")
         {
             watchdogService = "xyz.openbmc_project.Watchdog.host1";
             watchdogPath = "/xyz/openbmc_project/watchdog/host1";
+        }
+        else if (systemName == "system1")
+        {
+            watchdogService = "xyz.openbmc_project.Watchdog.host2";
+            watchdogPath = "/xyz/openbmc_project/watchdog/host2";
         }
     }
 
@@ -2762,15 +2767,20 @@ inline void setWDTProperties(
                      systemName.empty() ? "default" : systemName);
 
     std::string watchdogServiceName = getWatchdogServiceName(systemName);
-    std::string watchdogService = "xyz.openbmc_project.Watchdog.host0";
+    std::string watchdogService = "xyz.openbmc_project.Watchdog";
     std::string watchdogPath = "/xyz/openbmc_project/watchdog/host0";
 
     if (system_utils::isDualHostEnabled())
     {
-        if (systemName == "system1")
+        if (systemName == "system")
         {
             watchdogService = "xyz.openbmc_project.Watchdog.host1";
             watchdogPath = "/xyz/openbmc_project/watchdog/host1";
+        }
+        else if (systemName == "system1")
+        {
+            watchdogService = "xyz.openbmc_project.Watchdog.host2";
+            watchdogPath = "/xyz/openbmc_project/watchdog/host2";
         }
     }
 
@@ -3506,7 +3516,14 @@ void createResetMaintenanceWindowTask(
 
             auto host_Value = getHostTransitionTimeOut(
                 processName, objectPath, interfaceName, prop_Name);
-            auto requestedHostTransition = std::get<uint64_t>(host_Value);
+            const auto* hostTimeOutPtr = std::get_if<uint64_t>(&host_Value);
+            if (hostTimeOutPtr == nullptr)
+            {
+                taskData->messages.emplace_back(messages::internalError());
+                taskData->state = "Cancelled";
+                return task::completed;
+            }
+            auto requestedHostTransition = *hostTimeOutPtr;
 
             if (iface == "xyz.openbmc_project.State.OperatingSystem.Status")
             {
@@ -3693,7 +3710,14 @@ void createSystemMaintenanceWindowTask(
 
             auto chassis_Value = getPowerTransitionTimeOut(
                 processName, objectPath, interfaceName, propName);
-            auto requestedPowerTransition = std::get<uint64_t>(chassis_Value);
+            const auto* powerTimeOutPtr = std::get_if<uint64_t>(&chassis_Value);
+            if (powerTimeOutPtr == nullptr)
+            {
+                taskData->messages.emplace_back(messages::internalError());
+                taskData->state = "Cancelled";
+                return task::completed;
+            }
+            auto requestedPowerTransition = *powerTimeOutPtr;
 
             if (iface == "xyz.openbmc_project.State.OperatingSystem.Status")
             {
@@ -4239,19 +4263,39 @@ inline void handleComputerSystemResetActionPost(
         auto host_Value =
             getHostTransitionTimeOut(timeoutService, singleHostPath,
                                      timeoutInterface, "HostTransitionTimeOut");
-
-        auto requestedHostTransition = std::get<uint64_t>(host_Value);
+        const auto* hostTimeOutPtr = std::get_if<uint64_t>(&host_Value);
+        if (hostTimeOutPtr == nullptr)
+        {
+            BMCWEB_LOG_ERROR("Failed to get HostTransitionTimeOut");
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        auto requestedHostTransition = *hostTimeOutPtr;
 
         auto chassis_Value = getPowerTransitionTimeOut(
             timeoutService, singleHostPath, timeoutInterface,
             "PowerTransitionTimeOut");
-        auto requestedPowerTransition = std::get<uint64_t>(chassis_Value);
+        const auto* powerTimeOutPtr = std::get_if<uint64_t>(&chassis_Value);
+        if (powerTimeOutPtr == nullptr)
+        {
+            BMCWEB_LOG_ERROR("Failed to get PowerTransitionTimeOut");
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        auto requestedPowerTransition = *powerTimeOutPtr;
 
         // Get current host state synchronously for validation
         auto value =
             getHostTransitionTimeOut(hostStateService, singleHostPath,
                                      hostStateInterface, "CurrentHostState");
-        auto reqHostState = std::get<std::string>(value);
+        const auto* reqHostStatePtr = std::get_if<std::string>(&value);
+        if (reqHostStatePtr == nullptr)
+        {
+            BMCWEB_LOG_ERROR("Failed to get CurrentHostState");
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        const std::string& reqHostState = *reqHostStatePtr;
 
         if (!json_util::readJsonAction(                                  //
                 req, asyncResp->res,                                     //
@@ -4274,7 +4318,10 @@ inline void handleComputerSystemResetActionPost(
         }
 
         // To provide as a stringstream object
-        startTime = *maintenanceWindowStartTime;
+        if (maintenanceWindowStartTime)
+        {
+            startTime = *maintenanceWindowStartTime;
+        }
 
         if ((resetType == "On") || (resetType == "ForceOn"))
         {
@@ -4462,7 +4509,8 @@ inline void handleComputerSystemResetActionPost(
         {
             BMCWEB_LOG_ERROR("Missing Property OperationApplyTime");
             messages::actionParameterNotSupported(
-                asyncResp->res, *operationApplyTime, "OperationApplyTime");
+                asyncResp->res, operationApplyTime.value_or(""),
+                "OperationApplyTime");
             return;
         }
     }

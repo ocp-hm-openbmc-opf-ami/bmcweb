@@ -127,7 +127,7 @@ struct RadiusPatchParams
     std::optional<bool> enabledEapTLS;
     std::optional<std::string> password;
     std::optional<std::string> host;
-    std::optional<int32_t> port;
+    std::optional<uint16_t> port;
     std::optional<std::string> groupName1;
     std::optional<std::string> groupName2;
     std::optional<std::string> groupName3;
@@ -3048,13 +3048,12 @@ inline void handleAccountRadiusPatch(
                             asyncResp->res, *radiusObject.password, "Secret");
                     }
                 }
-                if (radiusObject.port && *radiusObject.port >= 0 &&
-                    *radiusObject.port <= 65535)
+                if (radiusObject.port)
                 {
                     sdbusplus::asio::setProperty(
                         *crow::connections::systemBus, radisuDBusService,
                         radiusConfigObjectPath, radiusConfigInterface,
-                        "PortNumber", *radiusObject.port,
+                        "PortNumber", static_cast<int32_t>(*radiusObject.port),
                         [asyncResp](const boost::system::error_code& ec) {
                             if (ec)
                             {
@@ -5211,7 +5210,8 @@ inline void updateUserProperties(
                         }
                     };
 
-                if (*userParams.username != *extUserParams.username)
+                if (userParams.username && extUserParams.username &&
+                    *userParams.username != *extUserParams.username)
                 {
                     addPropertyIfSuccessful(
                         "UserName", "UserName",
@@ -6090,7 +6090,8 @@ inline void handleAccountPatch(
                         return;
                     }
 
-                    if (!(extUserParams.channelPrivilege->empty()))
+                    if (extUserParams.channelPrivilege &&
+                        !(extUserParams.channelPrivilege->empty()))
                     {
                         std::string_view defaultUserPrivilege =
                             extUserParams.channelPrivilege->front();

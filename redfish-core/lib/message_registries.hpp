@@ -28,7 +28,7 @@
 #endif
 
 #ifdef ONETREE_ACD
-#include "ext/lib/acd/include/registries/acd_service_message_registry.hpp"
+#include "ext/include/registries/acd_service_message_registry.hpp"
 #endif
 
 #include <boost/url/format.hpp>

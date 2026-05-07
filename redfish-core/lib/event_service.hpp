@@ -2112,8 +2112,8 @@ void handleEventServiceSubscriptionPost(
 
             addSnmpTrapClient(asyncResp, url->host_address(),
                               url->port_number(), protocol, url->user(),
-                              subValue, *oemsnmpcommunitystring, subId,
-                              snmpCompletionHandler);
+                              subValue, oemsnmpcommunitystring.value_or(""),
+                              subId, snmpCompletionHandler);
         }
         return;
     }

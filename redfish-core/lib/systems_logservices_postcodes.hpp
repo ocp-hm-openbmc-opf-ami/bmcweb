@@ -152,7 +152,8 @@ inline bool parsePostCode(std::string_view postCodeID, uint64_t& currentValue,
 static bool fillPostCodeEntry(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const boost::container::flat_map<
-        uint64_t, std::tuple<uint64_t, std::vector<uint8_t>>>& postcode,
+        uint64_t, std::tuple<std::vector<uint8_t>, std::vector<uint8_t>>>&
+        postcode,
     const uint16_t bootIndex, const uint64_t codeIndex = 0)
 {
     // Get the Message from the MessageRegistry
@@ -165,8 +166,9 @@ static bool fillPostCodeEntry(
     }
     uint64_t currentCodeIndex = 0;
     uint64_t firstCodeTimeUs = 0;
-    for (const std::pair<uint64_t, std::tuple<uint64_t, std::vector<uint8_t>>>&
-             code : postcode)
+    for (const std::pair<uint64_t, std::tuple<std::vector<uint8_t>,
+                                              std::vector<uint8_t>>>& code :
+         postcode)
     {
         currentCodeIndex++;
         std::string postcodeEntryID =
@@ -215,8 +217,12 @@ static bool fillPostCodeEntry(
         }
 
 #else
-        hexCode << "0x" << std::setfill('0') << std::setw(2) << std::hex
-                << std::get<0>(code.second);
+        hexCode << "0x";
+        for (auto itr : std::get<0>(code.second))
+        {
+            hexCode << std::setfill('0') << std::setw(2) << std::hex
+                    << static_cast<int>(itr);
+        }
 #endif
         std::ostringstream timeOffsetStr;
         // Set Fixed -Point Notation
@@ -269,7 +275,7 @@ static bool fillPostCodeEntry(
         bmcLogEntry["EntryType"] = "Event";
         bmcLogEntry["Severity"] = std::move(severity);
         bmcLogEntry["Created"] = entryTimeStr;
-        if (!std::get<std::vector<uint8_t>>(code.second).empty())
+        if (!std::get<0>(code.second).empty())
         {
             bmcLogEntry["AdditionalDataURI"] =
                 std::format(
@@ -339,8 +345,8 @@ inline void getPostCodeForEntry(
         [asyncResp, entryId, bootIndex,
          codeIndex](const boost::system::error_code& ec,
                     const boost::container::flat_map<
-                        uint64_t, std::tuple<uint64_t, std::vector<uint8_t>>>&
-                        postcode) {
+                        uint64_t, std::tuple<std::vector<uint8_t>,
+                                             std::vector<uint8_t>>>& postcode) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS POST CODE PostCode response error");
@@ -375,8 +381,8 @@ inline void getPostCodeForBoot(
         [asyncResp, bootIndex, bootCount, entryCount, skip,
          top](const boost::system::error_code& ec,
               const boost::container::flat_map<
-                  uint64_t, std::tuple<uint64_t, std::vector<uint8_t>>>&
-                  postcode) {
+                  uint64_t, std::tuple<std::vector<uint8_t>,
+                                       std::vector<uint8_t>>>& postcode) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS POST CODE PostCode response error");
@@ -545,8 +551,8 @@ inline void handleSystemsLogServicesPostCodesEntriesEntryAdditionalDataGet(
     crow::connections::systemBus->async_method_call(
         [asyncResp, postCodeID, currentValue](
             const boost::system::error_code& ec,
-            const std::vector<std::tuple<uint64_t, std::vector<uint8_t>>>&
-                postcodes) {
+            const std::vector<std::tuple<std::vector<uint8_t>,
+                                         std::vector<uint8_t>>>& postcodes) {
             if (ec.value() == EBADR)
             {
                 messages::resourceNotFound(asyncResp->res, "LogEntry",

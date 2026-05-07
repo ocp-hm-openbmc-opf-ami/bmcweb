@@ -1059,14 +1059,9 @@ inline bool extractIPv6DefaultGatewayData(
             bool success = sdbusplus::unpackPropertiesNoThrow(
                 redfish::dbus_utils::UnpackErrorPrinter(), interface.second,
                 "DefaultGateway6", gatewayValue);
-            if (!success)
+            if (!success || gatewayValue.empty())
             {
-                return false;
-            }
-
-            if (gatewayValue.empty())
-            {
-                // Skip this entry if DefaultGateway6 is empty
+                // Skip this entry if DefaultGateway6 is missing or empty
                 continue;
             }
             StaticGatewayData& staticGateway =
@@ -1519,6 +1514,7 @@ void getEthernetIfaceData(const std::string& ethifaceId,
                                                ipv6GatewayData))
             {
                 callback(false, ethData, ipv4Data, ipv6Data, ipv6GatewayData);
+                return;
             }
             // Finally make a callback with useful data
             callback(true, ethData, ipv4Data, ipv6Data, ipv6GatewayData);
@@ -1996,16 +1992,14 @@ inline void handleDHCPv4v6Patch(
     const DHCPParameters& v6dhcpParms,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, const bool flag)
 {
-    bool nextv4DHCPState = *v4dhcpParms.dhcpv4Enabled;
-    bool nextv6DHCPState = (*v6dhcpParms.dhcpv6OperatingMode == "Enabled");
-
     if (v4dhcpParms.dhcpv4Enabled && !flag)
     {
-        setDHCP(ifaceId, "DHCP4", nextv4DHCPState, asyncResp);
+        setDHCP(ifaceId, "DHCP4", *v4dhcpParms.dhcpv4Enabled, asyncResp);
     }
     if (v6dhcpParms.dhcpv6OperatingMode && flag)
     {
-        setDHCP(ifaceId, "DHCP6", nextv6DHCPState, asyncResp);
+        setDHCP(ifaceId, "DHCP6",
+                (*v6dhcpParms.dhcpv6OperatingMode == "Enabled"), asyncResp);
     }
 }
 
@@ -2290,7 +2284,8 @@ inline void handleIPv4StaticPatch(
             // current request.
             if (address)
             {
-                if (*address == *defaultGatewayValue)
+                if (address && defaultGatewayValue &&
+                    (*address == *defaultGatewayValue))
                 {
                     // If IPv4 is in DHCP mode and invalid IPv4 static addresses
                     // are attempted to patch, re-enable DHCP to prevent IP
@@ -2459,19 +2454,27 @@ inline void handleIPv4StaticPatch(
                 gatewayValueAssigned = true;
             }*/
 
+            if (!address.has_value() || !gateway.has_value())
+            {
+                messages::propertyMissing(asyncResp->res,
+                                          !address ? pathString + "/Address"
+                                                   : pathString + "/Gateway");
+                return;
+            }
+
             if (nicIpEntry != ipv4Data.cend())
             {
-                deleteAndCreateIPAddress(IpVersion::IpV4, ifaceId,
-                                         nicIpEntry->id, prefixLength, *address,
-                                         *gateway, ipv4Data, asyncResp);
+                deleteAndCreateIPAddress(
+                    IpVersion::IpV4, ifaceId, nicIpEntry->id, prefixLength,
+                    address.value(), gateway.value(), ipv4Data, asyncResp);
                 nicIpEntry =
                     getNextStaticIpEntry(++nicIpEntry, ipv4Data.cend());
                 preserveGateway = true;
             }
             else
             {
-                createIPv4(ifaceId, prefixLength, *gateway, *address,
-                           asyncResp);
+                createIPv4(ifaceId, prefixLength, gateway.value(),
+                           address.value(), asyncResp);
                 preserveGateway = true;
             }
             entryIdx++;
@@ -2585,13 +2588,34 @@ inline void handleIPv6StaticAddressesPatch(
             // current request.
             if (!address)
             {
+                if (nicIpEntry == ipv6Data.cend())
+                {
+                    messages::propertyMissing(asyncResp->res,
+                                              pathString + "/Address");
+                    return;
+                }
                 address = nicIpEntry->address;
             }
 
             if (!prefixLength)
             {
+                if (nicIpEntry == ipv6Data.cend())
+                {
+                    messages::propertyMissing(asyncResp->res,
+                                              pathString + "/PrefixLength");
+                    return;
+                }
                 prefixLength = nicIpEntry->prefixLength;
             }
+
+            if (!address.has_value() || !prefixLength.has_value())
+            {
+                messages::propertyMissing(
+                    asyncResp->res, !address ? pathString + "/Address"
+                                             : pathString + "/PrefixLength");
+                return;
+            }
+
             if (nicIpEntry != ipv6Data.end())
             {
                 while (nicIpEntry != ipv6Data.cend())
@@ -2601,14 +2625,14 @@ inline void handleIPv6StaticAddressesPatch(
                         getNextStaticIpEntry(++nicIpEntry, ipv6Data.cend());
                 }
                 totalOperations++;
-                createIPv6(ifaceId, *prefixLength, *address, asyncResp,
-                           completionHandler);
+                createIPv6(ifaceId, prefixLength.value(), address.value(),
+                           asyncResp, completionHandler);
             }
             else
             {
                 totalOperations++;
-                createIPv6(ifaceId, *prefixLength, *address, asyncResp,
-                           completionHandler);
+                createIPv6(ifaceId, prefixLength.value(), address.value(),
+                           asyncResp, completionHandler);
             }
             entryIdx++;
         }
@@ -3166,13 +3190,12 @@ inline IPType checkIPTypes(const std::vector<std::string>& ipAddresses)
         {
             hasIPv6 = true;
         }
-
-        if (hasIPv4 && hasIPv6)
-        {
-            return IPType::Both;
-        }
     }
 
+    if (hasIPv4 && hasIPv6)
+    {
+        return IPType::Both;
+    }
     if (hasIPv4)
     {
         return IPType::IPv4;
@@ -3287,15 +3310,15 @@ inline void handleEthernetInterfaceInstanceDelete(
         asyncResp->res.addHeader(boost::beast::http::field::allow,
                                  "GET, PATCH");
     }
-
-    crow::connections::systemBus->async_method_call(
-        [asyncResp, ifaceId](const boost::system::error_code& ec,
-                             const sdbusplus::message_t& m) {
-            afterDelete(asyncResp, ifaceId, ec, m);
-        },
+    sdbusplus::message_t m = crow::connections::systemBus->new_method_call(
         "xyz.openbmc_project.Network",
-        std::string("/xyz/openbmc_project/network/") + ifaceId,
+        (std::string("/xyz/openbmc_project/network/") + ifaceId).c_str(),
         "xyz.openbmc_project.Object.Delete", "Delete");
+    crow::connections::systemBus->async_send(
+        m, [asyncResp, ifaceId](boost::system::error_code ec,
+                                sdbusplus::message_t& reply) {
+            afterDelete(asyncResp, ifaceId, ec, reply);
+        });
 }
 inline void handleEthernetInterfacePost(
     App& app, const crow::Request& req,
@@ -3384,16 +3407,18 @@ inline void handleEthernetInterfacePost(
 
     if (validateVlanPriority(asyncResp, vlanPriorityVal))
     {
-        crow::connections::systemBus->async_method_call(
-            [asyncResp, parentInterfaceUri, vlanInterface, vlanId,
-             vlanPriorityVal](const boost::system::error_code& ec,
-                              const sdbusplus::message_t& m) {
-                afterVlanCreate(asyncResp, parentInterfaceUri, vlanInterface,
-                                vlanPriorityVal, vlanId, ec, m);
-            },
+        sdbusplus::message_t m = crow::connections::systemBus->new_method_call(
             "xyz.openbmc_project.Network", "/xyz/openbmc_project/network",
-            "xyz.openbmc_project.Network.VLAN.Create", "VLAN", parentInterface,
-            vlanId);
+            "xyz.openbmc_project.Network.VLAN.Create", "VLAN");
+        m.append(parentInterface, vlanId);
+
+        crow::connections::systemBus->async_send(
+            m, [asyncResp, parentInterfaceUri, vlanInterface, vlanId,
+                vlanPriorityVal](boost::system::error_code ec,
+                                 sdbusplus::message_t& reply) {
+                afterVlanCreate(asyncResp, parentInterfaceUri, vlanInterface,
+                                vlanPriorityVal, vlanId, ec, reply);
+            });
     }
 }
 inline void requestEthernetInterfacesRoutes(App& app)
