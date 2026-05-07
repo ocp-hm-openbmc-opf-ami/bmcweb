@@ -2912,7 +2912,7 @@ inline void getSensorFromDbus(
                         asyncResp->res.jsonValue["Name"] = nameSensor;
                         asyncResp->res.jsonValue["Id"] = type + '_' + name;
                         asyncResp->res.jsonValue["Description"] =
-                            "Sensor Information";
+                            "Sensor Information of " + nameSensor;
                         if (*value != 0)
                         {
                             std::string objPath =
@@ -2955,6 +2955,11 @@ inline void getSensorFromDbus(
                 sensor_utils::objectPropertiesToJson(
                     name, type, sensor_utils::ChassisSubNode::sensorsNode,
                     valuesDict, asyncResp->res.jsonValue, nullptr);
+                // Set Description with sensor name
+                std::string nameSensor = name;
+                std::replace(nameSensor.begin(), nameSensor.end(), '_', ' ');
+                asyncResp->res.jsonValue["Description"] =
+                    "Sensor Information of " + nameSensor;
             }
         });
 }
