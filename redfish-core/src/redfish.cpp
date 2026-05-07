@@ -99,7 +99,7 @@
 #endif
 
 #ifdef ONETREE_BRCMRAID
-#include "ext/lib/brcm/storage_brcm.hpp"
+#include "ext/lib/brcm/sl7_hba_brcm.hpp"
 #endif
 
 #ifdef ONETREE_MSCCRAID
