@@ -656,6 +656,9 @@ inline void handleCertificateServiceGet(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
+    asyncResp->res.clearHeader(boost::beast::http::field::allow);
+    asyncResp->res.addHeader("Allow", "GET");
+
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
@@ -701,6 +704,9 @@ inline void handleCertificateLocationsGet(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
+    asyncResp->res.clearHeader(boost::beast::http::field::allow);
+    asyncResp->res.addHeader("Allow", "GET");
+
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
@@ -1421,6 +1427,40 @@ inline void requestRoutesCertificateService(App& app)
         .privileges(redfish::privileges::postCertificateService)
         .methods(boost::beast::http::verb::post)(
             std::bind_front(handleGenerateCSRAction, std::ref(app)));
+
+    BMCWEB_ROUTE(app, "/redfish/v1/CertificateService/")
+        .privileges(redfish::privileges::getCertificateService)
+        .methods(boost::beast::http::verb::post,
+                 boost::beast::http::verb::patch, boost::beast::http::verb::put,
+                 boost::beast::http::verb::delete_)(
+            [&app](const crow::Request& req,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
+                asyncResp->res.clearHeader(boost::beast::http::field::allow);
+
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
+                asyncResp->res.addHeader("Allow", "GET");
+                messages::operationNotAllowed(asyncResp->res);
+            });
+
+    BMCWEB_ROUTE(app, "/redfish/v1/CertificateService/CertificateLocations/")
+        .privileges(redfish::privileges::getCertificateLocations)
+        .methods(boost::beast::http::verb::post,
+                 boost::beast::http::verb::patch, boost::beast::http::verb::put,
+                 boost::beast::http::verb::delete_)(
+            [&app](const crow::Request& req,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
+                asyncResp->res.clearHeader(boost::beast::http::field::allow);
+
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
+                asyncResp->res.addHeader("Allow", "GET");
+                messages::operationNotAllowed(asyncResp->res);
+            });
 } // requestRoutesCertificateService
 
 inline void handleHTTPSCertificateCollectionGet(
