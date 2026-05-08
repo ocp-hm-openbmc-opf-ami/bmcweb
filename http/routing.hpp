@@ -291,9 +291,7 @@ class Trie
     (!BMCWEB_AMI_CXL_MACRO) && (!defined(ONETREE_NVIDIASIPACK)) &&             \
     (!defined(ONETREE_GPGPU)) && (!defined(ONETREE_RM)) &&                     \
     (!defined(ONETREE_PSM)) && (!BMCWEB_AMI_THERMALEQUIPMENT_MACRO) &&         \
-    (!defined(ONETREE_ARM_SBMR) && (!defined(ONETREE_BRCMRAID)) &&             \
-     (!defined(ONETREE_BRCMRAID8)) && (!defined(ONETREE_MSCCRAID)) &&          \
-     (!defined(ONETREE_NVME)))
+    (!defined(ONETREE_ARM_SBMR))
         if (node.ruleIndex != 0U)
         {
             BMCWEB_LOG_CRITICAL("handler already exists for \"{}\"", urlIn);
