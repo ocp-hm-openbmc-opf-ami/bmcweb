@@ -23,31 +23,31 @@
             },
             "properties": {
                 "DynamicFeature": {
-                    "$ref": "/redfish/v1/schema/ProvisionDynamicFeature.json#/definitions/ProvisionDynamicFeature",
+                    "$ref": "/redfish/v1/JsonSchemas/ProvisionDynamicFeature/ProvisionDynamicFeature.v1_0_0.json#/definitions/ProvisionDynamicFeature",
                     "description": "The link to the Dynamic Feature.",
                     "longDescription": "This property shall contain a link to Dynamic Feature .",
                     "readonly": true
                 },
                 "MeteringFeature": {
-                    "$ref": "/redfish/v1/schema/MeterStateFeature.json#/definitions/MeterStateFeature",
+                    "$ref": "/redfish/v1/JsonSchemas/MeterStateFeature/MeterStateFeature.v1_0_0.json#/definitions/MeterStateFeature",
                     "description": "The link to the Metering Feature.",
                     "longDescription": "This property shall contain a link to Metering Feature .",
                     "readonly": true
                 },
                 "UnsignedMeteringFeature": {
-                    "$ref": "/redfish/v1/schema/MeterStateFeature.json#/definitions/UnsignedMeterStateFeature",
+                    "$ref": "/redfish/v1/JsonSchemas/MeterStateFeature/MeterStateFeature.v1_0_0.json#/definitions/UnsignedMeterStateFeature",
                     "description": "The link to the Unsigned Metering Feature.",
                     "longDescription": "This property shall contain a link to Unsigned Metering Feature .",
                     "readonly": true
                 },
                 "ProvisionFeature": {
-                    "$ref": "/redfish/v1/schema/ProvisionDynamicFeature.json#/definitions/ProvisionDynamicFeature",
+                    "$ref": "/redfish/v1/JsonSchemas/ProvisionDynamicFeature/ProvisionDynamicFeature.v1_0_0.json#/definitions/ProvisionDynamicFeature",
                     "description": "The link to the Provision Feature.",
                     "longDescription": "This property shall contain a link to Provision Feature .",
                     "readonly": true
                 },
                 "StateFeature": {
-                    "$ref": "/redfish/v1/schema/MeterStateFeature.json#/definitions/MeterStateFeature",
+                    "$ref": "/redfish/v1/JsonSchemas/MeterStateFeature/MeterStateFeature.v1_0_0.json#/definitions/MeterStateFeature",
                     "description": "The link to the Nm Service.",
                     "longDescription": "This property shall contain a link to a Resource of type NmService.",
                     "readonly": true

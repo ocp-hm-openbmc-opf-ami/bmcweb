@@ -30,7 +30,7 @@
                     "$ref": "#/definitions/ChangeState"
                 },
                 "Oem": {
-                    "$ref": "/redfish/v1/schema/NodeManager.v1_0_0.json#/definitions/OemActions",
+                    "$ref": "/redfish/v1/JsonSchemas/NodeManager/NodeManager.v1_0_0.json#/definitions/OemActions",
                     "description": "The available OEM-specific actions for this resource.",
                     "longDescription": "This property shall contain the available OEM-specific actions for this resource."
                 }
@@ -237,7 +237,7 @@
                     "readonly": true
                 },
                 "Domain": {
-                    "$ref": "/redfish/v1/schema/NmDomain.json#/definitions/NmDomain",
+                    "$ref": "/redfish/v1/JsonSchemas/NmDomain/NmDomain.v1_4_0.json#/definitions/NmDomain",
                     "description": "The domain in which the policy was created. Only modifiable if the Policy State is Disabled..",
                     "longDescription": "This property shall contain a link to a domain in which the policy was created. Only modifiable if the Policy State is Disabled.",
                     "readonly": true
@@ -730,7 +730,7 @@
                 "TriggerType": {
                     "anyOf": [
                         {
-                            "$ref": "/redfish/v1/schema/NmTrigger.json#/definitions/NmTrigger"
+                            "$ref": "/redfish/v1/JsonSchemas/NmTrigger/NmTrigger.v1_0_0.json#/definitions/NmTrigger"
                         },
                         {
                             "type": "null"

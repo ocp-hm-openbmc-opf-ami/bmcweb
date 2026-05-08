@@ -1,5 +1,5 @@
 {
-    "$id": "/redfish/v1/JsonSchemas/AmiEventService.v1_0_0.json",
+    "$id": "/redfish/v1/JsonSchemas/AmiEventService/AmiEventService.v1_0_0.json",
     "$schema": "http://redfish.dmtf.org/schemas/v1/redfish-schema-v1.json",
     "copyright": "Copyright American Megatrends, Inc. (AMI).",
     "definitions": {
@@ -29,7 +29,7 @@
                     "$ref": "#/definitions/SecondaryConfiguration"
                 },
                 "Oem": {
-                    "$ref": "/redfish/v1/JsonSchemas/AmiEventService.json#/definitions/OemActions",
+                    "$ref": "/redfish/v1/JsonSchemas/AmiEventService/AmiEventService.v1_0_0.json#/definitions/OemActions",
                     "description": "The available OEM-specific actions for this resource.",
                     "longDescription": "This property shall contain the available OEM-specific actions for this resource."
                 }
@@ -110,7 +110,7 @@
             },
             "properties": {
                 "Actions": {
-                    "$ref": "/redfish/v1/JsonSchemas/AmiEventService.json#/definitions/Actions",
+                    "$ref": "/redfish/v1/JsonSchemas/AmiEventService/AmiEventService.v1_0_0.json#/definitions/Actions",
                     "description": "The available actions for this resource.",
                     "longDescription": "This property shall contain the available actions for this resource."
                 },
@@ -300,7 +300,7 @@
             },
             "properties": {
                 "Actions": {
-                    "$ref": "/redfish/v1/JsonSchemas/AmiEventService.json#/definitions/Actions",
+                    "$ref": "/redfish/v1/JsonSchemas/AmiEventService/AmiEventService.v1_0_0.json#/definitions/Actions",
                     "description": "The available actions for this resource.",
                     "longDescription": "This property shall contain the available actions for this resource."
                 },

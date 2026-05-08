@@ -45,7 +45,7 @@
                 "CupsPolicies": {
                     "anyOf": [
                         {
-                            "$ref": "/redfish/v1/schema/CupsPolicyCollection.json#/definitions/CupsPolicyCollection"
+                            "$ref": "/redfish/v1/JsonSchemas/CupsPolicyCollection/CupsPolicyCollection.json#/definitions/CupsPolicyCollection"
                         },
                         {
                             "type": "null"
@@ -57,7 +57,7 @@
                 "CupsSensors": {
                     "anyOf": [
                         {
-                            "$ref": "/redfish/v1/schema/CupsSensorCollection.json#/definitions/CupsSensorCollection"
+                            "$ref": "/redfish/v1/JsonSchemas/CupsSensorCollection/CupsSensorCollection.json#/definitions/CupsSensorCollection"
                         },
                         {
                             "type": "null"

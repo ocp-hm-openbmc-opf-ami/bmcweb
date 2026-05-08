@@ -75,7 +75,7 @@
                     "longDescription": "This property shall contain the OEM extensions.  All values for properties that this object contains shall conform to the Redfish Specification-described requirements."
                 },
                 "PolicyStorage": {
-                    "$ref": "/redfish/v1/schema/CupsPolicy.v1_0_0.json#/definitions/PolicyStorage",
+                    "$ref": "/redfish/v1/JsonSchemas/CupsPolicy/CupsPolicy.v1_0_0.json#/definitions/PolicyStorage",
                     "description": "Storage configuration of policy object.",
                     "longDescription": "This property shall contain value defining configuration for policy storage option.",
                     "readonly": false

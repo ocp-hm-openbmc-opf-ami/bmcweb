@@ -22,7 +22,7 @@
             },
             "properties": {
                 "LicenseControl": {
-                    "$ref": "/redfish/v1/schema/AmiLicenseControl.json#/definitions/AmiLicenseControl",
+                    "$ref": "/redfish/v1/JsonSchemas/AmiLicenseControl/AmiLicenseControl.v1_0_0.json#/definitions/AmiLicenseControl",
                     "description": "The link to AMI License Control.",
                     "longDescription": "This property shall contain the link to AMI License Control Service.",
                     "readonly": true
@@ -49,7 +49,7 @@
             },
             "properties": {
                 "CupsService": {
-                    "$ref": "/redfish/v1/schema/CupsService.json#/definitions/CupsService",
+                    "$ref": "/redfish/v1/JsonSchemas/CupsService/CupsService.v1_0_0.json#/definitions/CupsService",
                     "description": "The link to Intel Memory Resilience Technology application.",
                     "longDescription": "This property shall contain the link to Intel Memory Resilience Technology application.",
                     "readonly": true

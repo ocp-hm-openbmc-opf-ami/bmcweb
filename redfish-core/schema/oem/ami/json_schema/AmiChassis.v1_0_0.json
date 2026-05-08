@@ -22,7 +22,7 @@
             },
             "properties": {
                 "FRU": {
-                    "$ref": "/redfish/v1/schema/AmiChassisFRUCollection.json#/definitions/AmiChassisFRUCollection",
+                    "$ref": "/redfish/v1/JsonSchemas/AmiChassisFRUCollection/AmiChassisFRUCollection.json#/definitions/AmiChassisFRUCollection",
                     "description": "This allows to link the redfish chassis FRU device collection."
                 },
                 "SensorThreshold": {
