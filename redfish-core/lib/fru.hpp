@@ -463,11 +463,28 @@ inline void postFru(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     }
 }
 
+inline void handleFruCollectionOperationNotAllowed(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& /*chassisId*/)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    asyncResp->res.clearHeader(boost::beast::http::field::allow);
+    asyncResp->res.addHeader("Allow", "GET");
+    messages::operationNotAllowed(asyncResp->res);
+}
+
 inline void handleFruCollectionGet(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId)
 {
+    asyncResp->res.clearHeader(boost::beast::http::field::allow);
+    asyncResp->res.addHeader("Allow", "GET");
+
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
@@ -551,5 +568,12 @@ inline void requestRoutesFruCollection(App& app)
         .privileges(redfish::privileges::getFruCollection)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleFruCollectionGet, std::ref(app)));
+
+    BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/FRU/")
+        .privileges(redfish::privileges::getFruCollection)
+        .methods(boost::beast::http::verb::post,
+                 boost::beast::http::verb::patch,
+                 boost::beast::http::verb::delete_)(std::bind_front(
+            handleFruCollectionOperationNotAllowed, std::ref(app)));
 }
 } // namespace redfish
