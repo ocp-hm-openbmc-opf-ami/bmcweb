@@ -23,7 +23,7 @@
             },
             "properties": {
                 "PefService": {
-                    "$ref": "/redfish/v1/schema/AmiPefService.v1_0_0.json#/definitions/AmiPefService",
+                    "$ref": "/redfish/v1/JsonSchemas/AmiPefService/AmiPefService.v1_0_0.json#/definitions/AmiPefService",
                     "description": "The link to the Pef Service."
                 }
             },

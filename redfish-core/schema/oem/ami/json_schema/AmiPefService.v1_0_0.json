@@ -106,7 +106,7 @@
                 "Members": {
                     "description": "The members of this collection.",
                     "items": {
-                        "$ref": "/redfish/v1/schema/AmiPefEntry.json#/definitions/AmiPefEntry"
+                        "$ref": "/redfish/v1/JsonSchemas/AmiPefEntry/AmiPefEntry.v1_0_0.json#/definitions/AmiPefEntry"
                     },
                     "longDescription": "This property shall contain an array of links to the members of this collection.",
                     "readonly": false,

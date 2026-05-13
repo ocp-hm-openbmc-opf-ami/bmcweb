@@ -30,7 +30,7 @@
                     "$ref": "#/definitions/ResetStatistics"
                 },
                 "Oem": {
-                    "$ref": "/redfish/v1/schema/NodeManager.v1_0_0.json#/definitions/OemActions",
+                    "$ref": "/redfish/v1/JsonSchemas/NodeManager/NodeManager.v1_0_0.json#/definitions/OemActions",
                     "description": "The available OEM-specific actions for this resource.",
                     "longDescription": "This property shall contain the available OEM-specific actions for this resource."
                 }
@@ -280,7 +280,7 @@
                 "Policies": {
                     "description": "An array of links to policies created in this domain.",
                     "items": {
-                        "$ref": "/redfish/v1/schema/NmPolicy.json#/definitions/NmPolicy"
+                        "$ref": "/redfish/v1/JsonSchemas/NmPolicy/NmPolicy.v1_2_0.json#/definitions/NmPolicy"
                     },
                     "longDescription": "This property shall contain an array of links to policies created in this domain",
                     "readonly": true,
@@ -392,7 +392,7 @@
                 "LimitingPolicies": {
                     "description": "Array of links to the policies that are currently enforcing power capping in this domain.",
                     "items": {
-                        "$ref": "/redfish/v1/schema/NmPolicy.json#/definitions/NmPolicy"
+                        "$ref": "/redfish/v1/JsonSchemas/NmPolicy/NmPolicy.v1_2_0.json#/definitions/NmPolicy"
                     },
                     "longDescription": "This property shall contain an array of links to the policies that are currently enforcing power capping in this domain.",
                     "readonly": true,
@@ -405,7 +405,7 @@
                 "LimitingPolicy": {
                     "anyOf": [
                         {
-                            "$ref": "/redfish/v1/schema/NmPolicy.json#/definitions/NmPolicy"
+                            "$ref": "/redfish/v1/JsonSchemas/NmPolicy/NmPolicy.v1_2_0.json#/definitions/NmPolicy"
                         },
                         {
                             "type": "null"
@@ -454,7 +454,7 @@
                 "SupportedTriggers": {
                     "description": "An array of links to triggers supported by this domain.",
                     "items": {
-                        "$ref": "/redfish/v1/schema/NmTrigger.json#/definitions/NmTrigger"
+                        "$ref": "/redfish/v1/JsonSchemas/NmTrigger/NmTrigger.v1_0_0.json#/definitions/NmTrigger"
                     },
                     "longDescription": "This property shall contain an array of links to triggers which can be used for policies in this domain.",
                     "readonly": true,

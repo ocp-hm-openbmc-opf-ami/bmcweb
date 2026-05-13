@@ -29,7 +29,7 @@
                     "$ref": "#/definitions/SecondaryConfiguration"
                 },
                 "Oem": {
-                    "$ref": "/redfish/v1/JsonSchemas/AmiEventService.json#/definitions/OemActions",
+                    "$ref": "/redfish/v1/JsonSchemas/AmiEventService/AmiEventService.v1_0_0.json#/definitions/OemActions",
                     "description": "The available OEM-specific actions for this resource.",
                     "longDescription": "This property shall contain the available OEM-specific actions for this resource."
                 }
@@ -150,7 +150,7 @@
                     ]
                 },
                 "Actions": {
-                    "$ref": "/redfish/v1/JsonSchemas/AmiEventService.json#/definitions/Actions",
+                    "$ref": "/redfish/v1/JsonSchemas/AmiEventService/AmiEventService.v1_0_0.json#/definitions/Actions",
                     "description": "The available actions for this resource.",
                     "longDescription": "This property shall contain the available actions for this resource."
                 },
@@ -358,7 +358,7 @@
                     ]
                 },
                 "Actions": {
-                    "$ref": "/redfish/v1/JsonSchemas/AmiEventService.json#/definitions/Actions",
+                    "$ref": "/redfish/v1/JsonSchemas/AmiEventService/AmiEventService.v1_0_0.json#/definitions/Actions",
                     "description": "The available actions for this resource.",
                     "longDescription": "This property shall contain the available actions for this resource."
                 },

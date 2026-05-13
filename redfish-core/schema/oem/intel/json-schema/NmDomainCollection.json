@@ -54,7 +54,7 @@
                         "Members": {
                             "description": "The members of this collection.",
                             "items": {
-                                "$ref": "/redfish/v1/schema/NmDomain.json#/definitions/NmDomain"
+                                "$ref": "/redfish/v1/JsonSchemas/NmDomain/NmDomain.v1_4_0.json#/definitions/NmDomain"
                             },
                             "longDescription": "This property shall contain an array of links to the members of this collection.",
                             "readonly": true,

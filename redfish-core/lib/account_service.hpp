@@ -5404,6 +5404,15 @@ inline void updateUserProperties(
         }
         else
         {
+            Privileges effectivePrivileges =
+                redfish::getUserPrivileges(*userParams.session);
+            if (!effectivePrivileges.isSupersetOf({"ConfigureUsers"}) &&
+                !*userParams.userSelf)
+            {
+                messages::insufficientPrivilege(asyncResp->res);
+                trackCompletion();
+                return;
+            }
             int pamrc = pamAuthenticateUser(*userParams.username,
                                             *userParams.password, std::nullopt,
                                             boost::asio::ip::address(), false);

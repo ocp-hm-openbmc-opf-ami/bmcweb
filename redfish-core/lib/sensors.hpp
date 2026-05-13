@@ -2820,11 +2820,11 @@ inline void handleSensorThreshCollectionGet(
                                 redfish::sensor_utils::getSensorId(sensorName,
                                                                    sensorType);
 
-                            sensorPathList.push_back(
-                                {"@odata.id",
-                                 boost::urls::format(
-                                     "/redfish/v1/Chassis/{}/Sensors/Oem/Ami/Threshold/{}",
-                                     chassisId, sensorTypeName)});
+                            sensorPathList.push_back(nlohmann::json::object(
+                                {{"@odata.id",
+                                  boost::urls::format(
+                                      "/redfish/v1/Chassis/{}/Sensors/Oem/Ami/Threshold/{}",
+                                      chassisId, sensorTypeName)}}));
                         }
                         asyncResp->res.jsonValue["Members@odata.count"] =
                             sensorPathList.size();

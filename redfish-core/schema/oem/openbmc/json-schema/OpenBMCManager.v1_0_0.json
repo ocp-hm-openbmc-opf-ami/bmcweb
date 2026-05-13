@@ -326,7 +326,7 @@
             },
             "properties": {
                 "NodeManager": {
-                    "$ref": "/redfish/v1/schema/NodeManager.json#/definitions/NodeManager",
+                    "$ref": "/redfish/v1/JsonSchemas/NodeManager/NodeManager.v1_0_0.json#/definitions/NodeManager",
                     "description": "The NodeManager schema contains properties related to monitoring and control of the given power capping node.",
                     "longDescription": "The NodeManager schema contains properties related to monitoring and control of the given power capping node.",
                     "readonly": true

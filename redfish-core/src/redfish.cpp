@@ -66,10 +66,6 @@
 #include "utils/json_utils.hpp"
 #include "virtual_media.hpp"
 
-#ifndef ONETREE_EVB_NUVOTON_NPCM845
-#include "bsodjpeg.hpp"
-#endif
-
 #ifdef ONETREE_NIC
 #include "ext/src/nic.hpp"
 #endif
@@ -99,7 +95,7 @@
 #endif
 
 #ifdef ONETREE_BRCMRAID
-#include "ext/lib/brcm/storage_brcm.hpp"
+#include "ext/lib/brcm/sl7_hba_brcm.hpp"
 #endif
 
 #ifdef ONETREE_MSCCRAID
@@ -110,7 +106,7 @@
 #include "ext/lib/brcm/sl8_brcm.hpp"
 #endif
 
-#ifdef ONETREE_NVME
+#if defined(ONETREE_NVME) || defined(ONETREE_NVMEBASIC)
 #include "ext/lib/nvme/storage_nvme.hpp"
 #endif
 
@@ -129,8 +125,8 @@
 #endif
 
 #if (defined(ONETREE_BRCMRAID)) || (defined(ONETREE_MSCCRAID)) ||              \
-    (defined(ONETREE_NVME)) || (defined(ONETREE_BRCMRAID8)) ||                 \
-    (defined(ONETREE_RTP))
+    (defined(ONETREE_NVME)) || (defined(ONETREE_NVMEBASIC)) ||                 \
+    (defined(ONETREE_BRCMRAID8)) || (defined(ONETREE_RTP))
 #include "ext/include/storage_ext.hpp"
 #endif
 
@@ -247,11 +243,6 @@ RedfishService::RedfishService(App& app)
     requestRoutesManagerResetActionInfo(app);
     requestRoutesManagerResetToDefaults(app);
     requestRoutesManagerDiagnosticData(app);
-#ifndef ONETREE_EVB_NUVOTON_NPCM845
-    requestRoutesBsodjpeg(app);
-    requestRoutesDeleteBsodjpeg(app);
-    requestRoutesTriggerBsodjpeg(app);
-#endif
     requestRoutesChassisCollection(app);
     requestRoutesChassis(app);
     requestRoutesChassisResetAction(app);
@@ -463,9 +454,9 @@ RedfishService::RedfishService(App& app)
     registerGpgpuRoutes(app);
 #endif
 
-#if (defined(ONETREE_NVME)) || (defined(ONETREE_MSCCRAID)) ||                  \
-    (defined(ONETREE_BRCMRAID)) || (defined(ONETREE_BRCMRAID8)) ||             \
-    (defined(ONETREE_RTP))
+#if (defined(ONETREE_NVME)) || (defined(ONETREE_NVMEBASIC)) ||                 \
+    (defined(ONETREE_MSCCRAID)) || (defined(ONETREE_BRCMRAID)) ||              \
+    (defined(ONETREE_BRCMRAID8)) || (defined(ONETREE_RTP))
     {
         redfish::ext::core::resource::requestStorageCollectionRoutes(app);
         redfish::ext::core::resource::requestRoutesStorage(app);
@@ -482,7 +473,7 @@ RedfishService::RedfishService(App& app)
     requestRoutesRaidLog(app);
 #endif
 
-#ifdef ONETREE_NVME
+#if defined(ONETREE_NVME) || defined(ONETREE_NVMEBASIC)
     requestRoutesNvme(app);
 #endif
 #ifdef ONETREE_MSCCRAID

@@ -94,7 +94,7 @@
                 "Bios": {
                     "anyOf": [
                         {
-                            "$ref": "/redfish/v1/schema/AmiBIOSInventoryCRC.v1_0_0.json#/definitions/Bios"
+                            "$ref": "/redfish/v1/JsonSchemas/AmiBIOSInventoryCRC/AmiBIOSInventoryCRC.v1_0_0.json#/definitions/Bios"
                         },
                         {
                             "type": "null"
