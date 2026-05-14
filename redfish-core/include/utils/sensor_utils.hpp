@@ -714,8 +714,7 @@ inline void objectPropertiesToJson(
                          key == nlohmann::json::json_pointer(
                                     "/Thresholds/UpperCritical/Reading"))
                 {
-                    std::cout << "sensors :: Reading rounded " << __LINE__
-                              << std::endl;
+                    BMCWEB_LOG_DEBUG("sensors :: Reading rounded {}", __LINE__);
                     // Round to two decimal places for Threshold Readings
                     double roundedValue =
                         std::round(*doubleValue * 100.0) / 100.0;

@@ -2576,14 +2576,6 @@ inline void handleManagersInstanceGet(
     nlohmann::json& oem = asyncResp->res.jsonValue["Oem"];
     nlohmann::json& oemOpenbmc = oem["OpenBmc"];
     nlohmann::json& oemIntel = oem["Intel"];
-#ifdef ONETREE_NVIDIASIPACK
-    nlohmann::json& oemResetToDefaults =
-        asyncResp->res
-            .jsonValue["Actions"]["Oem"]["#NvidiaManager.ResetToDefaults"];
-    oemResetToDefaults["target"] = boost::urls::format(
-        "/redfish/v1/Managers/{}/Actions/Oem/NvidiaManager.ResetToDefaults",
-        BMCWEB_REDFISH_MANAGER_URI_NAME);
-#endif
     oemIntel["@odata.type"] = json_util::odataType("OpenBMCManager", "Intel");
     oemIntel["@odata.id"] = "/redfish/v1/Managers/bmc#/Oem/Intel";
 #ifdef ONETREE_INTELSIPACK
@@ -2627,6 +2619,7 @@ inline void handleManagersInstanceGet(
         boost::urls::format("/redfish/v1/Managers/{}/ResetToDefaultsActionInfo",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
 #endif
+
 #ifndef ONETREE_PSM
 
     dbus::utility::getProperty<std::string>(

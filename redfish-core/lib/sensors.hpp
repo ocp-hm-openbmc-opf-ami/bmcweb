@@ -3548,9 +3548,9 @@ inline void handleSensorPost(
                 {
                     std::string extractedChassisId =
                         objpath.substr(lastPos + 1);
-                    std::cerr
-                        << "extractedChassisId: " << extractedChassisId << "\n";
-                    std::cerr << "chassisId: " << chassisId << "\n";
+                    BMCWEB_LOG_DEBUG("extractedChassisId: {}",
+                                     extractedChassisId);
+                    BMCWEB_LOG_DEBUG("chassisId: {}", chassisId);
 
                     if (extractedChassisId == chassisId)
                     {

@@ -607,6 +607,10 @@ inline void getDumpEntryById(
                     asyncResp->res.jsonValue["OriginatorType"] = originatorType;
                 }
 
+                // Set schema defaults Downstream
+                asyncResp->res.jsonValue["Message"] = "";
+                asyncResp->res.jsonValue["Severity"] = "OK";
+
                 if (dumpType == "BMC")
                 {
                     asyncResp->res.jsonValue["DiagnosticDataType"] = "Manager";

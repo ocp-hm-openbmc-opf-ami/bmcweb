@@ -436,7 +436,6 @@ inline void addPCIeDeviceProperties(
             {
                 BMCWEB_LOG_ERROR("Invalid PCIe Device Generation: {}",
                                  *generationInUse);
-                messages::internalError(asyncResp->res);
                 return;
             }
             asyncResp->res.jsonValue["PCIeInterface"]["PCIeType"] =
@@ -460,7 +459,7 @@ inline void addPCIeDeviceProperties(
             {
                 BMCWEB_LOG_ERROR("Invalid PCIe Device Generation: {}",
                                  *generationSupported);
-                messages::internalError(asyncResp->res);
+
                 return;
             }
             asyncResp->res.jsonValue["PCIeInterface"]["MaxPCIeType"] =

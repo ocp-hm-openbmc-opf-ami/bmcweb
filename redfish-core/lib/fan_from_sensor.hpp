@@ -60,7 +60,6 @@ inline void doFanCollection(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 if (ec)
                 {
                     BMCWEB_LOG_DEBUG("DBUS response error {}", ec.value());
-                    messages::internalError(asyncResp->res);
                     return;
                 }
 
@@ -115,7 +114,7 @@ inline void getValidfanId(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             if (ec)
             {
                 BMCWEB_LOG_ERROR("respHandler DBUS error: {}", ec.message());
-                messages::internalError(asyncResp->res);
+
                 return;
             }
 
@@ -156,7 +155,7 @@ inline void getFanValue(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             if (ec)
             {
                 BMCWEB_LOG_ERROR("Can't get Fan value!");
-                messages::internalError(asyncResp->res);
+
                 return;
             }
             for (const auto& property : propertiesList)
@@ -189,7 +188,7 @@ inline void getFanState(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS response error {}", ec.message());
-                messages::internalError(asyncResp->res);
+
                 return;
             }
 
@@ -208,7 +207,7 @@ inline void getFanHealth(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS response error {}", ec.message());
-                messages::internalError(asyncResp->res);
+
                 return;
             }
 
