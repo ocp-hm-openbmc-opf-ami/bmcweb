@@ -32,7 +32,7 @@
 #include <vector>
 
 #define MAX_MTU 1500
-#define MIN_MTU 68
+#define MIN_MTU 1280
 
 #define MAX_VLANPRIORITY 7
 
