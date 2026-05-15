@@ -685,6 +685,27 @@ inline void partialPatchResult(
     }
 }
 
+// Clear sensitive/connection fields for LDAP JSON response when service is
+// explicitly transitioned from enabled -> disabled.
+inline void clearLDAPConfigFields(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& ldapServerElementName)
+{
+    auto& serverTypeJson = asyncResp->res.jsonValue[ldapServerElementName];
+
+    // Clear service addresses
+    serverTypeJson["ServiceAddresses"] = nlohmann::json::array();
+
+    // Clear authentication username (keep password as null for safety)
+    serverTypeJson["Authentication"]["Username"] = "";
+
+    // Clear LDAP search settings
+    serverTypeJson["LDAPService"]["SearchSettings"]["BaseDistinguishedNames"] =
+        nlohmann::json::array();
+    serverTypeJson["LDAPService"]["SearchSettings"]["UsernameAttribute"] = "";
+    serverTypeJson["LDAPService"]["SearchSettings"]["GroupsAttribute"] = "";
+}
+
 inline void parseLDAPConfigData(nlohmann::json& jsonResponse,
                                 const LDAPConfigData& confData,
                                 const std::string& ldapType)
@@ -1889,13 +1910,14 @@ inline void handleServiceEnablePatch(
     const std::string& ldapConfigObject,
     const std::shared_ptr<int>& successCount,
     const std::shared_ptr<int>& pendingCount,
-    const std::shared_ptr<int>& totalCount)
+    const std::shared_ptr<int>& totalCount, bool prevServiceEnabled = false)
 {
     sdbusplus::asio::setProperty(
         *crow::connections::systemBus, ldapDbusService, ldapConfigObject,
         ldapEnableInterface, "Enabled", serviceEnabled,
         [asyncResp, serviceEnabled, ldapServerElementName, successCount,
-         pendingCount, totalCount](const boost::system::error_code& ec) {
+         pendingCount, totalCount,
+         prevServiceEnabled](const boost::system::error_code& ec) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG(
@@ -1909,6 +1931,12 @@ inline void handleServiceEnablePatch(
                     .jsonValue[ldapServerElementName]["ServiceEnabled"] =
                     serviceEnabled;
                 BMCWEB_LOG_DEBUG("Updated Service enable = {}", serviceEnabled);
+                // If service transitioned from enabled -> disabled, clear
+                // sensitive/connection fields from the response.
+                if (!serviceEnabled && prevServiceEnabled)
+                {
+                    clearLDAPConfigFields(asyncResp, ldapServerElementName);
+                }
                 ++(*successCount);
             }
 
@@ -2151,7 +2179,8 @@ inline void handleLDAPPatch(LdapPatchParams&& input,
             ++(*pendingCount);
             ++(*totalCount);
             handleServiceEnablePatch(false, asyncResp, serverT, dbusObjectPath,
-                                     successCount, pendingCount, totalCount);
+                                     successCount, pendingCount, totalCount,
+                                     confData.serviceEnabled);
         }
 
         if (input.serviceAddressList)
@@ -2611,6 +2640,14 @@ inline void handleAccountServiceGet(
             return;
         }
         parseLDAPConfigData(asyncResp->res.jsonValue, confData, ldapType);
+
+        // If the LDAP/AD service is disabled, clear sensitive/connection
+        // fields from the JSON response so disabled services do not expose
+        // addresses or authentication details.
+        if (!confData.serviceEnabled)
+        {
+            clearLDAPConfigFields(asyncResp, ldapType);
+        }
     };
 
     getLDAPConfigData("LDAP", callback);
