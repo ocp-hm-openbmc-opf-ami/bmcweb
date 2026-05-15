@@ -161,7 +161,7 @@ inline void setprotocolEnable(
         });
 }
 
-inline void afterSnmpClientCreate(
+inline bool afterSnmpClientCreate(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const boost::system::error_code& ec, const sdbusplus::message_t& msg,
     const std::string& host, const std::string& dbusSNMPid,
@@ -180,31 +180,32 @@ inline void afterSnmpClientCreate(
             {
                 messages::propertyValueIncorrect(asyncResp->res, "Destination",
                                                  host);
-                return;
+                return false;
             }
             if (ec.value() != EBADR)
             {
                 // SNMP not installed
                 messages::propertyValueOutOfRange(
                     asyncResp->res, subValue->userSub->protocol, "Protocol");
-                return;
+                return false;
             }
         }
         messages::internalError(asyncResp->res);
-        return;
+        return false;
     }
     sdbusplus::message::object_path path(dbusSNMPid);
     const std::string snmpId = path.filename();
     if (snmpId.empty())
     {
         messages::internalError(asyncResp->res);
-        return;
+        return false;
     }
     *subId = "snmp" + snmpId;
     EventServiceManager::getInstance().addPushSubscription(subValue, *subId);
     boost::urls::url uri = boost::urls::format(
         "/redfish/v1/EventService/Subscriptions/{}", *subId);
     asyncResp->res.addHeader("Location", uri.buffer());
+    return true;
 }
 
 inline void addSnmpTrapClient(
@@ -252,9 +253,10 @@ inline void addSnmpTrapClient(
                      snmpCompletionHandler](const boost::system::error_code& ec,
                                             const sdbusplus::message_t& msg,
                                             const std::string& dbusSNMPid) {
-                        afterSnmpClientCreate(asyncResp, ec, msg, host,
-                                              dbusSNMPid, subValue, subId);
-                        snmpCompletionHandler(true);
+                        bool addSuccess =
+                            afterSnmpClientCreate(asyncResp, ec, msg, host,
+                                                  dbusSNMPid, subValue, subId);
+                        snmpCompletionHandler(addSuccess);
                     },
                     "xyz.openbmc_project.Network.SNMP",
                     "/xyz/openbmc_project/network/snmp/manager",
@@ -269,9 +271,9 @@ inline void addSnmpTrapClient(
              snmpCompletionHandler](const boost::system::error_code& ec,
                                     const sdbusplus::message_t& msg,
                                     const std::string& dbusSNMPid) {
-                afterSnmpClientCreate(asyncResp, ec, msg, host, dbusSNMPid,
-                                      subValue, subId);
-                snmpCompletionHandler(true);
+                bool addSuccess = afterSnmpClientCreate(
+                    asyncResp, ec, msg, host, dbusSNMPid, subValue, subId);
+                snmpCompletionHandler(addSuccess);
             },
             "xyz.openbmc_project.Network.SNMP",
             "/xyz/openbmc_project/network/snmp/manager",
