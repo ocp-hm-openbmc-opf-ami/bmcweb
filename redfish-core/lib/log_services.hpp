@@ -4094,9 +4094,15 @@ inline void logCrashdumpEntry(
                 logEntryJson.update(logEntry);
             }
         };
+#ifdef ONETREE_AMD_CHALUPA
+    dbus::utility::getAllProperties(
+        amdcrashdumpObject, amdcrashdumpPath + std::string("/") + logID,
+        crashdumpInterface, std::move(getStoredLogCallback));
+#else
     dbus::utility::getAllProperties(
         crashdumpObject, crashdumpPath + std::string("/") + logID,
         intelcrashdumpInterface, std::move(getStoredLogCallback));
+#endif
 }
 
 inline void requestRoutesCrashdumpEntryCollection(App& app)
@@ -4131,9 +4137,13 @@ inline void requestRoutesCrashdumpEntryCollection(App& app)
             {
                 return;
             }
-
+#ifdef ONETREE_AMD_CHALUPA
+            constexpr std::array<std::string_view, 1> interfaces = {
+                crashdumpInterface};
+#else
             constexpr std::array<std::string_view, 1> interfaces = {
                 intelcrashdumpInterface};
+#endif
             dbus::utility::getSubTreePaths(
                 "/", 0, interfaces,
                 [asyncResp](const boost::system::error_code& ec,
@@ -4298,9 +4308,16 @@ inline void requestRoutesCrashdumpFile(App& app)
                             boost::beast::http::field::content_disposition,
                             "attachment");
                     };
+#ifdef ONETREE_AMD_CHALUPA
+                dbus::utility::getAllProperties(
+                    amdcrashdumpObject,
+                    amdcrashdumpPath + std::string("/") + logID,
+                    crashdumpInterface, std::move(getStoredLogCallback));
+#else
                 dbus::utility::getAllProperties(
                     crashdumpObject, crashdumpPath + std::string("/") + logID,
                     intelcrashdumpInterface, std::move(getStoredLogCallback));
+#endif
             });
 }
 
