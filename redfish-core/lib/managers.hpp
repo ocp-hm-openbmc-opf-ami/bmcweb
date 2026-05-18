@@ -3180,6 +3180,44 @@ inline void handleManagerSerialInterfaceGet(
     }
 }
 
+inline void handleManagerSerialInterfaceCollectionDelete(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& managerId)
+{
+    asyncResp->res.clearHeader(boost::beast::http::field::allow);
+    asyncResp->res.addHeader("Allow", "GET");
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "Manager", managerId);
+        return;
+    }
+    messages::operationNotAllowed(asyncResp->res);
+}
+
+inline void handleManagerSerialInterfaceCollectionDeleteSol(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& managerId)
+{
+    asyncResp->res.clearHeader(boost::beast::http::field::allow);
+    asyncResp->res.addHeader("Allow", "GET, PATCH");
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "Manager", managerId);
+        return;
+    }
+    messages::operationNotAllowed(asyncResp->res);
+}
+
 inline void requestRoutesManagerSerialInterface(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/SerialInterfaces/")
@@ -3200,6 +3238,8 @@ inline void requestRoutesManagerSerialInterface(App& app)
                                            managerId);
                 return;
             }
+            asyncResp->res.clearHeader(boost::beast::http::field::allow);
+            asyncResp->res.addHeader("Allow", "GET");
             asyncResp->res.jsonValue["@odata.id"] =
                 boost::urls::format("/redfish/v1/Managers/{}/SerialInterfaces/",
                                     BMCWEB_REDFISH_MANAGER_URI_NAME);
@@ -3228,6 +3268,16 @@ inline void requestRoutesManagerSerialInterface(App& app)
             asyncResp->res.jsonValue["Members"] = std::move(members);
         });
 
+    BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/SerialInterfaces/")
+        .privileges(redfish::privileges::getSerialInterfaceCollection)
+        .methods(boost::beast::http::verb::delete_)(std::bind_front(
+            handleManagerSerialInterfaceCollectionDelete, std::ref(app)));
+
+    BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/SerialInterfaces/IPMI-SOL/")
+        .privileges(redfish::privileges::getSerialInterface)
+        .methods(boost::beast::http::verb::delete_)(std::bind_front(
+            handleManagerSerialInterfaceCollectionDeleteSol, std::ref(app)));
+
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/SerialInterfaces/<str>")
         .privileges(redfish::privileges::getSerialInterface)
         .methods(boost::beast::http::verb::get)(
@@ -3246,6 +3296,8 @@ inline void requestRoutesManagerSerialInterface(App& app)
                                                managerId);
                     return;
                 }
+                asyncResp->res.clearHeader(boost::beast::http::field::allow);
+                asyncResp->res.addHeader("Allow", "GET, PATCH");
                 handleManagerSerialInterfaceGet(app, req, asyncResp,
                                                 serialName);
             });
