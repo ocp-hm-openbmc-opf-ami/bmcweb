@@ -104,6 +104,7 @@ class KvmSession : public std::enable_shared_from_this<KvmSession>
     explicit KvmSession(crow::websocket::Connection& connIn,
                         const std::uint16_t portIn = 5900) :
         conn(connIn), hostSocket(conn.getIoContext()),
+        timeoutTimer(conn.getIoContext()),
         timeoutInSeconds(
             persistent_data::SessionStore::getInstance().getTimeoutInSeconds())
     {
@@ -151,8 +152,7 @@ class KvmSession : public std::enable_shared_from_this<KvmSession>
         BMCWEB_LOG_DEBUG("conn:{}, inputbuffer size {}", logPtr(&conn),
                          inputBuffer.size());
         doWrite();
-        lastActivityTime = persistent_data::SessionStore::getInstance()
-                               .getTimeSinceLastTimeoutInSeconds();
+        lastActivityTime = std::chrono::steady_clock::now();
     }
 
     ~KvmSession()
@@ -261,48 +261,32 @@ class KvmSession : public std::enable_shared_from_this<KvmSession>
 
     void startTimeoutTimer()
     {
-        if (!timerRunning) // Check if the timer is not already running
-        {
-            timerRunning = true;
-            lastActivityTime =
-                persistent_data::SessionStore::getInstance()
-                    .getTimeSinceLastTimeoutInSeconds(); // Get the current time
-                                                         // and store it in
-                                                         // lastActivityTime
+        lastActivityTime = std::chrono::steady_clock::now();
+        scheduleTimeoutCheck();
+    }
 
-            // Start a new thread (timeoutTimer) to handle the timeout logic
-            timeoutTimer = std::thread([this]() {
-                while (timerRunning)
+    void scheduleTimeoutCheck()
+    {
+        timeoutTimer.expires_after(std::chrono::seconds(1));
+        timeoutTimer.async_wait(
+            [this, weak(weak_from_this())](const boost::system::error_code& ec) {
+                auto self = weak.lock();
+                if (self == nullptr || ec)
                 {
-                    std::this_thread::sleep_for(std::chrono::seconds(1));
-                    // Get the timeout value from the persistent data store
-                    int64_t timeoutValue =
-                        persistent_data::SessionStore::getInstance()
-                            .getTimeoutInSeconds();
-                    timeoutInSeconds = std::chrono::seconds(
-                        timeoutValue);      // Convert the timeout value to
-                                            // std::chrono::seconds and update
-                                            // timeoutInSeconds
-                    applySessionTimeouts(); // Call the function to apply
-                                            // session timeouts
+                    return;
                 }
+                int64_t timeoutValue =
+                    persistent_data::SessionStore::getInstance()
+                        .getTimeoutInSeconds();
+                timeoutInSeconds = std::chrono::seconds(timeoutValue);
+                applySessionTimeouts();
+                scheduleTimeoutCheck();
             });
-        }
     }
 
     void stopTimeoutTimer()
     {
-        if (timerRunning)         // Check if the timer is currently running
-        {
-            timerRunning = false; // Set the flag to indicate that the timer is
-                                  // no longer running
-            if (timeoutTimer.joinable()) // Check if the thread associated with
-                                         // the timeoutTimer is joinable
-            {
-                timeoutTimer.join(); // If it's joinable, join (wait for) the
-                                     // thread to finish its execution
-            }
-        }
+        timeoutTimer.cancel();
     }
 
     void applySessionTimeouts()
@@ -311,7 +295,7 @@ class KvmSession : public std::enable_shared_from_this<KvmSession>
         int64_t timeoutValue =
             persistent_data::SessionStore::getInstance().getTimeoutInSeconds();
         timeoutInSeconds = std::chrono::seconds(timeoutValue);
-        if (timeNow - lastActivityTime >=
+        if (timeNow - lastActivityTime.load() >=
             timeoutInSeconds) // This condition checks if the time elapsed since
                               // the last activity in the KVM session is greater
                               // than or equal to the configured timeout. If
@@ -324,7 +308,8 @@ class KvmSession : public std::enable_shared_from_this<KvmSession>
 
     void closeWebSocket()
     {
-        conn.close("Session timeout");
+        boost::asio::post(conn.getIoContext(),
+                          [this]() { conn.close("Session timeout"); });
     }
 
     crow::websocket::Connection& conn;
@@ -332,9 +317,8 @@ class KvmSession : public std::enable_shared_from_this<KvmSession>
     boost::beast::flat_static_buffer<1024UL * 50UL> outputBuffer;
     boost::beast::flat_static_buffer<1024UL> inputBuffer;
     bool doingWrite{false};
-    std::atomic<bool> timerRunning{false};
-    std::thread timeoutTimer;
-    std::chrono::time_point<std::chrono::steady_clock> lastActivityTime;
+    boost::asio::steady_timer timeoutTimer;
+    std::atomic<std::chrono::time_point<std::chrono::steady_clock>> lastActivityTime;
     std::chrono::seconds timeoutInSeconds;
 };
 
