@@ -554,7 +554,8 @@ inline void getCertificateProperties(
                 asyncResp->res.jsonValue["Oem"]["Ami"]["PublicKey"] =
                     *publicKey;
             }
-            asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.id"] = certURL;
+            asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.id"] =
+                std::string(certURL.data(), certURL.size()) + "#Oem/Ami";
             asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] =
                 json_util::odataType("AmiCertificate", "AmiCertificate");
 
