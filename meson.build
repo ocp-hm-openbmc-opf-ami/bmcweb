@@ -398,6 +398,7 @@ if grep_prog.found()
         'ONETREE_GPGPU': ['ext/src/gpgpu.cpp'],
         'ONETREE_ARM_SBMR': ['ext/src/arm_redfish.cpp'],
 	'ONETREE_RPC': ['ext/src/rackpowercontroller.cpp'],
+    'ONETREE_CXL_MGMT': ['ext/src/cxl.cpp'],
     }
 
     foreach define, sources : onetree_sources
@@ -405,10 +406,6 @@ if grep_prog.found()
             srcfiles_bmcweb += sources
         endif
     endforeach
-endif
-
-if get_option('ami-cxl').enabled()
-	srcfiles_bmcweb += 'ext/src/cxl.cpp'
 endif
 
 if get_option('ami-thermalequipment').enabled()

@@ -70,7 +70,7 @@
 #include "ext/src/nic.hpp"
 #endif
 
-#if BMCWEB_AMI_CXL_MACRO
+#if ONETREE_CXL_MGMT
 #include "ext/src/cxl.hpp"
 #endif
 
@@ -439,7 +439,7 @@ RedfishService::RedfishService(App& app)
     registerNicRoutes(app);
 #endif
 
-#if BMCWEB_AMI_CXL_MACRO
+#if ONETREE_CXL_MGMT
     registerCxlRoutes(app);
 #endif
 

@@ -90,14 +90,6 @@ option(
      description: 'list of FileSystems configured'
 )
 
-# BMCWEB_AMI_CXL_MACRO
-option(
-	'ami-cxl',
-	type: 'feature',
-	value: 'disabled',
-    description: 'Enable the AMI CXL.'
-)
-
 option(
     'ami-redebug',
     type: 'feature',
