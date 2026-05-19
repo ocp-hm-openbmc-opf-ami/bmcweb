@@ -1785,6 +1785,7 @@
             "NumberOfArgs": 0,
             "Resolution": "None.",
             "Severity": "OK"
+        },
         "ConfigurationConflict": {
             "Description": "Indicates that the Current Configuration is in conflict with another Configuration.",
             "Message": "The operation cannot be completed, since the Configuration for %1 is not available when %2.",
