@@ -619,51 +619,98 @@ inline void handleSSLCertificateSecondaryUploadAction(
     }
 }
 
-bool validateMsgId(const std::string& messageId)
+bool validateMsgId(std::string_view messageId)
 {
-    std::vector<std::string> fields;
-    bmcweb::split(fields, messageId, '.');
+    // MessageId Format supports two variants:
+    // 1. 4 parts: <Registry>.<Major>.<Minor>.<MessageKey>
+    //    Example: Base.1.19.Success
+    // 2. 5 parts: <Registry>.<Major>.<Minor>.<Patch>.<MessageKey>
+    //    Example: OpenBMC.0.5.0.ADDDCCorrectable
 
-    if (fields.size() == 5)
+    // Parse efficiently using string_view to avoid allocations
+    std::array<std::string_view, 5> fields;
+    size_t fieldCount = 0;
+    size_t start = 0;
+
+    for (size_t i = 0; i < messageId.size() && fieldCount < 5; ++i)
     {
-        // MessageId Format:
-        // <Registry Prefix>.<Major Version>.<Minor Version>.<MessageKey>
-
-        const std::string& msgPrefix = fields[0];
-        const std::string& majorStr = fields[1];
-        const std::string& minorStr = fields[2];
-        const std::string& patchStr = fields[3];
-        const std::string& msgSuffix = fields[4];
-
-        const auto registry =
-            redfish::registries::getRegistryFromPrefix(msgPrefix);
-        const auto* header = redfish::registries::resolveHeader(msgPrefix);
-
-        if (!header)
+        if (messageId[i] == '.')
         {
-            return false;
+            fields[fieldCount++] = messageId.substr(start, i - start);
+            start = i + 1;
         }
+    }
 
-        if (std::to_string(header->versionMajor) == majorStr &&
-            std::to_string(header->versionMinor) == minorStr &&
-            std::to_string(header->versionPatch) == patchStr)
+    // Add the last field
+    if (fieldCount < 5 && start < messageId.size())
+    {
+        fields[fieldCount++] = messageId.substr(start);
+    }
+
+    // Validate field count - must be either 4 or 5 parts
+    if (fieldCount != 4 && fieldCount != 5)
+    {
+        return false;
+    }
+
+    std::string_view msgPrefix = fields[0];
+    std::string_view majorStr = fields[1];
+    std::string_view minorStr = fields[2];
+
+    std::string_view msgSuffix;
+    std::string_view patchStr;
+
+    // Handle both 4-part and 5-part formats
+    if (fieldCount == 4)
+    {
+        // Base format: Registry.Major.Minor.MessageKey
+        msgSuffix = fields[3];
+    }
+    else
+    {
+        // OpenBMC format: Registry.Major.Minor.Patch.MessageKey
+        patchStr = fields[3];
+        msgSuffix = fields[4];
+    }
+
+    // Lookup header - convert string_view to string only when needed
+    const auto* header =
+        redfish::registries::resolveHeader(std::string(msgPrefix));
+    if (!header)
+    {
+        return false;
+    }
+
+    // Compare version strings
+    std::string majorVersion = std::to_string(header->versionMajor);
+    std::string minorVersion = std::to_string(header->versionMinor);
+
+    if (majorVersion != majorStr || minorVersion != minorStr)
+    {
+        return false;
+    }
+
+    // For 5-part format, also validate patch version
+    if (fieldCount == 5)
+    {
+        std::string patchVersion = std::to_string(header->versionPatch);
+        if (patchVersion != patchStr)
         {
-            if (std::any_of(
-                    registry.begin(), registry.end(),
-                    [&msgSuffix](
-                        const redfish::registries::MessageEntry& messageEntry) {
-                        BMCWEB_LOG_DEBUG(
-                            "msgSuffix : {}, messageEntry.first : {}",
-                            msgSuffix, messageEntry.first);
-                        return msgSuffix == messageEntry.first;
-                    }))
-            {
-                return true;
-            }
             return false;
         }
     }
-    return false;
+
+    // Get registry once and check for message existence
+    const auto registry =
+        redfish::registries::getRegistryFromPrefix(std::string(msgPrefix));
+
+    return std::any_of(
+        registry.begin(), registry.end(),
+        [msgSuffix](const redfish::registries::MessageEntry& messageEntry) {
+            BMCWEB_LOG_DEBUG("msgSuffix : {}, messageEntry.first : {}",
+                             msgSuffix, messageEntry.first);
+            return msgSuffix == messageEntry.first;
+        });
 }
 
 inline void handleauthenticationpatch(
