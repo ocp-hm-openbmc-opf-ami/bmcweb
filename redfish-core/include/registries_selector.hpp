@@ -7,6 +7,7 @@
 #include "registries/heartbeat_event_message_registry.hpp"
 #include "registries/ipmi_message_registry.hpp"
 #include "registries/openbmc_message_registry.hpp"
+#include "registries/resource_event_message_registry.hpp"
 #include "registries/security_message_registry.hpp"
 #include "registries/task_event_message_registry.hpp"
 #include "registries/task_message_registry.hpp"
@@ -26,6 +27,10 @@ inline std::span<const MessageEntry> getRegistryFromPrefix(
     if (openbmc::header.registryPrefix == registryName)
     {
         return {openbmc::registry};
+    }
+    if (resource_event::header.registryPrefix == registryName)
+    {
+        return {resource_event::registry};
     }
     if (heartbeat_event::header.registryPrefix == registryName)
     {
@@ -67,6 +72,10 @@ inline const Header* resolveHeader(std::string_view registryPrefix)
     if (registryPrefix == heartbeat_event::header.registryPrefix)
     {
         return &heartbeat_event::header;
+    }
+    if (registryPrefix == resource_event::header.registryPrefix)
+    {
+        return &resource_event::header;
     }
     if (registryPrefix == openbmc::header.registryPrefix)
     {

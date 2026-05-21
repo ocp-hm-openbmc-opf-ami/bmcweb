@@ -3522,6 +3522,7 @@ inline void handleSensorPost(
     const std::string& chassisId, const std::string& sensorId)
 {
     asyncResp->res.clearHeader(boost::beast::http::field::allow);
+    asyncResp->res.addHeader("Allow", "GET, PATCH");
     if (!membersResponseGet(asyncResp, sensorId, "SensorCollection"))
     {
         return;

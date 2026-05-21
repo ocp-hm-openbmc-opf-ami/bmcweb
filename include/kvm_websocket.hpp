@@ -268,20 +268,19 @@ class KvmSession : public std::enable_shared_from_this<KvmSession>
     void scheduleTimeoutCheck()
     {
         timeoutTimer.expires_after(std::chrono::seconds(1));
-        timeoutTimer.async_wait(
-            [this, weak(weak_from_this())](const boost::system::error_code& ec) {
-                auto self = weak.lock();
-                if (self == nullptr || ec)
-                {
-                    return;
-                }
-                int64_t timeoutValue =
-                    persistent_data::SessionStore::getInstance()
-                        .getTimeoutInSeconds();
-                timeoutInSeconds = std::chrono::seconds(timeoutValue);
-                applySessionTimeouts();
-                scheduleTimeoutCheck();
-            });
+        timeoutTimer.async_wait([this, weak(weak_from_this())](
+                                    const boost::system::error_code& ec) {
+            auto self = weak.lock();
+            if (self == nullptr || ec)
+            {
+                return;
+            }
+            int64_t timeoutValue = persistent_data::SessionStore::getInstance()
+                                       .getTimeoutInSeconds();
+            timeoutInSeconds = std::chrono::seconds(timeoutValue);
+            applySessionTimeouts();
+            scheduleTimeoutCheck();
+        });
     }
 
     void stopTimeoutTimer()
@@ -318,7 +317,8 @@ class KvmSession : public std::enable_shared_from_this<KvmSession>
     boost::beast::flat_static_buffer<1024UL> inputBuffer;
     bool doingWrite{false};
     boost::asio::steady_timer timeoutTimer;
-    std::atomic<std::chrono::time_point<std::chrono::steady_clock>> lastActivityTime;
+    std::atomic<std::chrono::time_point<std::chrono::steady_clock>>
+        lastActivityTime;
     std::chrono::seconds timeoutInSeconds;
 };
 
