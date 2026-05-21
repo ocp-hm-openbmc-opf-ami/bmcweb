@@ -2662,7 +2662,7 @@ void getHostWatchdogTimer(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                           const std::string& systemName)
 {
     std::string watchdogServiceName = getWatchdogServiceName(systemName);
-    std::string watchdogService = "xyz.openbmc_project.Watchdog.host0";
+    std::string watchdogService = "xyz.openbmc_project.Watchdog";
     std::string watchdogPath = "/xyz/openbmc_project/watchdog/host0";
 
     if (system_utils::isDualHostEnabled())
