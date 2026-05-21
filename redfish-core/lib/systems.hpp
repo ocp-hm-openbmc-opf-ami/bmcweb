@@ -1980,34 +1980,48 @@ inline void setAssetTag(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 messages::internalError(asyncResp->res);
                 return;
             }
-            // Assume only 1 system D-Bus object
-            // Throw an error if there is more than 1
+            // If more than one system object, verify BIOS is present
             if (subtree.size() > 1)
             {
-                BMCWEB_LOG_DEBUG("Found more than 1 system D-Bus object!");
-                messages::internalError(asyncResp->res);
-                return;
+                bool biosFound = false;
+                for (const auto& [path, services] : subtree)
+                {
+                    std::filesystem::path fsPath(path);
+                    if (fsPath.filename() == "bios")
+                    {
+                        biosFound = true;
+                        break;
+                    }
+                }
+
+                if (!biosFound)
+                {
+                    BMCWEB_LOG_DEBUG(
+                        "Multiple system objects found but no BIOS!");
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
             }
-            if (subtree[0].first.empty() || subtree[0].second.size() != 1)
+
+            // Process all valid system objects (BMC + BIOS if present)
+            for (const auto& [path, services] : subtree)
             {
-                BMCWEB_LOG_DEBUG("Asset Tag Set mapper error!");
-                messages::internalError(asyncResp->res);
-                return;
+                if (path.empty() || services.empty())
+                {
+                    continue;
+                }
+
+                const std::string& service = services.begin()->first;
+                if (service.empty())
+                {
+                    continue;
+                }
+
+                setDbusProperty(
+                    asyncResp, "AssetTag", service, path,
+                    "xyz.openbmc_project.Inventory.Decorator.AssetTag",
+                    "AssetTag", assetTag);
             }
-
-            const std::string& path = subtree[0].first;
-            const std::string& service = subtree[0].second.begin()->first;
-
-            if (service.empty())
-            {
-                BMCWEB_LOG_DEBUG("Asset Tag Set service mapper error!");
-                messages::internalError(asyncResp->res);
-                return;
-            }
-
-            setDbusProperty(asyncResp, "AssetTag", service, path,
-                            "xyz.openbmc_project.Inventory.Decorator.AssetTag",
-                            "AssetTag", assetTag);
         });
 }
 
