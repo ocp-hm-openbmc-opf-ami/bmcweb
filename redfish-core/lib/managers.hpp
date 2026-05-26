@@ -2560,10 +2560,11 @@ inline void handleManagersInstanceGet(
                                 BMCWEB_REDFISH_MANAGER_URI_NAME);
     }
 #endif
-#if (!defined(ONETREE_RM)) && (!defined(ONETREE_PSM))
+#if (!defined(ONETREE_RM))
     // default oem data
     nlohmann::json& oem = asyncResp->res.jsonValue["Oem"];
     nlohmann::json& oemOpenbmc = oem["OpenBmc"];
+#if !defined(ONETREE_PSM)
     nlohmann::json& oemIntel = oem["Intel"];
 #ifdef ONETREE_NVIDIASIPACK
     nlohmann::json& oemResetToDefaults =
@@ -2578,6 +2579,7 @@ inline void handleManagersInstanceGet(
 #ifdef ONETREE_INTELSIPACK
     oemIntel["NodeManager"] = {
         {"@odata.id", "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager"}};
+#endif
 #endif
     oem["@odata.id"] = boost::urls::format("/redfish/v1/Managers/{}#/Oem",
                                            BMCWEB_REDFISH_MANAGER_URI_NAME);
