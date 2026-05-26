@@ -1191,8 +1191,9 @@ inline void handleGenerateCSRAction(
         return;
     }
 
-    // Supporting only secp384r1 keyCurveId
-    if (*optKeyCurveId != "secp384r1")
+    // Supporting secp384r1, prime256v1 and secp521r1 keyCurveId
+    if (*optKeyCurveId != "secp384r1" && *optKeyCurveId != "prime256v1" &&
+        *optKeyCurveId != "secp521r1")
     {
         messages::propertyValueIncorrect(asyncResp->res, "KeyCurveId",
                                          *optKeyCurveId);
