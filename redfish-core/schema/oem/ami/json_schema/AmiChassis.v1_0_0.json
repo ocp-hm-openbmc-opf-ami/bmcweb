@@ -1,5 +1,7 @@
 {
     "$id": "/redfish/v1/JsonSchemas/AmiChassis/AmiChassis.v1_0_0.json",
+    "$ref": "#/definitions/AmiChassis",
+    "$schema": "http://redfish.dmtf.org/schemas/v1/redfish-schema-v1.json",	
     "copyright": "Copyright American Megatrends, Inc. (AMI).",
     "definitions": {
         "AmiChassis": {
