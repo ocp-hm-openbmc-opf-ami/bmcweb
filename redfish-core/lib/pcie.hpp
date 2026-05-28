@@ -312,10 +312,10 @@ inline void getPCIeDeviceState(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& pcieDevicePath, const std::string& service)
 {
-    dbus::utility::getProperty<bool>(
+    dbus::utility::getAllProperties(
         service, pcieDevicePath, "xyz.openbmc_project.Inventory.Item",
-        "Present",
-        [asyncResp](const boost::system::error_code& ec, bool value) {
+        [asyncResp](const boost::system::error_code& ec,
+                    const dbus::utility::DBusPropertiesMap& itemList) {
             if (ec)
             {
                 if (ec.value() != EBADR)
@@ -326,7 +326,21 @@ inline void getPCIeDeviceState(
                 return;
             }
 
-            if (!value)
+            const bool* present = nullptr;
+            const std::string* description = nullptr;
+
+            const bool success = sdbusplus::unpackPropertiesNoThrow(
+                dbus_utils::UnpackErrorPrinter(), itemList, "Present", present,
+                "Description", description);
+            if (!success)
+            {
+                return;
+            }
+            if (description != nullptr && !description->empty())
+            {
+                asyncResp->res.jsonValue["Description"] = *description;
+            }
+            if (present != nullptr && !(*present))
             {
                 asyncResp->res.jsonValue["Status"]["State"] =
                     resource::State::Absent;
@@ -360,17 +374,27 @@ inline void getPCIeDeviceAsset(
             const std::string* partNumber = nullptr;
             const std::string* serialNumber = nullptr;
             const std::string* sparePartNumber = nullptr;
+            const std::string* name = nullptr;
 
             const bool success = sdbusplus::unpackPropertiesNoThrow(
                 dbus_utils::UnpackErrorPrinter(), assetList, "Manufacturer",
                 manufacturer, "Model", model, "PartNumber", partNumber,
                 "SerialNumber", serialNumber, "SparePartNumber",
-                sparePartNumber);
+                sparePartNumber, "Name", name);
 
             if (!success)
             {
                 messages::internalError(asyncResp->res);
                 return;
+            }
+
+            if (name != nullptr)
+            {
+                if (name->empty())
+                {
+                    asyncResp->res.jsonValue["Name"] = "PCIe Device";
+                }
+                asyncResp->res.jsonValue["Name"] = *name;
             }
 
             if (manufacturer != nullptr)
@@ -436,7 +460,6 @@ inline void addPCIeDeviceProperties(
             {
                 BMCWEB_LOG_ERROR("Invalid PCIe Device Generation: {}",
                                  *generationInUse);
-                messages::internalError(asyncResp->res);
                 return;
             }
             asyncResp->res.jsonValue["PCIeInterface"]["PCIeType"] =
@@ -460,7 +483,7 @@ inline void addPCIeDeviceProperties(
             {
                 BMCWEB_LOG_ERROR("Invalid PCIe Device Generation: {}",
                                  *generationSupported);
-                messages::internalError(asyncResp->res);
+
                 return;
             }
             asyncResp->res.jsonValue["PCIeInterface"]["MaxPCIeType"] =
@@ -532,9 +555,8 @@ inline void addPCIeDeviceCommonProperties(
     asyncResp->res.jsonValue["@odata.id"] =
         boost::urls::format("/redfish/v1/Systems/{}/PCIeDevices/{}",
                             BMCWEB_REDFISH_SYSTEM_URI_NAME, pcieDeviceId);
-    asyncResp->res.jsonValue["Name"] = "PCIe Device";
-    asyncResp->res.jsonValue["Description"] = "PCIe Device";
     asyncResp->res.jsonValue["Id"] = pcieDeviceId;
+    asyncResp->res.jsonValue["Description"] = pcieDeviceId + " PCIe Device";
     asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
     asyncResp->res.jsonValue["Status"]["Health"] = resource::Health::OK;
 }

@@ -480,8 +480,8 @@ inline void getNetworkData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         const std::string& protocolName = protocol.first;
         const std::string& serviceName = protocol.second;
 
-        std::cerr << "protocolName " << protocolName << "\n";
-        std::cerr << "serviceName " << serviceName << "\n";
+        BMCWEB_LOG_DEBUG("protocolName {}", protocolName);
+        BMCWEB_LOG_DEBUG("serviceName {}", serviceName);
         if (ipmbServiceName == serviceName)
         {
             service_util::getEnabled(

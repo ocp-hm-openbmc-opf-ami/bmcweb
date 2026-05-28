@@ -32,7 +32,7 @@
 #include <vector>
 
 #define MAX_MTU 1500
-#define MIN_MTU 68
+#define MIN_MTU 1280
 
 #define MAX_VLANPRIORITY 7
 
@@ -1933,7 +1933,8 @@ inline void handleInterfacePatch(
                                                 "InterfaceEnabled");
                 return; // Exit the entire handleInterfacePatch function
             }
-            if (ifaceId == activeSlave && *interfaceEnabled == false)
+            if (!activeSlave.empty() && ifaceId != "bond0" &&
+                *interfaceEnabled == false)
             {
                 messages::BondActiveSlaveDisable(asyncResp->res, ifaceId);
                 return; // Exit the entire handleInterfacePatch function

@@ -41,7 +41,7 @@ inline void getFipsStatus(std::shared_ptr<bmcweb::AsyncResp> aResp)
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error for Fips Status");
-                messages::internalError(aResp->res);
+
                 return;
             }
             const bool* value = std::get_if<bool>(&enabledStatus);
@@ -74,7 +74,7 @@ inline void getFipsVersion(std::shared_ptr<bmcweb::AsyncResp> aResp)
             if (value == nullptr)
             {
                 BMCWEB_LOG_DEBUG("Null value returned for Version");
-                messages::internalError(aResp->res);
+
                 return;
             }
             aResp->res.jsonValue["Oem"]["Intel"]["FIPSStatus"]["Version"] =
@@ -94,7 +94,7 @@ inline void getAvailableProviders(std::shared_ptr<bmcweb::AsyncResp> aResp)
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error for Fips Status");
-                messages::internalError(aResp->res);
+
                 return;
             }
             const std::vector<std::string>* value =

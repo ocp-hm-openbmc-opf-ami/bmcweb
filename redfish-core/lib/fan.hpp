@@ -256,7 +256,6 @@ inline void getFanHealth(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 {
                     BMCWEB_LOG_ERROR("DBUS response error for Health {}",
                                      ec.value());
-                    messages::internalError(asyncResp->res);
                 }
                 return;
             }
@@ -281,7 +280,6 @@ inline void getFanState(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 {
                     BMCWEB_LOG_ERROR("DBUS response error for State {}",
                                      ec.value());
-                    messages::internalError(asyncResp->res);
                 }
                 return;
             }
@@ -309,7 +307,6 @@ inline void getFanAsset(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 {
                     BMCWEB_LOG_ERROR("DBUS response error for Properties{}",
                                      ec.value());
-                    messages::internalError(asyncResp->res);
                 }
                 return;
             }
@@ -367,7 +364,6 @@ inline void getFanLocation(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 {
                     BMCWEB_LOG_ERROR("DBUS response error for Location{}",
                                      ec.value());
-                    messages::internalError(asyncResp->res);
                 }
                 return;
             }

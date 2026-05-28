@@ -280,6 +280,10 @@ inline sensor::ReadingType toReadingType(std::string_view sensorType)
     {
         return sensor::ReadingType::PressurekPa;
     }
+    if (sensorType == "frequency")
+    {
+        return sensor::ReadingType::Frequency;
+    }
     return sensor::ReadingType::Invalid;
 }
 } // namespace sensors
@@ -715,8 +719,7 @@ inline void objectPropertiesToJson(
                          key == nlohmann::json::json_pointer(
                                     "/Thresholds/UpperCritical/Reading"))
                 {
-                    BMCWEB_LOG_DEBUG(
-                        "sensors :: Reading rounded for threshold");
+                    BMCWEB_LOG_DEBUG("sensors :: Reading rounded {}", __LINE__);
                     // Round to two decimal places for Threshold Readings
                     double roundedValue =
                         std::round(*doubleValue * 100.0) / 100.0;

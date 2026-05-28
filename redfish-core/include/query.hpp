@@ -175,6 +175,15 @@ inline bool handleIfMatch(crow::App& app, const crow::Request& req,
 
     asyncResp->res.addHeader("OData-Version", "4.0");
 
+    // Per Redfish spec DSP0266, services shall reject HEAD requests that
+    // contain query parameters with HTTP 400 Bad Request.
+    if (req.method() == boost::beast::http::verb::head &&
+        !req.url().params().empty())
+    {
+        asyncResp->res.result(boost::beast::http::status::bad_request);
+        return false;
+    }
+
     std::optional<query_param::Query> queryOpt =
         query_param::parseParameters(req.url().params(), asyncResp->res);
     if (!queryOpt)

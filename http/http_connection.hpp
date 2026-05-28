@@ -763,6 +763,34 @@ class Connection :
             }
 
             uploadFilePatheMMC = destPath.string();
+
+            // Reject empty/no-body uploads BEFORE creating the destination
+            // file on disk.  Without this guard the body layer would open
+            // (and thus create) the file even for a Content-Length: 0
+            // request, leaving a stale 0-byte artifact behind and making
+            // the handler return 200 OK for an upload that carried no
+            // binary data.
+            const boost::optional<uint64_t> uploadLen =
+                parser->content_length();
+            if (!uploadLen || *uploadLen == 0)
+            {
+                BMCWEB_LOG_WARNING(
+                    "Rejecting LocalMediaUpload with empty body "
+                    "(Content-Length={})",
+                    uploadLen ? std::to_string(*uploadLen) : "<missing>");
+                // Use the standard Redfish error helper so the client
+                // gets the same well-known message it would get from
+                // any other handler.
+                redfish::messages::actionParameterMissing(
+                    res, "LocalMediaUpload", "UploadFile");
+                completeResponseFields(accept, res);
+                res.addHeader(boost::beast::http::field::date,
+                              getCachedDateStr());
+                keepAlive = false;
+                doWrite();
+                return;
+            }
+
             std::error_code rmEc;
             if (std::filesystem::exists(uploadFilePatheMMC, rmEc))
             {

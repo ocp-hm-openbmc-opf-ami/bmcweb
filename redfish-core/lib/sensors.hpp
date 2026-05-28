@@ -2913,7 +2913,7 @@ inline void getSensorFromDbus(
                         asyncResp->res.jsonValue["Name"] = nameSensor;
                         asyncResp->res.jsonValue["Id"] = type + '_' + name;
                         asyncResp->res.jsonValue["Description"] =
-                            "Sensor Information";
+                            "Sensor Information of " + nameSensor;
                         if (*value != 0)
                         {
                             std::string objPath =
@@ -2956,6 +2956,11 @@ inline void getSensorFromDbus(
                 sensor_utils::objectPropertiesToJson(
                     name, type, sensor_utils::ChassisSubNode::sensorsNode,
                     valuesDict, asyncResp->res.jsonValue, nullptr);
+                // Set Description with sensor name
+                std::string nameSensor = name;
+                std::replace(nameSensor.begin(), nameSensor.end(), '_', ' ');
+                asyncResp->res.jsonValue["Description"] =
+                    "Sensor Information of " + nameSensor;
             }
         });
 }
@@ -3563,6 +3568,7 @@ inline void handleSensorPost(
     const std::string& chassisId, const std::string& sensorId)
 {
     asyncResp->res.clearHeader(boost::beast::http::field::allow);
+    asyncResp->res.addHeader("Allow", "GET, PATCH");
     if (!membersResponseGet(asyncResp, sensorId, "SensorCollection"))
     {
         return;
@@ -3594,9 +3600,9 @@ inline void handleSensorPost(
                 {
                     std::string extractedChassisId =
                         objpath.substr(lastPos + 1);
-                    std::cerr
-                        << "extractedChassisId: " << extractedChassisId << "\n";
-                    std::cerr << "chassisId: " << chassisId << "\n";
+                    BMCWEB_LOG_DEBUG("extractedChassisId: {}",
+                                     extractedChassisId);
+                    BMCWEB_LOG_DEBUG("chassisId: {}", chassisId);
 
                     if (extractedChassisId == chassisId)
                     {
