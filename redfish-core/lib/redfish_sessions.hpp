@@ -1180,8 +1180,8 @@ inline void handleSessionServicePatch(
         }
         else
         {
-            messages::propertyValueNotInList(asyncResp->res, *sessionTimeout,
-                                             "SessionTimeOut");
+            messages::propertyValueOutOfRange(asyncResp->res, *sessionTimeout,
+                                              "SessionTimeout");
         }
     }
 
