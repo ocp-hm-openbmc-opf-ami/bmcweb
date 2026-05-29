@@ -420,7 +420,6 @@ RedfishService::RedfishService(App& app)
 #endif
 
     requestRoutesPefService(app);
-    requestRoutesSendTrap(app);
 
     // All Extention packs routing table added here
 #ifdef ONETREE_RTP

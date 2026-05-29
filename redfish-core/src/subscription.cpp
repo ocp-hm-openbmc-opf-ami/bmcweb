@@ -42,6 +42,8 @@ limitations under the License.
 #include <boost/url/format.hpp>
 #include <boost/url/url_view_base.hpp>
 #include <nlohmann/json.hpp>
+#include <snmp.hpp>
+#include <snmp_notification.hpp>
 
 #include <algorithm>
 #include <chrono>
@@ -249,11 +251,35 @@ bool Subscription::sendSNMPTrap(uint32_t eventId, std::string timestamp,
     {
         return false;
     }
+
+    uint64_t trapTimestamp = static_cast<uint64_t>(
+        std::chrono::system_clock::to_time_t(std::chrono::system_clock::now()));
+    try
+    {
+        trapTimestamp = static_cast<uint64_t>(std::stoull(timestamp));
+    }
+    catch (const std::exception& e)
+    {
+        BMCWEB_LOG_DEBUG("Failed to parse SNMP trap timestamp '{}': {}",
+                         timestamp, e.what());
+    }
+
+    int32_t severity = 0;
+    if (sev.find("Critical") != std::string::npos)
+    {
+        severity = 2;
+    }
+    else if (sev.find("Warning") != std::string::npos)
+    {
+        severity = 1;
+    }
+
     try
     {
         phosphor::network::snmp::sendTrap<
             phosphor::network::snmp::OBMCErrorNotification>(
-            static_cast<uint32_t>(eventId), timestamp, sev, std::move(msg));
+            static_cast<uint32_t>(eventId), trapTimestamp, severity,
+            std::move(msg));
         eventSeqNum++;
         return true;
     }

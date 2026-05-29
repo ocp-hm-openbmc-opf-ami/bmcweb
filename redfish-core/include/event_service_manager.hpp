@@ -26,8 +26,6 @@
 #include <boost/container/flat_map.hpp>
 #include <boost/url/format.hpp>
 #include <boost/url/url_view_base.hpp>
-#include <snmp.hpp>
-#include <snmp_notification.hpp>
 
 #include <algorithm>
 #include <cstdlib>
