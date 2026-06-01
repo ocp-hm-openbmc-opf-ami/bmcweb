@@ -10,19 +10,19 @@
 
 // clang-format off
 
-namespace redfish::registries::custom
+namespace redfish::registries::amionetree
 {
 const Header header = {
-    "Copyright 2023 OpenBMC. All rights reserved.",
+    "Copyright 2023 Ami. All rights reserved.",
     "#MessageRegistry.v1_4_0.MessageRegistry",
     1,
     0,
     0,
-    "AMI Custom Message Registry",
+    "Ami Custom Message Registry",
     "en",
-    "This registry defines the AMI custom messages.",
-    "AMI",
-    "AMI",
+    "This registry defines the Ami custom messages.",
+    "AmiOneTree",
+    "Ami",
 };
 constexpr std::array registry =
 {
@@ -75,5 +75,5 @@ enum class Index
     firmwareUpdateFailed = 2,
     passwordCorruption = 3,
 };
-} // namespace redfish::registries::custom
+} // namespace redfish::registries::amionetree
  
