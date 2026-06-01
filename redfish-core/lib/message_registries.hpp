@@ -61,7 +61,7 @@ inline void handleMessageRegistryFileCollectionGet(
     static constexpr const auto registryFiles = std::to_array(
         {"Base", "TaskEvent", "License", "NodeManager", "ResourceEvent",
          "OpenBMC", "Telemetry", "PrivilegeRegistry", "HeartbeatEvent",
-         "CertificateService", "AmiOneTree"});
+         "CertificateService"});
     for (const char* memberName : registryFiles)
     {
         nlohmann::json::object_t member;
@@ -265,7 +265,7 @@ inline void handleMessageRoutesMessageRegistryFileGet(
     const registries::Header* header = nullptr;
     std::string dmtf = "DMTF ";
     std::vector<const registries::MessageEntry*> registryEntries;
-    bool registryVal = false;
+    int registryVal = 0;
 
     size_t pos = registry.find('.');
     std::string registryName;
@@ -283,7 +283,7 @@ inline void handleMessageRoutesMessageRegistryFileGet(
                           header->versionPatch);
         if (registry == "Base")
         {
-            registryVal = false;
+            registryVal = 0;
         }
         else if (registry == Val + ".json")
         {
@@ -292,7 +292,7 @@ inline void handleMessageRoutesMessageRegistryFileGet(
             {
                 registryEntries.emplace_back(&entry);
             }
-            registryVal = true;
+            registryVal = 1;
         }
         else
         {
@@ -309,7 +309,7 @@ inline void handleMessageRoutesMessageRegistryFileGet(
                           header->versionPatch);
         if (registry == "License")
         {
-            registryVal = false;
+            registryVal = 0;
         }
         else if (registry == Val + ".json")
         {
@@ -318,7 +318,7 @@ inline void handleMessageRoutesMessageRegistryFileGet(
             {
                 registryEntries.emplace_back(&entry);
             }
-            registryVal = true;
+            registryVal = 1;
         }
         else
         {
@@ -335,7 +335,7 @@ inline void handleMessageRoutesMessageRegistryFileGet(
                           header->versionPatch);
         if (registry == "TaskEvent")
         {
-            registryVal = false;
+            registryVal = 0;
         }
         else if (registry == Val + ".json")
         {
@@ -344,7 +344,7 @@ inline void handleMessageRoutesMessageRegistryFileGet(
             {
                 registryEntries.emplace_back(&entry);
             }
-            registryVal = true;
+            registryVal = 1;
         }
         else
         {
@@ -362,7 +362,7 @@ inline void handleMessageRoutesMessageRegistryFileGet(
         if (registry == "OpenBMC")
         {
             dmtf.clear();
-            registryVal = false;
+            registryVal = 0;
         }
         else if (registry == Val + ".json")
         {
@@ -371,7 +371,7 @@ inline void handleMessageRoutesMessageRegistryFileGet(
             {
                 registryEntries.emplace_back(&entry);
             }
-            registryVal = true;
+            registryVal = 1;
         }
         else
         {
@@ -389,7 +389,7 @@ inline void handleMessageRoutesMessageRegistryFileGet(
         if (registry == "NodeManager")
         {
             dmtf.clear();
-            registryVal = false;
+            registryVal = 0;
         }
         else if (registry == Val + ".json")
         {
@@ -398,7 +398,7 @@ inline void handleMessageRoutesMessageRegistryFileGet(
             {
                 registryEntries.emplace_back(&entry);
             }
-            registryVal = true;
+            registryVal = 1;
         }
         else
         {
@@ -415,7 +415,7 @@ inline void handleMessageRoutesMessageRegistryFileGet(
                           header->versionPatch);
         if (registry == "ResourceEvent")
         {
-            registryVal = false;
+            registryVal = 0;
         }
         else if (registry == Val + ".json")
         {
@@ -424,7 +424,7 @@ inline void handleMessageRoutesMessageRegistryFileGet(
             {
                 registryEntries.emplace_back(&entry);
             }
-            registryVal = true;
+            registryVal = 1;
         }
         else
         {
@@ -441,7 +441,7 @@ inline void handleMessageRoutesMessageRegistryFileGet(
                           header->versionPatch);
         if (registry == "Telemetry")
         {
-            registryVal = false;
+            registryVal = 0;
         }
         else if (registry == Val + ".json")
         {
@@ -450,7 +450,7 @@ inline void handleMessageRoutesMessageRegistryFileGet(
             {
                 registryEntries.emplace_back(&entry);
             }
-            registryVal = true;
+            registryVal = 1;
         }
         else
         {
@@ -467,7 +467,7 @@ inline void handleMessageRoutesMessageRegistryFileGet(
                           header->versionPatch);
         if (registry == "HeartbeatEvent")
         {
-            registryVal = false;
+            registryVal = 0;
         }
         else if (registry == Val + ".json")
         {
@@ -476,7 +476,7 @@ inline void handleMessageRoutesMessageRegistryFileGet(
             {
                 registryEntries.emplace_back(&entry);
             }
-            registryVal = true;
+            registryVal = 1;
         }
         else
         {
@@ -492,7 +492,7 @@ inline void handleMessageRoutesMessageRegistryFileGet(
         Val = "Redfish_1.5.0_PrivilegeRegistry";
         if (registry == "PrivilegeRegistry")
         {
-            registryVal = false;
+            registryVal = 0;
         }
         else if (registry == Val + ".json")
         {
@@ -515,7 +515,7 @@ inline void handleMessageRoutesMessageRegistryFileGet(
                           header->versionPatch);
         if (registry == "CertificateService")
         {
-            registryVal = false;
+            registryVal = 0;
         }
         else if (registry == Val + ".json")
         {
@@ -532,7 +532,7 @@ inline void handleMessageRoutesMessageRegistryFileGet(
                 registryEntries.emplace_back(&entry);
             }
 #endif
-            registryVal = true;
+            registryVal = 1;
         }
         else
         {
@@ -552,7 +552,7 @@ inline void handleMessageRoutesMessageRegistryFileGet(
                           header->versionPatch);
         if (registry == "ACD")
         {
-            registryVal = false;
+            registryVal = 0;
         }
         else if (registry == Val + ".json")
         {
@@ -561,7 +561,7 @@ inline void handleMessageRoutesMessageRegistryFileGet(
             {
                 registryEntries.emplace_back(&entry);
             }
-            registryVal = true;
+            registryVal = 1;
         }
         else
         {
@@ -571,40 +571,13 @@ inline void handleMessageRoutesMessageRegistryFileGet(
         }
     }
 #endif
-    else if (registry == "AmiOneTree" || registryName == "AmiOneTree")
-    {
-        header = &registries::amionetree::header;
-        dmtf.clear();
-        Val = std::format("{}.{}.{}.{}", header->registryPrefix,
-                          header->versionMajor, header->versionMinor,
-                          header->versionPatch);
-        if (registry == "AmiOneTree")
-        {
-            registryVal = false;
-        }
-        else if (registry == Val + ".json")
-        {
-            for (const registries::MessageEntry& entry :
-                 registries::amionetree::registry)
-            {
-                registryEntries.emplace_back(&entry);
-            }
-            registryVal = true;
-        }
-        else
-        {
-            messages::resourceNotFound(asyncResp->res, "MessageRegistryFile",
-                                       registry);
-            return;
-        }
-    }
     else
     {
         messages::resourceNotFound(asyncResp->res, "MessageRegistryFile",
                                    registry);
         return;
     }
-    if (!registryVal)
+    if (registryVal == 0)
     {
         asyncResp->res.jsonValue["@odata.id"] =
             boost::urls::format("/redfish/v1/Registries/{}", registry);
@@ -639,8 +612,9 @@ inline void handleMessageRoutesMessageRegistryFileGet(
             locationMembers.size();
         asyncResp->res.jsonValue["Location"] = std::move(locationMembers);
     }
-    if (registryVal)
+    if (registryVal == 1)
     {
+        std::cerr << "Enter in registryVal == 1 " << std::endl;
         std::vector<std::string> split;
         bmcweb::split(split, header->type, '.');
         asyncResp->res.jsonValue["@Redfish.Copyright"] = header->copyright;

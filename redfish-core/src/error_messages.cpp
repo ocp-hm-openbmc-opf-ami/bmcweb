@@ -95,16 +95,16 @@ static nlohmann::json getLog(redfish::registries::license::Index name,
                               args);
 }
 
-static nlohmann::json getLog(redfish::registries::amionetree::Index name,
+static nlohmann::json getLog(redfish::registries::custom::Index name,
                              std::span<const std::string_view> args)
 {
     size_t index = static_cast<size_t>(name);
-    if (index >= redfish::registries::amionetree::registry.size())
+    if (index >= redfish::registries::custom::registry.size())
     {
         return {};
     }
-    return getLogFromRegistry(redfish::registries::amionetree::header,
-                              redfish::registries::amionetree::registry, index,
+    return getLogFromRegistry(redfish::registries::custom::header,
+                              redfish::registries::custom::registry, index,
                               args);
 }
 
@@ -977,7 +977,7 @@ void resourceCannotBeDeleted(crow::Response& res)
  */
 nlohmann::json invalidImageSize()
 {
-    return getLog(redfish::registries::amionetree::Index::invalidImageSize, {});
+    return getLog(redfish::registries::custom::Index::invalidImageSize, {});
 }
 
 void invalidImageSize(crow::Response& res)
@@ -2903,8 +2903,7 @@ void invalidLicense(crow::Response& res)
  */
 nlohmann::json dumpQuotaExceeded(void)
 {
-    return getLog(redfish::registries::amionetree::Index::dumpQuotaExceeded,
-                  {});
+    return getLog(redfish::registries::custom::Index::dumpQuotaExceeded, {});
 }
 
 void dumpQuotaExceeded(crow::Response& res)
@@ -2922,8 +2921,7 @@ void dumpQuotaExceeded(crow::Response& res)
  */
 nlohmann::json passwordCorruption()
 {
-    return getLog(redfish::registries::amionetree::Index::passwordCorruption,
-                  {});
+    return getLog(redfish::registries::custom::Index::passwordCorruption, {});
 }
 
 void passwordCorruption(crow::Response& res)
@@ -2933,8 +2931,7 @@ void passwordCorruption(crow::Response& res)
 }
 nlohmann::json firmwareUpdateFailed(void)
 {
-    return getLog(redfish::registries::amionetree::Index::firmwareUpdateFailed,
-                  {});
+    return getLog(redfish::registries::custom::Index::firmwareUpdateFailed, {});
 }
 
 void firmwareUpdateFailed(crow::Response& res)
