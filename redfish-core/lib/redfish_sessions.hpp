@@ -221,7 +221,8 @@ inline std::string getprivilege(int priv)
     if (priv == 1)
         return "Callback";
     else if (priv == 2)
-        return "User";
+        return "ReadOnly"; // As per the IPMI specification, the User privilege
+                           // level maps to ReadOnly.
     else if (priv == 3)
         return "Operator";
     else if (priv == 4)
