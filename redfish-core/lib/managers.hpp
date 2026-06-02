@@ -3625,8 +3625,11 @@ inline void requestRoutesManagerSerialInterface(App& app)
 
                 std::optional<std::string> bitRate;
                 std::optional<std::string> vId;
+                std::optional<std::string> name;
+                std::optional<std::string> description;
                 if (!json_util::readJsonPatch(req, asyncResp->res, "BitRate",
-                                              bitRate, "Id", vId))
+                                              bitRate, "Id", vId, "Name", name,
+                                              "Description", description))
                 {
                     return;
                 }
@@ -3635,7 +3638,19 @@ inline void requestRoutesManagerSerialInterface(App& app)
                     messages::propertyNotWritable(asyncResp->res, "Id");
                     asyncResp->res.result(
                         boost::beast::http::status::bad_request);
-                    return;
+                }
+                if (name)
+                {
+                    messages::propertyNotWritable(asyncResp->res, "Name");
+                    asyncResp->res.result(
+                        boost::beast::http::status::bad_request);
+                }
+                if (description)
+                {
+                    messages::propertyNotWritable(asyncResp->res,
+                                                  "Description");
+                    asyncResp->res.result(
+                        boost::beast::http::status::bad_request);
                 }
                 if (!bitRate)
                 {
