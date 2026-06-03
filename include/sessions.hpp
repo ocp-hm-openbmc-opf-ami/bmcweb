@@ -379,7 +379,8 @@ class SessionStore
         return tempSession;
     }
 
-    std::shared_ptr<UserSession> loginSessionByToken(std::string_view token)
+    std::shared_ptr<UserSession> loginSessionByToken(
+        std::string_view token, bool updateLastUpdated = true)
     {
         applySessionTimeouts();
         if (token.size() != sessionTokenSize)
@@ -392,7 +393,10 @@ class SessionStore
             return nullptr;
         }
         std::shared_ptr<UserSession> userSession = sessionIt->second;
-        userSession->lastUpdated = std::chrono::steady_clock::now();
+        if (updateLastUpdated)
+        {
+            userSession->lastUpdated = std::chrono::steady_clock::now();
+        }
         return userSession;
     }
 

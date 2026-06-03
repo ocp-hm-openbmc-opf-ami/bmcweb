@@ -95,7 +95,7 @@ inline std::shared_ptr<persistent_data::UserSession> performBasicAuth(
 }
 
 inline std::shared_ptr<persistent_data::UserSession> performTokenAuth(
-    std::string_view authHeader)
+    std::string_view authHeader, bool updateLastUpdated)
 {
     BMCWEB_LOG_DEBUG("[AuthMiddleware] Token authentication");
     if (!authHeader.starts_with("Token "))
@@ -104,12 +104,13 @@ inline std::shared_ptr<persistent_data::UserSession> performTokenAuth(
     }
     std::string_view token = authHeader.substr(strlen("Token "));
     auto sessionOut =
-        persistent_data::SessionStore::getInstance().loginSessionByToken(token);
+        persistent_data::SessionStore::getInstance().loginSessionByToken(
+            token, updateLastUpdated);
     return sessionOut;
 }
 
 inline std::shared_ptr<persistent_data::UserSession> performXtokenAuth(
-    const boost::beast::http::header<true>& reqHeader)
+    const boost::beast::http::header<true>& reqHeader, bool updateLastUpdated)
 {
     BMCWEB_LOG_DEBUG("[AuthMiddleware] X-Auth-Token authentication");
 
@@ -119,13 +120,14 @@ inline std::shared_ptr<persistent_data::UserSession> performXtokenAuth(
         return nullptr;
     }
     auto sessionOut =
-        persistent_data::SessionStore::getInstance().loginSessionByToken(token);
+        persistent_data::SessionStore::getInstance().loginSessionByToken(
+            token, updateLastUpdated);
     return sessionOut;
 }
 
 inline std::shared_ptr<persistent_data::UserSession> performCookieAuth(
     boost::beast::http::verb method [[maybe_unused]],
-    const boost::beast::http::header<true>& reqHeader)
+    const boost::beast::http::header<true>& reqHeader, bool updateLastUpdated)
 {
     using headers = boost::beast::http::header<true>;
     std::pair<headers::const_iterator, headers::const_iterator> cookies =
@@ -154,7 +156,7 @@ inline std::shared_ptr<persistent_data::UserSession> performCookieAuth(
 
         std::shared_ptr<persistent_data::UserSession> sessionOut =
             persistent_data::SessionStore::getInstance().loginSessionByToken(
-                authKey);
+                authKey, updateLastUpdated);
         if (sessionOut == nullptr)
         {
             return nullptr;
@@ -261,6 +263,12 @@ inline std::shared_ptr<persistent_data::UserSession> authenticate(
         persistent_data::SessionStore::getInstance().getAuthMethodsConfig();
 
     std::shared_ptr<persistent_data::UserSession> sessionOut = nullptr;
+    auto queryParamPos = requestUrl.find('?');
+    std::string_view normalizedUrl = requestUrl.substr(0, queryParamPos);
+    bool updateLastUpdated =
+        !(normalizedUrl == "/redfish/v1/Oem/Ami/Dashboard" ||
+          normalizedUrl == "/redfish/v1/Oem/Ami/Dashboard/");
+
     if constexpr (BMCWEB_MUTUAL_TLS_AUTH)
     {
         if (authMethodsConfig.tls)
@@ -284,7 +292,7 @@ inline std::shared_ptr<persistent_data::UserSession> authenticate(
     {
         if (sessionOut == nullptr && authMethodsConfig.xtoken)
         {
-            sessionOut = performXtokenAuth(reqHeader);
+            sessionOut = performXtokenAuth(reqHeader, updateLastUpdated);
         }
         if (sessionOut != nullptr &&
             sessionOut->sessionType == persistent_data::SessionType::Session &&
@@ -302,7 +310,8 @@ inline std::shared_ptr<persistent_data::UserSession> authenticate(
     {
         if (sessionOut == nullptr && authMethodsConfig.cookie)
         {
-            sessionOut = performCookieAuth(method, reqHeader);
+            sessionOut =
+                performCookieAuth(method, reqHeader, updateLastUpdated);
         }
         if (sessionOut != nullptr &&
             sessionOut->sessionType == persistent_data::SessionType::Cookie &&
@@ -322,7 +331,7 @@ inline std::shared_ptr<persistent_data::UserSession> authenticate(
     {
         if (sessionOut == nullptr && authMethodsConfig.sessionToken)
         {
-            sessionOut = performTokenAuth(authHeader);
+            sessionOut = performTokenAuth(authHeader, updateLastUpdated);
         }
         if (sessionOut != nullptr &&
             sessionOut->sessionType == persistent_data::SessionType::Session &&
