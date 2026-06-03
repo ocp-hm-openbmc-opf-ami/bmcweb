@@ -12,6 +12,7 @@
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "sdbusplus/unpack_properties.hpp"
+#include "user_info_utils.hpp"
 #include "utils/json_utils.hpp"
 
 #include <boost/url/format.hpp>
@@ -42,54 +43,6 @@ using propertyValue = std::variant<std::vector<sessionInfo>>;
 
 using privPropertyValue = std::variant<uint8_t, uint16_t, uint64_t, std::string,
                                        std::vector<std::string>, bool>;
-
-inline std::string getRolePrivilege(std::string user, const std::string& ipAdd)
-{
-    using VariantType =
-        std::variant<bool, std::string, std::vector<std::string>>;
-
-    auto bus = sdbusplus::bus::new_default();
-    auto getuser_info_path = bus.new_method_call(
-        "xyz.openbmc_project.User.Manager", "/xyz/openbmc_project/user",
-        "xyz.openbmc_project.User.Manager", "GetUserInfo");
-    getuser_info_path.append(user, ipAdd);
-
-    auto user_info = bus.call(getuser_info_path);
-    std::map<std::string, VariantType> infoDetailes;
-    user_info.read(infoDetailes);
-
-    auto it = infoDetailes.find("UserPrivilege");
-    if (it != infoDetailes.end())
-    {
-        const auto& var = it->second;
-        if (std::holds_alternative<std::string>(var))
-        {
-            std::string privilege = std::get<std::string>(var);
-            return privilege;
-        }
-        else
-        {
-            BMCWEB_LOG_ERROR("UserPrivilege is not a string type.\n");
-        }
-    }
-    else
-    {
-        std::cout << "UserPrivilege not found" << std::endl;
-    }
-    return "";
-}
-
-std::string getRole(std::string role)
-{
-    if (role == "priv-admin")
-        return "Administrator";
-    else if (role == "priv-operator")
-        return "Operator";
-    else if (role == "priv-user")
-        return "Readonly";
-    else
-        return "";
-}
 
 const propertyValue getSessiondata(const std::string& interface,
                                    const std::string& propertyName)
@@ -185,44 +138,62 @@ uint16_t getkvmPort()
     return portNumber;
 }
 
-inline void fillSessionObject(crow::Response& res,
-                              const persistent_data::UserSession& session,
-                              const std::string& ipAdd)
+inline void fillSessionObject(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const persistent_data::UserSession& session, const std::string& ipAdd)
 {
-    res.jsonValue["Id"] = session.uniqueId;
-    res.jsonValue["UserName"] = session.username;
-    res.jsonValue["Oem"]["AMI_WebSession"]["UserId"] = session.userId;
-    nlohmann::json::array_t roles;
+    asyncResp->res.jsonValue["Id"] = session.uniqueId;
+    asyncResp->res.jsonValue["UserName"] = session.username;
+    asyncResp->res.jsonValue["Oem"]["AMI_WebSession"]["UserId"] =
+        session.userId;
 
-    auto value = getRolePrivilege(session.username, ipAdd);
+    crow::user_info_utils::getUserInfo(
+        session.username, ipAdd,
+        [asyncResp](const crow::user_info_utils::UserInfoData& info) {
+            nlohmann::json::array_t roles;
+            roles.emplace_back(info.roleId);
+            asyncResp->res.jsonValue["Roles"] = std::move(roles);
+        });
 
-    roles.emplace_back(getRole(value));
-
-    res.jsonValue["Roles"] = std::move(roles);
-    res.jsonValue["@odata.id"] = boost::urls::format(
+    asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
         "/redfish/v1/SessionService/Sessions/{}", session.uniqueId);
-    res.jsonValue["@odata.type"] = json_util::odataType("Session");
-    res.jsonValue["Name"] = "User Session";
-    res.jsonValue["Description"] = "Manager User Session";
-    res.jsonValue["ClientOriginIPAddress"] = session.clientIp;
-    res.jsonValue["SessionType"] = session.AMIsessionType;
-    res.jsonValue["Oem"]["AMI_WebSession"]["@odata.id"] = boost::urls::format(
-        "/redfish/v1/SessionService/Sessions/{}#/Oem/AMI_WebSession",
-        session.uniqueId);
-    res.jsonValue["Oem"]["AMI_WebSession"]["@odata.type"] =
+    asyncResp->res.jsonValue["@odata.type"] = json_util::odataType("Session");
+    asyncResp->res.jsonValue["Name"] = "User Session";
+    asyncResp->res.jsonValue["Description"] = "Manager User Session";
+    asyncResp->res.jsonValue["ClientOriginIPAddress"] = session.clientIp;
+    asyncResp->res.jsonValue["SessionType"] = session.AMIsessionType;
+    asyncResp->res.jsonValue["Oem"]["AMI_WebSession"]["@odata.id"] =
+        boost::urls::format(
+            "/redfish/v1/SessionService/Sessions/{}#/Oem/AMI_WebSession",
+            session.uniqueId);
+    asyncResp->res.jsonValue["Oem"]["AMI_WebSession"]["@odata.type"] =
         json_util::odataType("AmiWebSession");
-    res.jsonValue["Oem"]["AMI_WebSession"]["KvmActive"] =
+    asyncResp->res.jsonValue["Oem"]["AMI_WebSession"]["KvmActive"] =
+        asyncResp->res.jsonValue["@odata.type"] =
+            json_util::odataType("Session");
+    asyncResp->res.jsonValue["Name"] = "User Session";
+    asyncResp->res.jsonValue["Description"] = "Manager User Session";
+    asyncResp->res.jsonValue["ClientOriginIPAddress"] = session.clientIp;
+    asyncResp->res.jsonValue["SessionType"] = session.AMIsessionType;
+    asyncResp->res.jsonValue["Oem"]["AMI_WebSession"]["@odata.id"] =
+        boost::urls::format(
+            "/redfish/v1/SessionService/Sessions/{}#/Oem/AMI_WebSession",
+            session.uniqueId);
+    asyncResp->res.jsonValue["Oem"]["AMI_WebSession"]["@odata.type"] =
+        json_util::odataType("AmiWebSession");
+    asyncResp->res.jsonValue["Oem"]["AMI_WebSession"]["KvmActive"] =
         static_cast<bool>(session.kvmConnections);
-    res.jsonValue["Oem"]["AMI_WebSession"]["VmActive"] =
+    asyncResp->res.jsonValue["Oem"]["AMI_WebSession"]["VmActive"] =
         nlohmann::json::array();
-    res.jsonValue["Oem"]["AMI_WebSession"]["MountType"] = "";
+    asyncResp->res.jsonValue["Oem"]["AMI_WebSession"]["MountType"] = "";
     for (const bool status : session.vmNbdActive)
     {
-        res.jsonValue["Oem"]["AMI_WebSession"]["VmActive"].push_back(status);
+        asyncResp->res.jsonValue["Oem"]["AMI_WebSession"]["VmActive"].push_back(
+            status);
     }
     if (session.clientId)
     {
-        res.jsonValue["Context"] = *session.clientId;
+        asyncResp->res.jsonValue["Context"] = *session.clientId;
     }
 
     std::string creationMessageId =
@@ -416,7 +387,7 @@ inline void handleSessionGet(
 
         std::string ipStr =
             redfish::ip_util::extractIPv4FromMappedIPv6(req.serverIPAddress);
-        fillSessionObject(asyncResp->res, *session, ipStr);
+        fillSessionObject(asyncResp, *session, ipStr);
         return;
     }
 
@@ -930,7 +901,7 @@ inline void processAfterSessionCreation(
                           std::string ipStr =
                               redfish::ip_util::extractIPv4FromMappedIPv6(
                                   req.serverIPAddress);
-                          fillSessionObject(asyncResp->res, *session, ipStr);
+                          fillSessionObject(asyncResp, *session, ipStr);
                       });
 }
 
