@@ -565,7 +565,7 @@ class SessionStore
                     std::shared_ptr<UserSession> session = authTokensIt->second;
                     std::string uniqueId = session->uniqueId;
                     uint8_t sessionType = 1;
-
+                    uint8_t reason = 1;
                     auto mapIt = sessionMap.find(uniqueId);
                     if (mapIt != sessionMap.end())
                     {
@@ -588,9 +588,10 @@ class SessionStore
                                     session);
                             },
                             "xyz.openbmc_project.SessionManager",
-                            "/xyz/openbmc_project/SessionManager",
-                            "xyz.openbmc_project.SessionManager",
-                            "SessionUnregister", sessionId, sessionType, 1);
+                            "/xyz/openbmc_project/SessionManager/web",
+                            "xyz.openbmc_project.SessionManager.WebSessionInfo",
+                            "WebSessionUnregister", sessionId, sessionType,
+                            reason);
                     }
                     for (size_t i = 0; i < session->vmNbdActive.size(); ++i)
                     {

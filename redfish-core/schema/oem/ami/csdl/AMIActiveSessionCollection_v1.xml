@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+	<!-- Standard vocabularies -->
+	<edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
+		<edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
+	</edmx:Reference>
+	<edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Measures.V1.xml">
+		<edmx:Include Namespace="Org.OData.Measures.V1" Alias="Measures"/>
+	</edmx:Reference>
+
+	<!-- Redfish standard schemas -->
+	<edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
+		<edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+	</edmx:Reference>
+	<edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
+		<edmx:Include Namespace="Resource"/>
+		<edmx:Include Namespace="Resource.v1_0_0"/>
+	</edmx:Reference>
+
+	<edmx:DataServices>
+		<!-- Base OEM namespace -->
+		<Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AMIActiveSessionCollection">
+			<Annotation Term="Redfish.OwningEntity" String="Ami"/>
+		</Schema>
+
+		<!-- Versioned namespace -->
+		<Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AMIActiveSessionCollection.v1_0_0">
+			<Annotation Term="Redfish.OwningEntity" String="Ami"/>
+			<Annotation Term="Redfish.Release" String="1.0"/>
+
+			<!-- Complex type for session reference objects -->
+			<ComplexType Name="SessionReference">
+				<Annotation Term="OData.Description" String="Reference to an active session resource."/>
+				<Annotation Term="OData.LongDescription" String="Contains the @odata.id of an active session resource."/>
+				<Annotation Term="OData.AdditionalProperties" Bool="false"/>
+				<Property Name="@odata.id" Type="Edm.String" Nullable="false">
+					<Annotation Term="OData.Description" String="OData ID of the referenced session."/>
+				</Property>
+			</ComplexType>
+
+			<!-- Collection EntityType -->
+			<EntityType Name="AMIActiveSessionCollection">
+				<Property Name="Name" Type="Edm.String">
+					<Annotation Term="OData.Description" String="Friendly name of this active session collection."/>
+				</Property>
+				<Annotation Term="OData.Description" String="Collection of active session references grouped by protocol."/>
+				<Annotation Term="OData.LongDescription" String="Represents currently active sessions on the BMC, categorized by access protocol."/>
+				<Annotation Term="OData.AdditionalProperties" Bool="false"/>
+
+				<!-- Members as session reference objects -->
+				<Property Name="Members" Type="Collection(AMIActiveSessionCollection.v1_0_0.SessionReference)" Nullable="false">
+					<Annotation Term="OData.Description" String="List of session reference objects."/>
+					<Annotation Term="OData.LongDescription" String="Each entry is a reference object containing @odata.id of an active session."/>
+				</Property>
+
+				<Property Name="Members@odata.count" Type="Edm.Int64">
+					<Annotation Term="OData.Description" String="Count of Members in this collection."/>
+				</Property>
+
+				<!-- Protocol-specific groupings as session reference objects -->
+				<Property Name="KVM" Type="Collection(AMIActiveSessionCollection.v1_0_0.SessionReference)">
+					<Annotation Term="OData.Description" String="Active KVM session references."/>
+				</Property>
+				<Property Name="SSH" Type="Collection(AMIActiveSessionCollection.v1_0_0.SessionReference)">
+					<Annotation Term="OData.Description" String="Active SSH session references."/>
+				</Property>
+				<Property Name="WEB" Type="Collection(AMIActiveSessionCollection.v1_0_0.SessionReference)">
+					<Annotation Term="OData.Description" String="Active HTTPS (web) session references."/>
+				</Property>
+				<Property Name="VMEDIA" Type="Collection(AMIActiveSessionCollection.v1_0_0.SessionReference)">
+					<Annotation Term="OData.Description" String="Active virtual media session references."/>
+				</Property>
+				<Property Name="REDFISH" Type="Collection(AMIActiveSessionCollection.v1_0_0.SessionReference)">
+					<Annotation Term="OData.Description" String="Active Redfish session references."/>
+				</Property>
+			</EntityType>
+		</Schema>
+	</edmx:DataServices>
+</edmx:Edmx>

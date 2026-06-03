@@ -370,10 +370,11 @@ inline void handleLogin(const crow::Request& req,
             auto b = sdbusplus::bus::new_default_system();
             auto method = b.new_method_call(
                 "xyz.openbmc_project.SessionManager",
-                "/xyz/openbmc_project/SessionManager",
-                "xyz.openbmc_project.SessionManager", "SessionRegister");
+                "/xyz/openbmc_project/SessionManager/web",
+                "xyz.openbmc_project.SessionManager.WebSessionInfo",
+                "WebSessionRegister");
             method.append(sessionId, session->clientIp, session->username,
-                          sessionType, priv, static_cast<uint8_t>(userId), "");
+                          sessionType, priv, static_cast<uint8_t>(userId));
             try
             {
                 auto reply = b.call(method);
@@ -396,24 +397,24 @@ inline void handleLogin(const crow::Request& req,
             auto bus = sdbusplus::bus::new_default_system();
             auto m =
                 bus.new_method_call("xyz.openbmc_project.SessionManager",
-                                    "/xyz/openbmc_project/SessionManager",
+                                    "/xyz/openbmc_project/SessionManager/web",
                                     "org.freedesktop.DBus.Properties", "Get");
 
-            m.append("xyz.openbmc_project.SessionManager.Web",
+            m.append("xyz.openbmc_project.SessionManager.WebSessionInfo",
                      "WebSessionInfo");
             try
             {
                 sdbusplus::message::message r = bus.call(m);
 
-                std::variant<std::vector<
-                    std::tuple<uint8_t, std::string, std::string, uint8_t,
-                               uint8_t, uint8_t, std::string>>>
+                std::variant<
+                    std::vector<std::tuple<uint8_t, std::string, std::string,
+                                           uint8_t, uint8_t, uint8_t>>>
                     val;
                 r.read(val);
 
-                auto sessionArray = std::get<std::vector<
-                    std::tuple<uint8_t, std::string, std::string, uint8_t,
-                               uint8_t, uint8_t, std::string>>>(val);
+                auto sessionArray = std::get<
+                    std::vector<std::tuple<uint8_t, std::string, std::string,
+                                           uint8_t, uint8_t, uint8_t>>>(val);
 
                 if (!sessionArray.empty())
                 {
@@ -490,6 +491,7 @@ inline void handleLogout(const crow::Request& req,
 
         std::string uniqueId = session->uniqueId;
         uint8_t sessionType = 1;
+        uint8_t expiryreason = 1;
         auto it = persistent_data::sessionMap.find(uniqueId);
 
         if (it != persistent_data::sessionMap.end())
@@ -520,9 +522,9 @@ inline void handleLogout(const crow::Request& req,
                         session);
                 },
                 "xyz.openbmc_project.SessionManager",
-                "/xyz/openbmc_project/SessionManager",
-                "xyz.openbmc_project.SessionManager", "SessionUnregister",
-                sessionId, sessionType, 1);
+                "/xyz/openbmc_project/SessionManager/web",
+                "xyz.openbmc_project.SessionManager.WebSessionInfo",
+                "WebSessionUnregister", sessionId, sessionType, expiryreason);
         }
     }
 }
