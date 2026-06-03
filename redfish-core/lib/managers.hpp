@@ -106,8 +106,9 @@ inline void createTimeOutTask(
     const std::uint64_t* timeOutValue = nullptr;
 
     std::shared_ptr<task::TaskData> task = task::TaskData::createTask(
-        [&timeOutValue](boost::system::error_code ec, sdbusplus::message_t& msg,
-                        const std::shared_ptr<task::TaskData>& taskData) {
+        [&timeOutValue,
+         timeDiff](boost::system::error_code ec, sdbusplus::message_t& msg,
+                   const std::shared_ptr<task::TaskData>& taskData) {
             if (ec)
             {
                 taskData->messages.emplace_back(messages::internalError());
@@ -139,13 +140,30 @@ inline void createTimeOutTask(
                     }
                     else
                     {
-                        redfish::taskservice::setTaskState(
-                            "Pending", static_cast<size_t>(std::stoi(index)));
-                        taskData->state = "Pending";
-                        taskData->messages.emplace_back(
-                            messages::taskPaused(index));
-                        syslog(LOG_INFO, "BMC Reboot Task Pending\r\n");
-                        return !task::completed;
+                        if (timeDiff == 0xFFFFFFFF)
+                        {
+                            redfish::taskservice::setTaskState(
+                                "Completed",
+                                static_cast<size_t>(std::stoi(index)));
+                            taskData->state = "Completed";
+                            taskData->messages.emplace_back(
+                                messages::taskCompletedOK(index));
+                            taskData->timer.cancel();
+                            syslog(LOG_INFO,
+                                   "BMC Immediate Reboot Task Completed \r\n");
+                            return task::completed;
+                        }
+                        else
+                        {
+                            redfish::taskservice::setTaskState(
+                                "Pending",
+                                static_cast<size_t>(std::stoi(index)));
+                            taskData->state = "Pending";
+                            taskData->messages.emplace_back(
+                                messages::taskPaused(index));
+                            syslog(LOG_INFO, "BMC Reboot Task Pending\r\n");
+                            return !task::completed;
+                        }
                     }
                 }
             }
@@ -153,7 +171,14 @@ inline void createTimeOutTask(
         },
         "type='signal',interface='org.freedesktop.DBus.Properties',"
         "member='PropertiesChanged', path='/xyz/openbmc_project/state/bmc0'");
-    task->startTimer(std::chrono::minutes(timeDiff));
+    if (timeDiff == 0xFFFFFFFF)
+    {
+        task->startTimer(std::chrono::seconds(1));
+    }
+    else
+    {
+        task->startTimer(std::chrono::minutes(timeDiff));
+    }
     task->populateResp(asyncResp->res);
     task->payload.emplace(std::move(payload));
 }
@@ -186,7 +211,7 @@ void doBMCGracefulRestart(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     // Set success before the async call because the BMC may start
     // rebooting immediately, causing the D-Bus reply to never arrive.
-    messages::success(asyncResp->res);
+    (void)asyncResp;
     sdbusplus::asio::setProperty(
         *crow::connections::systemBus, "xyz.openbmc_project.State.BMC",
         "/xyz/openbmc_project/state/bmc0", "xyz.openbmc_project.State.BMC",
@@ -208,7 +233,7 @@ inline void doBMCForceRestart(
 {
     // Set success before the async call because the BMC may start
     // rebooting immediately, causing the D-Bus reply to never arrive.
-    messages::success(asyncResp->res);
+    (void)asyncResp;
     sdbusplus::asio::setProperty(
         *crow::connections::systemBus, "xyz.openbmc_project.State.BMC",
         "/xyz/openbmc_project/state/bmc0", "xyz.openbmc_project.State.BMC",
@@ -389,16 +414,12 @@ inline void requestRoutesManagerResetAction(App& app)
                 BMCWEB_LOG_ERROR(" Reboot Immediately");
                 if (!(maintenanceWindowStartTime))
                 {
-                    resetOperation(asyncResp, resetType);
-                    createTimeOutTask(asyncResp, std::move(payload), 1);
-                    std::string index = asyncResp->res.jsonValue["Id"];
-                    redfish::taskservice::setTaskState(
-                        "Completed", static_cast<size_t>(std::stoi(index)));
+                    createTimeOutTask(asyncResp, std::move(payload),
+                                      0xFFFFFFFF);
                     syslog(LOG_INFO, "BMC Immediate Reboot Task Completed\r\n");
-
+                    resetOperation(asyncResp, resetType);
                     return;
                 }
-
                 else
                 {
                     BMCWEB_LOG_ERROR("Invalid Property for Immediate reboot");
