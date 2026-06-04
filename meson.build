@@ -391,13 +391,14 @@ if grep_prog.found()
         'ONETREE_RTP': ['ext/src/rep.cpp', 'ext/include/ami_errors.cpp'],
         'ONETREE_BRCMRAID': ['ext/lib/brcm/raid_brcm.cpp'],
         'ONETREE_BRCMRAID8': ['ext/lib/brcm/raid_brcm.cpp'],
-        'ONETREE_ACD': ['ext/lib/acd/include/acd_errors.cpp'],
+        'ONETREE_ACD': ['ext/lib/acd/acd_errors.cpp'],
         'ONETREE_RM': ['ext/src/rm.cpp'],
         'ONETREE_PSM': ['ext/src/psm.cpp'],
         'ONETREE_NVIDIASIPACK': ['ext/cper/src/cper.cpp', 'ext/src/reset.cpp', 'ext/src/erot_dump.cpp', 'ext/src/auxreset.cpp', 'ext/dot/src/dot.cpp', 'ext/spdm/src/spdm.cpp', 'ext/sbmr/src/sbmr.cpp'],
         'ONETREE_GPGPU': ['ext/src/gpgpu.cpp'],
         'ONETREE_ARM_SBMR': ['ext/src/arm_redfish.cpp'],
 	'ONETREE_RPC': ['ext/src/rackpowercontroller.cpp'],
+    'ONETREE_CXL_MGMT': ['ext/src/cxl.cpp'],
     }
 
     foreach define, sources : onetree_sources
@@ -405,10 +406,6 @@ if grep_prog.found()
             srcfiles_bmcweb += sources
         endif
     endforeach
-endif
-
-if get_option('ami-cxl').enabled()
-	srcfiles_bmcweb += 'ext/src/cxl.cpp'
 endif
 
 if get_option('ami-thermalequipment').enabled()

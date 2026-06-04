@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+    <!-- External References -->
+    <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
+        <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
+    </edmx:Reference>
+    <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Measures.V1.xml">
+        <edmx:Include Namespace="Org.OData.Measures.V1" Alias="Measures"/>
+    </edmx:Reference>
+    <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
+        <edmx:Include Namespace="Validation.v1_0_0" Alias="Validation"/>
+        <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+    </edmx:Reference>
+    <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/OutboundConnection_v1.xml">
+        <edmx:Include Namespace="OutboundConnection"/>
+        <edmx:Include Namespace="OutboundConnection.v1_0_0"/>
+    </edmx:Reference>
+    <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
+        <edmx:Include Namespace="Resource"/>
+        <edmx:Include Namespace="Resource.v1_0_0"/>
+    </edmx:Reference>
+
+    <edmx:DataServices>
+        <!-- Versionless Namespace -->
+        <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AMISessions">
+            <Annotation Term="Redfish.OwningEntity" String="AMISessions"/>
+        </Schema>
+
+        <!-- Versioned Namespace -->
+        <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AMISessions.v1_0_0">
+            <Annotation Term="Redfish.OwningEntity" String="AMISessions"/>
+            <Annotation Term="Redfish.Release" String="1.0"/>
+
+            <ComplexType Name="Oem" BaseType="Resource.OemObject">
+                <Annotation Term="OData.AdditionalProperties" Bool="true"/>
+                <Annotation Term="OData.Description" String="OEM extension container for AMISessions."/>
+                <Annotation Term="OData.AutoExpand"/>
+                <Property Name="Session" Type="AMISessions.v1_0_0.Session"/>
+                <Property Name="VmediaSession" Type="AMISessions.v1_0_0.VmediaSession"/>
+            </ComplexType>
+
+            <ComplexType Name="Session" BaseType="Resource.OemObject">
+                <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+                <Annotation Term="OData.Description" String="AMI OEM extension for a Web/Redfish session."/>
+                <Annotation Term="OData.LongDescription" String="Represents AMI OEM properties for an active WebUI or Redfish session."/>
+                <Property Name="KvmActive" Type="Edm.Boolean">
+                    <Annotation Term="OData.Description" String="Whether KVM is active in this session."/>
+                </Property>
+                <Property Name="VmActive" Type="Edm.Boolean">
+                    <Annotation Term="OData.Description" String="Whether any Virtual Media is active in this session."/>
+                </Property>
+                <Property Name="MountType" Type="Edm.String">
+                    <Annotation Term="OData.Description" String="Virtual media mounting method used in the session."/>
+                </Property>
+                <Property Name="UserId" Type="Edm.Decimal">
+                    <Annotation Term="OData.Description" String="Numeric user identifier for this session."/>
+                </Property>
+            </ComplexType>
+ 
+            <ComplexType Name="VmediaSession" BaseType="Resource.OemObject">
+                <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+                <Annotation Term="OData.Description" String="AMI OEM extension for a Virtual Media session."/>
+                <Property Name="MountType" Type="Edm.String">
+                    <Annotation Term="OData.Description" String="Virtual media mounting method."/>
+                </Property>
+                <Property Name="SlotId" Type="Edm.String">
+                    <Annotation Term="OData.Description" String="Virtual media slot identifier."/>
+                </Property>
+                <Property Name="UserId" Type="Edm.Decimal">
+                    <Annotation Term="OData.Description" String="Numeric user identifier for the virtual media session."/>
+                </Property>
+            </ComplexType>
+ 
+        </Schema>
+    </edmx:DataServices>
+</edmx:Edmx>

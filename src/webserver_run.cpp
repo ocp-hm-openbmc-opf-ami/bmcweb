@@ -20,6 +20,7 @@
 #include "redfish.hpp"
 #include "redfish_aggregator.hpp"
 #include "system_utils.hpp"
+#include "task.hpp"
 #include "user_monitor.hpp"
 #include "vm_websocket.hpp"
 #include "vm_websocket1.hpp"
@@ -45,7 +46,6 @@
     crow::getBmcwebCurrentLoggingLevel() = crow::getLogLevelFromName(logLevel);
     BMCWEB_LOG_INFO("Requested log-level change to: {}", logLevel);
 }*/
-
 int run()
 {
     auto io = std::make_shared<boost::asio::io_context>();
@@ -53,7 +53,7 @@ int run()
 
     sdbusplus::asio::connection systemBus(*io);
     crow::connections::systemBus = &systemBus;
-
+    redfish::task::createMultipleTasks();
     // commented below code due to compilation error
     /*  std::shared_ptr<sdbusplus::asio::connection> systemBus =
          std::make_shared<sdbusplus::asio::connection>(*io);

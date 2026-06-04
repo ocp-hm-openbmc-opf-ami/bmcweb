@@ -67,8 +67,8 @@ struct UserSession
     int userId;
     // Use counter since one user can have multiple kvm connections
     int kvmConnections = 0;
-    // currently there is only 2 nbd slots
-    std::array<bool, 2> vmNbdActive = {false, false};
+    // Track both proxy slots for each virtual media service.
+    std::array<bool, 4> vmNbdActive = {false, false, false, false};
 
     // There are two sources of truth for isConfigureSelfOnly:
     //  1. When pamAuthenticateUser() returns PAM_NEW_AUTHTOK_REQD.
@@ -379,7 +379,8 @@ class SessionStore
         return tempSession;
     }
 
-    std::shared_ptr<UserSession> loginSessionByToken(std::string_view token)
+    std::shared_ptr<UserSession> loginSessionByToken(
+        std::string_view token, bool updateLastUpdated = true)
     {
         applySessionTimeouts();
         if (token.size() != sessionTokenSize)
@@ -392,7 +393,10 @@ class SessionStore
             return nullptr;
         }
         std::shared_ptr<UserSession> userSession = sessionIt->second;
-        userSession->lastUpdated = std::chrono::steady_clock::now();
+        if (updateLastUpdated)
+        {
+            userSession->lastUpdated = std::chrono::steady_clock::now();
+        }
         return userSession;
     }
 
@@ -561,7 +565,7 @@ class SessionStore
                     std::shared_ptr<UserSession> session = authTokensIt->second;
                     std::string uniqueId = session->uniqueId;
                     uint8_t sessionType = 1;
-
+                    uint8_t reason = 1;
                     auto mapIt = sessionMap.find(uniqueId);
                     if (mapIt != sessionMap.end())
                     {
@@ -584,17 +588,24 @@ class SessionStore
                                     session);
                             },
                             "xyz.openbmc_project.SessionManager",
-                            "/xyz/openbmc_project/SessionManager",
-                            "xyz.openbmc_project.SessionManager",
-                            "SessionUnregister", sessionId, sessionType, 1);
+                            "/xyz/openbmc_project/SessionManager/web",
+                            "xyz.openbmc_project.SessionManager.WebSessionInfo",
+                            "WebSessionUnregister", sessionId, sessionType,
+                            reason);
                     }
-                    for (size_t i = 0; i < 2; ++i)
+                    for (size_t i = 0; i < session->vmNbdActive.size(); ++i)
                     {
                         if (session->vmNbdActive[i])
                         {
-                            std::string vmPath =
-                                "/xyz/openbmc_project/VirtualMedia/Proxy/Slot_" +
-                                std::to_string(i);
+                            const bool host1Slot = i >= 2;
+                            const std::string vmService =
+                                host1Slot ? "xyz.openbmc_project.VirtualMedia1"
+                                          : "xyz.openbmc_project.VirtualMedia";
+                            const std::string vmPath = std::format(
+                                "{}/Proxy/Slot_{}",
+                                host1Slot ? "/xyz/openbmc_project/VirtualMedia1"
+                                          : "/xyz/openbmc_project/VirtualMedia",
+                                host1Slot ? i - 2 : i);
                             crow::connections::systemBus->async_method_call(
                                 [](const boost::system::error_code ec,
                                    bool success) {
@@ -607,7 +618,7 @@ class SessionStore
                                         return;
                                     }
                                 },
-                                "xyz.openbmc_project.VirtualMedia", vmPath,
+                                vmService, vmPath,
                                 "xyz.openbmc_project.VirtualMedia.Proxy",
                                 "Unmount");
                         }

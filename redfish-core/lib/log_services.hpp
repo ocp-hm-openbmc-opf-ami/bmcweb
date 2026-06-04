@@ -803,12 +803,12 @@ inline void downloadEventLogEntry(
         sdbusplus::message::object_path("/xyz/openbmc_project/logging/entry") /
         entryID;
 
-    dbus::utility::getProperty<std::vector<std::string>>(
+    dbus::utility::getProperty<std::map<std::string, std::string>>(
         "xyz.openbmc_project.Logging", entryPath,
         "xyz.openbmc_project.Logging.Entry", "AdditionalData",
         [asyncResp, dumpType,
          entryID](const boost::system::error_code& ec,
-                  const std::vector<std::string>& additionalData) {
+                  const std::map<std::string, std::string>& additionalData) {
             if (ec.value() == EBADR)
             {
                 messages::resourceNotFound(asyncResp->res, "LogEntry", entryID);
@@ -822,16 +822,10 @@ inline void downloadEventLogEntry(
                 return;
             }
             nlohmann::json jsonData = nlohmann::json::object();
-            for (const auto& data : additionalData)
+            for (const auto& [key, value] : additionalData)
             {
-                BMCWEB_LOG_DEBUG("AdditionalData: {}", data);
-                auto pos = data.find('=');
-                if (pos != std::string::npos)
-                {
-                    std::string key = data.substr(0, pos);
-                    std::string value = data.substr(pos + 1);
-                    jsonData[key] = value;
-                }
+                BMCWEB_LOG_DEBUG("AdditionalData: {}={}", key, value);
+                jsonData[key] = value;
             }
             asyncResp->res.addHeader(boost::beast::http::field::content_type,
                                      "application/octet-stream");
@@ -850,12 +844,12 @@ inline void downloadSELEntry(
         sdbusplus::message::object_path("/xyz/openbmc_project/logging/ipmi") /
         entryID;
     BMCWEB_LOG_DEBUG("Manager ID = {}", managerId);
-    dbus::utility::getProperty<std::vector<std::string>>(
+    dbus::utility::getProperty<std::map<std::string, std::string>>(
         "xyz.openbmc_project.Logging", entryPath,
         "xyz.openbmc_project.Logging.Entry", "AdditionalData",
         [asyncResp, dumpType,
          entryID](const boost::system::error_code& ec,
-                  const std::vector<std::string>& additionalData) {
+                  const std::map<std::string, std::string>& additionalData) {
             if (ec.value() == EBADR)
             {
                 messages::resourceNotFound(asyncResp->res, "LogEntry", entryID);
@@ -869,16 +863,10 @@ inline void downloadSELEntry(
                 return;
             }
             nlohmann::json jsonData = nlohmann::json::object();
-            for (const auto& data : additionalData)
+            for (const auto& [key, value] : additionalData)
             {
-                BMCWEB_LOG_DEBUG("AdditionalData: {}", data);
-                auto pos = data.find('=');
-                if (pos != std::string::npos)
-                {
-                    std::string key = data.substr(0, pos);
-                    std::string value = data.substr(pos + 1);
-                    jsonData[key] = value;
-                }
+                BMCWEB_LOG_DEBUG("AdditionalData: {}={}", key, value);
+                jsonData[key] = value;
             }
             asyncResp->res.addHeader(boost::beast::http::field::content_type,
                                      "application/octet-stream");
@@ -1170,6 +1158,14 @@ void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 const sd_bus_error* dbusError = msg.get_error();
                 if (dbusError == nullptr)
                 {
+                    /* With the upstream fix of sdbuplus (commit
+                     * https://github.com/openbmc/sdbusplus/commit/9ed557ee627e4b4b43086dfb98acd8e8201d718d):
+                     * we can remove the EIO workaround*/
+                    if (ec.value() == EIO)
+                    {
+                        messages::resourceInUse(asyncResp->res);
+                        return;
+                    }
                     messages::internalError(asyncResp->res);
                     return;
                 }
@@ -1521,6 +1517,7 @@ inline LogParseError fillMessageEntry(const std::string& logEntry,
         {
             return LogParseError::parseFailed;
         }
+        return LogParseError::success;
     }
     // Checking the MessageID with Arguments.
     char foundChar = logEntry[pos];

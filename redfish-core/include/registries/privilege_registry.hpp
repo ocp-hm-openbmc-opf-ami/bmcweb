@@ -1693,6 +1693,9 @@ const static auto& putSessionCollection = privilegeSetConfigureManager;
 const static auto& deleteSessionCollection = privilegeSetConfigureManager;
 const static auto& postSessionCollection = privilegeSetLogin;
 
+//ActiveSessionCollection
+const static auto& getActiveSessionCollection = privilegeSetLogin;
+
 // SessionService
 const static auto& getSessionService = privilegeSetLogin;
 const static auto& headSessionService = privilegeSetLogin;

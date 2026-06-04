@@ -26,8 +26,6 @@
 #include <boost/container/flat_map.hpp>
 #include <boost/url/format.hpp>
 #include <boost/url/url_view_base.hpp>
-#include <snmp.hpp>
-#include <snmp_notification.hpp>
 
 #include <algorithm>
 #include <cstdlib>
@@ -1076,15 +1074,15 @@ class EventServiceManager
             timestampStr = std::to_string(timestamp);
         }
 
-        sdbusplus::asio::getProperty<std::vector<std::string>>(
+        sdbusplus::asio::getProperty<std::map<std::string, std::string>>(
             *crow::connections::systemBus,
             "xyz.openbmc_project.Logging",       // D-Bus service name
             path.str.c_str(),                    // Object path
             "xyz.openbmc_project.Logging.Entry", // Interface
             "AdditionalData",                    // Property name
-            [messages, timestampStr](
-                const boost::system::error_code& ec,
-                const std::vector<std::string>& additionalData) mutable {
+            [messages, timestampStr](const boost::system::error_code& ec,
+                                     const std::map<std::string, std::string>&
+                                         additionalData) mutable {
                 if (ec)
                 {
                     BMCWEB_LOG_ERROR("Failed to get AdditionalData: {}", ec);
@@ -1099,38 +1097,28 @@ class EventServiceManager
                 // Extract SENSOR_TYPE, SENSOR_PATH, REDFISH_MESSAGE_ID and
                 // REDFISH_MESSAGE_ARGS from AdditionalData
 
-                for (const auto& entry : additionalData)
+                auto itSensorType = additionalData.find("SENSOR_TYPE");
+                if (itSensorType != additionalData.end())
                 {
-                    if (entry.find("SENSOR_TYPE=") == 0)
-                    {
-                        // Extract value after "SENSOR_TYPE="
-                        sensorType =
-                            std::stoi(entry.substr(strlen("SENSOR_TYPE=")));
-                        continue;
-                    }
+                    sensorType = std::stoi(itSensorType->second);
+                }
 
-                    if (entry.find("SENSOR_PATH=") == 0)
-                    {
-                        // Extract value after "SENSOR_PATH="
-                        sensorPath = entry.substr(strlen("SENSOR_PATH="));
-                        continue;
-                    }
+                auto itSensorPath = additionalData.find("SENSOR_PATH");
+                if (itSensorPath != additionalData.end())
+                {
+                    sensorPath = itSensorPath->second;
+                }
 
-                    if (entry.find("REDFISH_MESSAGE_ID=") == 0)
-                    {
-                        // Extract value after "REDFISH_MESSAGE_ID="
-                        redfishMsgId =
-                            entry.substr(strlen("REDFISH_MESSAGE_ID="));
-                        continue;
-                    }
+                auto itMsgId = additionalData.find("REDFISH_MESSAGE_ID");
+                if (itMsgId != additionalData.end())
+                {
+                    redfishMsgId = itMsgId->second;
+                }
 
-                    if (entry.find("REDFISH_MESSAGE_ARGS=") == 0)
-                    {
-                        // Extract value after "REDFISH_MESSAGE_ARGS="
-                        redfishMsgArgs =
-                            entry.substr(strlen("REDFISH_MESSAGE_ARGS="));
-                        continue;
-                    }
+                auto itMsgArgs = additionalData.find("REDFISH_MESSAGE_ARGS");
+                if (itMsgArgs != additionalData.end())
+                {
+                    redfishMsgArgs = itMsgArgs->second;
                 }
                 // Fallback Logic: infer sensor type from path when metadata
                 // doesn’t provide SENSOR_TYPE.

@@ -1,5 +1,5 @@
 {
-    "$id": "/redfish/v1/JsonSchemas/AmiPefEntry/AmiPefEntry.v1_0_0.json",
+    "$id": "http://redfish/v1/JsonSchemas/AmiPefEntry.v1_0_0.json",
     "$ref": "#/definitions/AmiPefEntry",
     "$schema": "http://redfish.dmtf.org/schemas/v1/redfish-schema-v1.json",
     "copyright": "Copyright American Megatrends, Inc. (AMI).",
@@ -46,14 +46,177 @@
                     ],
                     "readonly": true
                 },
-                "EventSeverity": {
-                    "description": "The Event Severity of the Pef Entry.",
-                    "longDescription": "The value of this property shall specify the Event Severity of the Pef Entry.",
+                "AlertPolicyNum": {
+                    "description": "The Alert Policy Number of the Pef Entry (0-255).",
+                    "longDescription": "The value of this property shall specify the Alert Policy Number of the Pef Entry.",
+                    "maximum": 255,
+                    "minimum": 0,
                     "readonly": false,
-                    "type": [
-                        "string",
-                        "null"
-                    ]
+                    "type": ["integer", "null"]
+                },
+                "EventData1ANDMask": {
+                    "description": "The Event Data 1 AND Mask of the Pef Entry (0-255).",
+                    "longDescription": "The value of this property shall specify the Event Data 1 AND Mask of the Pef Entry.",
+                    "maximum": 255,
+                    "minimum": 0,
+                    "readonly": false,
+                    "type": ["integer", "null"]
+                },
+                "EventData1Cmp1": {
+                    "description": "The Event Data 1 Compare 1 of the Pef Entry (0-255).",
+                    "longDescription": "The value of this property shall specify the Event Data 1 Compare 1 of the Pef Entry.",
+                    "maximum": 255,
+                    "minimum": 0,
+                    "readonly": false,
+                    "type": ["integer", "null"]
+                },
+                "EventData1Cmp2": {
+                    "description": "The Event Data 1 Compare 2 of the Pef Entry (0-255).",
+                    "longDescription": "The value of this property shall specify the Event Data 1 Compare 2 of the Pef Entry.",
+                    "maximum": 255,
+                    "minimum": 0,
+                    "readonly": false,
+                    "type": ["integer", "null"]
+                },
+                "EventData1OffsetMask": {
+                    "description": "The Event Data 1 Offset Mask of the Pef Entry (0-65535).",
+                    "longDescription": "The value of this property shall specify the Event Data 1 Offset Mask of the Pef Entry.",
+                    "maximum": 65535,
+                    "minimum": 0,
+                    "readonly": false,
+                    "type": ["integer", "null"]
+                },
+                "EventData2ANDMask": {
+                    "description": "The Event Data 2 AND Mask of the Pef Entry (0-255).",
+                    "longDescription": "The value of this property shall specify the Event Data 2 AND Mask of the Pef Entry.",
+                    "maximum": 255,
+                    "minimum": 0,
+                    "readonly": false,
+                    "type": ["integer", "null"]
+                },
+                "EventData2Cmp1": {
+                    "description": "The Event Data 2 Compare 1 of the Pef Entry (0-255).",
+                    "longDescription": "The value of this property shall specify the Event Data 2 Compare 1 of the Pef Entry.",
+                    "maximum": 255,
+                    "minimum": 0,
+                    "readonly": false,
+                    "type": ["integer", "null"]
+                },
+                "EventData2Cmp2": {
+                    "description": "The Event Data 2 Compare 2 of the Pef Entry (0-255).",
+                    "longDescription": "The value of this property shall specify the Event Data 2 Compare 2 of the Pef Entry.",
+                    "maximum": 255,
+                    "minimum": 0,
+                    "readonly": false,
+                    "type": ["integer", "null"]
+                },
+                "EventData3ANDMask": {
+                    "description": "The Event Data 3 AND Mask of the Pef Entry (0-255).",
+                    "longDescription": "The value of this property shall specify the Event Data 3 AND Mask of the Pef Entry.",
+                    "maximum": 255,
+                    "minimum": 0,
+                    "readonly": false,
+                    "type": ["integer", "null"]
+                },
+                "EventData3Cmp1": {
+                    "description": "The Event Data 3 Compare 1 of the Pef Entry (0-255).",
+                    "longDescription": "The value of this property shall specify the Event Data 3 Compare 1 of the Pef Entry.",
+                    "maximum": 255,
+                    "minimum": 0,
+                    "readonly": false,
+                    "type": ["integer", "null"]
+                },
+                "EventData3Cmp2": {
+                    "description": "The Event Data 3 Compare 2 of the Pef Entry (0-255).",
+                    "longDescription": "The value of this property shall specify the Event Data 3 Compare 2 of the Pef Entry.",
+                    "maximum": 255,
+                    "minimum": 0,
+                    "readonly": false,
+                    "type": ["integer", "null"]
+                },
+                "EventFilterTableEntry": {
+                    "description": "The Event Filter Table Entry byte (0-255).",
+                    "longDescription": "The value of this property shall specify the Event Filter Table Entry byte of the Pef Entry.",
+                    "maximum": 255,
+                    "minimum": 0,
+                    "readonly": false,
+                    "type": ["integer", "null"]
+                },
+                "EventSeverity": {
+                    "description": "The Event Severity of the Pef Entry (0-255).",
+                    "longDescription": "The value of this property shall specify the Event Severity of the Pef Entry.",
+                    "maximum": 255,
+                    "minimum": 0,
+                    "readonly": false,
+                    "type": ["integer", "null"]
+                },
+                "EventTrigger": {
+                    "description": "The Event Trigger of the Pef Entry (0-255).",
+                    "longDescription": "The value of this property shall specify the Event Trigger of the Pef Entry.",
+                    "maximum": 255,
+                    "minimum": 0,
+                    "readonly": false,
+                    "type": ["integer", "null"]
+                },
+                "EvtFilterAction": {
+                    "description": "The Event Filter Action byte of the Pef Entry (0-255).",
+                    "longDescription": "The value of this property shall specify the Event Filter Action byte of the Pef Entry.",
+                    "maximum": 255,
+                    "minimum": 0,
+                    "readonly": false,
+                    "type": ["integer", "null"]
+                },
+                "FilterConfig": {
+                    "description": "The Filter Configuration byte of the Pef Entry (0-255).",
+                    "longDescription": "The value of this property shall specify the Filter Configuration byte of the Pef Entry.",
+                    "maximum": 255,
+                    "minimum": 0,
+                    "readonly": false,
+                    "type": ["integer", "null"]
+                },
+                "GenIDByte1": {
+                    "description": "Generator ID Byte 1 of the Pef Entry (0-255).",
+                    "longDescription": "The value of this property shall specify Generator ID Byte 1 of the Pef Entry.",
+                    "maximum": 255,
+                    "minimum": 0,
+                    "readonly": false,
+                    "type": ["integer", "null"]
+                },
+                "GenIDByte2": {
+                    "description": "Generator ID Byte 2 of the Pef Entry (0-255).",
+                    "longDescription": "The value of this property shall specify Generator ID Byte 2 of the Pef Entry.",
+                    "maximum": 255,
+                    "minimum": 0,
+                    "readonly": false,
+                    "type": ["integer", "null"]
+                },
+                "SensorName": {
+                    "description": "The selected sensor name for the Pef Entry.",
+                    "longDescription": "The value of this property shall specify the selected sensor name to resolve the backend sensor number.",
+                    "readonly": false,
+                    "type": ["string", "null"]
+                },
+                "SensorNum": {
+                    "description": "The resolved sensor number of the Pef Entry (0-255).",
+                    "longDescription": "The value of this property shall specify the backend-resolved sensor number for the selected sensor.",
+                    "maximum": 255,
+                    "minimum": 0,
+                    "readonly": true,
+                    "type": ["integer", "null"]
+                },
+                "SensorType": {
+                    "description": "The selected sensor type for the Pef Entry.",
+                    "longDescription": "The value of this property shall specify the sensor type name used to resolve backend sensor identifiers.",
+                    "readonly": false,
+                    "type": ["string", "null"]
+                },
+                "SensorTypeId": {
+                    "description": "The resolved sensor type identifier of the Pef Entry (0-255).",
+                    "longDescription": "The value of this property shall specify the backend-resolved numeric sensor type identifier.",
+                    "maximum": 255,
+                    "minimum": 0,
+                    "readonly": true,
+                    "type": ["integer", "null"]
                 },
                 "Id": {
                     "$ref": "http://redfish.dmtf.org/schemas/v1/Resource.json#/definitions/Id",
@@ -79,6 +242,5 @@
         }
     },
     "owningEntity": "Ami",
-    "release": "1.0",
     "title": "#AmiPefEntry.v1_0_0.AmiPefEntry"
 }

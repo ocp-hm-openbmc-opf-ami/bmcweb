@@ -41,7 +41,6 @@ feature_options = [
     'tests',
     'vm-websocket',
     'xtoken-auth',
-    'ami-cxl',
     'ami-redebug',
     'ami-thermalequipment',
     'ami-controls'
@@ -76,8 +75,6 @@ foreach option_key : feature_options + string_options + int_options
     else
         feature_options_string += 'constexpr const bool        ' + option_key_config + ' = ' + opt.allowed().to_string() + ';\n'
         if option_key.contains(
-            'ami-cxl',
-        ) or option_key.contains(
             'ami-redebug',
         ) or option_key.contains(
              'ami-thermalequipment',

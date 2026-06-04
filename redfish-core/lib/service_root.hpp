@@ -82,12 +82,8 @@ inline void handleServiceRootGetImpl(
     asyncResp->res.jsonValue["Cables"]["@odata.id"] = "/redfish/v1/Cables";
 #endif
 #if (!defined(ONETREE_RM)) && (!defined(ONETREE_PSM))
-    asyncResp->res.jsonValue["Oem"]["OpenBmc"]["Pef"]["@odata.id"] =
-        "/redfish/v1/#Oem/OpenBmc";
-    asyncResp->res.jsonValue["Oem"]["OpenBmc"]["Pef"]["@odata.type"] =
-        json_util::odataType("OemPefServiceRoot", "OpenBmc");
-    asyncResp->res.jsonValue["Oem"]["OpenBmc"]["Pef"]["PefService"] = {
-        {"@odata.id", "/redfish/v1/PefService"}};
+    asyncResp->res.jsonValue["Oem"]["Ami"]["PefService"] = {
+        {"@odata.id", "/redfish/v1/Oem/Ami/PefService"}};
     asyncResp->res.jsonValue["Oem"]["Intel"]["@odata.type"] =
         json_util::odataType("OemServiceRoot", "Intel");
     asyncResp->res.jsonValue["Oem"]["Intel"]["@odata.id"] =

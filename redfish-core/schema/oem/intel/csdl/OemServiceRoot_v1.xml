@@ -20,6 +20,9 @@
   <edmx:Reference Uri="/redfish/v1/schema/CupsService_v1.xml">
     <edmx:Include Namespace="CupsService"/>
   </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/PefService_v1.xml">
+    <edmx:Include Namespace="PefService"/>
+  </edmx:Reference>
 
   <edmx:DataServices>
 
@@ -36,6 +39,7 @@
           <Annotation Term="OData.Description" String="OemServiceRoot Oem properties."/>
           <Annotation Term="OData.AutoExpand"/>
           <Property Name="Intel" Type="OemServiceRoot.v1_0_0.Intel"/>
+          <Property Name="Ami" Type="OemServiceRoot.v1_0_0.Ami"/>
         </ComplexType>
 
         <ComplexType Name="Intel" BaseType="Resource.OemObject">
@@ -58,6 +62,12 @@
             <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
             <Annotation Term="OData.Description" String="The link to AMI License Control."/>
             <Annotation Term="OData.LongDescription" String="This property shall contain the link to AMI License Control Service."/>
+            <Annotation Term="OData.AutoExpandReferences"/>
+          </NavigationProperty>
+          <NavigationProperty Name="PefService" Type="PefService.PefService" Nullable="false">
+            <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+            <Annotation Term="OData.Description" String="The link to Platform Event Filtering Service."/>
+            <Annotation Term="OData.LongDescription" String="This property shall contain the link to PEF Service for platform event filtering and alerting."/>
             <Annotation Term="OData.AutoExpandReferences"/>
           </NavigationProperty>
         </ComplexType>

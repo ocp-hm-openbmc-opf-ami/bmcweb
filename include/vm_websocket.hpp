@@ -21,6 +21,7 @@
 #include <sdbusplus/asio/property.hpp>
 
 #include <csignal>
+#include <optional>
 #include <string_view>
 
 namespace crow
@@ -187,17 +188,15 @@ struct NbdProxyServer : std::enable_shared_from_this<NbdProxyServer>
 {
     NbdProxyServer(crow::websocket::Connection& connIn,
                    const std::string& socketIdIn,
-                   const std::string& endpointIdIn, const std::string& pathIn) :
+                   const std::string& endpointIdIn,
+                   unsigned int endpointIndexIn, const std::string& pathIn) :
         socketId(socketIdIn), endpointId(endpointIdIn), path(pathIn),
+        endpointIndex(endpointIndexIn),
 
         peerSocket(connIn.getIoContext()),
         acceptor(connIn.getIoContext(), stream_protocol::endpoint(socketId)),
         connection(connIn)
-    {
-        std::filesystem::path endpointPath(endpointIdIn);
-        endpointIndex = static_cast<unsigned int>(
-            std::stoul(endpointPath.filename().string()));
-    }
+    {}
 
     NbdProxyServer(const NbdProxyServer&) = delete;
     NbdProxyServer(NbdProxyServer&&) = delete;
@@ -457,7 +456,7 @@ using SessionMap = boost::container::flat_map<crow::websocket::Connection*,
 static SessionMap sessions;
 
 inline void afterGetSocket(
-    crow::websocket::Connection& conn,
+    crow::websocket::Connection& conn, unsigned int endpointIndex,
     const sdbusplus::message::object_path& path,
     const boost::system::error_code& ec,
     const dbus::utility::DBusPropertiesMap& propertiesList)
@@ -508,10 +507,34 @@ inline void afterGetSocket(
         return;
     }
 
-    sessions[&conn] =
-        std::make_shared<NbdProxyServer>(conn, socket, endpointId, path);
+    sessions[&conn] = std::make_shared<NbdProxyServer>(conn, socket, endpointId,
+                                                       endpointIndex, path);
     sessions[&conn]->run();
     conn.session->vmNbdActive[sessions[&conn]->getEndpointIndex()] = true;
+}
+
+// Maps the raw NBD endpoint ID string ("0","1","4","5") to a
+// contiguous session-slot index used for vmNbdActive[].
+//   "0" -> 0,  "1" -> 1,  "4" -> 2,  "5" -> 3
+inline std::optional<unsigned int> getSessionSlotIndex(const std::string& index)
+{
+    if (index == "0")
+    {
+        return 0;
+    }
+    if (index == "1")
+    {
+        return 1;
+    }
+    if (index == "4")
+    {
+        return 2;
+    }
+    if (index == "5")
+    {
+        return 3;
+    }
+    return std::nullopt;
 }
 
 inline void onOpen(crow::websocket::Connection& conn)
@@ -526,6 +549,15 @@ inline void onOpen(crow::websocket::Connection& conn)
     }
 
     std::string index = conn.url().segments().back();
+
+    std::optional<unsigned int> endpointIndex = getSessionSlotIndex(index);
+    if (!endpointIndex)
+    {
+        BMCWEB_LOG_ERROR("Invalid index - \"{}\"", index);
+        conn.close("Internal error");
+        return;
+    }
+
     std::string path, service;
     if ((index == "0" || index == "1"))
     {
@@ -534,7 +566,7 @@ inline void onOpen(crow::websocket::Connection& conn)
         path = std::format("/xyz/openbmc_project/VirtualMedia/Proxy/Slot_{}",
                            index);
     }
-    else if (index == "4" || index == "5")
+    else
     {
         crow::obmc_vm::host1 = true;
         service = "xyz.openbmc_project.VirtualMedia1";
@@ -543,18 +575,13 @@ inline void onOpen(crow::websocket::Connection& conn)
         path = std::format("/xyz/openbmc_project/VirtualMedia1/Proxy/Slot_{}",
                            slot);
     }
-    else
-    {
-        BMCWEB_LOG_ERROR("Invalid index - \"{}\"", index);
-        conn.close("Internal error");
-        return;
-    }
 
     dbus::utility::getAllProperties(
         service, path, "xyz.openbmc_project.VirtualMedia.MountPoint",
-        [&conn, path](const boost::system::error_code& ec,
-                      const dbus::utility::DBusPropertiesMap& propertiesList) {
-            afterGetSocket(conn, path, ec, propertiesList);
+        [&conn, endpointIndex = *endpointIndex,
+         path](const boost::system::error_code& ec,
+               const dbus::utility::DBusPropertiesMap& propertiesList) {
+            afterGetSocket(conn, endpointIndex, path, ec, propertiesList);
         });
 
     // We need to wait for dbus and the websockets to hook up before data is

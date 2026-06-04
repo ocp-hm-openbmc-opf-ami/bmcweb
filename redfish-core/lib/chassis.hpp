@@ -45,6 +45,8 @@ using PropertyValue = std::variant<uint8_t, uint16_t, uint64_t, std::string,
                                    std::vector<std::string>, bool>;
 
 inline bool checkinvalidURIPatch = true;
+static bool chassisTimerFlag = false;
+static bool chassisTaskAlreadyHappened = false;
 
 inline chassis::ChassisType translateChassisTypeToRedfish(
     const std::string_view& chassisType)
@@ -1169,66 +1171,6 @@ inline void setPowerTransitionTimer(
         dbus::utility::DbusVariantType(chassisHostTransitionTimeOut));
 }
 
-inline void setTaskId(const std::vector<uint16_t> defaultId)
-{
-    auto bus = sdbusplus::bus::new_default();
-    auto method = bus.new_method_call("xyz.openbmc_project.State.Host0",
-                                      "/xyz/openbmc_project/state/host0",
-                                      "org.freedesktop.DBus.Properties", "Set");
-
-    method.append("xyz.openbmc_project.Common.Task", "TaskId",
-                  dbus::utility::DbusVariantType(defaultId));
-
-    try
-    {
-        auto reply = bus.call(method);
-    }
-    catch (const sdbusplus::exception::SdBusError& e)
-    {
-        BMCWEB_LOG_ERROR("D-Bus error:", e.what());
-    }
-}
-
-inline void setStatus(const std::string status)
-{
-    auto bus = sdbusplus::bus::new_default();
-    auto method = bus.new_method_call("xyz.openbmc_project.State.Host0",
-                                      "/xyz/openbmc_project/state/host0",
-                                      "org.freedesktop.DBus.Properties", "Set");
-
-    method.append("xyz.openbmc_project.Common.Task", "Status",
-                  dbus::utility::DbusVariantType(status));
-
-    try
-    {
-        auto reply = bus.call(method);
-    }
-    catch (const sdbusplus::exception::SdBusError& e)
-    {
-        BMCWEB_LOG_ERROR("D-Bus error:", e.what());
-    }
-}
-
-inline void setTaskName(const std::string taskName)
-{
-    auto bus = sdbusplus::bus::new_default();
-    auto method = bus.new_method_call("xyz.openbmc_project.State.Host0",
-                                      "/xyz/openbmc_project/state/host0",
-                                      "org.freedesktop.DBus.Properties", "Set");
-
-    method.append("xyz.openbmc_project.Common.Task", "TaskName",
-                  dbus::utility::DbusVariantType(taskName));
-
-    try
-    {
-        auto reply = bus.call(method);
-    }
-    catch (const sdbusplus::exception::SdBusError& e)
-    {
-        BMCWEB_LOG_ERROR("D-Bus error:", e.what());
-    }
-}
-
 inline void doChassisPowerCycle(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
@@ -1361,14 +1303,6 @@ inline void createImmediateResetTask(
 
             std::string index = std::to_string(taskData->index);
 
-            int convertedIndex = std::stoi(index);
-
-            std::vector<uint16_t> defaultId;
-
-            defaultId.push_back(static_cast<uint16_t>(convertedIndex));
-
-            setTaskName(resetType);
-
             msg.read(iface, values);
 
             if (iface == "xyz.openbmc_project.State.OperatingSystem.Status")
@@ -1398,9 +1332,6 @@ inline void createImmediateResetTask(
                 if (*osState ==
                     "xyz.openbmc_project.State.OperatingSystem.Status.OSStatus.Inactive")
                 {
-                    setTaskId(defaultId);
-                    setStatus(
-                        "xyz.openbmc_project.Common.Task.OperationStatus.InProgress");
                     taskData->state = "Running";
                     taskData->messages.emplace_back(
                         messages::taskStarted(index));
@@ -1411,8 +1342,6 @@ inline void createImmediateResetTask(
                 if (*osState ==
                     "xyz.openbmc_project.State.OperatingSystem.Status.OSStatus.Standby")
                 {
-                    setStatus(
-                        "xyz.openbmc_project.Common.Task.OperationStatus.Completed");
                     taskData->messages.emplace_back(
                         messages::taskCompletedOK(index));
                     taskData->state = "Completed";
@@ -1455,15 +1384,6 @@ inline void createMaintenanceWindowTask(
             dbus::utility::DBusPropertiesMap values;
 
             std::string index = std::to_string(taskData->index);
-
-            int convertedIndex = std::stoi(index);
-
-            std::vector<uint16_t> defaultId;
-
-            defaultId.push_back(static_cast<uint16_t>(convertedIndex));
-
-            setTaskName(resetType);
-
             msg.read(iface, values);
 
             const char* servicePath = "xyz.openbmc_project.State.Host0";
@@ -1475,8 +1395,14 @@ inline void createMaintenanceWindowTask(
             auto timeOut_value = getchassisHostTransitionTimeOut(
                 servicePath, objectName, interfacePath, property_Name);
 
-            auto reqchassisHostTransitionTimeOut =
-                std::get<uint64_t>(timeOut_value);
+            const auto* timeOutPtr = std::get_if<uint64_t>(&timeOut_value);
+            if (timeOutPtr == nullptr)
+            {
+                taskData->messages.emplace_back(messages::internalError());
+                taskData->state = "Cancelled";
+                return task::completed;
+            }
+            auto reqchassisHostTransitionTimeOut = *timeOutPtr;
 
             if (iface == "xyz.openbmc_project.State.OperatingSystem.Status")
             {
@@ -1495,6 +1421,15 @@ inline void createMaintenanceWindowTask(
                                 messages::internalError());
                             return task::completed;
                         }
+
+                        if (*timeOutValue == 0)
+                        {
+                            chassisTimerFlag = true;
+                        }
+                        else
+                        {
+                            chassisTimerFlag = false;
+                        }
                     }
 
                     if (property.first == "OperatingSystemState")
@@ -1510,42 +1445,54 @@ inline void createMaintenanceWindowTask(
                     }
                 }
 
-                if (timeOutValue != nullptr && *timeOutValue != 0)
+                if (!chassisTimerFlag)
                 {
-                    setTaskId(defaultId);
-                    setStatus(
-                        "xyz.openbmc_project.Common.Task.OperationStatus.New");
-                    taskData->state = "Pending";
-                    taskData->messages.emplace_back(
-                        messages::taskPaused(index));
-                    taskData->extendTimer(
-                        std::chrono::seconds(reqchassisHostTransitionTimeOut) +
-                        (std::chrono::minutes(10)));
-                    return !task::completed;
+                    if (*osState ==
+                            "xyz.openbmc_project.State.OperatingSystem.Status.OSStatus.Inactive" ||
+                        *osState ==
+                            "xyz.openbmc_project.State.OperatingSystem.Status.OSStatus.Standby")
+                    {
+                        if (!chassisTaskAlreadyHappened)
+                            chassisTaskAlreadyHappened = true;
+                    }
                 }
+
+                if (chassisTimerFlag && chassisTaskAlreadyHappened)
+                {
+                    taskData->state = "Cancelled";
+                    taskData->messages.emplace_back(
+                        messages::taskCancelled(index));
+                    chassisTaskAlreadyHappened = false;
+                    chassisTimerFlag = false;
+                    return task::completed;
+                }
+
                 if (reqchassisHostTransitionTimeOut == 0 && osState != nullptr)
                 {
                     if (*osState ==
                         "xyz.openbmc_project.State.OperatingSystem.Status.OSStatus.Inactive")
                     {
-                        setStatus(
-                            "xyz.openbmc_project.Common.Task.OperationStatus.InProgress");
-                        taskData->state = "Running";
-                        taskData->messages.emplace_back(
-                            messages::taskStarted(index));
-                        taskData->extendTimer(std::chrono::minutes(5));
+                        if (!chassisTaskAlreadyHappened)
+                        {
+                            taskData->state = "Running";
+                            taskData->messages.emplace_back(
+                                messages::taskStarted(index));
+                        }
+                        taskData->extendTimer(std::chrono::minutes(15));
                         return !task::completed;
                     }
 
                     if (*osState ==
                         "xyz.openbmc_project.State.OperatingSystem.Status.OSStatus.Standby")
                     {
-                        setStatus(
-                            "xyz.openbmc_project.Common.Task.OperationStatus.Completed");
-                        taskData->messages.emplace_back(
-                            messages::taskCompletedOK(index));
-                        taskData->state = "Completed";
-                        return task::completed;
+                        if (!chassisTaskAlreadyHappened)
+                        {
+                            taskData->messages.emplace_back(
+                                messages::taskCompletedOK(index));
+                            chassisTimerFlag = false;
+                            taskData->state = "Completed";
+                            return task::completed;
+                        }
                     }
                 }
                 taskData->extendTimer(
@@ -1559,6 +1506,25 @@ inline void createMaintenanceWindowTask(
     task->startTimer(std::chrono::minutes(5));
     task->populateResp(asyncResp->res);
     task->payload.emplace(std::move(payload));
+
+    auto chassis_Value = getchassisHostTransitionTimeOut(
+        "xyz.openbmc_project.State.Host0", "/xyz/openbmc_project/state/host0",
+        "xyz.openbmc_project.State.OperatingSystem.Status",
+        "ChassisHostTransitionTimeOut");
+
+    uint64_t requestedPowerTransition = std::get<uint64_t>(chassis_Value);
+    if (requestedPowerTransition > 5)
+    {
+        // Will not get any signal from host for pending state so
+        // considering after 5 seconds state will be pending state
+        if (task->state == "New")
+        {
+            std::this_thread::sleep_for(std::chrono::seconds(5));
+            task->state = "Pending";
+            task->messages.emplace_back(
+                messages::taskPaused(std::to_string(task->index)));
+        }
+    }
 }
 
 /**
@@ -1604,7 +1570,6 @@ inline void handleChassisResetActionInfoPost(
             {
                 messages::internalError(asyncResp->res);
                 return;
-                return;
             }
             for (const std::string& object : objects)
             {
@@ -1645,12 +1610,26 @@ inline void handleChassisResetActionInfoPost(
 
                 auto value = getHostState(processName, objectPath,
                                           interfaceName, propName);
-                auto reqHostState = std::get<std::string>(value);
+                const auto* reqHostStatePtr = std::get_if<std::string>(&value);
+                if (reqHostStatePtr == nullptr)
+                {
+                    BMCWEB_LOG_ERROR("Failed to get host state");
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+                const std::string& reqHostState = *reqHostStatePtr;
 
                 auto timeOut_value = getchassisHostTransitionTimeOut(
                     servicePath, objectName, interfacePath, property_Name);
-                auto reqchassisHostTransitionTimeOut =
-                    std::get<uint64_t>(timeOut_value);
+                const auto* timeOutPtr = std::get_if<uint64_t>(&timeOut_value);
+                if (timeOutPtr == nullptr)
+                {
+                    BMCWEB_LOG_ERROR(
+                        "Failed to get ChassisHostTransitionTimeOut");
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+                auto reqchassisHostTransitionTimeOut = *timeOutPtr;
 
                 if (!json_util::readJsonAction(                   //
                         req, asyncResp->res,                      //
@@ -1664,7 +1643,10 @@ inline void handleChassisResetActionInfoPost(
                 }
 
                 // To provide as a stringstream object
-                startTime = *maintenanceWindowStartTime;
+                if (maintenanceWindowStartTime)
+                {
+                    startTime = *maintenanceWindowStartTime;
+                }
 
                 if (resetType != "PowerCycle")
                 {

@@ -89,6 +89,13 @@
             <Property Name="SMTP" Type="AmiEventService.v1_0_0.SMTP" />
          </ComplexType>
 
+         <ComplexType Name="Ami" BaseType="Resource.OemObject">
+            <Annotation Term="OData.AdditionalProperties" Bool="true" />
+            <Annotation Term="OData.Description" String="Oem properties for Ami." />
+            <Annotation Term="OData.AutoExpand" />
+            <Property Name="SMTP" Type="AmiEventService.SMTP" />
+         </ComplexType>
+
          <ComplexType Name="SMTP">
             <Annotation Term="OData.AdditionalProperties" Bool="true" />
             <Annotation Term="OData.Description" String="AmiEventService smtp properties." />
@@ -155,6 +162,20 @@
                   String="SMTP server username required when authentication." />
                <Annotation Term="OData.LongDescription"
                   String="SMTP server username required when authentication." />
+            </Property>
+            <Property Name="OAUTH" Type="Edm.Boolean">
+               <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite" />
+               <Annotation Term="OData.Description"
+                  String="This indicates if OAuth authentication is enabled for SMTP." />
+               <Annotation Term="OData.LongDescription"
+                  String="The value of this property indicates whether OAuth authentication is enabled for SMTP server connection." />
+            </Property>
+            <Property Name="AccessToken" Type="Edm.String">
+               <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite" />
+               <Annotation Term="OData.Description"
+                  String="OAuth access token for SMTP authentication." />
+               <Annotation Term="OData.LongDescription"
+                  String="The value of this property contains the OAuth access token required for SMTP server authentication." />
             </Property>
             <Property Name="isCACERTExist" Type="Edm.Boolean">
                <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite" />
@@ -237,6 +258,20 @@
                   String="SMTP server username required when authentication." />
                <Annotation Term="OData.LongDescription"
                   String="SMTP server username required when authentication." />
+            </Property>
+            <Property Name="OAUTH" Type="Edm.Boolean">
+               <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite" />
+               <Annotation Term="OData.Description"
+                  String="This indicates if OAuth authentication is enabled for SMTP." />
+               <Annotation Term="OData.LongDescription"
+                  String="The value of this property indicates whether OAuth authentication is enabled for SMTP server connection." />
+            </Property>
+            <Property Name="AccessToken" Type="Edm.String">
+               <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite" />
+               <Annotation Term="OData.Description"
+                  String="OAuth access token for SMTP authentication." />
+               <Annotation Term="OData.LongDescription"
+                  String="The value of this property contains the OAuth access token required for SMTP server authentication." />
             </Property>
             <Property Name="isCACERTExist" Type="Edm.Boolean">
                <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite" />

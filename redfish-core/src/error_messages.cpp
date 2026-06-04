@@ -95,16 +95,17 @@ static nlohmann::json getLog(redfish::registries::license::Index name,
                               args);
 }
 
-static nlohmann::json getLog(redfish::registries::ami::Index name,
+static nlohmann::json getLog(redfish::registries::amionetree::Index name,
                              std::span<const std::string_view> args)
 {
     size_t index = static_cast<size_t>(name);
-    if (index >= redfish::registries::ami::registry.size())
+    if (index >= redfish::registries::amionetree::registry.size())
     {
         return {};
     }
-    return getLogFromRegistry(redfish::registries::ami::header,
-                              redfish::registries::ami::registry, index, args);
+    return getLogFromRegistry(redfish::registries::amionetree::header,
+                              redfish::registries::amionetree::registry, index,
+                              args);
 }
 
 nlohmann::json asyncCommandError(const std::string& errorCode,
@@ -976,7 +977,7 @@ void resourceCannotBeDeleted(crow::Response& res)
  */
 nlohmann::json invalidImageSize()
 {
-    return getLog(redfish::registries::ami::Index::invalidImageSize, {});
+    return getLog(redfish::registries::amionetree::Index::invalidImageSize, {});
 }
 
 void invalidImageSize(crow::Response& res)
@@ -2902,7 +2903,8 @@ void invalidLicense(crow::Response& res)
  */
 nlohmann::json dumpQuotaExceeded(void)
 {
-    return getLog(redfish::registries::ami::Index::dumpQuotaExceeded, {});
+    return getLog(redfish::registries::amionetree::Index::dumpQuotaExceeded,
+                  {});
 }
 
 void dumpQuotaExceeded(crow::Response& res)
@@ -2920,7 +2922,8 @@ void dumpQuotaExceeded(crow::Response& res)
  */
 nlohmann::json passwordCorruption()
 {
-    return getLog(redfish::registries::ami::Index::passwordCorruption, {});
+    return getLog(redfish::registries::amionetree::Index::passwordCorruption,
+                  {});
 }
 
 void passwordCorruption(crow::Response& res)
@@ -2930,7 +2933,8 @@ void passwordCorruption(crow::Response& res)
 }
 nlohmann::json firmwareUpdateFailed(void)
 {
-    return getLog(redfish::registries::ami::Index::firmwareUpdateFailed, {});
+    return getLog(redfish::registries::amionetree::Index::firmwareUpdateFailed,
+                  {});
 }
 
 void firmwareUpdateFailed(crow::Response& res)

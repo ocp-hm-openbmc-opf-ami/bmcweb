@@ -288,7 +288,7 @@ class Trie
         }
         Node& node = nodes[idx];
 #if (!defined(ONETREE_RTP)) && (!defined(ONETREE_NIC)) &&                      \
-    (!BMCWEB_AMI_CXL_MACRO) && (!defined(ONETREE_NVIDIASIPACK)) &&             \
+    (!defined(ONETREE_CXL_MGMT)) && (!defined(ONETREE_NVIDIASIPACK)) &&        \
     (!defined(ONETREE_GPGPU)) && (!defined(ONETREE_RM)) &&                     \
     (!defined(ONETREE_PSM)) && (!BMCWEB_AMI_THERMALEQUIPMENT_MACRO) &&         \
     (!defined(ONETREE_ARM_SBMR) && (!defined(ONETREE_BRCMRAID)) &&             \

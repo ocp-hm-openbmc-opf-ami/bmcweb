@@ -70,7 +70,7 @@
 #include "ext/src/nic.hpp"
 #endif
 
-#if BMCWEB_AMI_CXL_MACRO
+#if ONETREE_CXL_MGMT
 #include "ext/src/cxl.hpp"
 #endif
 
@@ -238,6 +238,7 @@ RedfishService::RedfishService(App& app)
     requestRoutesManagerCollection(app);
     requestRoutesManager(app);
     requestRoutesManagerSerialInterface(app);
+    requestRoutesSerialConsoleLog(app);
     requestRoutesManagerResetAction(app);
     requestRoutesManagerResetActionInfo(app);
     requestRoutesManagerResetToDefaults(app);
@@ -419,7 +420,6 @@ RedfishService::RedfishService(App& app)
 #endif
 
     requestRoutesPefService(app);
-    requestRoutesSendTrap(app);
 
     // All Extention packs routing table added here
 #ifdef ONETREE_RTP
@@ -438,7 +438,7 @@ RedfishService::RedfishService(App& app)
     registerNicRoutes(app);
 #endif
 
-#if BMCWEB_AMI_CXL_MACRO
+#if ONETREE_CXL_MGMT
     registerCxlRoutes(app);
 #endif
 

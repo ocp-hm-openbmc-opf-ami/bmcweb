@@ -3,7 +3,7 @@
     "$schema": "http://redfish.dmtf.org/schemas/v1/redfish-schema-v1.json",
     "copyright": "Copyright American Megatrends, Inc. (AMI).",
     "definitions": {
-        "AmiSessionService": {
+        "Oem": {
             "additionalProperties": false,
             "description": "AMI OEM Extension for Web Session",
             "longDescription": "AMI OEM Extension for Web Session",
@@ -83,6 +83,14 @@
                     "longDescription": "The value indicates Maximum Web Sessions user can access.",
                     "type": [
                         "integer",
+                        "null"
+                    ]
+                },
+                "ActiveSessions": {
+                    "description": "Oem ActiveSessions",
+                    "longDescription": "current active sessions.",
+                    "type": [
+                        "array",
                         "null"
                     ]
                 }
