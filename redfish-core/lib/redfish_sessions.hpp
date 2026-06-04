@@ -165,8 +165,7 @@ inline void fillSessionObject(
 {
     asyncResp->res.jsonValue["Id"] = session.uniqueId;
     asyncResp->res.jsonValue["UserName"] = session.username;
-    asyncResp->res.jsonValue["UserId"] =
-        session.userId;
+    asyncResp->res.jsonValue["UserId"] = session.userId;
 
     crow::user_info_utils::getUserInfo(
         session.username, ipAdd,

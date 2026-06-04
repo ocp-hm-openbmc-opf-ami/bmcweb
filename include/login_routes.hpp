@@ -262,9 +262,9 @@ inline void handleLogin(const crow::Request& req,
                             }
 
                             // Get session ID
-                            sdbusplus::asio::getProperty<std::vector<std::tuple<
-                                uint8_t, std::string, std::string, uint8_t,
-                                uint8_t, uint8_t, std::string>>>(
+                            sdbusplus::asio::getProperty<std::vector<
+                                std::tuple<uint8_t, std::string, std::string,
+                                           uint8_t, uint8_t, uint8_t>>>(
                                 *crow::connections::systemBus,
                                 "xyz.openbmc_project.SessionManager",
                                 "/xyz/openbmc_project/SessionManager/Web",
@@ -274,8 +274,8 @@ inline void handleLogin(const crow::Request& req,
                                  info](const boost::system::error_code& ec2,
                                        const std::vector<std::tuple<
                                            uint8_t, std::string, std::string,
-                                           uint8_t, uint8_t, uint8_t
-                                           >>& sessionArray) {
+                                           uint8_t, uint8_t, uint8_t>>&
+                                           sessionArray) {
                                     if (ec2)
                                     {
                                         BMCWEB_LOG_ERROR(
@@ -336,9 +336,10 @@ inline void handleLogin(const crow::Request& req,
                         },
                         "xyz.openbmc_project.SessionManager",
                         "/xyz/openbmc_project/SessionManager/web",
-                        "xyz.openbmc_project.SessionManager.WebSessionInfo", "WebSessionRegister",
-                        sessionId, session->clientIp, session->username,
-                        sessionType, priv, static_cast<uint8_t>(userId));
+                        "xyz.openbmc_project.SessionManager.WebSessionInfo",
+                        "WebSessionRegister", sessionId, session->clientIp,
+                        session->username, sessionType, priv,
+                        static_cast<uint8_t>(userId));
                 });
         }
     }
@@ -363,7 +364,7 @@ inline void handleLogout(const crow::Request& req,
 
         std::string uniqueId = session->uniqueId;
         uint8_t sessionType = 1;
-	uint8_t expiryreason = 1;
+        uint8_t expiryreason = 1;
         auto it = persistent_data::sessionMap.find(uniqueId);
 
         if (it != persistent_data::sessionMap.end())
@@ -395,8 +396,8 @@ inline void handleLogout(const crow::Request& req,
                 },
                 "xyz.openbmc_project.SessionManager",
                 "/xyz/openbmc_project/SessionManager/web",
-                "xyz.openbmc_project.SessionManager.WebSessionInfo", "SessionUnregister",
-                sessionId, sessionType, expiryreason);
+                "xyz.openbmc_project.SessionManager.WebSessionInfo",
+                "SessionUnregister", sessionId, sessionType, expiryreason);
         }
     }
 }
