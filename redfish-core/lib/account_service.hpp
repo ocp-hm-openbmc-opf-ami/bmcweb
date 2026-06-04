@@ -4237,12 +4237,13 @@ inline void validateChannelPrivilegesCreateUser(
     std::optional<bool> passwordChangeRequired,
     std::optional<std::string> algorithm, std::optional<std::string> encryption,
     std::optional<std::string> accessMode, std::optional<bool> hasSNMP,
-    nlohmann::json userChannelPrivileges, std::optional<std::string> smtpMailId)
+    nlohmann::json userChannelPrivileges, bool channelPrivilegesProvided,
+    std::optional<std::string> smtpMailId)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, username, password, roleIdJson, enabled, accountTypes,
          passwordChangeRequired, algorithm, encryption, accessMode, hasSNMP,
-         userChannelPrivileges,
+         userChannelPrivileges, channelPrivilegesProvided,
          smtpMailId](const boost::system::error_code& ec,
                      const std::map<uint8_t, std::string>& channelMap) {
             if (ec)
@@ -4276,6 +4277,48 @@ inline void validateChannelPrivilegesCreateUser(
                 messages::propertyValueError(asyncResp->res,
                                              "ChannelPrivileges");
                 validChannelPrivFlag = false;
+            }
+            else if (userChannelPrivileges.empty() &&
+                     !channelPrivilegesProvided)
+            {
+                // If ChannelPrivileges is omitted, apply RoleId/Enabled to
+                // all available channels.
+                std::string dbusChannelPriv =
+                    getPrivilegeFromRoleId(roleIdJson.value_or(""));
+                dbusChannelPrivileges.resize(channelMap.size(),
+                                             dbusChannelPriv);
+                dbusChannelAccess.resize(channelMap.size(),
+                                         static_cast<uint8_t>(enabled));
+
+                dbus::utility::getProperty<std::vector<std::string>>(
+                    "xyz.openbmc_project.User.Manager",
+                    "/xyz/openbmc_project/user",
+                    "xyz.openbmc_project.User.Manager", "AllGroups",
+                    [asyncResp, username, password, roleIdJson, enabled,
+                     accountTypes, passwordChangeRequired, algorithm,
+                     encryption, accessMode, hasSNMP, dbusChannelPrivileges,
+                     dbusChannelAccess, smtpMailId](
+                        const boost::system::error_code& ec1,
+                        const std::vector<std::string>& allGroupsList) {
+                        if (ec1)
+                        {
+                            BMCWEB_LOG_DEBUG("D-Bus response error {}", ec1);
+                            messages::internalError(asyncResp->res);
+                            return;
+                        }
+                        if (allGroupsList.empty())
+                        {
+                            messages::internalError(asyncResp->res);
+                            return;
+                        }
+
+                        processAfterGetAllGroups(
+                            asyncResp, username, password, roleIdJson, enabled,
+                            accountTypes, allGroupsList, passwordChangeRequired,
+                            algorithm, encryption, accessMode, hasSNMP,
+                            dbusChannelPrivileges, dbusChannelAccess,
+                            smtpMailId);
+                    });
             }
             else
             {
@@ -4498,8 +4541,10 @@ inline void handleAccountCollectionPost(
     std::optional<std::string> encryption;
     std::optional<std::string> accessMode;
     std::optional<std::string> smtpMailId;
-    nlohmann::json oemObj;
+    std::optional<nlohmann::json> oemObj;
     std::optional<bool> hasSNMP;
+    nlohmann::json userChannelPrivileges = nlohmann::json::array();
+    bool channelPrivilegesProvided = false;
 
     if (!json_util::readJsonPatch(
             req, asyncResp->res, "UserName", username, "Password", password,
@@ -4523,24 +4568,24 @@ inline void handleAccountCollectionPost(
     }
 
     bool enabled = enabledJson.value_or(true);
-    if (oemObj.is_object())
+    if (oemObj && oemObj->is_object())
     {
         nlohmann::json ami;
-        std::size_t oemObj_size = oemObj.size();
+        std::size_t oemObj_size = oemObj->size();
         if (oemObj_size == 0)
         {
             messages::propertyNotWritable(asyncResp->res, "Oem");
             return;
         }
-        if (!json_util::readJson(oemObj, asyncResp->res, "Ami", ami))
+        if (!json_util::readJson(*oemObj, asyncResp->res, "Ami", ami))
         {
             return;
         }
 
         if (ami.is_object())
         {
+            std::optional<nlohmann::json> channelPrivilegesObj;
             std::optional<nlohmann::json> snmp;
-            nlohmann::json userChannelPrivileges;
             std::optional<nlohmann::json> smtp;
 
             std::size_t ami_size = ami.size();
@@ -4550,11 +4595,15 @@ inline void handleAccountCollectionPost(
                 return;
             }
             if (!json_util::readJson(ami, asyncResp->res, "ChannelPrivileges",
-                                     userChannelPrivileges, "SNMP", snmp,
-                                     "SMTP", smtp))
+                                     channelPrivilegesObj, "SNMP", snmp, "SMTP",
+                                     smtp))
             {
-                BMCWEB_LOG_DEBUG(
-                    "ChannelPrivileges/SNMP/SMTP attribute is missing in Oem -> Ami attribute. \n");
+                return;
+            }
+            channelPrivilegesProvided = channelPrivilegesObj.has_value();
+            if (channelPrivilegesProvided)
+            {
+                userChannelPrivileges = std::move(*channelPrivilegesObj);
             }
 
             if (snmp)
@@ -4613,16 +4662,13 @@ inline void handleAccountCollectionPost(
                     return;
                 }
             }
-            if (userChannelPrivileges.is_array() &&
-                !userChannelPrivileges.empty())
-            {
-                validateChannelPrivilegesCreateUser(
-                    asyncResp, username, password, roleIdJson, enabled,
-                    accountTypes, passwordChangeRequired, algorithm, encryption,
-                    accessMode, hasSNMP, userChannelPrivileges, smtpMailId);
-            }
         }
     }
+
+    validateChannelPrivilegesCreateUser(
+        asyncResp, username, password, roleIdJson, enabled, accountTypes,
+        passwordChangeRequired, algorithm, encryption, accessMode, hasSNMP,
+        userChannelPrivileges, channelPrivilegesProvided, smtpMailId);
 }
 
 inline void fetchSnmpUserData(
