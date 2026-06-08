@@ -2117,30 +2117,22 @@ inline void handleUpdateServicePatch(
                     return;
                 }
 
-                // Get current time
-                time_t now = time(nullptr);
-                struct tm localTm;
-                localtime_r(&now, &localTm);
+                // dateStringToEpoch() already handles timezone-aware
+                // input (e.g. "+08:00") and returns correct UTC epoch
+                // in microseconds. Convert to seconds for D-Bus storage.
+                const auto startTimeSeconds = static_cast<uint64_t>(
+                    std::chrono::duration_cast<std::chrono::seconds>(*us)
+                        .count());
 
-                long int offset_sec = localTm.tm_gmtoff;
-                int64_t offset_microseconds =
-                    static_cast<int64_t>(offset_sec) * 1000000;
+                // Validate: maintenance window must not have already
+                // expired (startTime + duration must be in the future)
+                const auto currentTimeSeconds = static_cast<uint64_t>(
+                    std::chrono::duration_cast<std::chrono::seconds>(
+                        std::chrono::system_clock::now().time_since_epoch())
+                        .count());
 
-                int64_t adjustedEpochTime = us->count() - (offset_microseconds);
-
-                // Current BMC Timezone
-                const auto current_time = std::chrono::system_clock::to_time_t(
-                    std::chrono::system_clock::now());
-
-                if (static_cast<std::uint64_t>(
-                        std::chrono::duration_cast<std::chrono::seconds>(
-                            std::chrono::system_clock::from_time_t(current_time)
-                                .time_since_epoch())
-                            .count()) >
-                    (static_cast<std::uint64_t>(
-                         std::chrono::seconds(adjustedEpochTime).count()) +
-                     static_cast<std::uint64_t>(
-                         *maintenanceWindowDurationInSeconds)))
+                if (currentTimeSeconds >
+                    (startTimeSeconds + (*maintenanceWindowDurationInSeconds)))
                 {
                     messages::propertyValueIncorrect(
                         asyncResp->res, "MaintenanceWindowStartTime",
@@ -2148,7 +2140,8 @@ inline void handleUpdateServicePatch(
                     return;
                 }
 
-                // Set the MaintenanceWindowStartTime value
+                // Set the MaintenanceWindowStartTime value  as UTC epoch
+                // seconds
                 sdbusplus::asio::setProperty(
                     *crow::connections::systemBus,
                     "xyz.openbmc_project.Settings",
