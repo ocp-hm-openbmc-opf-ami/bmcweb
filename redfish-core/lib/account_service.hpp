@@ -2528,19 +2528,11 @@ inline void handleAccountServiceGet(
     {
         clientCertificate["CertificateMappingAttribute"] = mapping;
     }
-    nlohmann::json::object_t certificates;
-    certificates["@odata.id"] =
-        "/redfish/v1/AccountService/MultiFactorAuth/ClientCertificate/Certificates";
-    certificates["@odata.type"] =
-        "#CertificateCollection.CertificateCollection";
-    clientCertificate["Certificates"] = std::move(certificates);
+    clientCertificate["Certificates"]["@odata.id"] = boost::urls::format(
+        "/redfish/v1/AccountService/MultiFactorAuth/ClientCertificate/Certificates");
 #ifndef ONETREE_PSM
     json["MultiFactorAuth"]["ClientCertificate"] = std::move(clientCertificate);
 #endif
-    getClientCertificates(
-        asyncResp,
-        "/MultiFactorAuth/ClientCertificate/Certificates/Members"_json_pointer);
-
     json["Oem"]["OpenBMC"]["@odata.type"] =
         json_util::odataType("OpenBMCAccountService", "AccountService");
     json["Oem"]["OpenBMC"]["@odata.id"] =

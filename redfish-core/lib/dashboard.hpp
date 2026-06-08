@@ -210,9 +210,6 @@ inline void OverviewPage(App& /*app*/, const crow::Request& /*req*/,
     // Checking Dual Node support enable or not
     asyncResp->res.jsonValue["DualNodeEnabled"] =
         redfish::system_utils::isDualHostEnabled();
-
-    // erase led odataType
-    asyncResp->res.jsonValue["Oem"]["Ami"]["PhysicalLED"].erase("@odata.type");
 }
 
 inline void requestRoutesDashboard(App& app)

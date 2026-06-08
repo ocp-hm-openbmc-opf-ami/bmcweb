@@ -255,9 +255,6 @@ inline void setPhysicalLedState(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
 inline void getPhysicalLedState(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
 {
     BMCWEB_LOG_DEBUG("Get Physical Led");
-    aResp->res.jsonValue["Oem"]["Ami"]["PhysicalLED"]["@odata.type"] =
-        json_util::odataType("OpenBMCComputerSystem", "PhysicalLED");
-
     dbus::utility::getProperty<bool>(
         "xyz.openbmc_project.LED.GroupManager",
         "/xyz/openbmc_project/led/groups/status_critical",

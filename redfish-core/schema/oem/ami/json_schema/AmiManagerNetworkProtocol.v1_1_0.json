@@ -66,8 +66,8 @@
         },
         "AmiManagerNetworkProtocol": {
             "additionalProperties": false,
-            "description": "AMI OEM Manager Network Protocol extension root.",
-            "longDescription": "This complex type is the root for AMI OEM ManagerNetworkProtocol properties exposed under Oem.Ami.",
+            "description": "Ami OEM Extension for Web Session",
+            "longDescription": "Ami OEM Extension for Web Session",
             "patternProperties": {
                 "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
                     "description": "This property shall specify a valid odata or Redfish property.",
@@ -142,7 +142,7 @@
                     "longDescription": "TBD"
                 },
                 "PhysicalLED": {
-                    "$ref": "#/definitions/PhysicalLED",
+                    "$ref": "/redfish/v1/Schemas/AmiPhysicalLED.v1_0_0.json#/definitions/PhysicalLED",
                     "description": "The settings for this manager's PhysicalLED protocol support.",
                     "longDescription": "Have the details of PhysicalLED."
                 },
@@ -404,6 +404,18 @@
                     "longDescription": "This property indicates a list of all network channels/interfaces available for configuration. Used to determine which physical or logical interfaces are accessible for services like IPMI, Redfish, or SNMP.",
                     "type": "array"
                 },
+                "Bios": {
+                    "anyOf": [
+                        {
+                            "$ref": "/redfish/v1/Schemas/AmiBIOSInventoryCRC.v1_0_0.json#/definitions/Bios"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "description": "AMI BIOS inventory and CRC grouping information.",
+                    "longDescription": "Contains BIOS inventory details including RTP version, Redfish version and grouped CRC values (CPU, DIMM, PCIE, CERTIFICATE, SECUREBOOT) defined by the AmiBIOSInventoryCRC schema."
+                },
                 "DefaultChannel": {
                     "$ref": "#/definitions/ChannelList",
                     "description": "Indicates the primary/preferred channel for each platform. The privilege of the default channel should match the RoleId attribute when a Manager Account is created.",
@@ -443,7 +455,7 @@
                     "longDescription": "TBD"
                 },
                 "PhysicalLED": {
-                    "$ref": "#/definitions/PhysicalLED",
+                    "$ref": "/redfish/v1/Schemas/AmiPhysicalLED.v1_0_0.json#/definitions/PhysicalLED",
                     "description": "The settings for this manager's PhysicalLED protocol support.",
                     "longDescription": "Have the details of PhysicalLED."
                 },
@@ -531,47 +543,6 @@
                     "readonly": true,
                     "type": "string",
                     "versionAdded": "v1_1_0"
-                }
-            },
-            "type": "object"
-        },
-        "PhysicalLED": {
-            "additionalProperties": false,
-            "description": "physical leds to display status of server.",
-            "patternProperties": {
-                "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
-                    "description": "This property shall specify a valid odata or Redfish property.",
-                    "type": [
-                        "array",
-                        "boolean",
-                        "integer",
-                        "number",
-                        "null",
-                        "object",
-                        "string"
-                    ]
-                }
-            },
-            "properties": {
-                "AmberLED": {
-                    "description": "physical leds to display status of server.",
-                    "longDescription": "physical leds to display status of server.",
-                    "type": "string"
-                },
-                "BlueLED": {
-                    "description": "physical leds to display status of server.",
-                    "longDescription": "physical leds to display status of server.",
-                    "type": "string"
-                },
-                "GreenLED": {
-                    "description": "physical leds to display status of server.",
-                    "longDescription": "physical leds to display status of server.",
-                    "type": "string"
-                },
-                "SusackLED": {
-                    "description": "physical leds to display status of server.",
-                    "longDescription": "physical leds to display status of server.",
-                    "type": "string"
                 }
             },
             "type": "object"

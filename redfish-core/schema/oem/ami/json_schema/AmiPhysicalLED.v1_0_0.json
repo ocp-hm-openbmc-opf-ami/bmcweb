@@ -1,0 +1,71 @@
+{
+    "$id": "http://redfish.dmtf.org/schemas/v1/AmiPhysicalLED.v1_0_0.json",
+    "$schema": "http://redfish.dmtf.org/schemas/v1/redfish-schema-v1.json",
+    "copyright": "Copyright 2014-2019 DMTF. For the full DMTF copyright policy, see http://www.dmtf.org/about/policies/copyright",
+    "definitions": {
+        "LEDState": {
+            "enum": [
+                "On",
+                "Blinking",
+                "Off",
+                "Unknown"
+            ],
+            "enumDescriptions": {
+                "Blinking": "The LED is blinking.",
+                "Off": "The LED is off.",
+                "On": "The LED is solidly on.",
+                "Unknown": "The LED state is unknown."
+            },
+            "type": "string"
+        },
+        "PhysicalLED": {
+            "additionalProperties": false,
+            "description": "Physical LEDs to display status of server.",
+            "longDescription": "This type describes the physical LEDs used to display the status of the server.",
+            "patternProperties": {
+                "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
+                    "description": "This property shall specify a valid odata or Redfish property.",
+                    "type": [
+                        "array",
+                        "boolean",
+                        "integer",
+                        "number",
+                        "null",
+                        "object",
+                        "string"
+                    ]
+                }
+            },
+            "properties": {
+                "AmberLED": {
+                    "$ref": "#/definitions/LEDState",
+                    "description": "The state of the amber LED.",
+                    "longDescription": "This property shall contain the state of the amber LED indicating critical or non-critical status.",
+                    "readonly": true
+                },
+                "BlueLED": {
+                    "$ref": "#/definitions/LEDState",
+                    "description": "The state of the blue identification LED.",
+                    "longDescription": "This property shall contain the state of the blue identification LED.",
+                    "readonly": true
+                },
+                "GreenLED": {
+                    "$ref": "#/definitions/LEDState",
+                    "description": "The state of the green LED.",
+                    "longDescription": "This property shall contain the state of the green LED indicating degraded or ok status.",
+                    "readonly": true
+                },
+                "SusackLED": {
+                    "$ref": "#/definitions/LEDState",
+                    "description": "The state of the SUSACK LED.",
+                    "longDescription": "This property shall contain the state of the SUSACK LED.",
+                    "readonly": true
+                }
+            },
+            "type": "object"
+        }
+    },
+    "owningEntity": "Ami",
+    "release": "1.0",
+    "title": "#AmiPhysicalLED.v1_0_0"
+}
