@@ -118,7 +118,8 @@ inline void cleanUp()
 }
 
 #if defined(ONETREE_EGS) || defined(ONETREE_BHS) ||                            \
-    defined(ONETREE_ASPEED_SDK_LAYER) || defined(ONETREE_EVB_AST2600)
+    defined(ONETREE_ASPEED_SDK_LAYER) || defined(ONETREE_EVB_AST2600) ||       \
+    defined(ONETREE_OKS)
 inline const PropertyValue getApplyTimePropertyValue(
     const std::string& servicePath, const std::string& objectName,
     const std::string& interface, const std::string& property_Name)
@@ -141,7 +142,8 @@ inline void activateImage(const std::string& objPath,
 {
     BMCWEB_LOG_DEBUG("Activate image for {} {}", objPath, service);
 #if defined(ONETREE_EGS) || defined(ONETREE_BHS) ||                            \
-    defined(ONETREE_ASPEED_SDK_LAYER) || defined(ONETREE_EVB_AST2600)
+    defined(ONETREE_ASPEED_SDK_LAYER) || defined(ONETREE_EVB_AST2600) ||       \
+    defined(ONETREE_OKS)
     // If targets is empty, it will apply to the active.
     if (!imgUriTargets.empty())
     {
@@ -496,7 +498,8 @@ inline bool handleCreateTask(const boost::system::error_code& ec2,
         taskData->extendTimer(std::chrono::minutes(BMCWEB_UPDATE_TIMEOUT));
     }
 #if defined(ONETREE_EGS) || defined(ONETREE_BHS) ||                            \
-    defined(ONETREE_ASPEED_SDK_LAYER) || defined(ONETREE_EVB_AST2600)
+    defined(ONETREE_ASPEED_SDK_LAYER) || defined(ONETREE_EVB_AST2600) ||       \
+    defined(ONETREE_OKS)
 
     else if (iface == "xyz.openbmc_project.Common.Task")
     {
@@ -589,7 +592,8 @@ inline void createTask(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     if (isIntelservice)
     {
 #if defined(ONETREE_EGS) || defined(ONETREE_BHS) ||                            \
-    defined(ONETREE_ASPEED_SDK_LAYER) || defined(ONETREE_EVB_AST2600)
+    defined(ONETREE_ASPEED_SDK_LAYER) || defined(ONETREE_EVB_AST2600) ||       \
+    defined(ONETREE_OKS)
 
         std::vector<uint16_t> vectorTaskId = {
             static_cast<uint16_t>(task->index)};
@@ -669,7 +673,8 @@ inline void softwareInterfaceAdded(
     if (isIntelservice)
     {
 #if defined(ONETREE_EGS) || defined(ONETREE_BHS) ||                            \
-    defined(ONETREE_ASPEED_SDK_LAYER) || defined(ONETREE_EVB_AST2600)
+    defined(ONETREE_ASPEED_SDK_LAYER) || defined(ONETREE_EVB_AST2600) ||       \
+    defined(ONETREE_OKS)
         std::array<std::string, 1> inface = {
             "xyz.openbmc_project.Software.Version"};
 
@@ -1096,7 +1101,8 @@ inline bool convertApplyTime(crow::Response& res, const std::string& applyTime,
         "InMaintenanceWindowOnReset"};
 #endif
 #if defined(ONETREE_EGS) || defined(ONETREE_BHS) ||                            \
-    defined(ONETREE_ASPEED_SDK_LAYER) || defined(ONETREE_EVB_AST2600)
+    defined(ONETREE_ASPEED_SDK_LAYER) || defined(ONETREE_EVB_AST2600) ||       \
+    defined(ONETREE_OKS)
 
     auto it = std::find(applyTimeAllowableValues.begin(),
                         applyTimeAllowableValues.end(), applyTime);
@@ -1624,7 +1630,8 @@ inline void updateMultipartContext(
         });
 }
 #if defined(ONETREE_EGS) || defined(ONETREE_BHS) ||                            \
-    defined(ONETREE_ASPEED_SDK_LAYER) || defined(ONETREE_EVB_AST2600)
+    defined(ONETREE_ASPEED_SDK_LAYER) || defined(ONETREE_EVB_AST2600) ||       \
+    defined(ONETREE_OKS)
 
 inline bool checkApplyTime(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
@@ -1715,7 +1722,8 @@ inline void doHTTPUpdate(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                                     httpPushUriTargets);
 
 #if defined(ONETREE_EGS) || defined(ONETREE_BHS) ||                            \
-    defined(ONETREE_ASPEED_SDK_LAYER) || defined(ONETREE_EVB_AST2600)
+    defined(ONETREE_ASPEED_SDK_LAYER) || defined(ONETREE_EVB_AST2600) ||       \
+    defined(ONETREE_OKS)
         if (checkApplyTime(asyncResp) == false)
         {
             messages::internalError(asyncResp->res);
@@ -1908,7 +1916,8 @@ inline void handleUpdateServiceGet(
         json_util::odataType("AmiUpdateService", "Ami");
 
 #if defined(ONETREE_EGS) || defined(ONETREE_BHS) ||                            \
-    defined(ONETREE_ASPEED_SDK_LAYER) || defined(ONETREE_EVB_AST2600)
+    defined(ONETREE_ASPEED_SDK_LAYER) || defined(ONETREE_EVB_AST2600) ||       \
+    defined(ONETREE_OKS)
 
     sdbusplus::asio::getAllProperties(
         *crow::connections::systemBus,
@@ -2076,7 +2085,8 @@ inline void handleUpdateServicePatch(
     std::optional<bool> imgTargetBusy;
     std::optional<nlohmann::json> oem;
 #if defined(ONETREE_EGS) || defined(ONETREE_BHS) ||                            \
-    defined(ONETREE_ASPEED_SDK_LAYER) || defined(ONETREE_EVB_AST2600)
+    defined(ONETREE_ASPEED_SDK_LAYER) || defined(ONETREE_EVB_AST2600) ||       \
+    defined(ONETREE_OKS)
 
     std::optional<std::string> applyTime;
     std::optional<std::string> maintenanceWindowStartTime;
@@ -2247,7 +2257,8 @@ inline void handleUpdateServicePatch(
 // single image in future. For now, consider first
 // target alone.
 #if defined(ONETREE_EGS) || defined(ONETREE_BHS) ||                            \
-    defined(ONETREE_ASPEED_SDK_LAYER) || defined(ONETREE_EVB_AST2600)
+    defined(ONETREE_ASPEED_SDK_LAYER) || defined(ONETREE_EVB_AST2600) ||       \
+    defined(ONETREE_OKS)
                         if ((*imgTargets).size() > 3)
                         {
                             messages::invalidObject(
@@ -2290,7 +2301,8 @@ inline void handleUpdateServicePatch(
                                     }
                                     std::string swId = path.substr(idPos + 1);
 #if defined(ONETREE_EGS) || defined(ONETREE_BHS) ||                            \
-    defined(ONETREE_ASPEED_SDK_LAYER) || defined(ONETREE_EVB_AST2600)
+    defined(ONETREE_ASPEED_SDK_LAYER) || defined(ONETREE_EVB_AST2600) ||       \
+    defined(ONETREE_OKS)
 
                                     for (const std::string& target : uriTargets)
                                     {

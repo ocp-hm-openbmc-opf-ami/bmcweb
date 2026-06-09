@@ -14,6 +14,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 
 namespace redfish
 {
@@ -21,40 +22,68 @@ namespace redfish
 inline void getPSUMonitorProperties(
     std::shared_ptr<bmcweb::AsyncResp> asyncResp)
 {
-    crow::connections::systemBus->async_method_call(
-        [asyncResp](
-            const boost::system::error_code ec2,
-            const std::vector<std::pair<
-                std::string, std::variant<uint8_t, uint16_t, std::string,
-                                          std::vector<std::string>>>>&
-                propertiesList) {
-            if (ec2)
+    constexpr std::array<std::string_view, 1> interface = {
+        "xyz.openbmc_project.PsuStatus"};
+    dbus::utility::getSubTreePaths(
+        "/xyz/openbmc_project/power/power_supplies/", 0, interface,
+        [asyncResp,
+         interface](const boost::system::error_code& ec,
+                    const dbus::utility::MapperGetSubTreePathsResponse& paths) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("DBUS response error for GetSubTreePaths: {}",
+                                 ec.value());
+                return;
+            }
+
+            if (paths.empty())
             {
                 return;
             }
-            for (const std::pair<std::string,
-                                 std::variant<uint8_t, uint16_t, std::string,
-                                              std::vector<std::string>>>&
-                     property : propertiesList)
+
+            for (const auto& objectPath : paths)
             {
-                const std::string& propertyName = property.first;
-                if ((propertyName == "AllocatedWatts") ||
-                    (propertyName == "RequestedWatts"))
-                {
-                    const uint16_t* value =
-                        std::get_if<uint16_t>(&property.second);
-                    if (value != nullptr)
-                    {
-                        asyncResp->res.jsonValue["Allocation"][propertyName] =
-                            *value;
-                    }
-                }
+                dbus::utility::getAllProperties(
+                    "xyz.openbmc_project.Power.PSUMonitor", objectPath,
+                    std::string(interface[0]),
+                    [asyncResp](const boost::system::error_code& ec2,
+                                const dbus::utility::DBusPropertiesMap& props) {
+                        if (ec2)
+                        {
+                            BMCWEB_LOG_DEBUG(
+                                "GetAllProperties failed on path: {}",
+                                ec2.message());
+                            return;
+                        }
+                        const uint64_t* allocatedWatts = nullptr;
+                        const uint64_t* requestedWatts = nullptr;
+
+                        bool success = sdbusplus::unpackPropertiesNoThrow(
+                            dbus_utils::UnpackErrorPrinter(), props,
+                            "AllocatedWatts", allocatedWatts, "RequestedWatts",
+                            requestedWatts);
+
+                        if (!success)
+                        {
+                            return;
+                        }
+
+                        if (allocatedWatts != nullptr)
+                        {
+                            asyncResp->res
+                                .jsonValue["Allocation"]["AllocatedWatts"] =
+                                *allocatedWatts;
+                        }
+                        if (requestedWatts != nullptr)
+                        {
+                            asyncResp->res
+                                .jsonValue["Allocation"]["RequestedWatts"] =
+                                *requestedWatts;
+                        }
+                    });
+                break;
             }
-        },
-        "xyz.openbmc_project.Power.PSUMonitor",
-        "/xyz/openbmc_project/inventory/system/powersupply",
-        "org.freedesktop.DBus.Properties", "GetAll",
-        "xyz.openbmc_project.PsuStatus");
+        });
 }
 inline void getCollectionOfPSUMembers(
     std::shared_ptr<bmcweb::AsyncResp> asyncResp,
@@ -62,7 +91,7 @@ inline void getCollectionOfPSUMembers(
     std::span<const std::string_view> interfaces,
     const std::vector<std::pair<
         std::string, std::variant<uint8_t, std::string, bool>>>& propertiesList,
-    const char* subtree = "/xyz/openbmc_project/inventory")
+    const char* subtree = "/xyz/openbmc_project/power/power_supplies/")
 {
     dbus::utility::getSubTreePaths(
         subtree, 0, interfaces,
@@ -145,7 +174,7 @@ inline void getPSURedundancy(
                 return;
             }
             constexpr std::array<std::string_view, 1> interface{
-                "xyz.openbmc_project.Inventory.Item.PowerSupply"};
+                "xyz.openbmc_project.PsuStatus"};
             getCollectionOfPSUMembers(
                 asyncResp,
                 boost::urls::format(

@@ -23,7 +23,7 @@ namespace redfish
 {
 
 static constexpr std::array<std::string_view, 1> powerSupplyInterface = {
-    "xyz.openbmc_project.Inventory.Item.PowerSupply"};
+    "xyz.openbmc_project.PsuStatus"};
 
 inline void updatePowerSupplyList(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -74,7 +74,7 @@ inline void doPowerSupplyCollection(
         "The collection of PowerSupply resource instances.";
 
     dbus::utility::getSubTreePaths(
-        "/xyz/openbmc_project/inventory", 0, powerSupplyInterface,
+        "/xyz/openbmc_project/power/power_supplies/", 0, powerSupplyInterface,
         [asyncResp, chassisId](
             const boost::system::error_code& ec,
             const dbus::utility::MapperGetSubTreePathsResponse& subtreePaths) {
@@ -133,26 +133,6 @@ inline void handlePowerSupplyCollectionGet(
         std::bind_front(doPowerSupplyCollection, asyncResp, chassisId));
 }
 
-inline void doPowerSupply(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                          const std::string& chassisId,
-                          const std::optional<std::string>& validChassisPath)
-{
-    if (!validChassisPath)
-    {
-        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
-        return;
-    }
-
-    auto sensorAsyncResp = std::make_shared<SensorsAsyncResp>(
-        asyncResp, chassisId, sensors::dbus::powerPaths,
-        sensor_utils::chassisSubNodeToString(
-            sensor_utils::ChassisSubNode::powerNode));
-
-    getChassisData(sensorAsyncResp);
-
-    return;
-}
-
 inline void requestRoutesPowerSupplyCollection(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/PowerSubsystem/PowerSupplies/")
@@ -172,7 +152,20 @@ inline bool checkPowerSupplyId(const std::string& powerSupplyPath,
     std::string powerSupplyName =
         sdbusplus::message::object_path(powerSupplyPath).filename();
 
-    return !(powerSupplyName.empty() || powerSupplyName != powerSupplyId);
+    if (powerSupplyName.empty())
+    {
+        return false;
+    }
+    // Exact match: e.g. .../PSU1 == "PSU1"
+    if (powerSupplyName == powerSupplyId)
+    {
+        return true;
+    }
+    // Suffix match: e.g. .../SOLUM_CO_IS162F22_PSU1 -> extract "PSU1" after
+    // last '_'
+    size_t pos = powerSupplyName.rfind('_');
+    return pos != std::string::npos &&
+           powerSupplyName.substr(pos + 1) == powerSupplyId;
 }
 
 inline void getValidPowerSupplyPath(
@@ -181,7 +174,7 @@ inline void getValidPowerSupplyPath(
     std::function<void(const std::string& powerSupplyPath)>&& callback)
 {
     dbus::utility::getSubTreePaths(
-        "/xyz/openbmc_project/inventory", 0, powerSupplyInterface,
+        "/xyz/openbmc_project/power/power_supplies/", 0, powerSupplyInterface,
         [asyncResp, powerSupplyId, callback{std::move(callback)}](
             const boost::system::error_code& ec,
             const dbus::utility::MapperGetSubTreePathsResponse& subtreePaths) {
@@ -251,7 +244,7 @@ inline void getPowerSupplyHealth(
 {
     dbus::utility::getProperty<bool>(
         service, path, "xyz.openbmc_project.State.Decorator.OperationalStatus",
-        "Functional",
+        "functional",
         [asyncResp](const boost::system::error_code& ec, const bool value) {
             if (ec)
             {
@@ -274,12 +267,16 @@ inline void getPowerSupplyHealth(
 
 inline void getPowerSupplyAsset(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& service, const std::string& path)
+    const std::string& powerSupplyId)
 {
-    dbus::utility::getAllProperties(
-        service, path, "xyz.openbmc_project.Inventory.Decorator.Asset",
-        [asyncResp](const boost::system::error_code& ec,
-                    const dbus::utility::DBusPropertiesMap& propertiesList) {
+    constexpr std::array<std::string_view, 1> inventoryInterface = {
+        "xyz.openbmc_project.Inventory.Item.PowerSupply"};
+
+    dbus::utility::getSubTreePaths(
+        "/xyz/openbmc_project/inventory", 0, inventoryInterface,
+        [asyncResp, powerSupplyId](
+            const boost::system::error_code& ec,
+            const dbus::utility::MapperGetSubTreePathsResponse& subtreePaths) {
             if (ec)
             {
                 if (ec.value() != EBADR)
@@ -291,18 +288,131 @@ inline void getPowerSupplyAsset(
                 return;
             }
 
-            const std::string* partNumber = nullptr;
-            const std::string* serialNumber = nullptr;
-            const std::string* manufacturer = nullptr;
-            const std::string* model = nullptr;
+            for (const std::string& path : subtreePaths)
+            {
+                if (checkPowerSupplyId(path, powerSupplyId))
+                {
+                    dbus::utility::getAllProperties(
+                        "xyz.openbmc_project.EntityManager", path,
+                        "xyz.openbmc_project.Inventory.Decorator.Asset",
+                        [asyncResp,
+                         path](const boost::system::error_code& ec2,
+                               const dbus::utility::DBusPropertiesMap&
+                                   propertiesList) {
+                            if (ec2)
+                            {
+                                if (ec2.value() != EBADR)
+                                {
+                                    BMCWEB_LOG_ERROR(
+                                        "DBUS response error for Asset {}",
+                                        ec2.value());
+                                    messages::internalError(asyncResp->res);
+                                }
+                                return;
+                            }
+
+                            const std::string* partNumber = nullptr;
+                            const std::string* serialNumber = nullptr;
+                            const std::string* manufacturer = nullptr;
+                            const std::string* model = nullptr;
+                            const std::string* sparePartNumber = nullptr;
+                            const std::string* buildDate = nullptr;
+
+                            const bool success =
+                                sdbusplus::unpackPropertiesNoThrow(
+                                    dbus_utils::UnpackErrorPrinter(),
+                                    propertiesList, "PartNumber", partNumber,
+                                    "SerialNumber", serialNumber,
+                                    "Manufacturer", manufacturer, "Model",
+                                    model, "SparePartNumber", sparePartNumber,
+                                    "BuildDate", buildDate);
+
+                            if (!success)
+                            {
+                                messages::internalError(asyncResp->res);
+                                return;
+                            }
+
+                            if (partNumber != nullptr)
+                            {
+                                asyncResp->res.jsonValue["PartNumber"] =
+                                    *partNumber;
+                            }
+
+                            if (serialNumber != nullptr)
+                            {
+                                asyncResp->res.jsonValue["SerialNumber"] =
+                                    *serialNumber;
+                            }
+
+                            if (manufacturer != nullptr)
+                            {
+                                asyncResp->res.jsonValue["Manufacturer"] =
+                                    *manufacturer;
+                            }
+
+                            if (model != nullptr)
+                            {
+                                asyncResp->res.jsonValue["Model"] = *model;
+                            }
+
+                            if (sparePartNumber != nullptr &&
+                                !sparePartNumber->empty())
+                            {
+                                asyncResp->res.jsonValue["SparePartNumber"] =
+                                    *sparePartNumber;
+                            }
+
+                            if (buildDate != nullptr)
+                            {
+                                time_utils::productionDateReport(asyncResp->res,
+                                                                 *buildDate);
+                            }
+                        });
+                    return;
+                }
+            }
+        });
+}
+
+inline void getPSUmonitorData(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& service, const std::string& path)
+{
+    sdbusplus::asio::getAllProperties(
+        *crow::connections::systemBus, service, path,
+        "xyz.openbmc_project.PsuStatus",
+        [asyncResp](const boost::system::error_code& ec,
+                    const std::vector<
+                        std::pair<std::string, dbus::utility::DbusVariantType>>&
+                        propertiesList) {
+            if (ec)
+            {
+                return;
+            }
+            const std::string* efficiencyRatings = nullptr;
+            const std::string* firmwareVersion = nullptr;
+            const std::string* inputNominalVoltageType = nullptr;
+            const std::string* plugType = nullptr;
+            const std::string* powerSupplyType = nullptr;
             const std::string* sparePartNumber = nullptr;
-            const std::string* buildDate = nullptr;
+            const std::string* status = nullptr;
+
+            const uint8_t* inputRange = nullptr;
+
+            const uint64_t* powerCapacityWatts = nullptr;
+
+            const std::vector<std::string>* outputRails = nullptr;
 
             const bool success = sdbusplus::unpackPropertiesNoThrow(
-                dbus_utils::UnpackErrorPrinter(), propertiesList, "PartNumber",
-                partNumber, "SerialNumber", serialNumber, "Manufacturer",
-                manufacturer, "Model", model, "SparePartNumber",
-                sparePartNumber, "BuildDate", buildDate);
+                dbus_utils::UnpackErrorPrinter(), propertiesList,
+                "EfficiencyRatings", efficiencyRatings, "FirmwareVersion",
+                firmwareVersion, "InputNominalVoltageType",
+                inputNominalVoltageType, "PlugType", plugType,
+                "PowerSupplyType", powerSupplyType, "SparePartNumber",
+                sparePartNumber, "PowerCapacityWatts", powerCapacityWatts,
+                "OutputRails", outputRails, "PSUStatus", status, "InputRanges",
+                inputRange);
 
             if (!success)
             {
@@ -310,35 +420,100 @@ inline void getPowerSupplyAsset(
                 return;
             }
 
-            if (partNumber != nullptr)
+            if (efficiencyRatings)
             {
-                asyncResp->res.jsonValue["PartNumber"] = *partNumber;
+                asyncResp->res.jsonValue["EfficiencyRatings"] =
+                    nlohmann::json::array();
+                asyncResp->res.jsonValue["EfficiencyRatings"].push_back(
+                    {{"EfficiencyPercent", std::stoi(*efficiencyRatings)}});
             }
 
-            if (serialNumber != nullptr)
+            if (firmwareVersion)
             {
-                asyncResp->res.jsonValue["SerialNumber"] = *serialNumber;
+                asyncResp->res.jsonValue["FirmwareVersion"] = *firmwareVersion;
             }
 
-            if (manufacturer != nullptr)
+            if (plugType)
             {
-                asyncResp->res.jsonValue["Manufacturer"] = *manufacturer;
+                asyncResp->res.jsonValue["PlugType"] = *plugType;
             }
 
-            if (model != nullptr)
+            if (powerSupplyType)
             {
-                asyncResp->res.jsonValue["Model"] = *model;
+                asyncResp->res.jsonValue["PowerSupplyType"] = *powerSupplyType;
             }
 
-            // SparePartNumber is optional on D-Bus so skip if it is empty
-            if (sparePartNumber != nullptr && !sparePartNumber->empty())
+            if (sparePartNumber)
             {
                 asyncResp->res.jsonValue["SparePartNumber"] = *sparePartNumber;
             }
 
-            if (buildDate != nullptr)
+            if (powerCapacityWatts)
             {
-                time_utils::productionDateReport(asyncResp->res, *buildDate);
+                asyncResp->res.jsonValue["PowerCapacityWatts"] =
+                    *powerCapacityWatts;
+            }
+
+            if (inputNominalVoltageType)
+            {
+                asyncResp->res.jsonValue["InputRanges"] =
+                    nlohmann::json::array();
+                asyncResp->res.jsonValue["InputRanges"].push_back(
+                    {{"NominalVoltageType", *inputNominalVoltageType}});
+            }
+
+            if (outputRails)
+            {
+                nlohmann::json outputRailsJson = nlohmann::json::array();
+
+                for (const std::string& element : *outputRails)
+                {
+                    nlohmann::json railValues;
+
+                    if (element == "12v")
+                    {
+                        railValues["NominalVoltage"] = 12;
+                        railValues["PhysicalContext"] = "StorageDevice";
+                    }
+                    else if (element == "1.8v")
+                    {
+                        railValues["NominalVoltage"] = 1.8;
+                        railValues["PhysicalContext"] = "SystemBoard";
+                    }
+                    else if (element == "3v")
+                    {
+                        railValues["NominalVoltage"] = 3;
+                        railValues["PhysicalContext"] = "SystemBoard";
+                    }
+                    else if (element == "5v")
+                    {
+                        railValues["NominalVoltage"] = 5;
+                        railValues["PhysicalContext"] = "SystemBoard";
+                    }
+
+                    if (!railValues.empty())
+                    {
+                        outputRailsJson.push_back(railValues);
+                    }
+                }
+
+                asyncResp->res.jsonValue["OutputRails"] =
+                    std::move(outputRailsJson);
+            }
+            if (status)
+            {
+                if ((*status) == "StandbyOffline")
+                {
+                    asyncResp->res.jsonValue["Status"]["State"] =
+                        resource::State::StandbyOffline;
+                }
+            }
+            if (inputRange)
+            {
+                asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] =
+                    json_util::odataType("AmiPowerSupply");
+                asyncResp->res.jsonValue["Oem"]["Ami"]["InputVoltageValue"] =
+                    *inputRange;
             }
         });
 }
@@ -495,8 +670,7 @@ inline void doPowerSupplyGet(
             asyncResp->res.jsonValue["@odata.type"] =
                 json_util::odataType("PowerSupply");
             std::string powerSupplyName = powerSupplyId;
-            std::replace(powerSupplyName.begin(), powerSupplyName.end(), '_',
-                         ' ');
+
             asyncResp->res.jsonValue["Name"] = std::move(powerSupplyName);
             asyncResp->res.jsonValue["Id"] = powerSupplyId;
             asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
@@ -507,30 +681,29 @@ inline void doPowerSupplyGet(
                 resource::State::Enabled;
             asyncResp->res.jsonValue["Status"]["Health"] = resource::Health::OK;
 
-            auto sensorAsyncResp = std::make_shared<SensorsAsyncResp>(
-                asyncResp, chassisId, sensors::dbus::powerPaths,
-                sensor_utils::chassisSubNodeToString(
-                    sensor_utils::ChassisSubNode::powerNode));
-
-            getChassisData(sensorAsyncResp);
-
             dbus::utility::getDbusObject(
                 powerSupplyPath, powerSupplyInterface,
-                [asyncResp, powerSupplyPath](
-                    const boost::system::error_code& ec,
-                    const dbus::utility::MapperGetObject& object) {
+                [asyncResp, powerSupplyPath,
+                 powerSupplyId](const boost::system::error_code& ec,
+                                const dbus::utility::MapperGetObject& object) {
                     if (ec || object.empty())
                     {
                         messages::internalError(asyncResp->res);
                         return;
                     }
 
+                    std::string PSUDecoratorpath =
+                        "/xyz/openbmc_project/State/Decorator/" +
+                        powerSupplyId + "_OperationalStatus";
+
                     getPowerSupplyState(asyncResp, object.begin()->first,
                                         powerSupplyPath);
-                    getPowerSupplyHealth(asyncResp, object.begin()->first,
-                                         powerSupplyPath);
-                    getPowerSupplyAsset(asyncResp, object.begin()->first,
-                                        powerSupplyPath);
+                    getPowerSupplyHealth(asyncResp,
+                                         "xyz.openbmc_project.PSUSensor",
+                                         PSUDecoratorpath);
+                    getPowerSupplyAsset(asyncResp, powerSupplyId);
+                    getPSUmonitorData(asyncResp, object.begin()->first,
+                                      powerSupplyPath);
                     getPowerSupplyFirmwareVersion(
                         asyncResp, object.begin()->first, powerSupplyPath);
                     getPowerSupplyLocation(asyncResp, object.begin()->first,
