@@ -159,12 +159,12 @@ struct TaskData : std::enable_shared_from_this<TaskData>
 
     void populateResp(crow::Response& res, size_t retryAfterSeconds = 30)
     {
+        std::string strIdx = std::to_string(index);
+        boost::urls::url uri =
+            boost::urls::format("/redfish/v1/TaskService/Tasks/{}", strIdx);
         if (!endTime)
         {
             res.result(boost::beast::http::status::accepted);
-            std::string strIdx = std::to_string(index);
-            boost::urls::url uri =
-                boost::urls::format("/redfish/v1/TaskService/Tasks/{}", strIdx);
 
             res.jsonValue["@odata.id"] = uri;
             res.jsonValue["@odata.type"] = json_util::odataType("Task");
@@ -187,6 +187,16 @@ struct TaskData : std::enable_shared_from_this<TaskData>
         }
         else if (!taskCompleted)
         {
+            res.result(boost::beast::http::status::accepted);
+            res.jsonValue["@odata.id"] = uri;
+            res.jsonValue["@odata.type"] = json_util::odataType("Task");
+            res.jsonValue["Id"] = strIdx;
+            res.jsonValue["TaskState"] = state;
+            if (state == "Completed" || state == "Cancelled" ||
+                state == "Exception")
+            {
+                res.jsonValue["TaskStatus"] = status;
+            }
             taskCompleted = true;
         }
     }
@@ -659,8 +669,9 @@ inline void handleTaskDeleteMonitor(
         return;
     }
     std::shared_ptr<task::TaskData>& ptr = *find;
-    std::string statusval = ptr->state;
-    if (statusval == "Completed")
+    const std::string& statusval = ptr->state;
+    if (statusval == "Completed" || statusval == "Exception" ||
+        statusval == "Cancelled")
     {
         asyncResp->res.addHeader("Allow", "");
         messages::resourceNotFound(asyncResp->res, "Task", strParam);
@@ -714,7 +725,6 @@ inline void requestRoutesTaskMonitor(App& app)
                     return;
                 }
                 std::shared_ptr<task::TaskData>& ptr = *find;
-                ptr->populateResp(asyncResp->res);
                 // monitor expires after taskCompleted
                 if (ptr->taskCompleted)
                 {
@@ -722,6 +732,7 @@ inline void requestRoutesTaskMonitor(App& app)
                                                strParam);
                     return;
                 }
+                ptr->populateResp(asyncResp->res);
             });
     BMCWEB_ROUTE(app, "/redfish/v1/TaskService/TaskMonitors/<str>/")
         .methods(boost::beast::http::verb::post,
@@ -750,8 +761,9 @@ inline void requestRoutesTaskMonitor(App& app)
                     return;
                 }
                 std::shared_ptr<task::TaskData>& ptr = *find;
-                std::string statusval = ptr->state;
-                if (statusval == "Completed")
+                const std::string& statusval = ptr->state;
+                if (statusval == "Completed" || statusval == "Exception" ||
+                    statusval == "Cancelled")
                 {
                     asyncResp->res.addHeader("Allow", "");
                     messages::resourceNotFound(asyncResp->res, "Task",
@@ -830,7 +842,7 @@ inline void requestRoutesTask(App& app)
             asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
                 "/redfish/v1/TaskService/Tasks/{}", strParam);
             std::string status = ptr->state;
-            if (status != "Completed")
+            if (!ptr->taskCompleted)
             {
                 asyncResp->res.jsonValue["TaskMonitor"] = boost::urls::format(
                     "/redfish/v1/TaskService/TaskMonitors/{}", strParam);
