@@ -18,6 +18,79 @@
 
 namespace redfish
 {
+
+// PostCode D-Bus service and object path constants
+// Single node
+static constexpr const char* postCode0Service =
+    "xyz.openbmc_project.State.Boot.PostCode0";
+static constexpr const char* postCode0Path =
+    "/xyz/openbmc_project/State/Boot/PostCode0";
+
+// Dual node - Node 0 (system)
+static constexpr const char* postCode1Service =
+    "xyz.openbmc_project.State.Boot.PostCode1";
+static constexpr const char* postCode1Path =
+    "/xyz/openbmc_project/State/Boot/PostCode1";
+
+// Dual node - Node 1 (system1)
+static constexpr const char* postCode2Service =
+    "xyz.openbmc_project.State.Boot.PostCode2";
+static constexpr const char* postCode2Path =
+    "/xyz/openbmc_project/State/Boot/PostCode2";
+
+uint64_t getComputerSystemIndex(const std::string& systemName)
+{
+    if (systemName == "system1")
+    {
+        return 1;
+    }
+    return 0;
+}
+
+// Returns the PostCode D-Bus service name for the given system.
+// Single node  -> PostCode0
+// Dual node 0  -> PostCode1
+// Dual node 1  -> PostCode2
+std::string getPostCodeService(uint64_t computerSystemIndex)
+{
+    std::string service = postCode0Service; // default (single node)
+
+    if (system_utils::isDualHostEnabled())
+    {
+        if (computerSystemIndex == 1)
+        {
+            // "system1" maps to PostCode2
+            service = postCode2Service;
+        }
+        else
+        {
+            // "system" (default) maps to PostCode1 in dual-node mode
+            service = postCode1Service;
+        }
+    }
+    return service;
+}
+
+std::string getPostCodeObject(uint64_t computerSystemIndex)
+{
+    std::string object = postCode0Path; // default (single node)
+
+    if (system_utils::isDualHostEnabled())
+    {
+        if (computerSystemIndex == 1)
+        {
+            // "system1" maps to PostCode2
+            object = postCode2Path;
+        }
+        else
+        {
+            // "system" (default) maps to PostCode1 in dual-node mode
+            object = postCode1Path;
+        }
+    }
+    return object;
+}
+
 inline void handleSystemsLogServicesPostCodesGet(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -39,8 +112,7 @@ inline void handleSystemsLogServicesPostCodesGet(
         return;
     }
     asyncResp->res.jsonValue["@odata.id"] =
-        std::format("/redfish/v1/Systems/{}/LogServices/PostCodes",
-                    BMCWEB_REDFISH_SYSTEM_URI_NAME);
+        std::format("/redfish/v1/Systems/{}/LogServices/PostCodes", systemName);
     asyncResp->res.jsonValue["@odata.type"] =
         json_util::odataType("LogService");
     asyncResp->res.jsonValue["Name"] = "POST Code Log Service";
@@ -49,9 +121,8 @@ inline void handleSystemsLogServicesPostCodesGet(
     asyncResp->res.jsonValue["OverWritePolicy"] =
         log_service::OverWritePolicy::WrapsWhenFull;
     asyncResp->res.jsonValue["MaxNumberOfRecords"] = 150;
-    asyncResp->res.jsonValue["Entries"]["@odata.id"] =
-        std::format("/redfish/v1/Systems/{}/LogServices/PostCodes/Entries",
-                    BMCWEB_REDFISH_SYSTEM_URI_NAME);
+    asyncResp->res.jsonValue["Entries"]["@odata.id"] = std::format(
+        "/redfish/v1/Systems/{}/LogServices/PostCodes/Entries", systemName);
 
     auto [dateTime, offsetStr] = redfish::time_utils::getLocalDateTimeOffset();
     asyncResp->res.jsonValue["DateTime"] = dateTime;
@@ -60,7 +131,7 @@ inline void handleSystemsLogServicesPostCodesGet(
     asyncResp->res
         .jsonValue["Actions"]["#LogService.ClearLog"]["target"] = std::format(
         "/redfish/v1/Systems/{}/LogServices/PostCodes/Actions/LogService.ClearLog",
-        BMCWEB_REDFISH_SYSTEM_URI_NAME);
+        systemName);
 }
 
 inline void handleSystemsLogServicesPostCodesPost(
@@ -85,6 +156,10 @@ inline void handleSystemsLogServicesPostCodesPost(
     }
     BMCWEB_LOG_DEBUG("Do delete all postcodes entries.");
 
+    uint64_t computerSystemIndex = getComputerSystemIndex(systemName);
+    std::string service = getPostCodeService(computerSystemIndex);
+    std::string object = getPostCodeObject(computerSystemIndex);
+
     // Make call to post-code service to request clear all
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code& ec) {
@@ -100,9 +175,8 @@ inline void handleSystemsLogServicesPostCodesPost(
             }
             messages::success(asyncResp->res);
         },
-        "xyz.openbmc_project.State.Boot.PostCode0",
-        "/xyz/openbmc_project/State/Boot/PostCode0",
-        "xyz.openbmc_project.Collection.DeleteAll", "DeleteAll");
+        service, object, "xyz.openbmc_project.Collection.DeleteAll",
+        "DeleteAll");
 }
 
 /**
@@ -154,7 +228,8 @@ static bool fillPostCodeEntry(
     const boost::container::flat_map<
         uint64_t, std::tuple<std::vector<uint8_t>, std::vector<uint8_t>>>&
         postcode,
-    const uint16_t bootIndex, const uint64_t codeIndex = 0)
+    const uint16_t bootIndex, const std::string& systemName,
+    const uint64_t codeIndex = 0)
 {
     // Get the Message from the MessageRegistry
     const registries::Message* message =
@@ -265,7 +340,7 @@ static bool fillPostCodeEntry(
         bmcLogEntry["@odata.type"] = json_util::odataType("LogEntry");
         bmcLogEntry["@odata.id"] = boost::urls::format(
             "/redfish/v1/Systems/{}/LogServices/PostCodes/Entries/{}",
-            BMCWEB_REDFISH_SYSTEM_URI_NAME, postcodeEntryID);
+            systemName, postcodeEntryID);
         bmcLogEntry["Name"] = "POST Code Log Entry";
         bmcLogEntry["Id"] = postcodeEntryID;
         bmcLogEntry["Description"] = "PostCode " + postcodeEntryID;
@@ -280,7 +355,7 @@ static bool fillPostCodeEntry(
             bmcLogEntry["AdditionalDataURI"] =
                 std::format(
                     "/redfish/v1/Systems/{}/LogServices/PostCodes/Entries/",
-                    BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+                    systemName) +
                 postcodeEntryID + "/attachment";
         }
 
@@ -323,7 +398,7 @@ static bool fillPostCodeEntry(
 
 inline void getPostCodeForEntry(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& entryId)
+    const std::string& entryId, const std::string& systemName)
 {
     uint16_t bootIndex = 0;
     uint64_t codeIndex = 0;
@@ -341,12 +416,16 @@ inline void getPostCodeForEntry(
         return;
     }
 
+    uint64_t computerSystemIndex = getComputerSystemIndex(systemName);
+    std::string service = getPostCodeService(computerSystemIndex);
+    std::string object = getPostCodeObject(computerSystemIndex);
+
     crow::connections::systemBus->async_method_call(
-        [asyncResp, entryId, bootIndex,
-         codeIndex](const boost::system::error_code& ec,
-                    const boost::container::flat_map<
-                        uint64_t, std::tuple<std::vector<uint8_t>,
-                                             std::vector<uint8_t>>>& postcode) {
+        [asyncResp, entryId, bootIndex, codeIndex, systemName](
+            const boost::system::error_code& ec,
+            const boost::container::flat_map<
+                uint64_t, std::tuple<std::vector<uint8_t>,
+                                     std::vector<uint8_t>>>& postcode) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS POST CODE PostCode response error");
@@ -360,29 +439,31 @@ inline void getPostCodeForEntry(
                 return;
             }
 
-            if (!fillPostCodeEntry(asyncResp, postcode, bootIndex, codeIndex))
+            if (!fillPostCodeEntry(asyncResp, postcode, bootIndex, systemName,
+                                   codeIndex))
             {
                 messages::resourceNotFound(asyncResp->res, "LogEntry", entryId);
                 return;
             }
         },
-        "xyz.openbmc_project.State.Boot.PostCode0",
-        "/xyz/openbmc_project/State/Boot/PostCode0",
-        "xyz.openbmc_project.State.Boot.PostCode", "GetPostCodesWithTimeStamp",
-        bootIndex);
+        service, object, "xyz.openbmc_project.State.Boot.PostCode",
+        "GetPostCodesWithTimeStamp", bootIndex);
 }
 
 inline void getPostCodeForBoot(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const uint16_t bootIndex, const uint16_t bootCount,
-    const uint64_t entryCount, size_t skip, size_t top)
+    const uint64_t entryCount, size_t skip, size_t top,
+    const std::string& systemName, const std::string& service,
+    const std::string& object)
 {
     crow::connections::systemBus->async_method_call(
-        [asyncResp, bootIndex, bootCount, entryCount, skip,
-         top](const boost::system::error_code& ec,
-              const boost::container::flat_map<
-                  uint64_t, std::tuple<std::vector<uint8_t>,
-                                       std::vector<uint8_t>>>& postcode) {
+        [asyncResp, bootIndex, bootCount, entryCount, skip, top, systemName,
+         service,
+         object](const boost::system::error_code& ec,
+                 const boost::container::flat_map<
+                     uint64_t, std::tuple<std::vector<uint8_t>,
+                                          std::vector<uint8_t>>>& postcode) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS POST CODE PostCode response error");
@@ -395,15 +476,15 @@ inline void getPostCodeForBoot(
             {
                 endCount = entryCount + postcode.size();
                 // Collect all entries without filtering
-                fillPostCodeEntry(asyncResp, postcode, bootIndex);
+                fillPostCodeEntry(asyncResp, postcode, bootIndex, systemName);
             }
 
             // continue to previous bootIndex
             if (bootIndex < bootCount)
             {
-                getPostCodeForBoot(asyncResp,
-                                   static_cast<uint16_t>(bootIndex + 1),
-                                   bootCount, endCount, skip, top);
+                getPostCodeForBoot(
+                    asyncResp, static_cast<uint16_t>(bootIndex + 1), bootCount,
+                    endCount, skip, top, systemName, service, object);
             }
             else
             {
@@ -439,34 +520,35 @@ inline void getPostCodeForBoot(
                 asyncResp->res.jsonValue["Members@odata.nextLink"] =
                     std::format(
                         "/redfish/v1/Systems/{}/LogServices/PostCodes/Entries?$skip=",
-                        BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+                        systemName) +
                     std::to_string(skip + top);
             }
         },
-        "xyz.openbmc_project.State.Boot.PostCode0",
-        "/xyz/openbmc_project/State/Boot/PostCode0",
-        "xyz.openbmc_project.State.Boot.PostCode", "GetPostCodesWithTimeStamp",
-        bootIndex);
+        service, object, "xyz.openbmc_project.State.Boot.PostCode",
+        "GetPostCodesWithTimeStamp", bootIndex);
 }
 
 inline void getCurrentBootNumber(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, size_t skip,
-    size_t top)
+    size_t top, const std::string& systemName, uint64_t computerSystemIndex)
 {
     uint64_t entryCount = 0;
+    std::string service = getPostCodeService(computerSystemIndex);
+    std::string object = getPostCodeObject(computerSystemIndex);
+
     dbus::utility::getProperty<uint16_t>(
-        "xyz.openbmc_project.State.Boot.PostCode0",
-        "/xyz/openbmc_project/State/Boot/PostCode0",
-        "xyz.openbmc_project.State.Boot.PostCode", "CurrentBootCycleCount",
-        [asyncResp, entryCount, skip,
-         top](const boost::system::error_code& ec, const uint16_t bootCount) {
+        service, object, "xyz.openbmc_project.State.Boot.PostCode",
+        "CurrentBootCycleCount",
+        [asyncResp, entryCount, skip, top, systemName, service, object](
+            const boost::system::error_code& ec, const uint16_t bootCount) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
                 messages::internalError(asyncResp->res);
                 return;
             }
-            getPostCodeForBoot(asyncResp, 1, bootCount, entryCount, skip, top);
+            getPostCodeForBoot(asyncResp, 1, bootCount, entryCount, skip, top,
+                               systemName, service, object);
         });
 }
 
@@ -497,11 +579,12 @@ inline void handleSystemsLogServicesPostCodesEntriesGet(
     {
         return;
     }
+    uint64_t computerSystemIndex = getComputerSystemIndex(systemName);
+
     asyncResp->res.jsonValue["@odata.type"] =
         "#LogEntryCollection.LogEntryCollection";
-    asyncResp->res.jsonValue["@odata.id"] =
-        std::format("/redfish/v1/Systems/{}/LogServices/PostCodes/Entries",
-                    BMCWEB_REDFISH_SYSTEM_URI_NAME);
+    asyncResp->res.jsonValue["@odata.id"] = std::format(
+        "/redfish/v1/Systems/{}/LogServices/PostCodes/Entries", systemName);
     asyncResp->res.jsonValue["Name"] = "BIOS POST Code Log Entries";
     asyncResp->res.jsonValue["Description"] =
         "Collection of POST Code Log Entries";
@@ -509,7 +592,7 @@ inline void handleSystemsLogServicesPostCodesEntriesGet(
     asyncResp->res.jsonValue["Members@odata.count"] = 0;
     size_t skip = delegatedQuery.skip.value_or(0);
     size_t top = delegatedQuery.top.value_or(query_param::Query::maxTop);
-    getCurrentBootNumber(asyncResp, skip, top);
+    getCurrentBootNumber(asyncResp, skip, top, systemName, computerSystemIndex);
 }
 
 inline void handleSystemsLogServicesPostCodesEntriesEntryAdditionalDataGet(
@@ -540,6 +623,7 @@ inline void handleSystemsLogServicesPostCodesEntriesEntryAdditionalDataGet(
         return;
     }
 
+    uint64_t computerSystemIndex = getComputerSystemIndex(systemName);
     uint64_t currentValue = 0;
     uint16_t index = 0;
     if (!parsePostCode(postCodeID, currentValue, index))
@@ -549,7 +633,7 @@ inline void handleSystemsLogServicesPostCodesEntriesEntryAdditionalDataGet(
     }
 
     crow::connections::systemBus->async_method_call(
-        [asyncResp, postCodeID, currentValue](
+        [asyncResp, postCodeID, currentValue, computerSystemIndex](
             const boost::system::error_code& ec,
             const std::vector<std::tuple<std::vector<uint8_t>,
                                          std::vector<uint8_t>>>& postcodes) {
@@ -593,8 +677,8 @@ inline void handleSystemsLogServicesPostCodesEntriesEntryAdditionalDataGet(
                 boost::beast::http::field::content_transfer_encoding, "Base64");
             asyncResp->res.write(crow::utility::base64encode(strData));
         },
-        "xyz.openbmc_project.State.Boot.PostCode0",
-        "/xyz/openbmc_project/State/Boot/PostCode0",
+        getPostCodeService(computerSystemIndex),
+        getPostCodeObject(computerSystemIndex),
         "xyz.openbmc_project.State.Boot.PostCode", "GetPostCodes", index);
 }
 
@@ -625,7 +709,7 @@ inline void handleSystemsLogServicesPostCodesEntriesEntryGet(
         return;
     }
     asyncResp->res.addHeader("Allow", "GET");
-    getPostCodeForEntry(asyncResp, targetID);
+    getPostCodeForEntry(asyncResp, targetID, systemName);
 }
 
 inline void requestRoutesSystemsLogServicesPostCode(App& app)

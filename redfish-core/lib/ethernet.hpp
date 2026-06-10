@@ -1760,7 +1760,8 @@ inline void setEthernetInterfaceBoolProperty(
         *crow::connections::systemBus, "xyz.openbmc_project.Network",
         "/xyz/openbmc_project/network/" + ifaceId,
         "xyz.openbmc_project.Network.EthernetInterface", propertyName, value,
-        [asyncResp](const boost::system::error_code& ec, const sdbusplus::message_t& m) {
+        [asyncResp](const boost::system::error_code& ec,
+                    const sdbusplus::message_t& m) {
             if (ec)
             {
                 const sd_bus_error* dbusError = m.get_error();
@@ -1771,7 +1772,9 @@ inline void setEthernetInterfaceBoolProperty(
                     return;
                 }
 
-                if (std::string_view("org.freedesktop.DBus.Error.PropertyReadOnly") == dbusError->name )
+                if (std::string_view(
+                        "org.freedesktop.DBus.Error.PropertyReadOnly") ==
+                    dbusError->name)
                 {
                     BMCWEB_LOG_ERROR("D-Bus propertyNotWritable error: {}", ec);
                     messages::propertyNotWritable(asyncResp->res,
