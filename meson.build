@@ -394,7 +394,7 @@ if grep_prog.found()
         'ONETREE_ACD': ['ext/lib/acd/acd_errors.cpp'],
         'ONETREE_RM': ['ext/src/rm.cpp'],
         'ONETREE_PSM': ['ext/src/psm.cpp'],
-        'ONETREE_NVIDIASIPACK': ['ext/cper/src/cper.cpp', 'ext/src/reset.cpp', 'ext/src/erot_dump.cpp', 'ext/src/auxreset.cpp', 'ext/dot/src/dot.cpp', 'ext/spdm/src/spdm.cpp', 'ext/sbmr/src/sbmr.cpp'],
+        'ONETREE_NVIDIASIPACK': ['ext/cper/src/cper.cpp', 'ext/src/reset.cpp', 'ext/src/erot_dump.cpp', 'ext/src/auxreset.cpp', 'ext/src/dot.cpp', 'ext/src/spdm.cpp', 'ext/src/sbmr.cpp'],
         'ONETREE_GPGPU': ['ext/src/gpgpu.cpp'],
         'ONETREE_ARM_SBMR': ['ext/src/arm_redfish.cpp'],
 	'ONETREE_RPC': ['ext/src/rackpowercontroller.cpp'],

@@ -112,9 +112,9 @@
 
 #ifdef ONETREE_NVIDIASIPACK
 #include "ext/cper/src/cper.hpp"
-#include "ext/dot/src/dot.hpp"
-#include "ext/sbmr/src/sbmr.hpp"
-#include "ext/spdm/src/spdm.hpp"
+#include "ext/src/dot.hpp"
+#include "ext/src/sbmr.hpp"
+#include "ext/src/spdm.hpp"
 #include "ext/src/auxreset.hpp"
 #include "ext/src/erot_dump.hpp"
 #include "ext/src/reset.hpp"
