@@ -1974,11 +1974,11 @@ const static auto& headVirtualMedia = privilegeSetLogin;
 const static auto& patchVirtualMedia = privilegeSetConfigureManager;
 // const static auto& putVirtualMedia = privilegeSetConfigureManager;
 // const static auto& deleteVirtualMedia = privilegeSetConfigureManager;
-// const static auto& postVirtualMedia = privilegeSetConfigureManager;
+const static auto& postVirtualMedia = privilegeSetConfigureManager;
 //const static auto& patchVirtualMedia = privilegeSetLoginConfigureManager; // Added to Vmedia for OEM Extended 
 const static auto& putVirtualMedia = privilegeSetLoginConfigureManager;
 const static auto& deleteVirtualMedia = privilegeSetConfigureManager;
-const static auto& postVirtualMedia = privilegeSetConfigureComponents;
+
 
 // VirtualMediaCollection
 const static auto& getVirtualMediaCollection = privilegeSetLogin;
