@@ -18,14 +18,14 @@
       <edmx:Include Namespace="Resource"/>
       <edmx:Include Namespace="Resource.v1_0_0"/>
     </edmx:Reference>
-    <edmx:Reference Uri="/redfish/v1/schema/AmiChassisFRUCollection_v1.xml">
+    <edmx:Reference Uri="/redfish/v1/Schemas/AmiChassisFRUCollection_v1.xml">
       <edmx:Include Namespace="AmiChassisFRUCollection"/>
     </edmx:Reference>
-    <edmx:Reference Uri="/redfish/v1/schema/AmiChassisFRU_v1.xml">
+    <edmx:Reference Uri="/redfish/v1/Schemas/AmiChassisFRU_v1.xml">
       <edmx:Include Namespace="AmiChassisFRU"/>
       <edmx:Include Namespace="AmiChassisFRU.v1_0_0"/>
     </edmx:Reference>
-    <edmx:Reference Uri="/redfish/v1/schema/AmiChassis_v1.xml">
+    <edmx:Reference Uri="/redfish/v1/Schemas/AmiChassis_v1.xml">
       <edmx:Include Namespace="AmiChassis.v1_0_0"/>
     </edmx:Reference>
     <edmx:DataServices>

@@ -14,14 +14,14 @@
     <edmx:Include Namespace="Resource"/>
     <edmx:Include Namespace="Resource.v1_0_0"/>
   </edmx:Reference>
-  <edmx:Reference Uri="/redfish/v1/schema/AmiLicenseControl_v1.xml">
+  <edmx:Reference Uri="/redfish/v1/Schemas/AmiLicenseControl_v1.xml">
     <edmx:Include Namespace="AmiLicenseControl"/>
   </edmx:Reference>
-  <edmx:Reference Uri="/redfish/v1/schema/CupsService_v1.xml">
+  <edmx:Reference Uri="/redfish/v1/Schemas/CupsService_v1.xml">
     <edmx:Include Namespace="CupsService"/>
   </edmx:Reference>
-  <edmx:Reference Uri="/redfish/v1/schema/PefService_v1.xml">
-    <edmx:Include Namespace="PefService"/>
+  <edmx:Reference Uri="/redfish/v1/Schemas/AmiPefService_v1.xml">
+    <edmx:Include Namespace="AmiPefService"/>
   </edmx:Reference>
 
   <edmx:DataServices>
@@ -64,7 +64,7 @@
             <Annotation Term="OData.LongDescription" String="This property shall contain the link to AMI License Control Service."/>
             <Annotation Term="OData.AutoExpandReferences"/>
           </NavigationProperty>
-          <NavigationProperty Name="PefService" Type="PefService.PefService" Nullable="false">
+          <NavigationProperty Name="PefService" Type="AmiPefService.AmiPefService" Nullable="false">
             <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
             <Annotation Term="OData.Description" String="The link to Platform Event Filtering Service."/>
             <Annotation Term="OData.LongDescription" String="This property shall contain the link to PEF Service for platform event filtering and alerting."/>

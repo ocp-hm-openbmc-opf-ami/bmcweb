@@ -21,7 +21,7 @@
     <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
   </edmx:Reference>
 
-  <edmx:Reference Uri="/redfish/v1/schema/LogService_v1.xml">
+  <edmx:Reference Uri="/redfish/v1/Schemas/LogService_v1.xml">
     <edmx:Include Namespace="LogService"/>
     <edmx:Include Namespace="LogService.v1_2_0"/>
   </edmx:Reference>

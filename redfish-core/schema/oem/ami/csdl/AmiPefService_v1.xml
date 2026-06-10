@@ -28,7 +28,7 @@
     <edmx:Include Namespace="Resource"/>
     <edmx:Include Namespace="Resource.v1_0_0"/>
   </edmx:Reference>
-  <edmx:Reference Uri="/redfish/v1/schema/AmiPefEntry_v1.xml">
+  <edmx:Reference Uri="/redfish/v1/Schemas/AmiPefEntry_v1.xml">
     <edmx:Include Namespace="AmiPefEntry"/>
   </edmx:Reference>
 

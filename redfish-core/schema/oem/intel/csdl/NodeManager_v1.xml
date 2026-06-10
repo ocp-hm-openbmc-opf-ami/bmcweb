@@ -24,16 +24,16 @@
     <edmx:Include Namespace="Resource"/>
     <edmx:Include Namespace="Resource.v1_0_0"/>
   </edmx:Reference>
-  <edmx:Reference Uri="/redfish/v1/schema/NmDomainCollection_v1.xml">
+  <edmx:Reference Uri="/redfish/v1/Schemas/NmDomainCollection_v1.xml">
     <edmx:Include Namespace="NmDomainCollection"/>
   </edmx:Reference>
-  <edmx:Reference Uri="/redfish/v1/schema/NmPolicyCollection_v1.xml">
+  <edmx:Reference Uri="/redfish/v1/Schemas/NmPolicyCollection_v1.xml">
     <edmx:Include Namespace="NmPolicyCollection"/>
   </edmx:Reference>
-  <edmx:Reference Uri="/redfish/v1/schema/NmTriggerCollection_v1.xml">
+  <edmx:Reference Uri="/redfish/v1/Schemas/NmTriggerCollection_v1.xml">
     <edmx:Include Namespace="NmTriggerCollection"/>
   </edmx:Reference>
-  <edmx:Reference Uri="/redfish/v1/schema/NmThrottlingStatus_v1.xml">
+  <edmx:Reference Uri="/redfish/v1/Schemas/NmThrottlingStatus_v1.xml">
     <edmx:Include Namespace="NmThrottlingStatus"/>
   </edmx:Reference>
 
