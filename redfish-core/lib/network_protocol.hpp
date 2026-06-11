@@ -187,46 +187,41 @@ inline void getSNMPProtocolEnabled(
 inline void getSNMPVersionEnabled(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    dbus::utility::getProperty<bool>(
+    // Fetch all three SNMP version flags in a single D-Bus round trip
+    dbus::utility::getAllProperties(
         "xyz.openbmc_project.Snmp.Conf", "/xyz/openbmc_project/snmp/SnmpUtils",
-        "xyz.openbmc_project.Snmp.SnmpUtils", "EnableSNMPV1",
-        [asyncResp](const boost::system::error_code& ec, bool enableSNMPv1) {
+        "xyz.openbmc_project.Snmp.SnmpUtils",
+        [asyncResp](const boost::system::error_code& ec,
+                    const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
             {
-                BMCWEB_LOG_ERROR("D-BUS response error on SnmpTrapStatus Get{}",
-                                 ec);
-                messages::internalError(asyncResp->res);
+                BMCWEB_LOG_ERROR(
+                    "D-BUS response error on SNMP version properties Get: {}",
+                    ec);
                 return;
             }
-            asyncResp->res.jsonValue["SNMP"]["EnableSNMPv1"] = enableSNMPv1;
-        });
 
-    dbus::utility::getProperty<bool>(
-        "xyz.openbmc_project.Snmp.Conf", "/xyz/openbmc_project/snmp/SnmpUtils",
-        "xyz.openbmc_project.Snmp.SnmpUtils", "EnableSNMPV2",
-        [asyncResp](const boost::system::error_code& ec, bool enableSNMPv2c) {
-            if (ec)
+            for (const auto& [key, val] : properties)
             {
-                BMCWEB_LOG_ERROR("D-BUS response error on SnmpTrapStatus Get{}",
-                                 ec);
-                messages::internalError(asyncResp->res);
-                return;
+                const bool* boolVal = std::get_if<bool>(&val);
+                if (boolVal == nullptr)
+                {
+                    continue;
+                }
+                if (key == "EnableSNMPV1")
+                {
+                    asyncResp->res.jsonValue["SNMP"]["EnableSNMPv1"] = *boolVal;
+                }
+                else if (key == "EnableSNMPV2")
+                {
+                    asyncResp->res.jsonValue["SNMP"]["EnableSNMPv2c"] =
+                        *boolVal;
+                }
+                else if (key == "EnableSNMPV3")
+                {
+                    asyncResp->res.jsonValue["SNMP"]["EnableSNMPv3"] = *boolVal;
+                }
             }
-            asyncResp->res.jsonValue["SNMP"]["EnableSNMPv2c"] = enableSNMPv2c;
-        });
-
-    dbus::utility::getProperty<bool>(
-        "xyz.openbmc_project.Snmp.Conf", "/xyz/openbmc_project/snmp/SnmpUtils",
-        "xyz.openbmc_project.Snmp.SnmpUtils", "EnableSNMPV3",
-        [asyncResp](const boost::system::error_code& ec, bool enableSNMPv3) {
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR("D-BUS response error on SnmpTrapStatus Get{}",
-                                 ec);
-                messages::internalError(asyncResp->res);
-                return;
-            }
-            asyncResp->res.jsonValue["SNMP"]["EnableSNMPv3"] = enableSNMPv3;
         });
 }
 
@@ -2042,6 +2037,24 @@ inline void handleBmcNetworkProtocolHead(
         "</redfish/v1/JsonSchemas/ManagerNetworkProtocol/ManagerNetworkProtocol.json>; rel=describedby");
 }
 
+// Common helper to set a bool property on the SNMP SnmpUtils D-Bus object
+inline void setSnmpUtilsProperty(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& propertyName, bool value)
+{
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus, "xyz.openbmc_project.Snmp.Conf",
+        "/xyz/openbmc_project/snmp/SnmpUtils",
+        "xyz.openbmc_project.Snmp.SnmpUtils", propertyName, value,
+        [asyncResp, propertyName](const boost::system::error_code& ec) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("D-Bus set {} error: {}", propertyName, ec);
+                messages::internalError(asyncResp->res);
+            }
+        });
+}
+
 inline void handleManagersNetworkProtocolPatch(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -2267,74 +2280,108 @@ inline void handleManagersNetworkProtocolPatch(
         }
         if (!isInValid)
         {
-            if (enableSNMPv1)
+            // If disabling SNMP, force all version flags to false as well
+            if (snmpEnabled && !(*snmpEnabled))
             {
-                sdbusplus::asio::setProperty(
-                    *crow::connections::systemBus,
-                    "xyz.openbmc_project.Snmp.Conf",
-                    "/xyz/openbmc_project/snmp/SnmpUtils",
-                    "xyz.openbmc_project.Snmp.SnmpUtils", "EnableSNMPV1",
-                    (*enableSNMPv1),
-                    [asyncResp](const boost::system::error_code& ec) {
-                        if (ec)
-                        {
-                            BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
-                            messages::internalError(asyncResp->res);
-                            return;
-                        }
-                    });
+                // Reject if caller also tries to enable any version flag
+                if ((enableSNMPv1 && *enableSNMPv1) ||
+                    (enableSNMPv2c && *enableSNMPv2c) ||
+                    (enableSNMPv3 && *enableSNMPv3))
+                {
+                    BMCWEB_LOG_ERROR(
+                        "Conflicting request: cannot enable SNMP version "
+                        "flags while disabling SNMP service");
+                    messages::propertyValueConflict(
+                        asyncResp->res,
+                        "EnableSNMPv1/EnableSNMPv2c/EnableSNMPv3",
+                        "SNMP/ProtocolEnabled");
+                    asyncResp->res.result(
+                        boost::beast::http::status::bad_request);
+                    return;
+                }
+                setSnmpUtilsProperty(asyncResp, "SnmpTrapStatus", false);
+                setSnmpUtilsProperty(asyncResp, "EnableSNMPV1", false);
+                setSnmpUtilsProperty(asyncResp, "EnableSNMPV2", false);
+                setSnmpUtilsProperty(asyncResp, "EnableSNMPV3", false);
             }
-            if (enableSNMPv2c)
+            else
             {
-                sdbusplus::asio::setProperty(
-                    *crow::connections::systemBus,
-                    "xyz.openbmc_project.Snmp.Conf",
-                    "/xyz/openbmc_project/snmp/SnmpUtils",
-                    "xyz.openbmc_project.Snmp.SnmpUtils", "EnableSNMPV2",
-                    (*enableSNMPv2c),
-                    [asyncResp](const boost::system::error_code& ec) {
-                        if (ec)
-                        {
-                            BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
-                            messages::internalError(asyncResp->res);
-                            return;
-                        }
-                    });
-            }
-            if (enableSNMPv3)
-            {
-                sdbusplus::asio::setProperty(
-                    *crow::connections::systemBus,
-                    "xyz.openbmc_project.Snmp.Conf",
-                    "/xyz/openbmc_project/snmp/SnmpUtils",
-                    "xyz.openbmc_project.Snmp.SnmpUtils", "EnableSNMPV3",
-                    (*enableSNMPv3),
-                    [asyncResp](const boost::system::error_code& ec) {
-                        if (ec)
-                        {
-                            BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
-                            messages::internalError(asyncResp->res);
-                            return;
-                        }
-                    });
-            }
+                if (snmpEnabled && *snmpEnabled)
+                {
+                    setSnmpUtilsProperty(asyncResp, "SnmpTrapStatus", true);
+                }
 
-            if (snmpEnabled)
-            {
-                sdbusplus::asio::setProperty(
-                    *crow::connections::systemBus,
-                    "xyz.openbmc_project.Snmp.Conf",
-                    "/xyz/openbmc_project/snmp/SnmpUtils",
-                    "xyz.openbmc_project.Snmp.SnmpUtils", "SnmpTrapStatus",
-                    *snmpEnabled,
-                    [asyncResp](const boost::system::error_code& ec) {
-                        if (ec)
+                if (enableSNMPv1 || enableSNMPv2c || enableSNMPv3)
+                {
+                    if (snmpEnabled && *snmpEnabled)
+                    {
+                        // SNMP being enabled in same request — safe to patch
+                        // versions
+                        if (enableSNMPv1)
                         {
-                            BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
-                            messages::internalError(asyncResp->res);
-                            return;
+                            setSnmpUtilsProperty(asyncResp, "EnableSNMPV1",
+                                                 *enableSNMPv1);
                         }
-                    });
+                        if (enableSNMPv2c)
+                        {
+                            setSnmpUtilsProperty(asyncResp, "EnableSNMPV2",
+                                                 *enableSNMPv2c);
+                        }
+                        if (enableSNMPv3)
+                        {
+                            setSnmpUtilsProperty(asyncResp, "EnableSNMPV3",
+                                                 *enableSNMPv3);
+                        }
+                    }
+                    else
+                    {
+                        // Check current SnmpTrapStatus before patching versions
+                        dbus::utility::getProperty<bool>(
+                            "xyz.openbmc_project.Snmp.Conf",
+                            "/xyz/openbmc_project/snmp/SnmpUtils",
+                            "xyz.openbmc_project.Snmp.SnmpUtils",
+                            "SnmpTrapStatus",
+                            [asyncResp, enableSNMPv1, enableSNMPv2c,
+                             enableSNMPv3](const boost::system::error_code& ec,
+                                           bool snmpStatus) {
+                                if (ec)
+                                {
+                                    messages::internalError(asyncResp->res);
+                                    return;
+                                }
+                                if (!snmpStatus)
+                                {
+                                    BMCWEB_LOG_ERROR(
+                                        "SNMP service is disabled; cannot "
+                                        "patch version flags");
+                                    messages::propertyValueConflict(
+                                        asyncResp->res,
+                                        "EnableSNMPv1/EnableSNMPv2c/"
+                                        "EnableSNMPv3",
+                                        "SNMP/ProtocolEnabled");
+                                    return;
+                                }
+                                if (enableSNMPv1)
+                                {
+                                    setSnmpUtilsProperty(asyncResp,
+                                                         "EnableSNMPV1",
+                                                         *enableSNMPv1);
+                                }
+                                if (enableSNMPv2c)
+                                {
+                                    setSnmpUtilsProperty(asyncResp,
+                                                         "EnableSNMPV2",
+                                                         *enableSNMPv2c);
+                                }
+                                if (enableSNMPv3)
+                                {
+                                    setSnmpUtilsProperty(asyncResp,
+                                                         "EnableSNMPV3",
+                                                         *enableSNMPv3);
+                                }
+                            });
+                    }
+                }
             }
 
             if (communityStrings)
