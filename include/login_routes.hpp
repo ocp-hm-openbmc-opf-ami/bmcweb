@@ -267,7 +267,7 @@ inline void handleLogin(const crow::Request& req,
                                            uint8_t, uint8_t, uint8_t>>>(
                                 *crow::connections::systemBus,
                                 "xyz.openbmc_project.SessionManager",
-                                "/xyz/openbmc_project/SessionManager/Web",
+                                "/xyz/openbmc_project/SessionManager/web",
                                 "xyz.openbmc_project.SessionManager.WebSessionInfo",
                                 "WebSessionInfo",
                                 [asyncResp, session, user,
@@ -397,7 +397,7 @@ inline void handleLogout(const crow::Request& req,
                 "xyz.openbmc_project.SessionManager",
                 "/xyz/openbmc_project/SessionManager/web",
                 "xyz.openbmc_project.SessionManager.WebSessionInfo",
-                "SessionUnregister", sessionId, sessionType, expiryreason);
+                "WebSessionUnregister", sessionId, sessionType, expiryreason);
         }
     }
 }
