@@ -50,7 +50,10 @@ int run()
     auto io = std::make_shared<boost::asio::io_context>();
     App app(io);
 
+#ifdef ONETREE_RTP
     redfish::task::createMultipleTasks();
+#endif
+
     std::shared_ptr<sdbusplus::asio::connection> systemBus =
         std::make_shared<sdbusplus::asio::connection>(*io);
     crow::connections::systemBus = systemBus.get();

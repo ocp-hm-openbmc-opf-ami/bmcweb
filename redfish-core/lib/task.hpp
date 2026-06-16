@@ -12,7 +12,11 @@
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "task_messages.hpp"
+
+#ifdef ONETREE_RTP
 #include "task_services.hpp"
+#endif
+
 #include "utils/dbus_utils.hpp"
 
 #include <boost/asio/post.hpp>
@@ -115,12 +119,15 @@ struct TaskData : std::enable_shared_from_this<TaskData>
     static std::shared_ptr<TaskData>& createTask(
         std::function<bool(boost::system::error_code, sdbusplus::message_t&,
                            const std::shared_ptr<TaskData>&)>&& handler,
-        const std::string& match, const std::string type = "None")
+        const std::string& match,
+        [[maybe_unused]] const std::string type = "None")
     {
         if (tasks.size() == 0)
         {
             lastTask = 1;
         }
+
+#ifdef ONETREE_RTP
         if (type != "old")
         {
             std::string taskObjPath = redfish::taskservice::createTaskService(
@@ -132,6 +139,7 @@ struct TaskData : std::enable_shared_from_this<TaskData>
             BMCWEB_LOG_DEBUG(
                 "Task is in Completed state, not creating task service \r\n");
         }
+#endif
         struct MakeSharedHelper : public TaskData
         {
             MakeSharedHelper(
@@ -150,7 +158,9 @@ struct TaskData : std::enable_shared_from_this<TaskData>
             // destroy all references
             last->timer.cancel();
             last->match.reset();
+#ifdef ONETREE_RTP
             redfish::taskservice::deleteTaskService(last->index);
+#endif
             tasks.pop_front();
         }
         return tasks.emplace_back(std::make_shared<MakeSharedHelper>(
@@ -220,7 +230,9 @@ struct TaskData : std::enable_shared_from_this<TaskData>
         {
             if (std::to_string(task->index) == strParam)
             {
+#ifdef ONETREE_RTP
                 redfish::taskservice::setTaskState("Cancelled", task->index);
+#endif
                 auto taskToDelete = task::tasks.begin(); // returns first value
                 advance(taskToDelete, pos);
                 if (*taskToDelete != nullptr)
@@ -229,6 +241,7 @@ struct TaskData : std::enable_shared_from_this<TaskData>
                     task->timer.cancel();
                     task->match.reset();
                     task::tasks.erase(taskToDelete);
+#ifdef ONETREE_RTP
                     int ret =
                         redfish::taskservice::deleteTaskService(task->index);
                     if (ret != 0)
@@ -237,6 +250,7 @@ struct TaskData : std::enable_shared_from_this<TaskData>
                             "Delete Task Service failed with return value : %d",
                             ret);
                     }
+#endif
                     setLastTask();
                     return;
                 }
@@ -276,9 +290,11 @@ struct TaskData : std::enable_shared_from_this<TaskData>
                 /*Added for task service */
                 std::string taskMsg =
                     messages::taskAborted(std::to_string(self->index)).dump();
+#ifdef ONETREE_RTP
                 redfish::taskservice::setTaskMessage(taskMsg, self->index);
                 redfish::taskservice::setTaskState("Cancelled", self->index);
                 redfish::taskservice::setTaskStatus("Warning", self->index);
+#endif
                 // Send event :TaskAborted
                 sendTaskEvent(self->state, self->index);
                 self->callback(ec, msg, self);
@@ -302,7 +318,9 @@ struct TaskData : std::enable_shared_from_this<TaskData>
         std::string indexStr = std::to_string(index);
         if (!state.empty())
         {
+#ifdef ONETREE_RTP
             redfish::taskservice::setTaskState(std::string(state), index);
+#endif
         }
         if (state == "New")
         {
@@ -402,66 +420,13 @@ struct TaskData : std::enable_shared_from_this<TaskData>
 };
 
 /**
- * Func check and update preserve tasks state on BMC shutdown/reset/Boot
- * complete
- *
- * @param[in]
- * @param[in]
- */
-inline void captureHostPowerSignal(void)
-{
-#if 0
-    hostShutdownMatch = std::make_unique<sdbusplus::bus::match_t>(
-    *crow::connections::systemBus,
-    sdbusRule::type::signal() + sdbusRule::member("PropertiesChanged") +
-    sdbusRule::path("/xyz/openbmc_project/state/host0") +
-    sdbusRule::interface("org.freedesktop.DBus.Properties"),
-    [=](sdbusplus::message_t& msg) {
-        
-        std::string iface;
-        dbus::utility::DBusPropertiesMap values;
-        msg.read(iface, values);
-
-        if (iface == "xyz.openbmc_project.State.Host") 
-        {
-            for (const auto& property : values) 
-            {
-                if (property.first == "CurrentHostState") 
-                {
-                    const std::string* osstate =
-                                   std::get_if<std::string>(&property.second);
-                    if ( *osstate == "xyz.openbmc_project.State.Host.HostState.Running"
-                        || *osstate == "xyz.openbmc_project.State.Host.HostState.Off") 
-                    { 
-                        for(auto& x : task::tasks) 
-                        {
-                            if(x->matchStr.contains("path='/xyz/openbmc_project/state/host0'")) 
-                            {
-                                if(x->state == "New") 
-                                {
-                                    x->state = "Cancelled";
-                                    x->timer.cancel();
-                                    x->finishTask();
-                                    redfish::taskservice::setTaskState("Cancelled", x->index);
-                                    syslog(LOG_INFO, "Task %zu cancelled due to host state change to %s\n", 
-                                        x->index, osstate->c_str());
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    });
-#endif
-}
-
-/**
  * Func create dummy tasks on BMC restart/shutdown
  *
  * @param[in]
  * @param[in]
  */
+#ifdef ONETREE_RTP
+
 inline void createMultipleTasks(void)
 {
     json taskData;
@@ -517,6 +482,7 @@ inline void createMultipleTasks(void)
         return;
     }
 }
+#endif
 
 } // namespace task
 

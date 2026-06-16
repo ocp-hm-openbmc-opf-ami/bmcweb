@@ -129,8 +129,10 @@ inline void createTimeOutTask(
                 {
                     if (property.first == "TimeOut")
                     {
+#ifdef ONETREE_RTP
                         redfish::taskservice::setTaskState(
                             "Completed", static_cast<size_t>(std::stoi(index)));
+#endif
                         taskData->messages.emplace_back(
                             messages::taskCompletedOK(index));
                         taskData->state = "Completed";
@@ -142,9 +144,11 @@ inline void createTimeOutTask(
                     {
                         if (timeDiff == 0xFFFFFFFF)
                         {
+#ifdef ONETREE_RTP
                             redfish::taskservice::setTaskState(
                                 "Completed",
                                 static_cast<size_t>(std::stoi(index)));
+#endif
                             taskData->state = "Completed";
                             taskData->messages.emplace_back(
                                 messages::taskCompletedOK(index));
@@ -155,9 +159,11 @@ inline void createTimeOutTask(
                         }
                         else
                         {
+#ifdef ONETREE_RTP
                             redfish::taskservice::setTaskState(
                                 "Pending",
                                 static_cast<size_t>(std::stoi(index)));
+#endif
                             taskData->state = "Pending";
                             taskData->messages.emplace_back(
                                 messages::taskPaused(index));

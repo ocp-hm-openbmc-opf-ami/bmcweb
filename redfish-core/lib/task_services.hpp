@@ -1,3 +1,5 @@
+#ifdef ONETREE_RTP
+
 #pragma once
 
 #include "dbus_utility.hpp"
@@ -243,3 +245,4 @@ inline void setTaskStatus(std::string status, size_t index)
 
 } // namespace taskservice
 } // namespace redfish
+#endif
