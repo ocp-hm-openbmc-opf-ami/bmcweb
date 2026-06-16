@@ -2339,6 +2339,19 @@ inline void handleManagersNetworkProtocolPatch(
 
             if (communityStrings)
             {
+                // Role-based access control: only Administrator role
+                // (ConfigureManager privilege) may create or modify SNMP
+                // community strings. Operator and ReadOnly roles are denied.
+                Privileges effectiveSnmpPrivileges =
+                    redfish::getUserPrivileges(*req.session);
+                if (!effectiveSnmpPrivileges.isSupersetOf({"ConfigureManager"}))
+                {
+                    messages::insufficientPrivilege(asyncResp->res);
+                    asyncResp->res.result(
+                        boost::beast::http::status::forbidden);
+                    return;
+                }
+
                 if (oem_snmp)
                 {
                     std::optional<std::vector<
