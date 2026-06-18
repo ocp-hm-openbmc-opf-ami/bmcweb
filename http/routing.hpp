@@ -569,6 +569,21 @@ class Router
         {
             findRoute.route = route;
         }
+        else if (*verb == HttpVerb::Head)
+        {
+            // RFC 7231 §4.3.2: HEAD is identical to GET except the server
+            // MUST NOT send a message body. Fall back to the GET route when
+            // no explicit HEAD route is registered so that HEAD on a
+            // non-existent URI correctly propagates the handler's response
+            // (e.g. 404)
+            FindRoute getRoute = findRouteByPerMethod(
+                req.url().encoded_path(),
+                perMethods[static_cast<size_t>(HttpVerb::Get)]);
+            if (getRoute.rule != nullptr)
+            {
+                findRoute.route = getRoute;
+            }
+        }
         return findRoute;
     }
 

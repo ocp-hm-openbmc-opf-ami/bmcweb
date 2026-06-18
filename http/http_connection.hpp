@@ -487,6 +487,12 @@ class Connection :
         completeResponseFields(accept, res);
         res.addHeader(boost::beast::http::field::date, getCachedDateStr());
 
+        // As per RFC 7231 HEAD responses MUST NOT include a message body.
+        if (req && req->method() == boost::beast::http::verb::head)
+        {
+            res.clearBody();
+        }
+
         doWrite();
 
         // delete lambda with self shared_ptr

@@ -151,6 +151,14 @@ struct Response
         response.body() = res.response.body();
     }
 
+    // Clear only the response body while preserving all headers.
+    // Used for HEAD responses per RFC 7231 §4.3.2.
+    void clearBody()
+    {
+        response.body().str().clear();
+        jsonValue = nullptr;
+    }
+
     http::status result() const
     {
         return fields().result();
