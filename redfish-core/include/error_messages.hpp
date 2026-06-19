@@ -1750,6 +1750,49 @@ nlohmann::json passwordCorruption();
 
 void passwordCorruption(crow::Response& res);
 
+/**
+ * @brief Formats InvalidIPAddress message into JSON
+ * Message body: "Indicates that the IP address is invalid."
+ *
+ * @returns Message InvalidIPAddress  formatted to JSON */
+nlohmann::json invalidIPAddress(void);
+void invalidIPAddress(crow::Response& res);
+
+/**
+ * @brief Formats InvalidImagePath message into JSON
+ * Message body: "Indicates that the image path is invalid."
+ *
+ * @returns Message invalidImagePath formatted to JSON */
+nlohmann::json invalidImagePath(void);
+void invalidImagePath(crow::Response& res);
+
+/**
+ * @brief Formats remoteServiceConnectionRefused message into JSON
+ * Message body: "Indicates that the connection to the remote service was
+ * refused."
+ *
+ * @returns Message remoteServiceConnectionRefused formatted to JSON */
+nlohmann::json remoteServiceConnectionRefused(void);
+void remoteServiceConnectionRefused(crow::Response& res);
+
+/**
+ * @brief Formats virtualMediaHttpsTransferFailed message into JSON
+ * Message body: "Indicates that the HTTPS-based virtual media image transfer
+ * failed."
+ *
+ * @returns Message virtualMediaHttpsTransferFailed formatted to JSON */
+nlohmann::json virtualMediaHttpsTransferFailed(void);
+void virtualMediaHttpsTransferFailed(crow::Response& res);
+
+/**
+ * @brief Formats remoteServiceTimeout message into JSON
+ * Message body: "Indicates that the connection to the remote service timed
+ * out."
+ *
+ * @returns Message remoteServiceTimeout formatted to JSON */
+nlohmann::json remoteServiceTimeout(void);
+void remoteServiceTimeout(crow::Response& res);
+
 } // namespace messages
 
 } // namespace redfish

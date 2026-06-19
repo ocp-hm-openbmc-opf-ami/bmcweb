@@ -938,20 +938,37 @@ static inline std::shared_ptr<MatchWrapper> doListenForCompletion(
                     break;
                 case EPERM:
                     BMCWEB_LOG_ERROR("Signal received: EPERM");
-                    messages::accessDenied(asyncResp->res,
-                                           boost::urls::format(action));
+                    messages::actionParameterValueError(
+                        asyncResp->res, "UserName/Password", "InsertMedia");
                     break;
+                case 2:
+                    BMCWEB_LOG_ERROR("Signal received: ENOENT ");
+                    messages::invalidImagePath(asyncResp->res);
+                    break;
+
                 case EBUSY:
                     BMCWEB_LOG_ERROR("Signal received: EAGAIN");
                     messages::resourceInUse(asyncResp->res);
                     break;
-                case 22:
-                    BMCWEB_LOG_ERROR("Signal received: {}", errorCode);
+                case 34:
+                    BMCWEB_LOG_ERROR("Signal received: ERANGE ");
                     messages::invalidImageSize(asyncResp->res);
                     break;
                 case 111:
-                    messages::actionParameterValueError(
-                        asyncResp->res, "UserName/Password", "InsertMedia");
+                    BMCWEB_LOG_ERROR("Signal received: ECONNREFUSED ");
+                    messages::remoteServiceConnectionRefused(asyncResp->res);
+                    break;
+                case 113:
+                    BMCWEB_LOG_ERROR("Signal received: EHOSTUNREACH  ");
+                    messages::invalidIPAddress(asyncResp->res);
+                    break;
+                case 71:
+                    BMCWEB_LOG_ERROR("Signal received: EPROTO    ");
+                    messages::virtualMediaHttpsTransferFailed(asyncResp->res);
+                    break;
+                case 110:
+                    BMCWEB_LOG_ERROR("Signal received: ETIMEDOUT  ");
+                    messages::remoteServiceTimeout(asyncResp->res);
                     break;
                 default:
                     BMCWEB_LOG_ERROR("Signal received: Other: {}", errorCode);
@@ -1018,23 +1035,24 @@ inline void doMountVmLegacy(
             messages::unrecognizedRequestBody(asyncResp->res);
             return;
         }
-    }
-    // Open pipe
-    secretPipe = std::make_shared<CredentialsPipe>(
-        crow::connections::systemBus->get_io_context());
-    fd = secretPipe->releaseFd();
+        // Open pipe
+        secretPipe = std::make_shared<CredentialsPipe>(
+            crow::connections::systemBus->get_io_context());
+        fd = secretPipe->releaseFd();
 
-    // Pass secret over pipe
-    secretPipe->asyncWrite(
-        std::move(userName), std::move(password),
-        [asyncResp,
-         secretPipe](const boost::system::error_code& ec, std::size_t) {
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR("Failed to pass secret: {}", ec);
-                messages::internalError(asyncResp->res);
-            }
-        });
+        // Pass secret over pipe
+        secretPipe->asyncWrite(
+            std::move(userName), std::move(password),
+            [asyncResp,
+             secretPipe](const boost::system::error_code& ec, std::size_t) {
+                if (ec)
+                {
+                    BMCWEB_LOG_ERROR("Failed to pass secret: {}", ec);
+                    messages::internalError(asyncResp->res);
+                }
+            });
+    }
+
     std::string objectPath;
     if (systemName == "system1")
     {
@@ -1317,7 +1335,8 @@ inline void validateParams(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
     // validate the Username and Password for CIFS
 
-    if (actionParams.transferProtocolType == "CIFS")
+    if (actionParams.transferProtocolType == "CIFS" ||
+        actionParams.transferProtocolType == "HTTPS")
     {
         if (!actionParams.userName || actionParams.userName == "")
 
@@ -1341,37 +1360,19 @@ inline void validateParams(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         }
     }
 
-    // validate the Username and Password for HTTPS, if provided.
-    if (actionParams.transferProtocolType == "HTTPS")
+    // validate that Username and Password are NOT provided for NFS
+    if (actionParams.transferProtocolType == "NFS")
     {
         if (actionParams.userName.has_value() ||
             actionParams.password.has_value())
         {
-            // if username have some value then check the value weather is " "
-            // or empty.
-            if (!actionParams.userName.has_value() ||
-                actionParams.userName.value().empty())
-            {
-                BMCWEB_LOG_ERROR(
-                    "Request action parameter UserName is Missing.");
-                messages::actionParameterMissing(asyncResp->res, "InsertMedia",
-                                                 "Username");
-                return;
-            }
-            // if Password have some value then check the value weather is " "
-            // or empty.
-            if (!actionParams.password.has_value() ||
-                actionParams.password.value().empty())
-            {
-                BMCWEB_LOG_ERROR(
-                    "Request action parameter Password is Missing.");
-                messages::actionParameterMissing(asyncResp->res, "InsertMedia",
-                                                 "Password");
-                return;
-            }
+            BMCWEB_LOG_ERROR(
+                "Request: Username/Password not supported for NFS");
+            messages::actionParameterNotSupported(
+                asyncResp->res, "UserName/Password", "InsertMedia");
+            return;
         }
     }
-
     if (!actionParams.userName)
     {
         actionParams.userName = "";

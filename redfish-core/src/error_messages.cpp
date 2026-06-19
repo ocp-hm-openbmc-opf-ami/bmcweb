@@ -2943,5 +2943,65 @@ void firmwareUpdateFailed(crow::Response& res)
     addMessageToErrorJson(res.jsonValue, firmwareUpdateFailed());
 }
 
+nlohmann::json invalidIPAddress(void)
+{
+    return getLog(redfish::registries::amionetree::Index::invalidIPAddress, {});
+}
+
+void invalidIPAddress(crow::Response& res)
+{
+    res.result(boost::beast::http::status::bad_request);
+    addMessageToErrorJson(res.jsonValue, invalidIPAddress());
+}
+
+nlohmann::json invalidImagePath(void)
+{
+    return getLog(redfish::registries::amionetree::Index::invalidImagePath, {});
+}
+
+void invalidImagePath(crow::Response& res)
+{
+    res.result(boost::beast::http::status::bad_request);
+    addMessageToErrorJson(res.jsonValue, invalidImagePath());
+}
+
+nlohmann::json remoteServiceConnectionRefused(void)
+{
+    return getLog(
+        redfish::registries::amionetree::Index::remoteServiceConnectionRefused,
+        {});
+}
+
+void remoteServiceConnectionRefused(crow::Response& res)
+{
+    res.result(boost::beast::http::status::bad_request);
+    addMessageToErrorJson(res.jsonValue, remoteServiceConnectionRefused());
+}
+
+nlohmann::json virtualMediaHttpsTransferFailed(void)
+{
+    return getLog(
+        redfish::registries::amionetree::Index::virtualMediaHttpsTransferFailed,
+        {});
+}
+
+void virtualMediaHttpsTransferFailed(crow::Response& res)
+{
+    res.result(boost::beast::http::status::bad_request);
+    addMessageToErrorJson(res.jsonValue, virtualMediaHttpsTransferFailed());
+}
+
+nlohmann::json remoteServiceTimeout(void)
+{
+    return getLog(redfish::registries::amionetree::Index::remoteServiceTimeout,
+                  {});
+}
+
+void remoteServiceTimeout(crow::Response& res)
+{
+    res.result(boost::beast::http::status::bad_request);
+    addMessageToErrorJson(res.jsonValue, remoteServiceTimeout());
+}
+
 } // namespace messages
 } // namespace redfish

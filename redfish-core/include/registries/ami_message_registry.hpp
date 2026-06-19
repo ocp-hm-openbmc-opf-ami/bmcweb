@@ -1655,6 +1655,56 @@ constexpr std::array registry =
             {"string"},
             "Verify FRU connectivity and reseat if required.",
         }},
+    MessageEntry{
+        "InvalidIPAddress",
+        {
+            "Indicates that the  server IP address specified in the Image URI is invalid.",
+            "The server IP address specified in the Image URI is not valid.",
+            "Warning",
+            0,
+            {},
+            "Provide a valid IP address in the Image URI and retry the operation",
+        }},
+    MessageEntry{
+        "InvalidImagePath",
+        {
+            "Indicates that the image path specified in the Image URI is invalid or the file does not exist on the remote server.",
+            "The virtual media image path specified in the Image URI is invalid or the file does not exist on the remote server.",
+            "Warning",
+            0,
+            {},
+            "Verify the image path and ensure the file exists on the remote server.",
+        }},
+        MessageEntry{
+            "RemoteServiceConnectionRefused",
+            {
+                "Indicates that the connection to the remote service was refused.",
+                "The connection to remote service was refused. Ensure the target service NFS/CIFS/HTTPS is running.",
+                "Warning",
+                0,
+                {},
+                "Verify the remote service is running and reachable.",
+            }},
+        MessageEntry{
+            "VirtualMediaHttpsTransferFailed",
+            {
+                "Indicates that the virtual media image transfer using HTTPS failed.",
+                "The virtual media image transfer using HTTPS failed. This may be due to an invalid image path, invalid server IP address , authentication failure,  or remote service unavailability.",
+                "Warning",
+                0,
+                {},
+                "Verify the image path, server address , credentials, and ensure taht remote HTTPS service is reachable, then retry the operation."
+            }},
+         MessageEntry{
+            "RemoteServiceTimeout",
+            {
+                "Indicates that the connection to the remote service timed out.",
+                "The connection to the remote service  timed out.",
+                "Critical",
+                0,
+                {},
+                "Verify the remote server is reachable and retry the operation."
+            }},
 };
 
 enum class Index
@@ -1816,6 +1866,11 @@ enum class Index
     fRUDeactivationRequested = 154,
     fRUDeactivationInProgress = 155,
     fRUCommunicationLost = 156,
+    invalidIPAddress = 157,
+    invalidImagePath = 158,
+    remoteServiceConnectionRefused = 159,
+    virtualMediaHttpsTransferFailed = 160,
+    remoteServiceTimeout = 161,
 };
 } // namespace redfish::registries::amionetree
  
