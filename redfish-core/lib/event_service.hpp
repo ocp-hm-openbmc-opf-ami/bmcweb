@@ -1346,6 +1346,30 @@ inline void requestRoutesEventService(App& app)
                     return;
                 }
 
+                // If SMTP is patched directly with a non-object type (for
+                // example [] or true), treat it as a read-only property patch.
+                if (!req.body().empty() && nlohmann::json::accept(req.body()))
+                {
+                    nlohmann::json requestBody =
+                        nlohmann::json::parse(req.body(), nullptr, false);
+                    if (!requestBody.is_discarded())
+                    {
+                        const nlohmann::json::json_pointer smtpPath(
+                            "/Oem/Ami/SMTP");
+                        const nlohmann::json* smtp =
+                            requestBody.contains(smtpPath)
+                                ? &requestBody.at(smtpPath)
+                                : nullptr;
+
+                        if (smtp != nullptr && !smtp->is_object())
+                        {
+                            messages::propertyNotWritable(asyncResp->res,
+                                                          "SMTP");
+                            return;
+                        }
+                    }
+                }
+
                 anySuccess = false;
                 anyFailure = false;
                 std::optional<bool> serviceEnabled;
