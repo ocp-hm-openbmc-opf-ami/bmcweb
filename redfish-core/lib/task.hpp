@@ -182,7 +182,7 @@ struct TaskData : std::enable_shared_from_this<TaskData>
             res.jsonValue["TaskState"] = state;
 
             if (state == "Completed" || state == "Cancelled" ||
-                state == "Exception")
+                state == "Exception" || state == "New")
             {
                 res.jsonValue["TaskStatus"] = status;
             }
@@ -426,7 +426,6 @@ struct TaskData : std::enable_shared_from_this<TaskData>
  * @param[in]
  */
 #ifdef ONETREE_RTP
-
 inline void createMultipleTasks(void)
 {
     json taskData;
