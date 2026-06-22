@@ -19,7 +19,6 @@
 #include "eventservice_sse.hpp"
 #include "fabric_adapters.hpp"
 #include "fan.hpp"
-#include "fips_manager.hpp"
 #include "fru.hpp"
 #include "hypervisor_system.hpp"
 #include "license_control.hpp"
@@ -407,12 +406,6 @@ RedfishService::RedfishService(App& app)
     requestRoutesMetricReport(app);
     requestRoutesTriggerCollection(app);
     requestRoutesTrigger(app);
-
-#if (!defined(ONETREE_AMD_CHALUPA) || !defined(ONETREE_EVB_NUVOTON_NPCM845) || \
-     !defined(ONETREE_ASPEED_SDK_LAYER))
-    // FIPS Enablement
-    requestFipsManagerRoutes(app);
-#endif
 
     // License Control
 #ifdef ONETREE_LICENSE

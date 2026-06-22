@@ -2578,15 +2578,6 @@ inline void handleManagersInstanceGet(
     asyncResp->res.jsonValue["EthernetInterfaces"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Managers/{}/EthernetInterfaces",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
-#if (!defined(ONETREE_AMD_CHALUPA) && !defined(ONETREE_EVB_NUVOTON_NPCM845) && \
-     !defined(ONETREE_ASPEED_SDK_LAYER) && !defined(ONETREE_RM) &&             \
-     !defined(ONETREE_PSM))
-    {
-        asyncResp->res.jsonValue["SecurityPolicy"]["@odata.id"] =
-            boost::urls::format("/redfish/v1/Managers/{}/SecurityPolicy",
-                                BMCWEB_REDFISH_MANAGER_URI_NAME);
-    }
-#endif
 #if (!defined(ONETREE_RM))
     // default oem data
     nlohmann::json& oem = asyncResp->res.jsonValue["Oem"];
