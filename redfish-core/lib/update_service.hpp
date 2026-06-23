@@ -39,6 +39,7 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace redfish
@@ -2259,25 +2260,31 @@ inline void handleUpdateServicePatch(
 #if defined(ONETREE_EGS) || defined(ONETREE_BHS) ||                            \
     defined(ONETREE_ASPEED_SDK_LAYER) || defined(ONETREE_EVB_AST2600) ||       \
     defined(ONETREE_OKS)
-                        if ((*imgTargets).size() > 3)
-                        {
-                            messages::invalidObject(
-                                asyncResp->res,
-                                boost::urls::format("HttpPushUriTargets"));
-                            return;
-                        }
+                        constexpr size_t maxUriTargets = 3;
 #else
-                        if ((*imgTargets).size() != 1)
+                        constexpr size_t maxUriTargets = 1;
+#endif
+                        if ((*imgTargets).size() > maxUriTargets)
                         {
-                            messages::invalidObject(
-                                asyncResp->res,
-                                boost::urls::format("HttpPushUriTargets"));
+                            messages::arraySizeTooLong(asyncResp->res,
+                                                       "HttpPushUriTargets",
+                                                       maxUriTargets);
                             return;
                         }
-#endif
+                        // verify that all targets in the request are
+                        // unique.
+                        std::unordered_set<std::string> uniqueTargets(
+                            (*imgTargets).begin(), (*imgTargets).end());
+                        if (uniqueTargets.size() != (*imgTargets).size())
+                        {
+                            messages::propertyValueError(asyncResp->res,
+                                                         "HttpPushUriTargets");
+                            return;
+                        }
+
                         crow::connections::systemBus->async_method_call(
                             [asyncResp, uriTargets{*imgTargets},
-                             targetBusy{*imgTargetBusy}](
+                             targetBusy{*imgTargetBusy}, uniqueTargets](
                                 const boost::system::error_code ec,
                                 const std::vector<std::string> swInvPaths) {
                                 if (ec)
@@ -2300,38 +2307,23 @@ inline void handleUpdateServicePatch(
                                         return;
                                     }
                                     std::string swId = path.substr(idPos + 1);
-#if defined(ONETREE_EGS) || defined(ONETREE_BHS) ||                            \
-    defined(ONETREE_ASPEED_SDK_LAYER) || defined(ONETREE_EVB_AST2600) ||       \
-    defined(ONETREE_OKS)
-
-                                    for (const std::string& target : uriTargets)
+                                    if (uniqueTargets.count(swId) != 0)
                                     {
-                                        if (swId == target)
+                                        uriCount++;
+                                        if (uriCount == uriTargets.size())
                                         {
-                                            uriCount++;
-                                            if (uriCount == uriTargets.size())
-                                            {
-                                                swInvObjFound = true;
-                                                break;
-                                            }
+                                            swInvObjFound = true;
+                                            break;
                                         }
                                     }
-#else
-                                    if (swId == uriTargets[0])
-                                    {
-                                        swInvObjFound = true;
-                                        break;
-                                    }
-#endif
                                 }
                                 BMCWEB_LOG_DEBUG("HttpPushUri count value {}",
                                                  uriCount);
                                 if (!swInvObjFound)
                                 {
-                                    messages::invalidObject(
-                                        asyncResp->res,
-                                        boost::urls::format(
-                                            "HttpPushUriTargets"));
+                                    messages::propertyValueNotInList(
+                                        asyncResp->res, uriTargets,
+                                        "HttpPushUriTargets");
                                     return;
                                 }
                                 sdbusplus::asio::setProperty(
