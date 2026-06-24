@@ -753,6 +753,16 @@ inline void addPCIeFunctionProperties(
     std::string functionName = "Function" + std::to_string(pcieFunctionId);
     for (const auto& property : pcieDevProperties)
     {
+        if (property.first == functionName + "FunctionId")
+        {
+            const uint32_t* value = std::get_if<uint32_t>(&property.second);
+            if (value != nullptr)
+            {
+                resp.jsonValue["FunctionId"] = *value;
+            }
+            continue;
+        }
+
         const std::string* strProperty =
             std::get_if<std::string>(&property.second);
         if (strProperty == nullptr)
@@ -799,6 +809,10 @@ inline void addPCIeFunctionProperties(
         if (property.first == functionName + "SubsystemVendorId")
         {
             resp.jsonValue["SubsystemVendorId"] = *strProperty;
+        }
+        if (property.first == functionName + "Name")
+        {
+            resp.jsonValue["Name"] = *strProperty;
         }
     }
 }
@@ -872,6 +886,14 @@ inline void handlePCIeFunctionGet(
                 asyncResp, pcieDevicePath, service,
                 [asyncResp, pcieDeviceId, pcieFunctionId](
                     const dbus::utility::DBusPropertiesMap& pcieDevProperties) {
+                    if (!validatePCIeFunctionId(pcieFunctionId,
+                                                pcieDevProperties))
+                    {
+                        messages::resourceNotFound(
+                            asyncResp->res, "PCIeFunction",
+                            std::to_string(pcieFunctionId));
+                        return;
+                    }
                     addPCIeFunctionCommonProperties(
                         asyncResp->res, pcieDeviceId, pcieFunctionId);
                     addPCIeFunctionProperties(asyncResp->res, pcieFunctionId,
