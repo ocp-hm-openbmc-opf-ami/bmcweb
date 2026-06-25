@@ -3327,7 +3327,7 @@ void getVirtualMediaConfig(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         vmServiceName = getVirtualMediaServiceName("system");
     }
     asyncResp->res.jsonValue["VirtualMediaConfig"]["ServiceEnabled"] = false;
-    service_util::getEnabled(
+    service_util::getRunning(
         asyncResp, vmServiceName,
         nlohmann::json::json_pointer("/VirtualMediaConfig/ServiceEnabled"));
     service_util::getMasked(asyncResp, vmServiceName, "VirtualMediaConfig",
@@ -3364,7 +3364,7 @@ void getKvmConfig(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     }
 
     asyncResp->res.jsonValue["GraphicalConsole"]["ServiceEnabled"] = false;
-    service_util::getEnabled(
+    service_util::getRunning(
         asyncResp, kvmServiceName,
         nlohmann::json::json_pointer("/GraphicalConsole/ServiceEnabled"));
     asyncResp->res.jsonValue["GraphicalConsole"]["ConnectTypesSupported"] = {

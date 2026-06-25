@@ -278,17 +278,13 @@ inline void getRunning(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         "org.freedesktop.DBus.ObjectManager", "GetManagedObjects");
 }
 inline void getEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                       const std::string& objectName,
+                       const std::string& serviceName,
                        const nlohmann::json::json_pointer& valueJsonPtr)
 {
-    constexpr std::array<std::string_view, 1> interfaces = {
-        serviceConfigInterface};
-
-    dbus::utility::getSubTreePaths(
-        "/xyz/openbmc_project/control/service", 0, interfaces,
-        [asyncResp, objectName, valueJsonPtr](
-            const boost::system::error_code& ec,
-            const dbus::utility::MapperGetSubTreePathsResponse& subtreePaths) {
+    crow::connections::systemBus->async_method_call(
+        [asyncResp, serviceName,
+         valueJsonPtr](const boost::system::error_code ec,
+                       const dbus::utility::ManagedObjectType& objects) {
             if (ec)
             {
                 // Don't report error; the field was already prepopulated with a
@@ -296,47 +292,59 @@ inline void getEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 return;
             }
 
-            std::string matchedObjectPath;
-            for (const std::string& pathStr : subtreePaths)
+            bool serviceFound = false;
+            for (const auto& [path, interfaces] : objects)
             {
-                if (matchService(sdbusplus::message::object_path(pathStr),
-                                 objectName))
+                if (matchService(path, serviceName))
                 {
-                    matchedObjectPath = pathStr;
-                    break;
-                }
-            }
+                    serviceFound = true;
+                    bool isEnabled = false;
 
-            if (matchedObjectPath.empty())
-            {
-                asyncResp->res.jsonValue[valueJsonPtr] = false;
-                return;
-            }
-
-            dbus::utility::getProperty<bool>(
-                serviceManagerService, matchedObjectPath,
-                serviceConfigInterface, "Running",
-                [asyncResp, objectName,
-                 valueJsonPtr](const boost::system::error_code& runningEc,
-                               bool isRunning) {
-                    if (runningEc)
+                    for (const auto& [interface, properties] : interfaces)
                     {
-                        asyncResp->res.jsonValue[valueJsonPtr] = false;
-                        return;
+                        if (interface != serviceConfigInterface)
+                        {
+                            continue;
+                        }
+
+                        for (const auto& [key, val] : properties)
+                        {
+                            // Service is enabled if one instance is running or
+                            // enabled
+                            if (key == "Enabled")
+                            {
+                                const auto* enabled = std::get_if<bool>(&val);
+                                if (enabled == nullptr)
+                                {
+                                    messages::internalError(asyncResp->res);
+                                    return;
+                                }
+                                isEnabled = *enabled;
+                            }
+                        }
                     }
 
-                    // Service enabled depends only on Running.
-                    asyncResp->res.jsonValue[valueJsonPtr] = isRunning;
+                    // ProtocolEnabled reflects only the Enabled property.
+                    asyncResp->res.jsonValue[valueJsonPtr] = isEnabled;
 
-                    if (objectName == "start_2dipkvm" ||
-                        objectName == "start_2dipkvm1")
+                    if (serviceName == "start_2dipkvm" ||
+                        serviceName == "start_2dipkvm1")
                     {
                         asyncResp->res.jsonValue["GraphicalConsole"]
                                                 ["MaxConcurrentSessions"] =
-                            isRunning ? 1 : 0;
+                            isEnabled ? 1 : 0;
                     }
-                });
-        });
+                    return;
+                }
+            }
+            // Not populating the property when service is not found
+            if (serviceFound)
+            {
+                asyncResp->res.jsonValue[valueJsonPtr] = false;
+            }
+        },
+        serviceManagerService, "/xyz/openbmc_project/control/service",
+        "org.freedesktop.DBus.ObjectManager", "GetManagedObjects");
 }
 
 inline void getPortNumber(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
