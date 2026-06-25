@@ -74,7 +74,7 @@ inline bool validateImageUrl(const std::string& url)
     }
 
     // Regular expression to match the allowed characters
-    const std::regex pathPattern(R"(^[a-zA-Z0-9/_\\.]+$)");
+    const std::regex pathPattern(R"(^[a-zA-Z0-9/_\\.-]+$)");
 
     // Regular expression to validate FQDN
     const std::regex fqdnPattern(R"(^([a-zA-Z0-9-]{1,63}\.)+[a-zA-Z]{2,6}$)");
@@ -126,7 +126,7 @@ inline bool validateImageUrl(const std::string& url)
     {
         std::cerr
             << "Error: Path = " << path
-            << "contains invalid characters. Allowed characters are alpha-numeric, '/', '\\', '_', and '.'."
+            << "contains invalid characters. Allowed characters are alpha-numeric, '/', '\\', '_', '.' and '-'."
             << std::endl;
         return false;
     }
