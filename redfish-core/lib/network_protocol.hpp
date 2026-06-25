@@ -2011,6 +2011,7 @@ inline void patchsnmpcommunitystring(
                                           asyncResp->res,
                                           "Oem/Ami/SNMP/CommunityStrings/" +
                                               std::to_string(i));
+                                      break;
                                   }
                               }
                               else
@@ -2022,6 +2023,7 @@ inline void patchsnmpcommunitystring(
                                           asyncResp->res,
                                           "SNMP/CommunityStrings/" +
                                               std::to_string(i));
+                                      break;
                                   }
                               }
                           });
