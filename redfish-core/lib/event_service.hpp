@@ -1155,7 +1155,7 @@ inline void handleSmtpPatch(SmtpPatchParams&& input,
             !getEffectivePropertyState("TLSEnable", input.tlsenable))
         {
             anyFailure = true;
-            messages::propertyValueNotInList(asyncResp->res, "true", "OAUTH");
+            messages::propertyMissing(asyncResp->res, "TLSEnable");
             return;
         }
         setSMTPProperty(asyncResp, interface, "Oauth", *input.oauth);
