@@ -224,6 +224,12 @@ UnpackErrorCode unpackValueWithErrorCode(nlohmann::json& jsonValue,
         uint64_t* jsonPtr = jsonValue.get_ptr<uint64_t*>();
         if (jsonPtr == nullptr)
         {
+            double* dPtr = jsonValue.get_ptr<double*>();
+            if (dPtr != nullptr)
+            {
+                return UnpackErrorCode::outOfRange;
+            }
+
             int64_t* ijsonPtr = jsonValue.get_ptr<int64_t*>();
             if (ijsonPtr == nullptr)
             {
