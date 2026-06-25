@@ -1098,6 +1098,21 @@ inline void getCSR(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         service, csrObjPath, "xyz.openbmc_project.Certs.CSR", "CSR");
 }
 
+inline bool isValidCSRString(const std::string& str)
+{
+    constexpr std::string_view allowedSpecialChars = "'()+-./:=?";
+
+    for (unsigned char c : str)
+    {
+        if (!std::isalnum(c) && c != ' ' &&
+            allowedSpecialChars.find(c) == std::string_view::npos)
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
 inline void handleGenerateCSRAction(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
@@ -1154,6 +1169,63 @@ inline void handleGenerateCSRAction(
             "Surname", optSurname,                      //
             "UnstructuredName", optUnstructuredName     //
             ))
+    {
+        return;
+    }
+
+    // Validate required parameters for invalid characters and length
+    bool hasErrors = false;
+
+    // City: max 128 characters
+    if (city.length() > 128 || !isValidCSRString(city))
+    {
+        messages::propertyValueFormatError(asyncResp->res, city, "City");
+        BMCWEB_LOG_ERROR("Invalid characters or length in City (max 128)");
+        hasErrors = true;
+    }
+    // CommonName: max 64 characters
+    if (commonName.length() > 64 || !isValidCSRString(commonName))
+    {
+        messages::propertyValueFormatError(asyncResp->res, commonName,
+                                           "CommonName");
+        BMCWEB_LOG_ERROR("Invalid characters or length in CommonName (max 64)");
+        hasErrors = true;
+    }
+    // Country: exactly 2 characters
+    if (country.length() != 2 || !isValidCSRString(country))
+    {
+        messages::propertyValueFormatError(asyncResp->res, country, "Country");
+        BMCWEB_LOG_ERROR("Invalid characters or length in Country (must be 2)");
+        hasErrors = true;
+    }
+    // Organization: max 64 characters
+    if (organization.length() > 64 || !isValidCSRString(organization))
+    {
+        messages::propertyValueFormatError(asyncResp->res, organization,
+                                           "Organization");
+        BMCWEB_LOG_ERROR(
+            "Invalid characters or length in Organization (max 64)");
+        hasErrors = true;
+    }
+    // OrganizationalUnit: max 64 characters
+    if (organizationalUnit.length() > 64 ||
+        !isValidCSRString(organizationalUnit))
+    {
+        messages::propertyValueFormatError(asyncResp->res, organizationalUnit,
+                                           "OrganizationalUnit");
+        BMCWEB_LOG_ERROR(
+            "Invalid characters or length in OrganizationalUnit (max 64)");
+        hasErrors = true;
+    }
+    // State: max 128 characters
+    if (state.length() > 128 || !isValidCSRString(state))
+    {
+        messages::propertyValueFormatError(asyncResp->res, state, "State");
+        BMCWEB_LOG_ERROR("Invalid characters or length in State (max 128)");
+        hasErrors = true;
+    }
+
+    if (hasErrors)
     {
         return;
     }
