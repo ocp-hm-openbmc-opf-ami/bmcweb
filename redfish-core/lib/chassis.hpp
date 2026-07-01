@@ -1357,6 +1357,7 @@ inline void createImmediateResetTask(
     task->startTimer(std::chrono::minutes(5));
     task->populateResp(asyncResp->res);
     task->payload.emplace(std::move(payload));
+    task->resetType = 3;
 }
 
 /*
@@ -1507,6 +1508,7 @@ inline void createMaintenanceWindowTask(
     task->startTimer(std::chrono::minutes(5));
     task->populateResp(asyncResp->res);
     task->payload.emplace(std::move(payload));
+    task->resetType = 3;
 
     auto chassis_Value = getchassisHostTransitionTimeOut(
         "xyz.openbmc_project.State.Host0", "/xyz/openbmc_project/state/host0",
