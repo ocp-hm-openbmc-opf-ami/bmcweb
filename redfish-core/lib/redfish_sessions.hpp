@@ -1091,7 +1091,7 @@ inline void handleActiveSessionCollectionGet(
     asyncResp->res.jsonValue["@odata.id"] =
         "/redfish/v1/SessionService/Oem/Ami/ActiveSessions";
     asyncResp->res.jsonValue["@odata.type"] =
-        json_util::odataType("AMIActiveSessionCollection");
+        json_util::odataType("AmiActiveSessionCollection");
     asyncResp->res.jsonValue["Name"] = "Active Sessions Collection";
     asyncResp->res.jsonValue["Members@odata.count"] = totalCount;
     // loop over session types
