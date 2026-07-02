@@ -175,7 +175,8 @@ void requestUserInfo(const std::string& username,
                      const boost::asio::ip::address& serverIp,
                      CallbackFn&& callback)
 {
-    std::string ipStr = redfish::ip_util::extractIPv4FromMappedIPv6(serverIp);
+    std::string ipStr = redfish::ip_util::stripIPv6ZoneId(
+        redfish::ip_util::extractIPv4FromMappedIPv6(serverIp));
 
     crow::connections::systemBus->async_method_call(
         [asyncResp, callback = std::forward<CallbackFn>(callback), serverIp](

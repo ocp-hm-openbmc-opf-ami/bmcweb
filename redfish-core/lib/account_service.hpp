@@ -264,8 +264,8 @@ inline void populateOEMAMIChannelInfo(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const crow::Request& req)
 {
-    const std::string serverIp =
-        redfish::ip_util::extractIPv4FromMappedIPv6(req.serverIPAddress);
+    std::string serverIp = redfish::ip_util::stripIPv6ZoneId(
+        redfish::ip_util::extractIPv4FromMappedIPv6(req.serverIPAddress));
     std::string thisUser;
     if (req.session)
     {
@@ -3858,9 +3858,10 @@ inline void handleAccountCollectionGet(
             nlohmann::json& memberArray = asyncResp->res.jsonValue["Members"];
             memberArray = nlohmann::json::array();
 
-            const std::string serverIp =
+            std::string serverIp = redfish::ip_util::stripIPv6ZoneId(
                 redfish::ip_util::extractIPv4FromMappedIPv6(
-                    req.serverIPAddress);
+                    req.serverIPAddress));
+
             for (const auto& userpath : users)
             {
                 std::string user = userpath.first.filename();
