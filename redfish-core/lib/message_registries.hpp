@@ -724,7 +724,7 @@ inline void requestRoutesMessageRegistryFile(App& app)
             static constexpr const auto registryFiles = std::to_array(
                 {"Base", "TaskEvent", "License", "NodeManager", "ResourceEvent",
                  "OpenBMC", "Telemetry", "PrivilegeRegistry", "HeartbeatEvent",
-                 "CertificateService", "Ami"});
+                 "CertificateService", "AmiOneTree"});
             for (const char* memberName : registryFiles)
             {
                 if (registry == memberName || registryName == memberName)
