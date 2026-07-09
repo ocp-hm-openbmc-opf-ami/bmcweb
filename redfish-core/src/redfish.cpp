@@ -114,6 +114,7 @@
 #include "ext/src/auxreset.hpp"
 #include "ext/src/dot.hpp"
 #include "ext/src/erot_dump.hpp"
+#include "ext/src/nvidia_header.hpp"
 #include "ext/src/reset.hpp"
 #include "ext/src/sbmr.hpp"
 #include "ext/src/spdm.hpp"
@@ -497,6 +498,7 @@ RedfishService::RedfishService(App& app)
     registerResetRoutes(app);
     registerErotDumpRoutes(app);
     registerAuxResetRoutes(app);
+    registerNvidiaRoutes(app);
 #endif
 
 #ifdef ONETREE_PSM
