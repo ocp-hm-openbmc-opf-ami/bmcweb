@@ -49,6 +49,13 @@ constexpr static std::string taskStates[14] = {
 
 constexpr static std::string taskHealth[3] = {"OK", "Warning", "Critical"};
 
+enum class operationType
+{
+    Power = 2,
+    Chassis = 3,
+    Host = 4
+};
+
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static std::deque<std::shared_ptr<struct TaskData>> tasks;
 static std::unique_ptr<sdbusplus::bus::match_t> hostShutdownMatch;
@@ -565,7 +572,7 @@ inline void Stop_ForceRestart(
 
 inline void setRestHostTimers(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    std::string& propertyName)
+    std::string propertyName)
 {
     uint64_t stopTimer = 0;
     crow::connections::systemBus->async_method_call(
@@ -623,21 +630,24 @@ inline void handleTaskDelete(
         return;
     }
 
-    std::string propertyName = "HostTransitionTimeOut";
-
-    if (ptr->resetType == 2) // system maintenance window reset type
+    if (ptr->resetType ==
+        static_cast<uint8_t>(
+            task::operationType::Power)) // Power maintenance window reset type
     {
-        propertyName = "PowerTransitionTimeOut";
+        setRestHostTimers(asyncResp, "PowerTransitionTimeOut");
     }
-    else if (ptr->resetType == 3) // system maintenance window reset type
+    if (ptr->resetType ==
+        static_cast<uint8_t>(
+            task::operationType::Chassis)) // Chassis maintenance window reset
+                                           // type
     {
-        propertyName = "ChassisHostTransitionTimeOut";
+        setRestHostTimers(asyncResp, "ChassisHostTransitionTimeOut");
     }
-    else if (ptr->resetType == 4) // system maintenance window reset type
+    if (ptr->resetType == static_cast<uint8_t>(task::operationType::Host) ||
+        ptr->resetType == static_cast<uint8_t>(task::operationType::Power)) // Host maintenance window reset type
     {
-        propertyName = "HostTransitionTimeOut";
+        setRestHostTimers(asyncResp, "HostTransitionTimeOut");
     }
-    setRestHostTimers(asyncResp, propertyName);
 
     ptr->deleteTasks(asyncResp, strParam);
     asyncResp->res.result(boost::beast::http::status::no_content);
