@@ -711,7 +711,8 @@ class Connection :
 
         parser->body_limit(getContentLengthLimit(method, target));
 
-        if (isLocalMediaUploadPath(target))
+        if (isLocalMediaUploadPath(target) &&
+            method == boost::beast::http::verb::post)
         {
             // Resolve destination filename before body streaming begins
             std::string_view fileNameHeader = parser->get()["X-File-Name"];
