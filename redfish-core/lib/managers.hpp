@@ -3798,19 +3798,37 @@ inline void requestRoutesManagerSerialInterface(App& app)
             std::optional<std::string> stopbits;
             std::optional<bool> interfaceEnabled;
             std::optional<std::string> id;
+            std::optional<std::string> name;
+            std::optional<std::string> description;
 
             if (!json_util::readJsonPatch(
                     req, asyncResp->res, "BitRate", bitrate, "DataBits",
                     databits, "FlowControl", flowcontrol, "InterfaceEnabled",
                     interfaceEnabled, "Parity", parity, "StopBits", stopbits,
-                    "Id", id))
+                    "Id", id, "Name", name, "Description", description))
             {
                 return;
             }
 
+            bool badProp = false;
             if (id)
             {
                 messages::propertyNotWritable(asyncResp->res, "Id");
+                badProp = true;
+            }
+            if (name)
+            {
+                messages::propertyNotWritable(asyncResp->res, "Name");
+                badProp = true;
+            }
+            if (description)
+            {
+                messages::propertyNotWritable(asyncResp->res, "Description");
+                badProp = true;
+            }
+            if (badProp)
+            {
+                asyncResp->res.result(boost::beast::http::status::bad_request);
                 return;
             }
 
