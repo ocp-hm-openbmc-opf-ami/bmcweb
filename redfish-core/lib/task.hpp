@@ -482,8 +482,11 @@ inline void createMultipleTasks(void)
                     taskData->status = taskHealth[health_pos];
                     taskData->startTime =
                         redfish::taskservice::timeStamptoepoch(taskstime);
-                    taskData->endTime =
-                        redfish::taskservice::timeStamptoepoch(tasketime);
+                    if(!tasketime.empty())
+                    {
+                        taskData->endTime =
+                            redfish::taskservice::timeStamptoepoch(tasketime);
+                    }
                     (void)msg;
                     (void)taskData;
                     return redfish::task::completed;
@@ -495,7 +498,10 @@ inline void createMultipleTasks(void)
             task->state = taskStates[state_pos];
             task->status = taskHealth[health_pos];
             task->startTime = redfish::taskservice::timeStamptoepoch(taskstime);
-            task->endTime = redfish::taskservice::timeStamptoepoch(tasketime);
+            if(!tasketime.empty())
+            {
+                task->endTime = redfish::taskservice::timeStamptoepoch(tasketime);
+            }
         }
     }
     else
