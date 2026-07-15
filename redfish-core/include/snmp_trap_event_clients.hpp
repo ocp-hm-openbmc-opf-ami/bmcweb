@@ -515,12 +515,13 @@ void getSnmpTrapClient(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         getSubscriptionTypeFromProtocolType(protocolType);
                     asyncResp->res.jsonValue["Protocol"] =
                         getProtocolFromType(protocolType);
-                    asyncResp->res.jsonValue["UserName"] = slotUserName;
+                    asyncResp->res.jsonValue["UserName"] = "";
                     asyncResp->res.jsonValue["Destination"] = "";
                     asyncResp->res.jsonValue["SNMP"]["TrapCommunity"] = "";
 
                     if (protocolType == 3)
                     {
+                        asyncResp->res.jsonValue["UserName"] = slotUserName;
                         asyncResp->res.jsonValue["Context"] =
                             "SMTP_" + validatedEntry.id;
                         asyncResp->res.result(boost::beast::http::status::ok);
