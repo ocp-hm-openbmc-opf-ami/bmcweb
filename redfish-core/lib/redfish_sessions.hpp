@@ -987,7 +987,6 @@ inline void handleActiveSessionCollectionGet(
         boost::beast::http::field::link,
         "</redfish/v1/JsonSchemas/ActiveSessionCollection.json>; rel=describedby");
     nlohmann::json sessionsJson;
-    uint8_t totalCount = 0;
 
     auto collectSessions = [&](const std::string& path,
                                const std::string& iface,
@@ -1016,7 +1015,6 @@ inline void handleActiveSessionCollectionGet(
                         "/redfish/v1/SessionService/Sessions/" + sessionType +
                         "_Session_" + std::to_string(id);
                     sessionsJson[sessionType].push_back(entry);
-                    totalCount++;
                 }
             }
         }
@@ -1037,7 +1035,6 @@ inline void handleActiveSessionCollectionGet(
                         "/redfish/v1/SessionService/Sessions/" + sessionType +
                         "_Session_" + std::to_string(id);
                     sessionsJson[sessionType].push_back(entry);
-                    totalCount++;
                 }
             }
         }
@@ -1086,22 +1083,27 @@ inline void handleActiveSessionCollectionGet(
         nlohmann::json::object_t entry;
         entry["@odata.id"] = "/redfish/v1/SessionService/Sessions/" + uid;
         sessionsJson["REDFISH"].push_back(entry);
-        totalCount++;
     }
     asyncResp->res.jsonValue["@odata.id"] =
         "/redfish/v1/SessionService/Oem/Ami/ActiveSessions";
     asyncResp->res.jsonValue["@odata.type"] =
         json_util::odataType("AmiActiveSessionCollection");
     asyncResp->res.jsonValue["Name"] = "Active Sessions Collection";
-    asyncResp->res.jsonValue["Members@odata.count"] = totalCount;
-    // loop over session types
+    // Preserve per-protocol arrays and also build a flattened Members array
+    nlohmann::json members = nlohmann::json::array();
     for (const char* type : {"KVM", "WEB", "SSH", "VMEDIA", "REDFISH"})
     {
         if (sessionsJson.contains(type))
         {
             asyncResp->res.jsonValue[type] = sessionsJson[type];
+            for (const auto& entry : sessionsJson[type])
+            {
+                members.push_back(entry);
+            }
         }
     }
+    asyncResp->res.jsonValue["Members"] = members;
+    asyncResp->res.jsonValue["Members@odata.count"] = members.size();
 }
 
 inline void handleSessionCollectionMembersGet(
