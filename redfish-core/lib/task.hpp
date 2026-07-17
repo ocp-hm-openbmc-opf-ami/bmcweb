@@ -650,7 +650,9 @@ inline void handleTaskDelete(
         setRestHostTimers(asyncResp, "ChassisHostTransitionTimeOut");
     }
     if (ptr->resetType == static_cast<uint8_t>(task::operationType::Host) ||
-        ptr->resetType == static_cast<uint8_t>(task::operationType::Power)) // Host maintenance window reset type
+        ptr->resetType == static_cast<uint8_t>(
+                              task::operationType::Power)) // Host maintenance
+                                                           // window reset type
     {
         setRestHostTimers(asyncResp, "HostTransitionTimeOut");
     }
