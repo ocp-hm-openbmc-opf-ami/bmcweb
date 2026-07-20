@@ -243,6 +243,26 @@ inline void fillPrivilegeRegistry(
         mappings,
         redfish::registries::AMIPrivilegeMapping::AMIOemControlsEntities);
 #endif
+
+    // Add top-level "Oem" section with OEM action mappings
+    nlohmann::json& oemSection = asyncResp->res.jsonValue["Oem"];
+    oemSection = nlohmann::json::object();
+
+    nlohmann::json& actionMappings = oemSection["Ami"]["ActionMappings"];
+    actionMappings = nlohmann::json::array();
+
+    for (const auto& action : registries::PrivilegeRegistry::OemActionMappings)
+    {
+        nlohmann::json actionMappingObj = nlohmann::json::object();
+        actionMappingObj["Action"] = action.first;
+        actionMappingObj["Privilege"] = nlohmann::json::array();
+
+        for (const auto& privilege : action.second)
+        {
+            actionMappingObj["Privilege"].push_back(privilege);
+        }
+        actionMappings.push_back(actionMappingObj);
+    }
 }
 
 inline void handleMessageRoutesMessageRegistryFileGet(

@@ -36,6 +36,11 @@ std::vector<const char*> OEMprivilegesUsed = {"Login",
                                               "ConfigureComponents",
                                               "ConfigureSelf"};                                            
 
+std::vector<std::pair<std::string, std::vector<std::string>>> OemActionMappings = {
+    {"AmiVirtualMedia.LocalMediaRedirect", {"ConfigureManager"}},
+    {"AmiVirtualMedia.LocalMediaStopRedirect", {"ConfigureManager"}},
+    {"AmiVirtualMedia.LocalMediaUpload", {"ConfigureManager"}},
+};
 
 std::vector<std::pair<std::string,
     std::vector<std::pair<std::string,

@@ -771,57 +771,42 @@ class Connection :
 
             uploadFilePatheMMC = destPath.string();
 
-            // Reject empty/no-body uploads BEFORE creating the destination
-            // file on disk.  Without this guard the body layer would open
-            // (and thus create) the file even for a Content-Length: 0
-            // request, leaving a stale 0-byte artifact behind and making
-            // the handler return 200 OK for an upload that carried no
-            // binary data.
+            // If body is empty, skip file streaming setup entirely.
+            // Let the request proceed to handle() so the routing layer
+            // enforces privileges (403) before the handler checks for
+            // empty body (400).  This avoids creating a stale 0-byte
+            // file on disk.
             const boost::optional<uint64_t> uploadLen =
                 parser->content_length();
-            if (!uploadLen || *uploadLen == 0)
+            if (uploadLen && *uploadLen > 0)
             {
-                BMCWEB_LOG_WARNING(
-                    "Rejecting LocalMediaUpload with empty body "
-                    "(Content-Length={})",
-                    uploadLen ? std::to_string(*uploadLen) : "<missing>");
-                // Use the standard Redfish error helper so the client
-                // gets the same well-known message it would get from
-                // any other handler.
-                redfish::messages::actionParameterMissing(
-                    res, "LocalMediaUpload", "UploadFile");
-                completeResponseFields(accept, res);
-                res.addHeader(boost::beast::http::field::date,
-                              getCachedDateStr());
-                keepAlive = false;
-                doWrite();
-                return;
-            }
+                std::error_code rmEc;
+                if (std::filesystem::exists(uploadFilePatheMMC, rmEc))
+                {
+                    std::filesystem::remove(uploadFilePatheMMC, rmEc);
+                }
 
-            std::error_code rmEc;
-            if (std::filesystem::exists(uploadFilePatheMMC, rmEc))
-            {
-                std::filesystem::remove(uploadFilePatheMMC, rmEc);
-            }
+                boost::system::error_code fileEc;
+                isUploading = true;
+                // Open file for writing. This triggers the streaming
+                // logic in http_body.hpp
+                parser->get().body().open(uploadFilePatheMMC.c_str(),
+                                          boost::beast::file_mode::write,
+                                          fileEc);
 
-            boost::system::error_code fileEc;
-            isUploading = true;
-            // Open file for writing. This triggers the streaming logic in
-            // http_body.hpp
-            parser->get().body().open(uploadFilePatheMMC.c_str(),
-                                      boost::beast::file_mode::write, fileEc);
-
-            if (fileEc)
-            {
-                BMCWEB_LOG_ERROR("Failed to open file for streaming: {}",
-                                 fileEc.message());
-                res.result(boost::beast::http::status::internal_server_error);
-                isUploading = false;
-                doWrite();
-                return;
+                if (fileEc)
+                {
+                    BMCWEB_LOG_ERROR("Failed to open file for streaming: {}",
+                                     fileEc.message());
+                    res.result(
+                        boost::beast::http::status::internal_server_error);
+                    isUploading = false;
+                    doWrite();
+                    return;
+                }
+                BMCWEB_LOG_INFO("Large File Streaming Enabled for {} -> {}",
+                                target, uploadFilePatheMMC);
             }
-            BMCWEB_LOG_INFO("Large File Streaming Enabled for {} -> {}", target,
-                            uploadFilePatheMMC);
         }
 
         if (parser->is_done())
