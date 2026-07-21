@@ -1425,10 +1425,25 @@ inline void handleSessionServicePatch(
             std::optional<uint64_t> kvmSessionTimeout;
             std::optional<uint16_t> bmcwebPort;
             std::optional<uint16_t> kvmPort;
-            if (!json_util::readJson(*ami, asyncResp->res, "KVMSessionTimeout",
-                                     kvmSessionTimeout, "BMCwebPort",
-                                     bmcwebPort, "KVMPort", kvmPort))
+            std::optional<uint16_t> redfishMaxSession;
+            std::optional<uint16_t> kvmMaxSession;
+            if (!json_util::readJson(
+                    *ami, asyncResp->res, "KVMSessionTimeout",
+                    kvmSessionTimeout, "BMCwebPort", bmcwebPort, "KVMPort",
+                    kvmPort, "RedfishMaxSession", redfishMaxSession,
+                    "KvmMaxSession", kvmMaxSession))
             {
+                return;
+            }
+            if (redfishMaxSession)
+            {
+                messages::propertyNotWritable(asyncResp->res,
+                                              "RedfishMaxSession");
+                return;
+            }
+            if (kvmMaxSession)
+            {
+                messages::propertyNotWritable(asyncResp->res, "KvmMaxSession");
                 return;
             }
 
