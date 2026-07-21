@@ -39,10 +39,6 @@ static constexpr const char* pefAlertManagerService =
     "xyz.openbmc_project.pef.alert.manager";
 static constexpr const char* pefAlertManagerBasePath =
     "/xyz/openbmc_project/PefAlertManager";
-static constexpr const char* pefDestSelPath =
-    "/xyz/openbmc_project/PefAlertManager/DestinationSelector/Entry1";
-static constexpr const char* pefDestSelIface =
-    "xyz.openbmc_project.pef.DestinationSelectorTable";
 static constexpr const char* pefEventFilterTablePath =
     "/xyz/openbmc_project/PefAlertManager/EventFilterTable/";
 static constexpr const char* pefEventFilterTableIface =
@@ -57,12 +53,6 @@ static constexpr const char* pefAlertPolicyTableIface =
 using GetSubTreeType = std::vector<
     std::pair<std::string,
               std::vector<std::pair<std::string, std::vector<std::string>>>>>;
-
-static const std::unordered_map<uint8_t, std::string> destTypeToString = {
-    {1, "SNMPv1"}, {2, "SNMPv2c"}, {3, "SMTP"}};
-
-static const std::unordered_map<std::string, uint8_t> stringToDestType = {
-    {"SNMPv1", 1}, {"SNMPv2c", 2}, {"SMTP", 3}};
 
 static const std::unordered_map<uint8_t, const char*> severityToString = {
     {2, "Information"},
@@ -166,7 +156,6 @@ inline void addEventFilterSensorDetails(
 struct PefPatchParams
 {
     std::optional<std::vector<uint8_t>> filterEnable;
-    std::optional<std::string> destinationType;
     std::optional<int64_t> retryCountLimit;
     std::optional<int64_t> retryTimeInterval;
     std::optional<int64_t> pendingAlertsLimit;
@@ -176,9 +165,8 @@ struct PefPatchParams
     bool hasValue() const
     {
         return filterEnable.has_value() || pefActionGblControl.has_value() ||
-               destinationType.has_value() || retryEnable.has_value() ||
-               retryCountLimit.has_value() || retryTimeInterval.has_value() ||
-               pendingAlertsLimit.has_value();
+               retryEnable.has_value() || retryCountLimit.has_value() ||
+               retryTimeInterval.has_value() || pendingAlertsLimit.has_value();
     }
 };
 
@@ -333,40 +321,6 @@ inline void getPefConfParam(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
         std::array<const char*, 1>{pefConfIface});
 }
 
-inline void getDestinationType(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
-{
-    dbus::utility::getProperty<uint8_t>(
-        pefAlertManagerService, pefDestSelPath, pefDestSelIface,
-        "DestinationSelector",
-        [aResp](const boost::system::error_code& ec, uint8_t destinationType) {
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR(
-                    "D-BUS response error on DestinationType Get{}", ec);
-                messages::internalError(aResp->res);
-                return;
-            }
-
-            auto it = destTypeToString.find(destinationType);
-            if (it != destTypeToString.end())
-            {
-                aResp->res.jsonValue["DestinationType"] = it->second;
-            }
-            else
-            {
-                BMCWEB_LOG_WARNING("Unknown destination type: {}",
-                                   destinationType);
-                aResp->res.jsonValue["DestinationType"] = nullptr;
-            }
-            nlohmann::json::array_t allowed;
-            allowed.emplace_back("SNMPv1");
-            allowed.emplace_back("SNMPv2c");
-            allowed.emplace_back("SMTP");
-            aResp->res.jsonValue["DestinationType@Redfish.AllowableValues"] =
-                std::move(allowed);
-        });
-}
-
 inline void setPefConfParam(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                             const std::optional<uint8_t>& pefActionGblControl)
 {
@@ -411,32 +365,6 @@ inline void setPefConfParam(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTree", "/", 0,
         std::array<const char*, 1>{pefConfIface});
-}
-
-void setDestinationType(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-                        const std::optional<std::string>& destinationType)
-{
-    auto it = stringToDestType.find(*destinationType);
-    if (it == stringToDestType.end())
-    {
-        messages::propertyValueIncorrect(aResp->res, "DestinationType",
-                                         *destinationType);
-        return;
-    }
-
-    uint8_t desType = it->second;
-    sdbusplus::asio::setProperty(
-        *crow::connections::systemBus, pefAlertManagerService, pefDestSelPath,
-        pefDestSelIface, "DestinationSelector", desType,
-        [aResp](const boost::system::error_code& ec) {
-            if (ec)
-            {
-                BMCWEB_LOG_DEBUG(
-                    "D-Bus response error setting Destination Type.");
-                messages::internalError(aResp->res);
-                return;
-            }
-        });
 }
 
 inline void getRetryConfiguration(
@@ -919,22 +847,6 @@ inline void handlePefPatch(PefPatchParams&& input,
         setPefConfParam(asyncResp, input.pefActionGblControl);
         pefAnySuccess = true;
     }
-    if (input.destinationType)
-    {
-        auto it = stringToDestType.find(*input.destinationType);
-        if (it == stringToDestType.end())
-        {
-            pefAnyFailure = true;
-            messages::propertyValueIncorrect(asyncResp->res, "DestinationType",
-                                             *input.destinationType);
-        }
-        else
-        {
-            setDestinationType(asyncResp, input.destinationType);
-            pefAnySuccess = true;
-        }
-    }
-
     if (input.retryEnable)
     {
         setRetryEnable(asyncResp, input.retryEnable);
@@ -981,7 +893,6 @@ void getPefServiceInfo(crow::App& app, const crow::Request& req,
     getPefServiceMembers(aResp);
     getFilterEnable(aResp);
     getPefConfParam(aResp);
-    getDestinationType(aResp);
     getRetryConfiguration(aResp);
 }
 
@@ -2338,7 +2249,6 @@ inline void requestRoutesPefService(App& app)
                     req, aResp->res,                                      //
                     "FilterEnable", pefConfig.filterEnable,               //
                     "PEFActionGblControl", pefConfig.pefActionGblControl, //
-                    "DestinationType", pefConfig.destinationType,         //
                     "RetryEnable", pefConfig.retryEnable,                 //
                     "RetryCountLimit", pefConfig.retryCountLimit,         //
                     "RetryTimeInterval", pefConfig.retryTimeInterval,     //
