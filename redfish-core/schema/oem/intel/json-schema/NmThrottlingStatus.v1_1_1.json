@@ -219,7 +219,6 @@
                 "InletTemperature",
                 "MissingReadingsTimeout",
                 "TimeAfterHostReset",
-                "GPIO",
                 "CPUUtilization",
                 "HostReset",
                 "Overcurrent",
@@ -229,7 +228,6 @@
             "enumDescriptions": {
                 "AlwaysOn": "Node Manager Always On policy enforced throttling on the system.",
                 "CPUUtilization": "Policy throttled the system because average CPU utilization dropped below specified threshold.",
-                "GPIO": "Policy was activated due to assertion of specified GPIO pin.",
                 "HostReset": "Policy was activated due to host reset.",
                 "InletTemperature": "Policy throttled system due to exceeding defined threshold for inlet air temperature.",
                 "MissingReadingsTimeout": "Policy throttled system because defined time has elapsed since obtaining a valid reading of Controlled Parameter in a domain.",
@@ -245,8 +243,6 @@
                 "ACTotalPlatformPower",
                 "CPUSubsystem",
                 "MemorySubsystem",
-                "HWProtection",
-                "PCIe",
                 "DCTotalPlatformPower",
                 "CPUPerformance",
                 "SmaRTCLST"
@@ -256,9 +252,7 @@
                 "CPUPerformance": "Performance (frequency) related constraints.",
                 "CPUSubsystem": "All host CPUs populated in the node. Includes all devices embedded in CPU package.",
                 "DCTotalPlatformPower": "DC power consumption of an entire node.",
-                "HWProtection": "Node power envelope limitations defined by power delivery constraints.",
                 "MemorySubsystem": "All DIMM modules present in the node.",
-                "PCIe": "PCIe-attached expansion cards (accelerators, graphic cards, etc.).",
                 "SmaRTCLST": "Node Manager SmartCLST hardware protection mechanism."
             },
             "type": "string"
@@ -353,7 +347,6 @@
                 "InletAirTemperature",
                 "MissingReadingsTimeout",
                 "TimeAfterHostReset",
-                "GPIO",
                 "CPUUtilization",
                 "Host Reset",
                 "OCWarning",
@@ -363,7 +356,6 @@
             "enumDescriptions": {
                 "AlwaysOn": "Node Manager Always On policy enforced throttling on the system.",
                 "CPUUtilization": "Policy throttled the system because average CPU utilization dropped below specified threshold.",
-                "GPIO": "Policy was activated due to assertion of specified GPIO pin.",
                 "Host Reset": "Policy was activated due to host reset.",
                 "InletAirTemperature": "Policy throttled system due to exceeding defined threshold for inlet air temperature.",
                 "MissingReadingsTimeout": "Policy throttled system because defined time has elapsed since obtaining a valid reading of Controlled Parameter in a domain.",
@@ -379,8 +371,6 @@
                 "ACTotalPlatformDomain",
                 "CPUSubsystem",
                 "MemorySubsystem",
-                "HWProtection",
-                "PCISubsystem",
                 "DCTotalPlatformDomain",
                 "Performance",
                 "SmaRTCLST"
@@ -389,9 +379,7 @@
                 "ACTotalPlatformDomain": "Wall (AC) power consumption of entire node, including expansion cards, drives, etc.",
                 "CPUSubsystem": "All host CPUs populated in the node. Includes all devices embedded in CPU package.",
                 "DCTotalPlatformDomain": "DC power consumption of an entire node.",
-                "HWProtection": "Node power envelope limitations defined by power delivery constraints.",
                 "MemorySubsystem": "All DIMM modules present in the node.",
-                "PCISubsystem": "PCIe-attached expansion cards (accelerators, graphic cards, etc.).",
                 "Performance": "Performance (frequency) related constraints.",
                 "SmaRTCLST": "Node Manager SmartCLST hardware protection mechanism."
             },

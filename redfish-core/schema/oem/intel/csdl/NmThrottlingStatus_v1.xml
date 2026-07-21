@@ -117,12 +117,6 @@
         <Member Name="MemorySubsystem">
           <Annotation Term="OData.Description" String="All DIMM modules present in the node."/>
         </Member>
-        <Member Name="HWProtection">
-          <Annotation Term="OData.Description" String="Node power envelope limitations defined by power delivery constraints."/>
-        </Member>
-        <Member Name="PCISubsystem">
-          <Annotation Term="OData.Description" String="PCIe-attached expansion cards (accelerators, graphic cards, etc.)."/>
-        </Member>
         <Member Name="DCTotalPlatformDomain">
           <Annotation Term="OData.Description" String="DC power consumption of an entire node."/>
         </Member>
@@ -143,9 +137,6 @@
         </Member>
         <Member Name="TimeAfterHostReset">
           <Annotation Term="OData.Description" String="Policy was activated because a defined period of time after host reset has elapsed."/>
-        </Member>
-        <Member Name="GPIO">
-          <Annotation Term="OData.Description" String="Policy was activated due to assertion of specified GPIO pin."/>
         </Member>
         <Member Name="CPUUtilization">
           <Annotation Term="OData.Description" String="Policy throttled the system because average CPU utilization dropped below specified threshold."/>
@@ -201,12 +192,6 @@
         </Member>
         <Member Name="MemorySubsystem">
           <Annotation Term="OData.Description" String="All DIMM modules present in the node."/>
-        </Member>
-        <Member Name="HWProtection">
-          <Annotation Term="OData.Description" String="Node power envelope limitations defined by power delivery constraints."/>
-        </Member>
-        <Member Name="PCISubsystem">
-          <Annotation Term="OData.Description" String="PCIe-attached expansion cards (accelerators, graphic cards, etc.)."/>
         </Member>
         <Member Name="DCTotalPlatformDomain">
           <Annotation Term="OData.Description" String="DC power consumption of an entire node."/>
@@ -296,9 +281,6 @@
         <Member Name="MemorySubsystem">
           <Annotation Term="OData.Description" String="All DIMM modules present in the node."/>
         </Member>
-        <Member Name="HWProtection">
-          <Annotation Term="OData.Description" String="Node power envelope limitations defined by power delivery constraints."/>
-        </Member>
         <Member Name="PCIe">
           <Annotation Term="OData.Description" String="PCIe-attached expansion cards (accelerators, graphic cards, etc.)."/>
         </Member>
@@ -324,9 +306,6 @@
         </Member>
         <Member Name="TimeAfterHostReset">
           <Annotation Term="OData.Description" String="Policy was activated because a defined period of time after host reset has elapsed."/>
-        </Member>
-        <Member Name="GPIO">
-          <Annotation Term="OData.Description" String="Policy was activated due to assertion of specified GPIO pin."/>
         </Member>
         <Member Name="CPUUtilization">
           <Annotation Term="OData.Description" String="Policy throttled the system because average CPU utilization dropped below specified threshold."/>

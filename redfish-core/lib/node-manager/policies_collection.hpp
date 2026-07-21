@@ -40,8 +40,6 @@ constexpr const char* kPolicyManagerInterface =
     "xyz.openbmc_project.NodeManager.PolicyManager";
 constexpr const char* kPowerPolicyType = "PowerPolicy";
 
-constexpr const char* kHwProtectionDomainId = "HWProtection";
-
 using SuspendPeriodsType = std::vector<
     std::map<std::string, std::variant<std::vector<std::string>, std::string>>>;
 using ThresholdsType = std::map<std::string, std::vector<uint16_t>>;
@@ -106,17 +104,6 @@ inline bool isPolicyReadOnly(
     return false;
 }
 
-inline bool isHwProtectionPolicy(
-    const std::vector<std::pair<std::string, dbus::utility::DbusVariantType>>&
-        properties)
-{
-    if (auto domainId = getPropertyValue<std::string>(properties, "DomainId"))
-    {
-        return (*domainId == kHwProtectionDomainId);
-    }
-    return false;
-}
-
 bool isNumber(const std::string& str)
 {
     return !str.empty() && std::all_of(str.begin(), str.end(), ::isdigit);
@@ -172,8 +159,7 @@ inline void getAttributes(const std::shared_ptr<bmcweb::AsyncResp>& response,
                  "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Policies/" +
                      *policyName + "/Actions/Policy.ResetStatistics"}};
 
-            if (isHwProtectionPolicy(properties) ||
-                !isPolicyReadOnly(properties))
+            if (!isPolicyReadOnly(properties))
             {
                 response->res.jsonValue["Actions"]["#NmPolicy.ChangeState"] = {
                     {"State@Redfish.AllowableValues", {"Enabled", "Disabled"}},
@@ -828,8 +814,7 @@ inline void requestRoutesNodeManagerPolicies(App& app)
                                 return;
                             }
 
-                            if (!isHwProtectionPolicy(properties) &&
-                                isPolicyReadOnly(properties))
+                            if (isPolicyReadOnly(properties))
                             {
                                 BMCWEB_LOG_INFO(
                                     "The attempt to modify the object has been denied: {}",
