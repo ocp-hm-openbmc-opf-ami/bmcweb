@@ -43,6 +43,30 @@
                     </Record>
                 </Annotation>
             </ComplexType>
+            <EnumType Name="SSLCertificateType">
+                <Member Name="CA">
+                    <Annotation Term="OData.Description" String="The CA certificate for RADIUS EAP-TLS authentication." />
+                </Member>
+                <Member Name="Client">
+                    <Annotation Term="OData.Description" String="The client certificate for RADIUS EAP-TLS authentication." />
+                </Member>
+                <Member Name="PrivateKey">
+                    <Annotation Term="OData.Description" String="The private key file for RADIUS EAP-TLS authentication." />
+                </Member>
+            </EnumType>
+            <Action Name="SSLCertificateUpload" IsBound="true">
+                <Parameter Name="AmiExternalAccountProvider" Type="AmiExternalAccountProvider.v1_0_0.Actions" />
+                <Parameter Name="CertificateType" Type="AmiExternalAccountProvider.SSLCertificateType" Nullable="false">
+                    <Annotation Term="OData.Description" String="The type of certificate to upload." />
+                    <Annotation Term="OData.LongDescription" String="This parameter shall specify the type of SSL/TLS certificate to upload for RADIUS EAP-TLS authentication." />
+                </Parameter>
+                <Parameter Name="CertificateData" Type="Edm.String" Nullable="false">
+                    <Annotation Term="OData.Description" String="The PEM-encoded certificate or key data." />
+                    <Annotation Term="OData.LongDescription" String="This parameter shall contain the PEM-encoded certificate or private key data to upload." />
+                </Parameter>
+                <Annotation Term="OData.Description" String="This action uploads an SSL/TLS certificate or key for RADIUS EAP-TLS authentication." />
+                <Annotation Term="OData.LongDescription" String="This action shall upload the specified SSL/TLS certificate or private key for use with RADIUS EAP-TLS authentication." />
+            </Action>
         </Schema>
         <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm"
             Namespace="AmiExternalAccountProvider.v1_0_0">
@@ -151,6 +175,17 @@
                         String="The last modification timestamp of the private key file." />
                 </Property>
 
+                <Property Name="Actions" Type="AmiExternalAccountProvider.v1_0_0.Actions" Nullable="false">
+                    <Annotation Term="OData.Description" String="The available actions for this resource." />
+                    <Annotation Term="OData.LongDescription" String="This property shall contain the available actions for this resource." />
+                </Property>
+
+            </ComplexType>
+
+            <ComplexType Name="Actions">
+                <Annotation Term="OData.AdditionalProperties" Bool="true" />
+                <Annotation Term="OData.Description" String="The available actions for this resource." />
+                <Annotation Term="OData.LongDescription" String="This type shall contain the available actions for this resource." />
             </ComplexType>
         </Schema>
 

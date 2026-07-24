@@ -32,6 +32,16 @@
                             "type": "null"
                         }
                     ]
+                },
+                "PasswordPolicyComplexity": {
+                    "description": "It indicates complexity of the password",
+                    "longDescription": "It indicates complexity of the password",
+                    "type": "string"
+                },
+                "RememberOldPasswordTimes": {
+                    "description": "It indicates the old password count",
+                    "longDescription": "It indicates the old password count",
+                    "type": "number"
                 }
             },
             "type": "object"

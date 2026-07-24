@@ -2613,14 +2613,14 @@ inline void handleAccountServiceGet(
             if (rememberOldPasswordTimes != nullptr)
             {
                 asyncResp->res
-                    .jsonValue["Oem"]["OpenBMC"]["RememberOldPasswordTimes"] =
+                    .jsonValue["Oem"]["Ami"]["RememberOldPasswordTimes"] =
                     *rememberOldPasswordTimes;
             }
 
             if (passwordPolicyComplexity != nullptr)
             {
                 asyncResp->res
-                    .jsonValue["Oem"]["OpenBMC"]["PasswordPolicyComplexity"] =
+                    .jsonValue["Oem"]["Ami"]["PasswordPolicyComplexity"] =
                     *passwordPolicyComplexity;
             }
 #endif
@@ -2794,7 +2794,7 @@ inline void readRadiusSSLContext(
                 {
                     messages::actionParameterValueFormatError(
                         asyncResp->res, SSLFileName, fieldName,
-                        "RADIUS.SSLCertificateUpload");
+                        "AmiExternalAccountProvider.SSLCertificateUpload");
                     return;
                 }
             }
@@ -2938,15 +2938,14 @@ inline void handleAccountRadiusGet(
         "/redfish/v1/AccountService/ExternalAccountProviders/RADIUS";
     json["@odata.type"] = json_util::odataType("ExternalAccountProvider");
     json["AccountProviderType"] = "OEM";
+    json["Actions"]["Oem"]["#AmiExternalAccountProvider.SSLCertificateUpload"] = {
+        {"target",
+         "/redfish/v1/AccountService/ExternalAccountProviders/RADIUS/Actions/Oem/AmiExternalAccountProvider.SSLCertificateUpload"}};
     json["Oem"]["Ami"]["@odata.type"] = json_util::odataType(
         "AmiExternalAccountProvider", "AmiExternalAccountProvider");
     json["Id"] = "RADIUS";
     json["Name"] = "RADIUS Settings";
     json["Description"] = "RADIUS server settings";
-    json["Oem"]["Ami"]["Actions"]["#AMIExternalAccountProvider.v1_0_0.Ami"] = {
-        {"target",
-         "/redfish/v1/AccountService/ExternalAccountProviders/Actions/Oem/Ami/RADIUS.SSLCertificateUpload"}};
-
     getRADIUSConfigData(asyncResp);
     getRADIUSRoleMap(asyncResp);
 }
@@ -3602,8 +3601,8 @@ inline void handleAccountServicePatch(
             "Oem/OpenBMC/AuthMethods/TLS", auth.tls, //
             "Oem/OpenBMC/AuthMethods/XToken", auth.xToken, //
             "HTTPBasicAuth", httpBasicAuth, //
-            "Oem/OpenBMC/PasswordPolicyComplexity",passwordcomplexity, //
-            "Oem/OpenBMC/RememberOldPasswordTimes",RememberOldPasswordTimes, "Id", vId, //
+            "Oem/Ami/PasswordPolicyComplexity",passwordcomplexity, //
+            "Oem/Ami/RememberOldPasswordTimes",RememberOldPasswordTimes, "Id", vId, //
             "ServiceEnabled", serviceEnable //
             ))
     {
@@ -4955,8 +4954,7 @@ inline void handleAccountGet(
                     }
 
                     asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] =
-                        json_util::odataType("AmiManagerAccount",
-                                             "ManagerAccount");
+                        json_util::odataType("AmiManagerAccount");
                     populateOEMAMIChannelInfo(userPrivileges, userChannelAccess,
                                               asyncResp, req);
 
@@ -6375,7 +6373,7 @@ inline void requestAccountServiceRoutes(App& app)
             std::bind_front(handleAccountRadiusPatch, std::ref(app)));
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/AccountService/ExternalAccountProviders/Actions/Oem/Ami/RADIUS.SSLCertificateUpload")
+        "/redfish/v1/AccountService/ExternalAccountProviders/RADIUS/Actions/Oem/AmiExternalAccountProvider.SSLCertificateUpload")
         .privileges(redfish::privileges::privilegeSetConfigureUsers)
         .methods(boost::beast::http::verb::post)(std::bind_front(
             handleRadiusSSLCertificateUploadAction, std::ref(app)));

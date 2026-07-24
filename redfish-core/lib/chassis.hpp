@@ -542,12 +542,12 @@ inline void handleDecoratorAssetProperties(
 #endif
 #ifndef ONETREE_RM
     // FRU Device
-    asyncResp->res.jsonValue["Oem"]["AMI"]["FRU"]["@odata.id"] =
-        boost::urls::format("/redfish/v1/Chassis/{}/FRU", chassisId);
-    asyncResp->res.jsonValue["Oem"]["AMI"]["@odata.type"] =
+    asyncResp->res.jsonValue["Oem"]["Ami"]["FRU"]["@odata.id"] =
+        boost::urls::format("/redfish/v1/Chassis/{}/Oem/Ami/FRU", chassisId);
+    asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] =
         json_util::odataType("AmiChassis");
-    asyncResp->res.jsonValue["Oem"]["AMI"]["@odata.id"] =
-        boost::urls::format("/redfish/v1/Chassis/{}#/Oem/AMI", chassisId);
+    asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.id"] =
+        boost::urls::format("/redfish/v1/Chassis/{}#/Oem/Ami", chassisId);
 #endif
     // SensorCollection
     asyncResp->res.jsonValue["Sensors"]["@odata.id"] =
@@ -555,11 +555,9 @@ inline void handleDecoratorAssetProperties(
     asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
 #if (!defined(ONETREE_RM)) && (!defined(ONETREE_PSM))
     // SensorThreshold Collection
-    asyncResp->res.jsonValue["Oem"]["AMI"]["SensorThreshold"]["@odata.id"] =
+    asyncResp->res.jsonValue["Oem"]["Ami"]["SensorThreshold"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Chassis/{}/Sensors/Oem/Ami/Threshold",
                             chassisId);
-    asyncResp->res.jsonValue["Oem"]["AMI"]["SensorThreshold"]["@odata.type"] =
-        json_util::odataType("AmiSensor");
 #endif
 #ifndef ONETREE_PSM
     nlohmann::json::array_t computerSystems;

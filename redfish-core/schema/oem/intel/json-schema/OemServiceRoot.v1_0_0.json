@@ -105,7 +105,7 @@
             "type": "object"
         }
     },
-    "owningEntity": "OpenBMC",
+    "owningEntity": "Ami",
     "release": "1.0",
     "title": "#OemServiceRoot.v1_0_0"
 }
