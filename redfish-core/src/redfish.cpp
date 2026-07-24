@@ -376,9 +376,6 @@ RedfishService::RedfishService(App& app)
     requestRoutesSensorThreshCollection(app);
     requestRoutesSensorThresh(app);
 
-    requestRoutesCupsService(app);
-    requestRoutesCupsSensors(app);
-
     requestRoutesTaskDelete(app);
     requestRoutesTaskMonitor(app);
     requestRoutesTaskService(app);
@@ -407,6 +404,12 @@ RedfishService::RedfishService(App& app)
     requestRoutesMetricReport(app);
     requestRoutesTriggerCollection(app);
     requestRoutesTrigger(app);
+
+#if (ONETREE_INTELSIPACK)
+    // CupsService
+    requestRoutesCupsService(app);
+    requestRoutesCupsSensors(app);
+#endif
 
     // License Control
 #ifdef ONETREE_LICENSE

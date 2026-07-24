@@ -4800,10 +4800,10 @@ void handleSyslogCertificateGet(
                 json_util::odataType("LogService");
             asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] =
                 json_util::odataType("AmiSyslog");
-            asyncResp->res.jsonValue["Actions"]["Oem"]["Ami"]
-                                    ["#Rsyslog.RemoteServerCertificateUpload"]
+            asyncResp->res.jsonValue["Actions"]["Oem"]
+                                    ["#AmiSyslog.RemoteServerCertificateUpload"]
                                     ["target"] = std::format(
-                "/redfish/v1/Systems/{}/LogServices/Syslog/Actions/Oem/Ami/Rsyslog.RemoteServerCertificateUpload",
+                "/redfish/v1/Systems/{}/LogServices/Syslog/Actions/Oem/AmiSyslog.RemoteServerCertificateUpload",
                 BMCWEB_REDFISH_SYSTEM_URI_NAME);
             asyncResp->res.jsonValue["Name"] = "OpenBMC Oem Syslog Service";
             asyncResp->res.jsonValue["Description"] = "Oem Syslog Service";
@@ -5072,7 +5072,7 @@ inline void requestRoutesSystemRsyslog(App& app)
 
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Systems/<str>/LogServices/Syslog/Actions/Oem/Ami/Rsyslog.RemoteServerCertificateUpload")
+        "/redfish/v1/Systems/<str>/LogServices/Syslog/Actions/Oem/AmiSyslog.RemoteServerCertificateUpload")
         .privileges(redfish::privileges::postLogService)
         .methods(boost::beast::http::verb::post)(std::bind_front(
             handleSyslogCertificateUploadAction, std::ref(app)));

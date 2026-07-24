@@ -153,7 +153,7 @@
                 "Domains": {
                     "anyOf": [
                         {
-                            "$ref": "/redfish/v1/JsonSchemas/NmDomainCollection/NmDomainCollection.json#/definitions/NmDomainCollection"
+                            "$ref": "/redfish/v1/JsonSchemas/NmDomainCollection/NmDomainCollection.v1_0_0.json#/definitions/NmDomainCollection"
                         },
                         {
                             "type": "null"
@@ -193,7 +193,7 @@
                 "Policies": {
                     "anyOf": [
                         {
-                            "$ref": "/redfish/v1/JsonSchemas/NmPolicyCollection/NmPolicyCollection.json#/definitions/NmPolicyCollection"
+                            "$ref": "/redfish/v1/JsonSchemas/NmPolicyCollection/NmPolicyCollection.v1_0_0.json#/definitions/NmPolicyCollection"
                         },
                         {
                             "type": "null"
@@ -225,7 +225,7 @@
                 "Triggers": {
                     "anyOf": [
                         {
-                            "$ref": "/redfish/v1/JsonSchemas/NmTriggerCollection/NmTriggerCollection.json#/definitions/NmTriggerCollection"
+                            "$ref": "/redfish/v1/JsonSchemas/NmTriggerCollection/NmTriggerCollection.v1_0_0.json#/definitions/NmTriggerCollection"
                         },
                         {
                             "type": "null"

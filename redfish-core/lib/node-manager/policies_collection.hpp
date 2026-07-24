@@ -157,7 +157,7 @@ inline void getAttributes(const std::shared_ptr<bmcweb::AsyncResp>& response,
             response->res.jsonValue["Actions"]["#NmPolicy.ResetStatistics"] = {
                 {"target",
                  "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Policies/" +
-                     *policyName + "/Actions/Policy.ResetStatistics"}};
+                     *policyName + "/Actions/NmPolicy.ResetStatistics"}};
 
             if (!isPolicyReadOnly(properties))
             {
@@ -165,7 +165,7 @@ inline void getAttributes(const std::shared_ptr<bmcweb::AsyncResp>& response,
                     {"State@Redfish.AllowableValues", {"Enabled", "Disabled"}},
                     {"target",
                      "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Policies/" +
-                         *policyName + "/Actions/Policy.ChangeState"}};
+                         *policyName + "/Actions/NmPolicy.ChangeState"}};
             }
             response->res.jsonValue["Thresholds"]["ThresholdValue"] =
                 nlohmann::json::array();
@@ -786,7 +786,7 @@ inline void requestRoutesNodeManagerPolicies(App& app)
 
     BMCWEB_ROUTE(
         app, "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Policies/<str>/"
-             "Actions/Policy.ChangeState")
+             "Actions/NmPolicy.ChangeState")
         .privileges(redfish::privileges::privilegeSetConfigureManager)
         .methods(
             boost::beast::http::verb::
@@ -823,7 +823,7 @@ inline void requestRoutesNodeManagerPolicies(App& app)
                                 return;
                             }
                             changeDbusObjectState(req, asyncResp, policyName,
-                                                  "Policy.ChangeState",
+                                                  "NmPolicy.ChangeState",
                                                   policyObjectPath);
                         });
                 });
@@ -831,7 +831,7 @@ inline void requestRoutesNodeManagerPolicies(App& app)
 
     BMCWEB_ROUTE(
         app, "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Policies/<str>/"
-             "Actions/Policy.ResetStatistics")
+             "Actions/NmPolicy.ResetStatistics")
         .privileges(redfish::privileges::privilegeSetConfigureManager)
         .methods(boost::beast::http::verb::post)(
             [](const crow::Request& req,

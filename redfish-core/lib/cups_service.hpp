@@ -510,6 +510,7 @@ inline std::string getSensorId(std::string type, std::string name)
 inline void getCupsSensors(const std::shared_ptr<bmcweb::AsyncResp> asyncResp)
 {
     nlohmann::json& members = asyncResp->res.jsonValue["Members"];
+    asyncResp->res.jsonValue["Members@odata.count"] = 0;
     members = nlohmann::json::array();
     crow::connections::systemBus->async_method_call(
         [asyncResp, &members](const boost::system::error_code ec,

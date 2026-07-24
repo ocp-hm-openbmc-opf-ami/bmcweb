@@ -114,13 +114,17 @@ inline void getSensorNumNameMapForType(
 
 // Example JSON output:
 //   "SensorType": {
-//     "logging": [
-//       {"SensorName": "System_Event_Log", "SensorId": 0}
-//     ],
-//     "temperature": [
-//       {"SensorName": "BMC_Temp", "SensorId": 69},
-//       {"SensorName": "Inlet_BRD_Temp", "SensorId": 74}
-//     ]
+//     "logging": {
+//       "Entries": [
+//         {"SensorName": "System_Event_Log", "SensorId": 0}
+//       ]
+//     },
+//     "temperature": {
+//       "Entries": [
+//         {"SensorName": "BMC_Temp", "SensorId": 69},
+//         {"SensorName": "Inlet_BRD_Temp", "SensorId": 74}
+//       ]
+//     }
 //   }
 inline void addEventFilterSensorDetails(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
@@ -147,7 +151,7 @@ inline void addEventFilterSensorDetails(
                                                {"SensorId", sensorNum}});
                         }
                         asyncResp->res.jsonValue["SensorType"][sensorTypeName] =
-                            std::move(names);
+                            nlohmann::json{{"Entries", std::move(names)}};
                     });
             }
         });
@@ -518,59 +522,12 @@ inline void setPendingAlertsLimit(
 
 void getPefServiceMembers(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
 {
-    crow::connections::systemBus->async_method_call(
-        [aResp](const boost::system::error_code ec,
-                const std::vector<std::string>& paths) {
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR("PEF mapper call error: {}", ec);
-                messages::internalError(aResp->res);
-                return;
-            }
-
-            bool hasEventFilterTable = false;
-            for (const auto& path : paths)
-            {
-                if (path.find("EventFilterTable") != std::string::npos)
-                {
-                    hasEventFilterTable = true;
-                    break;
-                }
-            }
-
-            bool hasAlertPolicyTable = false;
-            for (const auto& path : paths)
-            {
-                if (path.find("AlertPolicyTable") != std::string::npos)
-                {
-                    hasAlertPolicyTable = true;
-                    break;
-                }
-            }
-
-            if (hasEventFilterTable)
-            {
-                aResp->res.jsonValue["Members"].push_back(
-                    {{"@odata.id",
-                      "/redfish/v1/Oem/Ami/PefService/EventFilterTable"}});
-            }
-
-            if (hasAlertPolicyTable)
-            {
-                aResp->res.jsonValue["Members"].push_back(
-                    {{"@odata.id",
-                      "/redfish/v1/Oem/Ami/PefService/AlertPolicyTable"}});
-            }
-
-            aResp->res.jsonValue["Members@odata.count"] =
-                aResp->res.jsonValue["Members"].size();
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
-        "/xyz/openbmc_project/PefAlertManager", 0,
-        std::array<const char*, 2>{"xyz.openbmc_project.pef.EventFilterTable",
-                                   "xyz.openbmc_project.pef.AlertPolicyTable"});
+    aResp->res.jsonValue["Members"].push_back(
+        {{"@odata.id", "/redfish/v1/Oem/Ami/PefService/AlertPolicyTable"}});
+    aResp->res.jsonValue["Members"].push_back(
+        {{"@odata.id", "/redfish/v1/Oem/Ami/PefService/EventFilterTable"}});
+    aResp->res.jsonValue["Members@odata.count"] =
+        aResp->res.jsonValue["Members"].size();
 }
 
 // EntryType and parseSubscriptionEntryId are defined in event_service.hpp
@@ -998,6 +955,15 @@ inline void getAllAlertPolicyProperties(
                         aResp->res.jsonValue[key] = *value;
                     }
                 }
+                else if (key == "AlertStingkey")
+                {
+                    auto value =
+                        getArrayElementAtIndex<uint8_t>(variant, entryIndex);
+                    if (value)
+                    {
+                        aResp->res.jsonValue["AlertStringKey"] = *value;
+                    }
+                }
                 else
                 {
                     auto value =
@@ -1015,7 +981,7 @@ void getAlertPolicyTableCollection(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     asyncResp->res.jsonValue["@odata.type"] =
-        "#AmiPefService.v1_0_0.AmiPefService";
+        "#AmiPefEntryCollection.AlertPolicyTable";
     asyncResp->res.jsonValue["@odata.id"] =
         "/redfish/v1/Oem/Ami/PefService/AlertPolicyTable";
     asyncResp->res.jsonValue["Name"] = "Alert Policy Table Collection";
@@ -1063,8 +1029,6 @@ void getAlertPolicyTableCollection(
 
             asyncResp->res.jsonValue["Members@odata.count"] =
                 asyncResp->res.jsonValue["Members"].size();
-            asyncResp->res.jsonValue["@odata.type"] =
-                "#AmiPefService.v1_0_0.AmiPefService";
             addAlertPolicyChannelMappings(asyncResp);
         },
         "xyz.openbmc_project.ObjectMapper",
@@ -1108,7 +1072,7 @@ void getAlertPolicyTableEntryInfo(
             }
 
             asyncResp->res.jsonValue = {
-                {"@odata.type", "#AmiPefEntry.v1_0_0.AmiPefEntry"},
+                {"@odata.type", "#AmiPefEntry.v1_0_0.AlertPolicyTable"},
                 {"@odata.id",
                  "/redfish/v1/Oem/Ami/PefService/AlertPolicyTable/" + entryId},
                 {"Id", entryId},
@@ -1331,7 +1295,7 @@ void getEventFilterTableEntryInfo(
             const std::string listName = entryId.substr(0, entryId.rfind('_'));
 
             asyncResp->res.jsonValue = {
-                {"@odata.type", "#AmiPefEntry.v1_0_0.AmiPefEntry"},
+                {"@odata.type", "#AmiPefEntry.v1_0_0.EventFilterTable"},
                 {"@odata.id",
                  "/redfish/v1/Oem/Ami/PefService/EventFilterTable/" + entryId},
                 {"Id", entryId},
@@ -2163,7 +2127,7 @@ void getEventFilterTableCollection(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     asyncResp->res.jsonValue["@odata.type"] =
-        "#AmiPefService.v1_0_0.AmiPefService";
+        "#AmiPefEntryCollection.EventFilterTable";
     asyncResp->res.jsonValue["@odata.id"] =
         "/redfish/v1/Oem/Ami/PefService/EventFilterTable";
     asyncResp->res.jsonValue["Name"] = "Event Filter Table Collection";
@@ -2212,8 +2176,6 @@ void getEventFilterTableCollection(
 
             asyncResp->res.jsonValue["Members@odata.count"] =
                 asyncResp->res.jsonValue["Members"].size();
-            asyncResp->res.jsonValue["@odata.type"] =
-                "#AmiPefService.v1_0_0.AmiPefService";
         },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
