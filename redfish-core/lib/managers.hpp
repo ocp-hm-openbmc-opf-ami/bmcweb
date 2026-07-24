@@ -715,22 +715,22 @@ inline void asyncPopulatePid(
             nlohmann::json& configRoot =
                 asyncResp->res.jsonValue["Oem"]["OpenBmc"]["Fan"];
             nlohmann::json& fans = configRoot["FanControllers"];
-            fans["@odata.type"] =
-                json_util::odataType("OpenBMCManager", "FanControllers");
+            fans["@odata.type"] = json_util::odataType(
+                "OpenBMCManager", "Manager", "FanControllers");
             fans["@odata.id"] = boost::urls::format(
                 "/redfish/v1/Managers/{}#/Oem/OpenBmc/Fan/FanControllers",
                 BMCWEB_REDFISH_MANAGER_URI_NAME);
 
             nlohmann::json& pids = configRoot["PidControllers"];
-            pids["@odata.type"] =
-                json_util::odataType("OpenBMCManager", "PidControllers");
+            pids["@odata.type"] = json_util::odataType(
+                "OpenBMCManager", "Manager", "PidControllers");
             pids["@odata.id"] = boost::urls::format(
                 "/redfish/v1/Managers/{}#/Oem/OpenBmc/Fan/PidControllers",
                 BMCWEB_REDFISH_MANAGER_URI_NAME);
 
             nlohmann::json& stepwise = configRoot["StepwiseControllers"];
-            stepwise["@odata.type"] =
-                json_util::odataType("OpenBMCManager", "StepwiseControllers");
+            stepwise["@odata.type"] = json_util::odataType(
+                "OpenBMCManager", "Manager", "StepwiseControllers");
             stepwise["@odata.id"] = boost::urls::format(
                 "/redfish/v1/Managers/{}#/Oem/OpenBmc/Fan/StepwiseControllers",
                 BMCWEB_REDFISH_MANAGER_URI_NAME);
@@ -739,11 +739,13 @@ inline void asyncPopulatePid(
             zones["@odata.id"] = boost::urls::format(
                 "/redfish/v1/Managers/{}#/Oem/OpenBmc/Fan/FanZones",
                 BMCWEB_REDFISH_MANAGER_URI_NAME);
+            zones["@odata.type"] =
+                json_util::odataType("OpenBMCManager", "Manager", "FanZones");
             configRoot["@odata.id"] =
                 boost::urls::format("/redfish/v1/Managers/{}#/Oem/OpenBmc/Fan",
                                     BMCWEB_REDFISH_MANAGER_URI_NAME);
             configRoot["@odata.type"] =
-                json_util::odataType("OpenBMCManager", "Fan");
+                json_util::odataType("OpenBMCManager", "Manager", "Fan");
             configRoot["Profile@Redfish.AllowableValues"] = supportedProfiles;
 
             if (!currentProfile.empty())
@@ -878,6 +880,8 @@ inline void asyncPopulatePid(
                             ("/Oem/OpenBmc/Fan/FanZones"_json_pointer / name)
                                 .to_string());
                         zone["@odata.id"] = std::move(url);
+                        zone["@odata.type"] =
+                            json_util::odataType("OpenBMCManager", "FanZone");
                         config = &zone;
                     }
 
@@ -898,7 +902,7 @@ inline void asyncPopulatePid(
                                 .to_string());
                         controller["@odata.id"] = std::move(url);
                         controller["@odata.type"] = json_util::odataType(
-                            "OpenBMCManager", "StepwiseController");
+                            "OpenBMCManager", "Manager", "StepwiseController");
 
                         controller["Direction"] = *classPtr;
                     }
@@ -924,7 +928,7 @@ inline void asyncPopulatePid(
                                     .to_string());
                             element["@odata.id"] = std::move(url);
                             element["@odata.type"] = json_util::odataType(
-                                "OpenBMCManager", "FanController");
+                                "OpenBMCManager", "Manager", "FanController");
                         }
                         else
                         {
@@ -934,7 +938,7 @@ inline void asyncPopulatePid(
                                     .to_string());
                             element["@odata.id"] = std::move(url);
                             element["@odata.type"] = json_util::odataType(
-                                "OpenBMCManager", "PidController");
+                                "OpenBMCManager", "Manager", "PidController");
                         }
                     }
                     else
@@ -1069,6 +1073,9 @@ inline void asyncPopulatePid(
                                                     .to_string());
                                         input["@odata.id"] =
                                             std::move(managerUrl);
+                                        input["@odata.type"] =
+                                            json_util::odataType(
+                                                "OpenBMCManager", "FanZone");
                                         data.emplace_back(std::move(input));
                                     }
                                 }
@@ -2563,8 +2570,7 @@ inline void handleManagersInstanceGet(
     asyncResp->res.jsonValue["NetworkProtocol"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Managers/{}/NetworkProtocol",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
-#if (!defined(ONETREE_RM)) &&                                                  \
-    (!defined(ONETREE_PSM) && !defined(ONETREE_EVB_NUVOTON_NPCM845))
+#if (!defined(ONETREE_RM)) && (!defined(ONETREE_PSM))
     asyncResp->res.jsonValue["SerialInterfaces"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Managers/{}/SerialInterfaces",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
@@ -2576,22 +2582,21 @@ inline void handleManagersInstanceGet(
     // default oem data
     nlohmann::json& oem = asyncResp->res.jsonValue["Oem"];
     nlohmann::json& oemOpenbmc = oem["OpenBmc"];
-#ifdef ONETREE_INTELSIPACK
+#if !defined(ONETREE_PSM)
     nlohmann::json& oemIntel = oem["Intel"];
-    oemIntel["@odata.type"] = json_util::odataType("IntelManager", "Intel");
-    oemIntel["@odata.id"] = boost::urls::format(
-        "/redfish/v1/Managers/{}#/Oem/Intel", BMCWEB_REDFISH_MANAGER_URI_NAME);
+    oemIntel["@odata.type"] = json_util::odataType("OpenBMCManager", "Intel");
+    oemIntel["@odata.id"] = "/redfish/v1/Managers/bmc#/Oem/Intel";
+#ifdef ONETREE_INTELSIPACK
     oemIntel["NodeManager"] = {
-        {"@odata.id",
-         boost::urls::format("/redfish/v1/Managers/{}/Oem/Intel/NodeManager",
-                             BMCWEB_REDFISH_MANAGER_URI_NAME)}};
+        {"@odata.id", "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager"}};
+#endif
 #endif
     oem["@odata.id"] = boost::urls::format("/redfish/v1/Managers/{}#/Oem",
                                            BMCWEB_REDFISH_MANAGER_URI_NAME);
     oemOpenbmc["@odata.type"] =
         json_util::odataType("OpenBMCManager", "Manager");
     oemOpenbmc["@odata.id"] =
-        boost::urls::format("/redfish/v1/Managers/{}#/Oem#/OpenBmc/",
+        boost::urls::format("/redfish/v1/Managers/bmc#/Oem#/OpenBmc/",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
 
     nlohmann::json::object_t certificates;

@@ -236,6 +236,8 @@ inline void addFanCommonProperties(crow::Response& resp,
     resp.jsonValue["Id"] = fanId;
     resp.jsonValue["@odata.id"] = boost::urls::format(
         "/redfish/v1/Chassis/{}/ThermalSubsystem/Fans/{}", chassisId, fanId);
+    resp.jsonValue["SpeedPercent"]["@odata.id"] = boost::urls::format(
+        "/redfish/v1/Chassis/{}/Sensors/{}", chassisId, "fantach_" + fanId);
     resp.jsonValue["SpeedPercent"]["DataSourceUri"] = boost::urls::format(
         "/redfish/v1/Chassis/{}/Sensors/{}", chassisId, "fantach_" + fanId);
     resp.jsonValue["Status"]["State"] = resource::State::Enabled;

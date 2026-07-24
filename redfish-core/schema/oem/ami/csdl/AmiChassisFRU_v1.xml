@@ -53,16 +53,6 @@
 	     <Annotation Term="OData.Description" String="The Name string of a Chassis FRU device."/>
 	     <Annotation Term="OData.LongDescription" String="The value of this property shall specify the Name of a Chassis FRU device."/>
 	   </Property>
-	   <Property Name="Id" Type="Edm.String" Nullable="false">
-	     <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-	     <Annotation Term="OData.Description" String="The Id string of a Chassis FRU device."/>
-	     <Annotation Term="OData.LongDescription" String="The value of this property shall specify the Id of a Chassis FRU device."/>
-	   </Property>
-	   <Property Name="Description" Type="Edm.String" Nullable="false">
-	     <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-	     <Annotation Term="OData.Description" String="The Description of a Chassis FRU device."/>
-	     <Annotation Term="OData.LongDescription" String="Human readable description of the FRU device."/>
-	   </Property>
 	   <Property Name="BoardVersion" Type="Edm.String" Nullable="false">
 	     <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
 	     <Annotation Term="OData.Description" String="The Board Version number string of a Chassis FRU device."/>
@@ -132,3 +122,4 @@
        </Schema>
     </edmx:DataServices>
 </edmx:Edmx>
+

@@ -52,7 +52,7 @@
             },
             "properties": {
                 "AuthorizedFeature": {
-                    "$ref": "/redfish/v1/Schemas/ProvisionDynamicFeature.json#/definitions/ProvisionDynamicFeature",
+                    "$ref": "http://redfish.dmtf.org/schemas/v1/ProvisionDynamicFeature.json#/definitions/ProvisionDynamicFeature",
                     "description": "This property shall contain a link to the License instance for the corresponding Authorized Feature.",
                     "longDescription": "This property shall contain a link to the License instance for the corresponding Authorized Feature.",
                     "readonly": true

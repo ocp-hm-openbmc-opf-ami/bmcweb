@@ -380,7 +380,6 @@ void getDomainObjectPath(const crow::Request& req,
             {
                 BMCWEB_LOG_ERROR("respHandler DBus error: {}", ec.message());
                 messages::internalError(asyncResp->res);
-                return;
             }
 
             auto domainObjectPath = std::find_if(
@@ -461,11 +460,12 @@ void getDomainObjectPath(const crow::Request& req,
            {{"State@Redfish.AllowableValues", {"Enabled", "Disabled"}},
             {"target",
              "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Domains/" +
-                 domainName + "/Actions/NmDomain.ChangeState"}}},
+                 domainName + "/Actions/Domain.ChangeState"}}},
           {"#NmDomain.ResetStatistics",
            {{"target",
              "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Domains/" +
-                 domainName + "/Actions/NmDomain.ResetStatistics"}}}}}};
+                 domainName + "/Actions/Domain.ResetStatistics"}}}}},
+    };
 }
 
 inline void requestRoutesNodeManagerDomains([[maybe_unused]] App& app)
@@ -629,7 +629,7 @@ inline void requestRoutesNodeManagerDomains([[maybe_unused]] App& app)
 
     BMCWEB_ROUTE(app,
                  "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Domains/<str>/"
-                 "Actions/NmDomain.ResetStatistics/")
+                 "Actions/Domain.ResetStatistics/")
         .privileges(redfish::privileges::privilegeSetConfigureManager)
         .methods(boost::beast::http::verb::post)(
             [](const crow::Request& req,
@@ -653,7 +653,7 @@ inline void requestRoutesNodeManagerDomains([[maybe_unused]] App& app)
 
     BMCWEB_ROUTE(app,
                  "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager/Domains/<str>/"
-                 "Actions/NmDomain.ChangeState/")
+                 "Actions/Domain.ChangeState/")
         .privileges(redfish::privileges::privilegeSetConfigureManager)
         .methods(boost::beast::http::verb::post)(
             [](const crow::Request& req,
@@ -664,7 +664,7 @@ inline void requestRoutesNodeManagerDomains([[maybe_unused]] App& app)
                     [req, asyncResp,
                      domainName](const std::string& domainObjectPath) {
                         changeDbusObjectState(req, asyncResp, domainName,
-                                              "NmDomain.ChangeState",
+                                              "Domain.ChangeState",
                                               domainObjectPath);
                         return;
                     });

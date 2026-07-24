@@ -21,7 +21,7 @@
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AmiSensor.v1_0_0">
       <Annotation Term="Redfish.OwningEntity" String="Ami"/>
       <Annotation Term="Redfish.Release" String="1.0"/>
-      <EntityType Name="AmiSensor" BaseType="Resource.OemObject">
+      <EntityType Name="AmiSensor" BaseType="Resource.v1_0_0.Resource">
         <Annotation Term="OData.Description" String="This is the schema definition for the AmiSensor." />
         <Property Name="States" Type="Collection(Edm.String)" Nullable="false">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read" />
@@ -37,3 +37,4 @@
     </Schema>
   </edmx:DataServices>
 </edmx:Edmx>
+

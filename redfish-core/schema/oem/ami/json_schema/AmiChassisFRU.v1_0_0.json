@@ -64,18 +64,6 @@
                     "readonly": true,
                     "type": "string"
                 },
-                "Description": {
-                    "description": "The Description of a Chassis FRU device.",
-                    "longDescription": "Human readable description of the FRU device.",
-                    "readonly": true,
-                    "type": "string"
-                },
-                "Id": {
-                    "description": "The Id string of a Chassis FRU device.",
-                    "longDescription": "The value of this property shall specify the Id of a Chassis FRU device.",
-                    "readonly": true,
-                    "type": "string"
-                },
                 "Name": {
                     "description": "The Name string of a Chassis FRU device.",
                     "longDescription": "The value of this property shall specify the Name of a Chassis FRU device.",

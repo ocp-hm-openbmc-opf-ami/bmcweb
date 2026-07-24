@@ -14,9 +14,6 @@
     <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Capabilities.V1.xml">
       <edmx:Include Namespace="Org.OData.Capabilities.V1" Alias="Capabilities"/>
     </edmx:Reference>
-    <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
-      <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
-    </edmx:Reference>
     <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
       <edmx:Include Namespace="Resource"/>
       <edmx:Include Namespace="Resource.v1_0_0"/>
@@ -28,13 +25,13 @@
       <edmx:Include Namespace="AmiChassisFRU"/>
       <edmx:Include Namespace="AmiChassisFRU.v1_0_0"/>
     </edmx:Reference>
-    <edmx:Reference Uri="/redfish/v1/Schemas/ThresholdSensorCollection_v1.xml">
-      <edmx:Include Namespace="ThresholdSensorCollection"/>
+    <edmx:Reference Uri="/redfish/v1/Schemas/AmiChassis_v1.xml">
+      <edmx:Include Namespace="AmiChassis.v1_0_0"/>
     </edmx:Reference>
     <edmx:DataServices>
 	    
 	<Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AmiChassis">
-    <ComplexType Name="AmiChassis" Abstract="true">
+    <EntityType Name="AmiChassis" BaseType="Resource.v1_0_0.Resource">
       <Annotation Term="OData.Description" String="This is the schema definition for the Oem.Ami properties in Chassis."/>
       <Annotation Term="OData.LongDescription" String="This resource shall be used to represent Oem.Ami properties in Chassis."/>
       <Annotation Term="Capabilities.InsertRestrictions">
@@ -52,27 +49,25 @@
           <PropertyValue Property="Deletable" Bool="false"/>
         </Record>
       </Annotation>
-    </ComplexType>
+    </EntityType>
   </Schema>
-
-  <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AmiChassis.v1_0_0">
+            
+	<Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AmiChassis.v1_0_0">
     <Annotation Term="Redfish.OwningEntity" String="Ami"/>
     <Annotation Term="Redfish.Release" String="1.0"/>
-    <ComplexType Name="AmiChassis" BaseType="AmiChassis.AmiChassis">
-      <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+    <EntityType Name="AmiChassis" BaseType="AmiChassis.AmiChassis">
       <Annotation Term="OData.Description" String="This property shall specify a valid odata or Redfish property."/>
       <Annotation Term="OData.LongDescription" String="This property shall specify a valid odata or Redfish property."/>
-      <NavigationProperty Name="FRU" Type="AmiChassisFRUCollection.AmiChassisFRUCollection" ContainsTarget="true" Nullable="false">
-        <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+      <NavigationProperty Name="FRU" Type="AmiChassisFRUCollection.AmiChassisFRUCollection" Nullable="false">
         <Annotation Term="OData.Description" String="This allows to link the redfish chassis FRU device collection."/>
-        <Annotation Term="OData.AutoExpandReferences"/>
       </NavigationProperty>
-      <NavigationProperty Name="SensorThreshold" Type="ThresholdSensorCollection.ThresholdSensorCollection" ContainsTarget="true" Nullable="false">
-        <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+      <NavigationProperty Name="SensorThreshold" Type="ThresholdSensorCollection.ThresholdSensorCollection" Nullable="false">
         <Annotation Term="OData.Description" String="This allows to link the redfish sensor."/>
-        <Annotation Term="OData.AutoExpandReferences"/>
       </NavigationProperty>
-    </ComplexType>
+    </EntityType>
   </Schema>
+
    </edmx:DataServices>
 </edmx:Edmx>
+
+

@@ -56,14 +56,6 @@
             <Annotation Term="OData.LongDescription" String="AmiAccountService Oem properties." />
             <Property Name="Configuration" Type="AmiAccountService.v1_0_0.Configuration">
             </Property>
-            <Property Name="PasswordPolicyComplexity" Type="Edm.String">
-                <Annotation Term="OData.Description" String="It indicates complexity of the password" />
-                <Annotation Term="OData.LongDescription" String="It indicates complexity of the password" />
-            </Property>
-            <Property Name="RememberOldPasswordTimes" Type="Edm.Decimal">
-                <Annotation Term="OData.Description" String="It indicates the old password count" />
-                <Annotation Term="OData.LongDescription" String="It indicates the old password count" />
-            </Property>
         </ComplexType>
 
         <ComplexType Name="Configuration" Abstract="true">

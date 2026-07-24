@@ -90,11 +90,12 @@ inline void handleServiceRootGetImpl(
         "/redfish/v1/#Oem/Intel";
     asyncResp->res.jsonValue["Oem"]["Intel"]["CupsService"] = {
         {"@odata.id", "/redfish/v1/Oem/Intel/CupsService"}};
+
     asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] =
         json_util::odataType("AmiServiceRoot", "AmiServiceRoot");
     asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.id"] =
         "/redfish/v1/#Oem/Ami";
-#ifdef ONETREE_BRCMPCIESW
+#ifdef ONETREE_EVB_AST2600
     asyncResp->res.jsonValue["Oem"]["Ami"]["PcieSwitch"] = {
         {"@odata.id", "/redfish/v1/Oem/Ami/PcieSwitch"}};
 #endif

@@ -2758,7 +2758,6 @@ inline void handleSensorThreshCollectionGet(
         asyncResp->res.jsonValue["Description"] =
             "Collection of Threshold Sensors of this Chassis";
         asyncResp->res.jsonValue["Name"] = "Threshold Sensors";
-        asyncResp->res.jsonValue["Members@odata.count"] = 0;
         nlohmann::json& sensorPathList = asyncResp->res.jsonValue["Members"];
         asyncResp->res.jsonValue["Members@odata.count"] = 0;
         sensorPathList = nlohmann::json::array();
@@ -2821,11 +2820,12 @@ inline void handleSensorThreshCollectionGet(
                             std::string sensorTypeName =
                                 redfish::sensor_utils::getSensorId(sensorName,
                                                                    sensorType);
-                            nlohmann::json member;
-                            member["@odata.id"] = boost::urls::format(
-                                "/redfish/v1/Chassis/{}/Sensors/Oem/Ami/Threshold/{}",
-                                chassisId, sensorTypeName);
-                            sensorPathList.push_back(member);
+
+                            sensorPathList.push_back(nlohmann::json::object(
+                                {{"@odata.id",
+                                  boost::urls::format(
+                                      "/redfish/v1/Chassis/{}/Sensors/Oem/Ami/Threshold/{}",
+                                      chassisId, sensorTypeName)}}));
                         }
                         asyncResp->res.jsonValue["Members@odata.count"] =
                             sensorPathList.size();

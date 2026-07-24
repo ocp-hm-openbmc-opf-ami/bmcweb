@@ -336,7 +336,7 @@
                 "ComponentCapabilities": {
                     "description": "The capabilities data information for components in this domain.",
                     "items": {
-                        "$ref": "/redfish/v1/Schemas/NmDomain.v1_4_0.json#/definitions/ComponentCapabilities"
+                        "$ref": "#/definitions/ComponentCapabilities"
                     },
                     "longDescription": "This type shall contain min and max that describe control capabilities for componenents of this domain.",
                     "type": "array",

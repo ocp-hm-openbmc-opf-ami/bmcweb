@@ -25,13 +25,11 @@
             "properties": {
                 "FRU": {
                     "$ref": "/redfish/v1/JsonSchemas/AmiChassisFRUCollection/AmiChassisFRUCollection.json#/definitions/AmiChassisFRUCollection",
-                    "description": "This allows to link the redfish chassis FRU device collection.",
-                    "readonly": true
+                    "description": "This allows to link the redfish chassis FRU device collection."
                 },
                 "SensorThreshold": {
-                    "$ref": "/redfish/v1/JsonSchemas/ThresholdSensorCollection/ThresholdSensorCollection.json#/definitions/ThresholdSensorCollection",
-                    "description": "This allows to link the redfish sensor.",
-                    "readonly": true
+                    "$ref": "http://redfish.dmtf.org/schemas/v1/ThresholdSensorCollection.json#/definitions/ThresholdSensorCollection",
+                    "description": "This allows to link the redfish sensor."
                 }
             },
             "type": "object"

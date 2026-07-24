@@ -7,7 +7,6 @@
 #include "app.hpp"
 #include "cookies.hpp"
 #include "error_messages.hpp"
-#include "generated/enums/session.hpp"
 #include "http/utility.hpp"
 #include "persistent_data.hpp"
 #include "query.hpp"
@@ -194,18 +193,18 @@ inline void fillSessionObject(
         creationMessageId);
 }
 
-inline session::SessionTypes getSessionType(int sessionType)
+inline std::string getSessionType(int sessionType)
 {
     if (sessionType == 0)
-        return session::SessionTypes::KVMIP;
+        return "KVMIP";
     else if (sessionType == 1)
-        return session::SessionTypes::WebUI;
+        return "WEBUI";
     else if (sessionType == 2)
-        return session::SessionTypes::VirtualMedia;
+        return "VirtualMedia";
     else if (sessionType == 3)
-        return session::SessionTypes::ManagerConsole;
+        return "ManagerConsole";
     else
-        return session::SessionTypes::Invalid;
+        return "";
 }
 
 inline std::string getprivilege(int priv)
@@ -307,11 +306,8 @@ inline void getSessionInfo(
                         sessionId;
                     asyncResp->res.jsonValue["@odata.type"] =
                         json_util::odataType("Session");
-                    const std::string sessionTypeStr =
-                        nlohmann::json(getSessionType(SessionType))
-                            .get<std::string>();
                     asyncResp->res.jsonValue["Name"] =
-                        sessionTypeStr + " User Session";
+                        getSessionType(SessionType) + " User Session";
                     asyncResp->res.jsonValue["Description"] =
                         "Manager User Session";
                     asyncResp->res.jsonValue["ClientOriginIPAddress"] =
@@ -369,11 +365,8 @@ inline void getSessionInfo(
                         sessionId;
                     asyncResp->res.jsonValue["@odata.type"] =
                         json_util::odataType("Session");
-                    const std::string sessionTypeStr =
-                        nlohmann::json(getSessionType(SessionType))
-                            .get<std::string>();
                     asyncResp->res.jsonValue["Name"] =
-                        sessionTypeStr + " User Session";
+                        getSessionType(SessionType) + " User Session";
                     asyncResp->res.jsonValue["Description"] =
                         "Manager User Session";
                     asyncResp->res.jsonValue["ClientOriginIPAddress"] =

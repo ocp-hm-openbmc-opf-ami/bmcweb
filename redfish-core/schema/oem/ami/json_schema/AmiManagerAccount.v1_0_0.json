@@ -28,10 +28,8 @@
             },
             "type": "object"
         },
-        "AmiManagerAccount": {
+        "ChannelPrivilege": {
             "additionalProperties": false,
-            "description": "Oem properties for AmiManagerAccount.",
-            "longDescription": "Oem properties for AmiManagerAccount.",
             "patternProperties": {
                 "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
                     "description": "This property shall specify a valid odata or Redfish property.",
@@ -47,23 +45,57 @@
                 }
             },
             "properties": {
-                "Actions": {
-                    "$ref": "#/definitions/Actions",
-                    "description": "The available actions for this resource.",
-                    "longDescription": "This property shall contain the available actions for this resource."
+                "ChannelAccess": {
+                    "description": "Indicates whether the user is allowed to access the channel at all. A value of true indicates that Access is granted for this channel. A value of false indicates that Access is denied, regardless of assigned privilege.",
+                    "longDescription": "This property indicates whether the user is allowed to access the channel at all. A value of true indicates that Access is granted for this channel. A value of false indicates that Access is denied, regardless of assigned privilege.",
+                    "readonly": false,
+                    "type": "boolean"
                 },
+                "ChannelId": {
+                    "description": "Indicates a numeric identifier for each channel/interface. Unique per system and often static, mapping to a physical or logical port.",
+                    "longDescription": "This property indicates a numeric identifier for each channel/interface. Unique per system and often static, mapping to a physical or logical port.",
+                    "readonly": false,
+                    "type": "integer"
+                },
+                "ChannelPrivilege": {
+                    "$ref": "#/definitions/Privilege",
+                    "description": "Specifies the privilege level assigned to a user for a specific channel.",
+                    "longDescription": "This property specifies the privilege level assigned to a user for a specific channel.",
+                    "readonly": false
+                }
+            },
+            "type": "object"
+        },
+        "ManagerAccount": {
+            "additionalProperties": false,
+            "description": "This is the schema definition of the Manager extensions to the standard Manager account.",
+            "longDescription": "This is the schema definition of the Manager extensions to the standard Manager account.",
+            "patternProperties": {
+                "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
+                    "description": "This property shall specify a valid odata or Redfish property.",
+                    "type": [
+                        "array",
+                        "boolean",
+                        "integer",
+                        "number",
+                        "null",
+                        "object",
+                        "string"
+                    ]
+                }
+            },
+            "properties": {
                 "ChannelPrivileges": {
-                    "description": "A list that specifies the access permissions and privilege levels a user has on each available communication channel.",
+                    "description": "Indicates a list that specifies the access permissions and privilege levels a user has on each available communication channel. Controls per-channel access, allowing fine-grained control of user privileges for different interfaces. ",
                     "items": {
                         "$ref": "#/definitions/ChannelPrivilege"
                     },
-                    "longDescription": "This property indicates a list that specifies the access permissions and privilege levels a user has on each available communication channel, allowing fine-grained control of user privileges for different interfaces.",
+                    "longDescription": "This property indicates a list that specifies the access permissions and privilege levels a user has on each available communication channel. Controls per-channel access, allowing fine-grained control of user privileges for different interfaces.",
                     "type": "array"
                 },
                 "RemoteUser": {
                     "description": "Indicates if the Manager Account is a remote user.",
                     "longDescription": "This property shall indicate if the Manager Account is a remote user.",
-                    "readonly": true,
                     "type": "boolean"
                 },
                 "SMTP": {
@@ -91,56 +123,15 @@
                     "longDescription": "This property shall contain the set of SNMP configurations for this Manager Account."
                 },
                 "TwoFacEnableStatus": {
-                    "description": "Indicates if two-factor authentication is enabled for this Manager Account.",
-                    "longDescription": "This property shall indicate if two-factor authentication is enabled for this Manager Account.",
-                    "readonly": true,
+                    "description": "Indicates if TwoFacEnableStatus is enabled for this Manager Account.",
+                    "longDescription": "This property shall indicate if TwoFacEnableStatus is enabled for this Manager Account.",
                     "type": "boolean"
                 },
                 "WebRoleId": {
                     "$ref": "#/definitions/Privilege",
-                    "description": "Indicates the user's assigned privilege level for the web channel.",
-                    "longDescription": "This property indicates the user's assigned privilege level for the web channel.",
+                    "description": "Indicates the user's assigned privilege level for a specific channel.",
+                    "longDescription": "This property indicates the user's assigned privilege level for a specific channel.",
                     "readonly": true
-                }
-            },
-            "type": "object"
-        },
-        "ChannelPrivilege": {
-            "additionalProperties": false,
-            "description": "The access permission and privilege level for a single channel.",
-            "longDescription": "This type describes the access permission and privilege level a user has on a single communication channel.",
-            "patternProperties": {
-                "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
-                    "description": "This property shall specify a valid odata or Redfish property.",
-                    "type": [
-                        "array",
-                        "boolean",
-                        "integer",
-                        "number",
-                        "null",
-                        "object",
-                        "string"
-                    ]
-                }
-            },
-            "properties": {
-                "ChannelAccess": {
-                    "description": "Indicates whether the user is allowed to access the channel.",
-                    "longDescription": "This property indicates whether the user is allowed to access the channel. A value of true indicates that access is granted. A value of false indicates that access is denied, regardless of assigned privilege.",
-                    "readonly": false,
-                    "type": "boolean"
-                },
-                "ChannelId": {
-                    "description": "A numeric identifier for each channel or interface.",
-                    "longDescription": "This property indicates a numeric identifier for each channel or interface, unique per system and often static, mapping to a physical or logical port.",
-                    "readonly": false,
-                    "type": "integer"
-                },
-                "ChannelPrivilege": {
-                    "$ref": "#/definitions/Privilege",
-                    "description": "Specifies the privilege level assigned to a user for a specific channel.",
-                    "longDescription": "This property specifies the privilege level assigned to a user for a specific channel.",
-                    "readonly": false
                 }
             },
             "type": "object"
@@ -153,15 +144,13 @@
             ],
             "enumDescriptions": {
                 "Administrator": "Full system control, including configuration and firmware updates.",
-                "Operator": "Limited control, usually excluding security and configuration management.",
+                "Operator": "Limited control, usually excluding security/config management.",
                 "ReadOnly": "View-only access."
             },
             "type": "string"
         },
         "SMTP": {
             "additionalProperties": false,
-            "description": "SMTP configuration for a Manager Account.",
-            "longDescription": "This type shall contain the SMTP configuration for a Manager Account.",
             "patternProperties": {
                 "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
                     "description": "This property shall specify a valid odata or Redfish property.",
@@ -178,8 +167,8 @@
             },
             "properties": {
                 "SMTPMailId": {
-                    "description": "The SMTP mail identifier for this user.",
-                    "longDescription": "This property indicates the SMTP mail identifier for this user.",
+                    "description": "Indicates if SMTP Mail Id is enabled for User.",
+                    "longDescription": "This property indicates if SMTP Mail Id is enabled for User.",
                     "readonly": false,
                     "type": "string"
                 }
@@ -188,8 +177,6 @@
         },
         "SNMP": {
             "additionalProperties": false,
-            "description": "SNMP configuration for a Manager Account.",
-            "longDescription": "This type shall contain the SNMP configuration for a Manager Account.",
             "patternProperties": {
                 "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
                     "description": "This property shall specify a valid odata or Redfish property.",
@@ -205,63 +192,14 @@
                 }
             },
             "properties": {
-                "Access": {
-                    "$ref": "#/definitions/SNMPAccessMode",
-                    "description": "The SNMP access mode for this user.",
-                    "longDescription": "This property indicates the SNMP read or read-write access mode for this user.",
-                    "readonly": false
-                },
-                "Algorithm": {
-                    "$ref": "#/definitions/SNMPAuthenticationAlgorithm",
-                    "description": "The authentication protocol for SNMPv3.",
-                    "longDescription": "This property shall contain the SNMPv3 authentication protocol.",
-                    "readonly": false
-                },
-                "Encryption": {
-                    "$ref": "#/definitions/SNMPEncryptionProtocol",
-                    "description": "The encryption protocol for SNMPv3.",
-                    "longDescription": "This property shall contain the SNMPv3 encryption protocol.",
-                    "readonly": false
-                },
                 "SNMPAccessEnableStatus": {
-                    "description": "Indicates if SNMP access is enabled for this user.",
-                    "longDescription": "This property indicates if SNMP access is enabled for this user.",
+                    "description": "Indicates if SNMP User is enabled.",
+                    "longDescription": "This property indicates if SNMP user is enabled.",
                     "readonly": false,
                     "type": "boolean"
                 }
             },
             "type": "object"
-        },
-        "SNMPAccessMode": {
-            "enum": [
-                "ReadOnly",
-                "ReadWrite"
-            ],
-            "enumDescriptions": {
-                "ReadOnly": "Read-only SNMP access.",
-                "ReadWrite": "Read-write SNMP access."
-            },
-            "type": "string"
-        },
-        "SNMPAuthenticationAlgorithm": {
-            "enum": [
-                "SHA-384",
-                "SHA-512"
-            ],
-            "enumDescriptions": {
-                "SHA-384": "SHA-384 authentication algorithm.",
-                "SHA-512": "SHA-512 authentication algorithm."
-            },
-            "type": "string"
-        },
-        "SNMPEncryptionProtocol": {
-            "enum": [
-                "AES"
-            ],
-            "enumDescriptions": {
-                "AES": "AES encryption protocol."
-            },
-            "type": "string"
         },
         "TwoFactorAuthentication": {
             "additionalProperties": false,
