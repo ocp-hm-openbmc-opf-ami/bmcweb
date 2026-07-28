@@ -780,6 +780,12 @@ inline void requestRoutesMessageRegistryFile(App& app)
 #endif
 
 #ifdef ONETREE_RTP
+            if (registry == "Ami" || registryName == "Ami")
+            {
+                asyncResp->res.addHeader("Allow", "GET");
+                messages::operationNotAllowed(asyncResp->res);
+                return;
+            }
             sdbusplus::asio::getAllProperties(
                 *crow::connections::systemBus,
                 "xyz.openbmc_project.OOBInventoryConfig",
