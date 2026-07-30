@@ -783,7 +783,17 @@ class Connection :
                 std::error_code rmEc;
                 if (std::filesystem::exists(uploadFilePatheMMC, rmEc))
                 {
-                    std::filesystem::remove(uploadFilePatheMMC, rmEc);
+                    BMCWEB_LOG_WARNING(
+                        "Rejecting LocalMediaUpload: file already exists: {}",
+                        uploadFilePatheMMC);
+                    redfish::messages::resourceAlreadyExists(
+                        res, "LocalMediaUpload", "FilePath", finalFileName);
+                    completeResponseFields(accept, res);
+                    res.addHeader(boost::beast::http::field::date,
+                                  getCachedDateStr());
+                    keepAlive = false;
+                    doWrite();
+                    return;
                 }
 
                 boost::system::error_code fileEc;
