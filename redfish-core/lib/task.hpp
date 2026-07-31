@@ -498,6 +498,12 @@ inline void createMultipleTasks(void)
             task->state = taskStates[state_pos];
             task->status = taskHealth[health_pos];
             task->startTime = redfish::taskservice::timeStamptoepoch(taskstime);
+            if ((taskStates[state_pos] == "New") ||
+                (taskStates[state_pos] == "Running") ||
+                (taskStates[state_pos] == "Pending"))
+            {
+                task->state = "Exception";
+            }
             if (!tasketime.empty())
             {
                 task->endTime =
