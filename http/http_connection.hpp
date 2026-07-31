@@ -752,7 +752,7 @@ class Connection :
                 res.result(boost::beast::http::status::unsupported_media_type);
                 keepAlive = false;
                 BMCWEB_LOG_WARNING(
-                    "Rejecting upload due to unsupported extension: {}",
+                    "Rejecting upload due to invalid X-File-Name extension: {}",
                     extension);
                 doWrite();
                 return;
@@ -796,24 +796,9 @@ class Connection :
                     return;
                 }
 
-                boost::system::error_code fileEc;
                 isUploading = true;
-                // Open file for writing. This triggers the streaming
-                // logic in http_body.hpp
-                parser->get().body().open(uploadFilePatheMMC.c_str(),
-                                          boost::beast::file_mode::write,
-                                          fileEc);
-
-                if (fileEc)
-                {
-                    BMCWEB_LOG_ERROR("Failed to open file for streaming: {}",
-                                     fileEc.message());
-                    res.result(
-                        boost::beast::http::status::internal_server_error);
-                    isUploading = false;
-                    doWrite();
-                    return;
-                }
+                parser->get().body().configureExtensionMagicValidation(
+                    uploadFilePatheMMC, extension);
                 BMCWEB_LOG_INFO("Large File Streaming Enabled for {} -> {}",
                                 target, uploadFilePatheMMC);
             }
@@ -867,6 +852,20 @@ class Connection :
                 return;
             }
 
+            const boost::system::error_code invalidArgEc =
+                boost::system::errc::make_error_code(
+                    boost::system::errc::invalid_argument);
+            if (ec == invalidArgEc && isUploading)
+            {
+                res.result(boost::beast::http::status::unsupported_media_type);
+                BMCWEB_LOG_ERROR(
+                    "Rejecting upload during streaming: magic signature does not match X-File-Name extension");
+                keepAlive = false;
+                isUploading = false;
+                doWrite();
+                return;
+            }
+
             gracefulClose();
             return;
         }
@@ -888,6 +887,17 @@ class Connection :
         if (!parser->is_done())
         {
             doRead();
+            return;
+        }
+
+        if (isUploading && !parser->get().body().file().is_open())
+        {
+            res.result(boost::beast::http::status::unsupported_media_type);
+            BMCWEB_LOG_ERROR(
+                "Rejecting upload after parse completion: file was never opened after extension magic validation");
+            keepAlive = false;
+            isUploading = false;
+            doWrite();
             return;
         }
 
