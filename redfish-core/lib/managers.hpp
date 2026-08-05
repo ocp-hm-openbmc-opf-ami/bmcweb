@@ -3826,6 +3826,33 @@ inline void requestRoutesManagerSerialInterface(App& app)
                 return;
             }
 
+            if (bitrate || databits)
+            {
+                std::string sttyCmd = "stty -a -F /dev/" + serialName;
+                std::string currentBitRate;
+                std::string currentDataBits;
+                SttyValueCmd(sttyCmd, "speed ", currentBitRate);
+                SttyValueCmd(sttyCmd, "cs", currentDataBits);
+
+                bool unsupport = false;
+                if (bitrate && currentBitRate.empty())
+                {
+                    messages::propertyUnknown(asyncResp->res, "BitRate");
+                    unsupport = true;
+                }
+                if (databits && currentDataBits.empty())
+                {
+                    messages::propertyUnknown(asyncResp->res, "DataBits");
+                    unsupport = true;
+                }
+                if (unsupport)
+                {
+                    asyncResp->res.result(
+                        boost::beast::http::status::bad_request);
+                    return;
+                }
+            }
+
             char cmd[150];
             snprintf(cmd, sizeof(cmd), "stty -F /dev/%s ", serialName.c_str());
 
