@@ -40,6 +40,11 @@ static constexpr const char* portConfigInterface =
 static constexpr const char* sshServiceName = "dropbear";
 static constexpr const char* httpsServiceName = "bmcweb";
 static constexpr const char* ipmbServiceName = "ipmb";
+static constexpr const char* snmpConfObject =
+    "/xyz/openbmc_project/snmp/SnmpUtils";
+static constexpr const char* snmpConfIface =
+    "xyz.openbmc_project.Snmp.SnmpUtils";
+
 static constexpr const char* ipmiServiceName = "phosphor_2dipmi_2dnet_40eth0";
 
 // Mapping from Redfish NetworkProtocol key name to backend service that hosts
@@ -882,7 +887,7 @@ inline std::string encodeServiceObjectPath(std::string_view serviceName)
     return objPath.str;
 }
 
-inline void patchsnmpcommunitystring(
+inline void patchSnmpCommunityString(
     std::optional<
         std::vector<std::variant<nlohmann::json::object_t, std::nullptr_t>>>&
         communityStrings,
@@ -2417,7 +2422,7 @@ inline void handleManagersNetworkProtocolPatch(
                         syslog(LOG_WARNING, "ReadJson Failed");
                         return;
                     }
-                    patchsnmpcommunitystring(communityStrings,
+                    patchSnmpCommunityString(communityStrings,
                                              oem_communityStrings, asyncResp);
                 }
             }
