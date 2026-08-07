@@ -31,10 +31,6 @@
   <edmx:Reference Uri="/redfish/v1/Schemas/AmiPefEntryCollection_v1.xml">
     <edmx:Include Namespace="AmiPefEntryCollection"/>
   </edmx:Reference>
-  <edmx:Reference Uri="/redfish/v1/Schemas/AmiPefEntry_v1.xml">
-    <edmx:Include Namespace="AmiPefEntry"/>
-    <edmx:Include Namespace="AmiPefEntry.v1_0_0"/>
-  </edmx:Reference>
 
 
   <edmx:DataServices>
@@ -108,12 +104,17 @@
             <Annotation Term="Validation.Minimum" Int="0"/>
             <Annotation Term="Validation.Maximum" Int="100"/>
         </Property>
-        <NavigationProperty Name="Members" Type="Collection(AmiPefEntryCollection.AmiPefEntryCollection)">
-          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
-          <Annotation Term="OData.Description" String="The members of this collection."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain an array of links to the members of this collection."/>
+        <NavigationProperty Name="EventFilterTable" Type="AmiPefEntryCollection.EventFilterTable" ContainsTarget="true" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The collection of PEF Event Filter Table entries."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a link to a resource collection of type EventFilterTable."/>
           <Annotation Term="OData.AutoExpandReferences"/>
-          <Annotation Term="Redfish.Required"/>
+        </NavigationProperty>
+        <NavigationProperty Name="AlertPolicyTable" Type="AmiPefEntryCollection.AlertPolicyTable" ContainsTarget="true" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The collection of PEF Alert Policy Table entries."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a link to a resource collection of type AlertPolicyTable."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
         </NavigationProperty>
       </EntityType>
 

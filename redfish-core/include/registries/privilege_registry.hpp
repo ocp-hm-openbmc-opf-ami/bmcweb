@@ -615,6 +615,7 @@ const static auto& patchEventDestination = privilegeSetConfigureManagerOrConfigu
 const static auto& postEventDestination = privilegeSetConfigureManagerOrConfigureSelf;
 const static auto& putEventDestination = privilegeSetConfigureManagerOrConfigureSelf;
 const static auto& deleteEventDestination = privilegeSetConfigureManagerOrConfigureSelf;
+const static auto& postTestEventDestination = privilegeSetConfigureManager;
 
 // EventDestinationCollection
 const static auto& getEventDestinationCollection = privilegeSetLogin;

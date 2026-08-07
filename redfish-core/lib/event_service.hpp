@@ -2535,15 +2535,17 @@ inline void requestRoutesEventDestinationCollection(App& app)
             });
 }
 
-bool isConfigureManagerOrSelf(const crow::Request& req,
-                              const std::shared_ptr<Subscription>& subValue)
+bool isConfigureManager(const crow::Request& req)
 {
     Privileges effectiveUserPrivileges =
         redfish::getUserPrivileges(*req.session);
-    bool isConfigureManager =
-        effectiveUserPrivileges.isSupersetOf({"ConfigureManager"});
+    return effectiveUserPrivileges.isSupersetOf({"ConfigureManager"});
+}
 
-    if (!isConfigureManager)
+bool isConfigureManagerOrSelf(const crow::Request& req,
+                              const std::shared_ptr<Subscription>& subValue)
+{
+    if (!isConfigureManager(req))
     {
         // If the user does not have Configure manager privilege
         // then the user must be an Operator (i.e. Configure
@@ -2637,6 +2639,12 @@ inline void requestRoutesEventDestination(App& app)
             }
 
             if (!isSnmpEthEntry && !isConfigureManagerOrSelf(req, subValue))
+            {
+                messages::insufficientPrivilege(asyncResp->res);
+                return;
+            }
+
+            if (isSnmpEthEntry && !isConfigureManager(req))
             {
                 messages::insufficientPrivilege(asyncResp->res);
                 return;
@@ -3004,6 +3012,11 @@ inline void requestRoutesEventDestination(App& app)
                 }
                 if (param.starts_with("eth"))
                 {
+                    if (!isConfigureManager(req))
+                    {
+                        messages::insufficientPrivilege(asyncResp->res);
+                        return;
+                    }
                     deleteSnmpTrapClient(asyncResp, param);
                     return;
                 }
@@ -3040,7 +3053,7 @@ inline void requestRoutesEventDestination(App& app)
     BMCWEB_ROUTE(
         app,
         "/redfish/v1/EventService/Subscriptions/<str>/Actions/Oem/AmiEventDestination.SendTestAlert/")
-        .privileges(redfish::privileges::postEventDestination)
+        .privileges(redfish::privileges::postTestEventDestination)
         .methods(boost::beast::http::verb::post)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,

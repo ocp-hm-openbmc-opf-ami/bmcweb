@@ -522,12 +522,10 @@ inline void setPendingAlertsLimit(
 
 void getPefServiceMembers(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
 {
-    aResp->res.jsonValue["Members"].push_back(
-        {{"@odata.id", "/redfish/v1/Oem/Ami/PefService/AlertPolicyTable"}});
-    aResp->res.jsonValue["Members"].push_back(
-        {{"@odata.id", "/redfish/v1/Oem/Ami/PefService/EventFilterTable"}});
-    aResp->res.jsonValue["Members@odata.count"] =
-        aResp->res.jsonValue["Members"].size();
+    aResp->res.jsonValue["EventFilterTable"] = {
+        {"@odata.id", "/redfish/v1/Oem/Ami/PefService/EventFilterTable"}};
+    aResp->res.jsonValue["AlertPolicyTable"] = {
+        {"@odata.id", "/redfish/v1/Oem/Ami/PefService/AlertPolicyTable"}};
 }
 
 // EntryType and parseSubscriptionEntryId are defined in event_service.hpp
@@ -844,8 +842,7 @@ void getPefServiceInfo(crow::App& app, const crow::Request& req,
         {"@odata.id", "/redfish/v1/Oem/Ami/PefService"},
         {"Id", "Pef Service"},
         {"Name", "Pef Service"},
-        {"Description", "Pef Service Collections"},
-        {"Members", nlohmann::json::array()}};
+        {"Description", "Pef Service Collections"}};
 
     getPefServiceMembers(aResp);
     getFilterEnable(aResp);
