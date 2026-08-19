@@ -6314,6 +6314,7 @@ inline void requestAccountServiceRoutes(App& app)
             std::bind_front(handleAccountCollectionPost, std::ref(app)));
 
     BMCWEB_ROUTE(app, "/redfish/v1/AccountService/Accounts/<str>/")
+        .privileges(redfish::privileges::postManagerAccountCollection)
         .methods(boost::beast::http::verb::post, boost::beast::http::verb::put)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,

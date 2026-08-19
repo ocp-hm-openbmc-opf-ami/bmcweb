@@ -2107,6 +2107,7 @@ inline void requestRoutesTrustStoreCertificate(App& app)
 
     BMCWEB_ROUTE(app,
                  "/redfish/v1/Managers/<str>/Truststore/Certificates/<str>/")
+        .privileges(redfish::privileges::postCertificateCollection)
         .methods(boost::beast::http::verb::post,
                  boost::beast::http::verb::patch,
                  boost::beast::http::verb::put)(
