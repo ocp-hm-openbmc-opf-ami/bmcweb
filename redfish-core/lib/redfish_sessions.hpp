@@ -7,6 +7,7 @@
 #include "app.hpp"
 #include "cookies.hpp"
 #include "error_messages.hpp"
+#include "generated/enums/session.hpp"
 #include "http/utility.hpp"
 #include "persistent_data.hpp"
 #include "query.hpp"
@@ -165,7 +166,7 @@ inline void fillSessionObject(
 {
     asyncResp->res.jsonValue["Id"] = session.uniqueId;
     asyncResp->res.jsonValue["UserName"] = session.username;
-    asyncResp->res.jsonValue["UserId"] = session.userId;
+    asyncResp->res.jsonValue["Oem"]["Ami"]["UserId"] = session.userId;
 
     crow::user_info_utils::getUserInfo(
         session.username, ipAdd,
@@ -193,18 +194,18 @@ inline void fillSessionObject(
         creationMessageId);
 }
 
-inline std::string getSessionType(int sessionType)
+inline session::SessionTypes getSessionType(int sessionType)
 {
     if (sessionType == 0)
-        return "KVMIP";
+        return session::SessionTypes::KVMIP;
     else if (sessionType == 1)
-        return "WEBUI";
+        return session::SessionTypes::WebUI;
     else if (sessionType == 2)
-        return "VirtualMedia";
+        return session::SessionTypes::VirtualMedia;
     else if (sessionType == 3)
-        return "ManagerConsole";
+        return session::SessionTypes::ManagerConsole;
     else
-        return "";
+        return session::SessionTypes::Invalid;
 }
 
 inline std::string getprivilege(int priv)
@@ -306,8 +307,11 @@ inline void getSessionInfo(
                         sessionId;
                     asyncResp->res.jsonValue["@odata.type"] =
                         json_util::odataType("Session");
+                    const std::string sessionTypeStr =
+                        nlohmann::json(getSessionType(SessionType))
+                            .get<std::string>();
                     asyncResp->res.jsonValue["Name"] =
-                        getSessionType(SessionType) + " User Session";
+                        sessionTypeStr + " User Session";
                     asyncResp->res.jsonValue["Description"] =
                         "Manager User Session";
                     asyncResp->res.jsonValue["ClientOriginIPAddress"] =
@@ -365,8 +369,11 @@ inline void getSessionInfo(
                         sessionId;
                     asyncResp->res.jsonValue["@odata.type"] =
                         json_util::odataType("Session");
+                    const std::string sessionTypeStr =
+                        nlohmann::json(getSessionType(SessionType))
+                            .get<std::string>();
                     asyncResp->res.jsonValue["Name"] =
-                        getSessionType(SessionType) + " User Session";
+                        sessionTypeStr + " User Session";
                     asyncResp->res.jsonValue["Description"] =
                         "Manager User Session";
                     asyncResp->res.jsonValue["ClientOriginIPAddress"] =
@@ -987,7 +994,6 @@ inline void handleActiveSessionCollectionGet(
         boost::beast::http::field::link,
         "</redfish/v1/JsonSchemas/ActiveSessionCollection.json>; rel=describedby");
     nlohmann::json sessionsJson;
-    uint8_t totalCount = 0;
 
     auto collectSessions = [&](const std::string& path,
                                const std::string& iface,
@@ -1016,7 +1022,6 @@ inline void handleActiveSessionCollectionGet(
                         "/redfish/v1/SessionService/Sessions/" + sessionType +
                         "_Session_" + std::to_string(id);
                     sessionsJson[sessionType].push_back(entry);
-                    totalCount++;
                 }
             }
         }
@@ -1037,7 +1042,6 @@ inline void handleActiveSessionCollectionGet(
                         "/redfish/v1/SessionService/Sessions/" + sessionType +
                         "_Session_" + std::to_string(id);
                     sessionsJson[sessionType].push_back(entry);
-                    totalCount++;
                 }
             }
         }
@@ -1086,22 +1090,27 @@ inline void handleActiveSessionCollectionGet(
         nlohmann::json::object_t entry;
         entry["@odata.id"] = "/redfish/v1/SessionService/Sessions/" + uid;
         sessionsJson["REDFISH"].push_back(entry);
-        totalCount++;
     }
     asyncResp->res.jsonValue["@odata.id"] =
         "/redfish/v1/SessionService/Oem/Ami/ActiveSessions";
     asyncResp->res.jsonValue["@odata.type"] =
-        json_util::odataType("AMIActiveSessionCollection");
+        json_util::odataType("AmiActiveSessionCollection");
     asyncResp->res.jsonValue["Name"] = "Active Sessions Collection";
-    asyncResp->res.jsonValue["Members@odata.count"] = totalCount;
-    // loop over session types
+    // Preserve per-protocol arrays and also build a flattened Members array
+    nlohmann::json members = nlohmann::json::array();
     for (const char* type : {"KVM", "WEB", "SSH", "VMEDIA", "REDFISH"})
     {
         if (sessionsJson.contains(type))
         {
             asyncResp->res.jsonValue[type] = sessionsJson[type];
+            for (const auto& entry : sessionsJson[type])
+            {
+                members.push_back(entry);
+            }
         }
     }
+    asyncResp->res.jsonValue["Members"] = members;
+    asyncResp->res.jsonValue["Members@odata.count"] = members.size();
 }
 
 inline void handleSessionCollectionMembersGet(
@@ -1423,10 +1432,25 @@ inline void handleSessionServicePatch(
             std::optional<uint64_t> kvmSessionTimeout;
             std::optional<uint16_t> bmcwebPort;
             std::optional<uint16_t> kvmPort;
-            if (!json_util::readJson(*ami, asyncResp->res, "KVMSessionTimeout",
-                                     kvmSessionTimeout, "BMCwebPort",
-                                     bmcwebPort, "KVMPort", kvmPort))
+            std::optional<uint16_t> redfishMaxSession;
+            std::optional<uint16_t> kvmMaxSession;
+            if (!json_util::readJson(
+                    *ami, asyncResp->res, "KVMSessionTimeout",
+                    kvmSessionTimeout, "BMCwebPort", bmcwebPort, "KVMPort",
+                    kvmPort, "RedfishMaxSession", redfishMaxSession,
+                    "KvmMaxSession", kvmMaxSession))
             {
+                return;
+            }
+            if (redfishMaxSession)
+            {
+                messages::propertyNotWritable(asyncResp->res,
+                                              "RedfishMaxSession");
+                return;
+            }
+            if (kvmMaxSession)
+            {
+                messages::propertyNotWritable(asyncResp->res, "KvmMaxSession");
                 return;
             }
 

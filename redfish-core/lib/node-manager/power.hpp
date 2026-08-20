@@ -42,12 +42,11 @@ inline void getNodeManagerData(
             BMCWEB_LOG_DEBUG("Using node manager service: {}", nmServiceName);
             nm::getComponents(
                 sensorAsyncResp, nmServiceName,
-                [sensorAsyncResp, nmServiceName](
-                    const std::vector<nm::DeviceIndex>& processors,
-                    const std::vector<nm::DeviceIndex>& memories,
-                    const std::vector<nm::DeviceIndex>& accelerators) {
+                [sensorAsyncResp,
+                 nmServiceName](const std::vector<nm::DeviceIndex>& processors,
+                                const std::vector<nm::DeviceIndex>& memories) {
                     nm::collectNmDmtfData(sensorAsyncResp, nmServiceName,
-                                          processors, memories, accelerators);
+                                          processors, memories);
                 });
         },
         "xyz.openbmc_project.ObjectMapper",
@@ -83,13 +82,11 @@ inline void setPowerCapOverride(
                 sensorsAsyncResp, nmServiceName,
                 [sensorsAsyncResp, nmServiceName, powerControlCollections](
                     const std::vector<nm::DeviceIndex>& processors,
-                    const std::vector<nm::DeviceIndex>& memories,
-                    const std::vector<nm::DeviceIndex>& accelerators) {
+                    const std::vector<nm::DeviceIndex>& memories) {
                     std::vector<std::tuple<nm::DomainId, nm::PolicyId,
                                            nm::DeviceIndex, std::string>>
                         list;
-                    nm::buildDomainPolicyMap(processors, memories, accelerators,
-                                             list);
+                    nm::buildDomainPolicyMap(processors, memories, list);
 
                     size_t i = 0;
                     for (auto& it : powerControlCollections)

@@ -51,6 +51,24 @@ inline bool populateUserInfo(
 
     if (!success)
     {
+        if (userInfoMap.empty())
+        {
+            // D-Bus call succeeded but returned no properties — user not
+            // configured; do NOT fall back to cache of another user
+            BMCWEB_LOG_ERROR(
+                "D-Bus returned empty properties for user '{}', denying access",
+                session.username);
+            return false;
+        }
+        if (userRole.empty())
+        {
+            // D-Bus returned a map but UserPrivilege key is missing — do NOT
+            // fall back to cache of another user
+            BMCWEB_LOG_ERROR(
+                "UserPrivilege missing from D-Bus response for user '{}', denying access",
+                session.username);
+            return false;
+        }
         if (cachedUserProperties.isValid)
         {
             userRole = cachedUserProperties.userRole;
@@ -102,6 +120,15 @@ inline bool isUserPrivileged(
 {
     if (req.session == nullptr)
     {
+        return false;
+    }
+
+    if (req.session->userRole.empty())
+    {
+        BMCWEB_LOG_ERROR("User '{}' has empty userRole, denying access",
+                         req.session->username);
+        asyncResp->res.result(boost::beast::http::status::forbidden);
+        redfish::messages::insufficientPrivilege(asyncResp->res);
         return false;
     }
     // Get the user's privileges from the role
@@ -162,7 +189,6 @@ inline bool afterGetUserInfoValidate(
             BMCWEB_LOG_ERROR("Insufficient Privilege");
             redfish::messages::insufficientPrivilege(asyncResp->res);
         }
-
         return false;
     }
 
@@ -175,7 +201,8 @@ void requestUserInfo(const std::string& username,
                      const boost::asio::ip::address& serverIp,
                      CallbackFn&& callback)
 {
-    std::string ipStr = redfish::ip_util::extractIPv4FromMappedIPv6(serverIp);
+    std::string ipStr = redfish::ip_util::stripIPv6ZoneId(
+        redfish::ip_util::extractIPv4FromMappedIPv6(serverIp));
 
     crow::connections::systemBus->async_method_call(
         [asyncResp, callback = std::forward<CallbackFn>(callback), serverIp](

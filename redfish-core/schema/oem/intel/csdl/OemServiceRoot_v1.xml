@@ -19,6 +19,7 @@
   </edmx:Reference>
   <edmx:Reference Uri="/redfish/v1/Schemas/CupsService_v1.xml">
     <edmx:Include Namespace="CupsService"/>
+    <edmx:Include Namespace="CupsService.v1_0_0"/>
   </edmx:Reference>
   <edmx:Reference Uri="/redfish/v1/Schemas/AmiPefService_v1.xml">
     <edmx:Include Namespace="AmiPefService"/>

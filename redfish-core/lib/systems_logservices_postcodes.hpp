@@ -12,6 +12,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <ranges>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -285,7 +286,7 @@ static bool fillPostCodeEntry(
         std::ostringstream hexCode;
 #ifdef ONETREE_NVIDIASIPACK
         hexCode << "0x";
-        for (auto itr : std::get<1>(code.second))
+        for (auto itr : std::views::reverse(std::get<1>(code.second)))
         {
             hexCode << std::setfill('0') << std::setw(2) << std::hex
                     << static_cast<int>(itr);
@@ -293,7 +294,7 @@ static bool fillPostCodeEntry(
 
 #else
         hexCode << "0x";
-        for (auto itr : std::get<0>(code.second))
+        for (auto itr : std::views::reverse(std::get<0>(code.second)))
         {
             hexCode << std::setfill('0') << std::setw(2) << std::hex
                     << static_cast<int>(itr);

@@ -481,125 +481,111 @@ std::string getSubscriptionTypeFromProtocolType(uint8_t type)
     return "SNMPInform";
 }
 
+inline void buildSnmpTrapClientResponse(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const SnmpSubscriptionEntryInfo& validatedEntry,
+    SnmpLanParamConfig&& config)
+{
+    nlohmann::json& json = asyncResp->res.jsonValue;
+    json["@odata.type"] = json_util::odataType("EventDestination");
+    json["@odata.id"] = boost::urls::format(
+        "/redfish/v1/EventService/Subscriptions/{}", validatedEntry.id);
+    json["Id"] = validatedEntry.id;
+    json["Name"] = "Event LAN Destination " + validatedEntry.id;
+    json["EventFormatType"] = "Event";
+    json["Actions"]["Oem"]["#AmiEventDestination.SendTestAlert"] = {
+        {"target",
+         boost::urls::format(
+             "/redfish/v1/EventService/Subscriptions/{}/Actions/Oem/AmiEventDestination.SendTestAlert",
+             validatedEntry.id)},
+        {"@Redfish.ActionInfo",
+         boost::urls::format(
+             "/redfish/v1/EventService/Subscriptions/{}/SendTestAlertActionInfo",
+             validatedEntry.id)}};
+
+    const uint8_t protocolType = config.type[validatedEntry.slotIndex];
+    const uint8_t addressType = config.addressType[validatedEntry.slotIndex];
+    const std::string& ipv4Dest = config.ipv4[validatedEntry.slotIndex];
+    const std::string& ipv6Dest = config.ipv6[validatedEntry.slotIndex];
+    const std::string& slotUserName = config.userName[validatedEntry.slotIndex];
+
+    json["SubscriptionType"] =
+        getSubscriptionTypeFromProtocolType(protocolType);
+    json["Protocol"] = getProtocolFromType(protocolType);
+    json["Oem"]["Ami"]["UserName"] = "";
+    json["Destination"] = "";
+    // TODO: Add configuration to hide the community string from
+    // the Redfish response by setting HideCommunityStrings true.
+    json["SNMP"]["HideCommunityStrings"] = false;
+    json["SNMP"]["TrapCommunity"] = "";
+
+    if (protocolType == 3)
+    {
+        json["Oem"]["Ami"]["UserName"] = slotUserName;
+        json["Context"] = "SMTP_" + validatedEntry.id;
+        asyncResp->res.result(boost::beast::http::status::ok);
+        return;
+    }
+
+    if (!isConfiguredSnmpSlot(protocolType, addressType, ipv4Dest, ipv6Dest))
+    {
+        json["Context"] = "SNMP_" + validatedEntry.id;
+        asyncResp->res.result(boost::beast::http::status::ok);
+        return;
+    }
+
+    const std::string& destAddr =
+        (addressType == snmpAddressTypeIpv6) ? ipv6Dest : ipv4Dest;
+
+    static constexpr uint16_t defaultSnmpTrapPort = 162;
+    const bool isSnmpV3 = (protocolType == 2);
+    if (!isSnmpV3)
+    {
+        json["SNMP"]["TrapCommunity"] = config.communityString;
+    }
+    if (addressType == snmpAddressTypeIpv6)
+    {
+        if (isSnmpV3 && !slotUserName.empty())
+        {
+            json["Destination"] = "snmp://" + slotUserName + "@[" + destAddr +
+                                  "]:" + std::to_string(defaultSnmpTrapPort);
+        }
+        else
+        {
+            json["Destination"] = "snmp://[" + destAddr +
+                                  "]:" + std::to_string(defaultSnmpTrapPort);
+        }
+    }
+    else if (isSnmpV3 && !slotUserName.empty())
+    {
+        json["Destination"] = "snmp://" + slotUserName + "@" + destAddr + ":" +
+                              std::to_string(defaultSnmpTrapPort);
+    }
+    else
+    {
+        json["Destination"] =
+            "snmp://" + destAddr + ":" + std::to_string(defaultSnmpTrapPort);
+    }
+
+    json["Context"] = "SNMP_" + validatedEntry.id;
+    asyncResp->res.result(boost::beast::http::status::ok);
+}
+
+inline void afterSnmpTrapClientValidated(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const SnmpSubscriptionEntryInfo& entryInfo)
+{
+    getSnmpLanParamConfig(
+        asyncResp, entryInfo,
+        std::bind_front(buildSnmpTrapClientResponse, asyncResp));
+}
+
 void getSnmpTrapClient(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                        const std::string& id)
 {
     withValidatedSnmpSubscriptionEntry(
-        asyncResp, id, [asyncResp](const SnmpSubscriptionEntryInfo& entryInfo) {
-            getSnmpLanParamConfig(
-                asyncResp, entryInfo,
-                [asyncResp](const SnmpSubscriptionEntryInfo& validatedEntry,
-                            SnmpLanParamConfig&& config) {
-                    asyncResp->res.jsonValue["@odata.type"] =
-                        "#EventDestination.v1_14_1.EventDestination";
-                    asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
-                        "/redfish/v1/EventService/Subscriptions/{}",
-                        validatedEntry.id);
-                    asyncResp->res.jsonValue["Id"] = validatedEntry.id;
-                    asyncResp->res.jsonValue["Name"] =
-                        "Event LAN Destination " + validatedEntry.id;
-                    asyncResp->res.jsonValue["EventFormatType"] = "Event";
-
-                    const uint8_t protocolType =
-                        config.type[validatedEntry.slotIndex];
-                    const uint8_t addressType =
-                        config.addressType[validatedEntry.slotIndex];
-                    const std::string& ipv4Dest =
-                        config.ipv4[validatedEntry.slotIndex];
-                    const std::string& ipv6Dest =
-                        config.ipv6[validatedEntry.slotIndex];
-                    const std::string& slotUserName =
-                        config.userName[validatedEntry.slotIndex];
-
-                    asyncResp->res.jsonValue["SubscriptionType"] =
-                        getSubscriptionTypeFromProtocolType(protocolType);
-                    asyncResp->res.jsonValue["Protocol"] =
-                        getProtocolFromType(protocolType);
-                    asyncResp->res.jsonValue["UserName"] = slotUserName;
-                    asyncResp->res.jsonValue["Destination"] = "";
-                    asyncResp->res.jsonValue["SNMP"]["TrapCommunity"] = "";
-
-                    if (protocolType == 3)
-                    {
-                        asyncResp->res.jsonValue["Context"] =
-                            "SMTP_" + validatedEntry.id;
-                        asyncResp->res.result(boost::beast::http::status::ok);
-                        return;
-                    }
-
-                    if (!isConfiguredSnmpSlot(protocolType, addressType,
-                                              ipv4Dest, ipv6Dest))
-                    {
-                        asyncResp->res.jsonValue["Context"] =
-                            "SNMP_" + validatedEntry.id;
-                        asyncResp->res.result(boost::beast::http::status::ok);
-                        return;
-                    }
-
-                    const std::string& destAddr =
-                        (addressType == snmpAddressTypeIpv6)
-                            ? ipv6Dest
-                            : ipv4Dest;
-
-                    static constexpr uint16_t defaultSnmpTrapPort = 162;
-                    const bool isSnmpV3 = (protocolType == 2);
-
-                    if (addressType == snmpAddressTypeIpv6)
-                    {
-                        if (isSnmpV3 && !slotUserName.empty())
-                        {
-                            asyncResp->res.jsonValue["Destination"] =
-                                "snmp://" + slotUserName + "@[" + destAddr +
-                                "]:" + std::to_string(defaultSnmpTrapPort);
-                        }
-                        else
-                        {
-                            asyncResp->res.jsonValue["Destination"] =
-                                "snmp://[" + destAddr +
-                                "]:" + std::to_string(defaultSnmpTrapPort);
-                        }
-                    }
-                    else if (isSnmpV3 && !slotUserName.empty())
-                    {
-                        asyncResp->res.jsonValue["Destination"] =
-                            "snmp://" + slotUserName + "@" + destAddr + ":" +
-                            std::to_string(defaultSnmpTrapPort);
-                    }
-                    else
-                    {
-                        asyncResp->res.jsonValue["Destination"] =
-                            "snmp://" + destAddr + ":" +
-                            std::to_string(defaultSnmpTrapPort);
-                    }
-
-                    if (!isSnmpV3)
-                    {
-                        asyncResp->res.jsonValue["SNMP"]["TrapCommunity"] =
-                            config.communityString;
-                    }
-
-                    asyncResp->res.jsonValue["Context"] =
-                        "SNMP_" + validatedEntry.id;
-                    asyncResp->res.result(boost::beast::http::status::ok);
-                });
-        });
-}
-
-inline void setprotocolEnable(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
-{
-    sdbusplus::asio::setProperty(
-        *crow::connections::systemBus, "xyz.openbmc_project.Snmp.Conf",
-        "/xyz/openbmc_project/snmp/SnmpUtils",
-        "xyz.openbmc_project.Snmp.SnmpUtils", "SnmpTrapStatus", true,
-        [asyncResp](const boost::system::error_code& ec) {
-            if (ec)
-            {
-                BMCWEB_LOG_DEBUG("Unable to set SNMPTrap");
-                messages::internalError(asyncResp->res);
-                return;
-            }
-        });
+        asyncResp, id,
+        std::bind_front(afterSnmpTrapClientValidated, asyncResp));
 }
 
 inline bool afterSnmpClientCreate(

@@ -27,7 +27,7 @@
                     "readonly": true,
                     "type": "string"
                 },
-                "State": {
+                "States": {
                     "description": "This property shall contain the state of the discrete sensors.",
                     "items": {
                         "type": "string"

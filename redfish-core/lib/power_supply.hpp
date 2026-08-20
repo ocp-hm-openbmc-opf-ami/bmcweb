@@ -238,33 +238,6 @@ inline void getPowerSupplyState(
         });
 }
 
-inline void getPowerSupplyHealth(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& service, const std::string& path)
-{
-    dbus::utility::getProperty<bool>(
-        service, path, "xyz.openbmc_project.State.Decorator.OperationalStatus",
-        "functional",
-        [asyncResp](const boost::system::error_code& ec, const bool value) {
-            if (ec)
-            {
-                if (ec.value() != EBADR)
-                {
-                    BMCWEB_LOG_ERROR("DBUS response error for Health {}",
-                                     ec.value());
-                    messages::internalError(asyncResp->res);
-                }
-                return;
-            }
-
-            if (!value)
-            {
-                asyncResp->res.jsonValue["Status"]["Health"] =
-                    resource::Health::Critical;
-            }
-        });
-}
-
 inline void getPowerSupplyAsset(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& powerSupplyId)
@@ -506,6 +479,8 @@ inline void getPSUmonitorData(
                 {
                     asyncResp->res.jsonValue["Status"]["State"] =
                         resource::State::StandbyOffline;
+                    asyncResp->res.jsonValue["Status"]["Health"] =
+                        resource::Health::Critical;
                 }
             }
             if (inputRange)
@@ -698,9 +673,6 @@ inline void doPowerSupplyGet(
 
                     getPowerSupplyState(asyncResp, object.begin()->first,
                                         powerSupplyPath);
-                    getPowerSupplyHealth(asyncResp,
-                                         "xyz.openbmc_project.PSUSensor",
-                                         PSUDecoratorpath);
                     getPowerSupplyAsset(asyncResp, powerSupplyId);
                     getPSUmonitorData(asyncResp, object.begin()->first,
                                       powerSupplyPath);

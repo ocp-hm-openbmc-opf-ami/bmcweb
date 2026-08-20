@@ -209,18 +209,7 @@
                     "readonly": false,
                     "versionDeprecated": "v1_1_0"
                 },
-                "Description": {
-                    "anyOf": [
-                        {
-                            "$ref": "http://redfish.dmtf.org/schemas/v1/Resource.json#/definitions/Description"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "readonly": true
-                },
-		"DefaultPolicy": {
+                "DefaultPolicy": {
                     "description": "Identifier of a domain's default policy to be applied to.",
                     "longDescription": "This property shall contain definition of a default policy input  is to be applied to.",
                     "type": "boolean"

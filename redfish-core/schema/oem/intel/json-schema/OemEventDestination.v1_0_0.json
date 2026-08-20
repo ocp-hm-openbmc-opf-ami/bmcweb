@@ -70,6 +70,13 @@
                     "readonly": false,
                     "type": "integer"
                 },
+                "CertificateUri": {
+                    "description": "URI of CA Certificate",
+                    "format": "uri-reference",
+                    "longDescription": "URI of CA Certificate pointing to item from collection list in /redfish/v1/Managers/bmc/Truststore/Certificates/",
+                    "readonly": false,
+                    "type": "string"
+                },
                 "KafkaTopic": {
                     "description": "A Kafka topic contains messages, and each message is a key-value pair",
                     "longDescription": "Kafka Consumer reads the specific record from a subscribed Kafka topic",
@@ -78,15 +85,9 @@
                 },
                 "StreamingRateMs": {
                     "description": "Timestamp assigned to every data record during Kafka streaming",
+                    "longDescription": "Timestamp assigned to every data record during Kafka streaming",
                     "readonly": false,
                     "type": "integer"
-                },
-                "CertificateUri": {
-                    "description": "URI of CA Certificate",
-                    "longDescription": "URI of CA Certificate pointing to item from collection list in /redfish/v1/Managers/bmc/Truststore/Certificates/",
-                    "readonly": false,
-                    "type": "string",
-                    "format": "uri-reference"
                 }
             },
             "type": "object"
@@ -168,8 +169,7 @@
         },
         "OemEventDestination": {
             "additionalProperties": false,
-            "description": "Parameters for OemEventDestination_v1_0_0.",
-            "longDescription": "Parameters for OemEventDestination_v1_0_0.",
+            "description": "OemEventDestination Oem properties",
             "patternProperties": {
                 "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
                     "description": "This property shall specify a valid odata or Redfish property.",
@@ -190,15 +190,15 @@
                     "description": "The OEM extension property.",
                     "longDescription": "This property shall contain the OEM extensions.  All values for properties that this object contains shall conform to the Redfish Specification-described requirements."
                 },
-                "OEMProtocol": {
+                "OemProtocol": {
                     "description": "Oem protocol",
                     "longDescription": "properties for Oem Protocol",
                     "readonly": true,
                     "type": "string"
                 },
-                "OEMSubscriptionType": {
-                    "description": "Properties of OEMSubscriptionType",
-                    "longDescription": "Properties of OEMSubscriptionType",
+                "OemSubscriptionType": {
+                    "description": "Properties of OemSubscriptionType",
+                    "longDescription": "Properties of OemSubscriptionType",
                     "readonly": true,
                     "type": "string"
                 }
@@ -206,5 +206,7 @@
             "type": "object"
         }
     },
+    "owningEntity": "Intel",
+    "release": "1.0",
     "title": "#OemEventDestination.v1_0_0"
 }
