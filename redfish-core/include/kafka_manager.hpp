@@ -866,10 +866,13 @@ class KafkaManager : public std::enable_shared_from_this<KafkaManager>
             return;
         }
 
-        nlohmann::json kafkaObj;
-        if (!json_util::readJson(*oemObject, aResp->res, "Intel", kafkaObj))
+        nlohmann::json kafkaObj = nlohmann::json::object();
+        if (oemObject)
         {
-            return;
+            if (!json_util::readJson(*oemObject, aResp->res, "Intel", kafkaObj))
+            {
+                return;
+            }
         }
 
         if (dest)
