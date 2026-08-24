@@ -1,8 +1,8 @@
 {
-    "$id": "http://redfish.dmtf.org/schemas/v1/EventDestination.v1_15_1.json",
+    "$id": "http://redfish.dmtf.org/schemas/v1/EventDestination.v1_17_0.json",
     "$ref": "#/definitions/EventDestination",
     "$schema": "http://redfish.dmtf.org/schemas/v1/redfish-schema-v1.json",
-    "copyright": "Copyright 2014-2024 DMTF. For the full DMTF copyright policy, see http://www.dmtf.org/about/policies/copyright",
+    "copyright": "Copyright 2014-2026 DMTF. For the full DMTF copyright policy, see http://www.dmtf.org/about/policies/copyright",
     "definitions": {
         "Actions": {
             "additionalProperties": false,
@@ -52,8 +52,8 @@
                 "TerminateAfterRetries": "The subscription is terminated after the maximum number of retries is reached."
             },
             "enumLongDescriptions": {
-                "RetryForever": "This value shall indicate the subscription is not suspended or terminated, and attempts at delivery of future events shall continue regardless of the number of retries.  The interval between retries remains constant and is specified by the `DeliveryRetryIntervalSeconds` property in the event service.",
-                "RetryForeverWithBackoff": "This value shall indicate the subscription is not suspended or terminated, and attempts at delivery of future events shall continue regardless of the number of retries.  Retry attempts are issued over time according to a service-defined backoff algorithm.  The backoff algorithm may insert an increasing amount of delay between retry attempts and may reach a maximum.",
+                "RetryForever": "This value shall indicate the subscription is not suspended or terminated, and attempts at delivery of future events shall continue regardless of the number of retries.  The interval between retries remains constant and is specified by the `DeliveryRetryIntervalSeconds` property in the event service.  The `DeliveryRetryAttempts` property in the event service shall not affect subscriptions configured with this policy.",
+                "RetryForeverWithBackoff": "This value shall indicate the subscription is not suspended or terminated, and attempts at delivery of future events shall continue regardless of the number of retries.  Retry attempts are issued over time according to a service-defined backoff algorithm.  The backoff algorithm may insert an increasing amount of delay between retry attempts and may reach a maximum.  The `DeliveryRetryAttempts` property in the event service shall not affect subscriptions configured with this policy.",
                 "SuspendRetries": "This value shall indicate the subscription is suspended after the maximum number of retries is reached, specified by the `DeliveryRetryAttempts` property in the event service.  The value of the `State` property within `Status` shall contain `Disabled` for a suspended subscription.",
                 "TerminateAfterRetries": "This value shall indicate the subscription is terminated after the maximum number of retries is reached, specified by the `DeliveryRetryAttempts` property in the event service.  The service shall delete this resource to terminate the subscription."
             },
@@ -601,6 +601,9 @@
                 "HMAC256_SHA384",
                 "HMAC384_SHA512"
             ],
+            "enumDeprecated": {
+                "CommunityString": "This value has been deprecated to clarify that `AuthenticationProtocol` applies to SNMPv3 support, which does not support community string-based authentication."
+            },
             "enumDescriptions": {
                 "CommunityString": "Trap community string authentication.",
                 "HMAC128_SHA224": "HMAC-128-SHA-224 authentication.",
@@ -626,6 +629,9 @@
                 "HMAC192_SHA256": "v1_10_0",
                 "HMAC256_SHA384": "v1_10_0",
                 "HMAC384_SHA512": "v1_10_0"
+            },
+            "enumVersionDeprecated": {
+                "CommunityString": "v1_17_0"
             },
             "type": "string"
         },
@@ -742,16 +748,25 @@
                     "readonly": false,
                     "versionAdded": "v1_7_0"
                 },
+                "HideCommunityStrings": {
+                    "description": "Indicates whether the SNMP trap community string is hidden in responses.",
+                    "longDescription": "This property shall indicate whether the SNMP trap community string is hidden in responses.  If `true`, the `TrapCommunity` property shall be `null` in responses.  If `false`, the `TrapCommunity` property shall contain the trap community string in responses.",
+                    "readonly": false,
+                    "type": [
+                        "boolean",
+                        "null"
+                    ],
+                    "versionAdded": "v1_16_0"
+                },
                 "TrapCommunity": {
                     "description": "The SNMP trap community string.",
-                    "longDescription": "This property shall contain the SNMP trap community string.  The value shall be `null` in responses.",
+                    "longDescription": "This property shall contain the SNMP trap community string.  If `HideCommunityStrings` contains `true` or is not supported, the value shall be `null` in responses.  Otherwise the trap community string shall be returned.",
                     "readonly": false,
                     "type": [
                         "string",
                         "null"
                     ],
-                    "versionAdded": "v1_7_0",
-                    "writeOnly": true
+                    "versionAdded": "v1_7_0"
                 }
             },
             "type": "object"
@@ -960,6 +975,6 @@
     },
     "language": "en",
     "owningEntity": "DMTF",
-    "release": "2024.3",
-    "title": "#EventDestination.v1_15_1.EventDestination"
+    "release": "2026.1",
+    "title": "#EventDestination.v1_17_0.EventDestination"
 }

@@ -3683,9 +3683,18 @@ void createResetMaintenanceWindowTask(
         },
         "type='signal',interface='org.freedesktop.DBus.Properties',"
         "member='PropertiesChanged',path='/xyz/openbmc_project/state/host0'");
-    task->startTimer(std::chrono::minutes(5));
+    auto chassis_Value =
+        getHostTransitionTimeOut(timeoutService, singleHostPath,
+                                 timeoutInterface, "HostTransitionTimeOut");
+    uint64_t requestedPowerTransition = std::get<uint64_t>(chassis_Value);
+    task->startTimer(std::chrono::seconds(requestedPowerTransition) +
+                     (std::chrono::minutes(5)));
     task->populateResp(asyncResp->res);
     task->payload.emplace(std::move(payload));
+    task->state = "Pending";
+    task->messages.emplace_back(
+        messages::taskPaused(std::to_string(task->index)));
+    task->resetType = static_cast<uint8_t>(task::operationType::Power);
 }
 
 /*
@@ -3836,28 +3845,19 @@ void createSystemMaintenanceWindowTask(
         },
         "type='signal',interface='org.freedesktop.DBus.Properties',"
         "member='PropertiesChanged',path='/xyz/openbmc_project/state/host0'");
-    task->startTimer(std::chrono::minutes(5));
+
+    auto chassis_Value =
+        getPowerTransitionTimeOut(timeoutService, singleHostPath,
+                                  timeoutInterface, "PowerTransitionTimeOut");
+    uint64_t requestedPowerTransition = std::get<uint64_t>(chassis_Value);
+    task->startTimer(std::chrono::seconds(requestedPowerTransition) +
+                     (std::chrono::minutes(5)));
     task->populateResp(asyncResp->res);
     task->payload.emplace(std::move(payload));
-
-    auto chassis_Value = getPowerTransitionTimeOut(
-        "xyz.openbmc_project.State.Host0", "/xyz/openbmc_project/state/host0",
-        "xyz.openbmc_project.State.OperatingSystem.Status",
-        "PowerTransitionTimeOut");
-
-    uint64_t requestedPowerTransition = std::get<uint64_t>(chassis_Value);
-    if (requestedPowerTransition > 5)
-    {
-        // Will not get any signal from host for pending state so
-        // considering after 5 seconds state will be pending state
-        if (task->state == "New")
-        {
-            std::this_thread::sleep_for(std::chrono::seconds(5));
-            task->state = "Pending";
-            task->messages.emplace_back(
-                messages::taskPaused(std::to_string(task->index)));
-        }
-    }
+    task->state = "Pending";
+    task->messages.emplace_back(
+        messages::taskPaused(std::to_string(task->index)));
+    task->resetType = static_cast<uint8_t>(task::operationType::Power);
 }
 
 /*
@@ -3968,6 +3968,7 @@ void SystemsImmediateResetTask(
     task->startTimer(std::chrono::minutes(5));
     task->populateResp(asyncResp->res);
     task->payload.emplace(std::move(payload));
+    task->resetType = static_cast<uint8_t>(task::operationType::Power);
 }
 
 /**

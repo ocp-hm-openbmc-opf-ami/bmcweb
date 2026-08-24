@@ -35,7 +35,6 @@ constexpr size_t tempNode = 1;
 constexpr const char* kTriggerType = "AlwaysOn";
 constexpr const char* cpuDomainId = "CPUSubsystem";
 constexpr const char* memoryDomainId = "MemorySubsystem";
-constexpr const char* pcieDomainId = "PCIe";
 constexpr const char* dcTotalPowerDomainId = "DCTotalPlatformPower";
 
 using PolicyId = std::string;
@@ -1134,13 +1133,12 @@ static void collectNmDmtfData(
     const std::shared_ptr<SensorsAsyncResp>& sensorAsyncResp,
     const std::string& nmServiceName,
     const std::vector<DeviceIndex>& processors,
-    const std::vector<DeviceIndex>& memories,
-    const std::vector<DeviceIndex>& accelerators)
+    const std::vector<DeviceIndex>& memories)
 {
     BMCWEB_LOG_DEBUG("collectNmDmtfData");
     nlohmann::json& json = sensorAsyncResp->asyncResp->res.jsonValue;
     json["PowerControl"][powerRootNode]["RelatedItem@odata.count"] =
-        processors.size() + memories.size() + accelerators.size() + 3;
+        processors.size() + memories.size() + 2;
     json["PowerControl"][powerRootNode]["MemberId"] = "0";
     json["PowerControl"][powerRootNode]["Name"] = "System Power Control";
     json["PowerControl"][powerRootNode]["@odata.id"] =
@@ -1162,20 +1160,16 @@ static void collectNmDmtfData(
     getStatus(sensorAsyncResp, dcTotalPowerDomainId, dmtfPowerPolicyId,
               powerRootNode, nmServiceName);
 
-    getNmDmtfGroup(sensorAsyncResp, nmServiceName, 1, accelerators,
-                   "Accelerators", "Accelerator", pcieDomainId);
-    getNmDmtfGroup(sensorAsyncResp, nmServiceName, 2 + accelerators.size(),
-                   processors, "Processors", "Processor", cpuDomainId);
-    getNmDmtfGroup(sensorAsyncResp, nmServiceName,
-                   3 + accelerators.size() + processors.size(), memories,
-                   "Memories", "Memory", memoryDomainId);
+    getNmDmtfGroup(sensorAsyncResp, nmServiceName, 1, processors, "Processors",
+                   "Processor", cpuDomainId);
+    getNmDmtfGroup(sensorAsyncResp, nmServiceName, 2 + processors.size(),
+                   memories, "Memories", "Memory", memoryDomainId);
 }
 
 static void getComponents(
     const std::shared_ptr<SensorsAsyncResp>& sensorAsyncResp,
     const std::string& nmServiceName,
     std::function<void(const std::vector<DeviceIndex>&,
-                       const std::vector<DeviceIndex>&,
                        const std::vector<DeviceIndex>&)>
         callback,
     std::function<void()> onError = nullptr)
@@ -1220,27 +1214,7 @@ static void getComponents(
                         return;
                     }
 
-                    sdbusplus::asio::getProperty<std::vector<DeviceIndex>>(
-                        *crow::connections::systemBus, nmServiceName,
-                        nmPath(pcieDomainId), kDomainAttributesInterface,
-                        "AvailableComponents",
-                        [nmServiceName, sensorAsyncResp, callback, onError,
-                         processors,
-                         memories](boost::system::error_code ec3,
-                                   std::vector<DeviceIndex> accelerators) {
-                            if (ec3)
-                            {
-                                BMCWEB_LOG_ERROR(
-                                    "{} : Get AvailableComponents failed: {}",
-                                    nmPath(pcieDomainId), ec3.message());
-                                if (onError)
-                                {
-                                    onError();
-                                }
-                                return;
-                            }
-                            callback(processors, memories, accelerators);
-                        });
+                    callback(processors, memories);
                 });
         });
 }
@@ -1248,23 +1222,9 @@ static void getComponents(
 static void buildDomainPolicyMap(
     const std::vector<DeviceIndex>& processors,
     const std::vector<DeviceIndex>& memories,
-    const std::vector<DeviceIndex>& accelerators,
     std::vector<std::tuple<DomainId, PolicyId, DeviceIndex, std::string>>& list)
 {
     list.push_back({dcTotalPowerDomainId, dmtfPowerPolicyId, allDevices, "0"});
-
-    for (const auto& deviceIndex : accelerators)
-    {
-        list.push_back(
-            {pcieDomainId,
-             dmtfPowerPolicyId + std::string{"_Accelerator"} +
-                 std::to_string(deviceIndex),
-             deviceIndex,
-             std::string{"Accelerator"} + std::to_string(deviceIndex)});
-    }
-    list.push_back(
-        {pcieDomainId, dmtfPowerPolicyId + std::string{"_Accelerators"},
-         allDevices, "Accelerators"});
 
     for (const auto& deviceIndex : processors)
     {
@@ -1312,13 +1272,11 @@ static void getNmDmtfComponentByMemberId(
                 sensorAsyncResp, nmServiceName,
                 [sensorAsyncResp, nmServiceName,
                  name](const std::vector<nm::DeviceIndex>& processors,
-                       const std::vector<nm::DeviceIndex>& memories,
-                       const std::vector<nm::DeviceIndex>& accelerators) {
+                       const std::vector<nm::DeviceIndex>& memories) {
                     std::vector<std::tuple<nm::DomainId, nm::PolicyId,
                                            nm::DeviceIndex, std::string>>
                         list;
-                    buildDomainPolicyMap(processors, memories, accelerators,
-                                         list);
+                    buildDomainPolicyMap(processors, memories, list);
 
                     auto it = std::find_if(
                         list.begin(), list.end(),
@@ -1406,13 +1364,11 @@ static void patchNmDmtfComponentByMemberId(
                 sensorAsyncResp, nmServiceName,
                 [req, sensorAsyncResp, nmServiceName,
                  name](const std::vector<nm::DeviceIndex>& processors,
-                       const std::vector<nm::DeviceIndex>& memories,
-                       const std::vector<nm::DeviceIndex>& accelerators) {
+                       const std::vector<nm::DeviceIndex>& memories) {
                     std::vector<std::tuple<nm::DomainId, nm::PolicyId,
                                            nm::DeviceIndex, std::string>>
                         list;
-                    buildDomainPolicyMap(processors, memories, accelerators,
-                                         list);
+                    buildDomainPolicyMap(processors, memories, list);
 
                     auto it = std::find_if(
                         list.begin(), list.end(),

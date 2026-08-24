@@ -1276,7 +1276,7 @@ inline void getEventServiceSubscriptionIdInfo(
             return;
         }
         asyncResp->res.jsonValue["@odata.type"] =
-            "#EventDestination.v1_14_1.EventDestination";
+            json_util::odataType("EventDestination");
         asyncResp->res.jsonValue["Protocol"] =
             event_destination::EventDestinationProtocol::Redfish;
         asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
@@ -1837,60 +1837,6 @@ void handleEventServiceSubscriptionPostMember(
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
-        return;
-    }
-
-    // POST to an existing eth{N}_{slot} URI fires a test SNMP trap on that
-    // specific slot.  This branch does NOT create a subscription; the slot must
-    // already be configured with a destination IP/port.
-    if (param.starts_with("eth"))
-    {
-        // Parse and validate the "eth{N}_{slot}" URI segment.
-        std::string interfaceName;
-        size_t slotNum = 0;
-        if (!parseSubscriptionEntryId(param, EntryType::Snmp, slotNum,
-                                      &interfaceName))
-        {
-            messages::propertyValueIncorrect(asyncResp->res, "URI", param);
-            return;
-        }
-        int slotIndex = static_cast<int>(slotNum);
-
-        auto channelNumber = getChannelNumberFromInterface(interfaceName);
-        if (!channelNumber)
-        {
-            messages::resourceNotFound(asyncResp->res, "EthernetInterface",
-                                       interfaceName);
-            return;
-        }
-
-        verifySnmpSubscriptionConfiguration(
-            asyncResp, interfaceName, slotIndex,
-            [asyncResp, channel = *channelNumber,
-             slotIndex](bool isConfigured) {
-                if (!isConfigured)
-                {
-                    return;
-                }
-
-                // Send the test trap via D-Bus and report the result.
-                const auto snmpTestResult =
-                    runSnmpTrapTest(channel, static_cast<uint8_t>(slotIndex));
-
-                if (!snmpTestResult)
-                {
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-
-                if (!(*snmpTestResult))
-                {
-                    messages::operationFailed(asyncResp->res);
-                    return;
-                }
-
-                asyncResp->res.result(boost::beast::http::status::no_content);
-            });
         return;
     }
 
@@ -2652,7 +2598,7 @@ inline void requestRoutesEventDestination(App& app)
                 {
                     return;
                 }
-                asyncResp->res.addHeader("Allow", "GET, POST, PATCH, DELETE");
+                asyncResp->res.addHeader("Allow", "GET, PATCH, DELETE");
                 getEventServiceSubscriptionIdInfo(asyncResp, param);
             });
 
@@ -2715,7 +2661,7 @@ inline void requestRoutesEventDestination(App& app)
                         "Destination", destination,          //
                         "Protocol", protocol,                //
                         "SNMP", snmpObj,                     //
-                        "UserName", smtpUserName,            //
+                        "Oem/Ami/UserName", smtpUserName,    //
                         "Id", vId,                           //
                         "Name", name,                        //
                         "Context", context,                  //
@@ -2782,7 +2728,7 @@ inline void requestRoutesEventDestination(App& app)
                         if (*protocol != "SMTP" && smtpUserName.has_value())
                         {
                             messages::propertyUnknown(asyncResp->res,
-                                                      "UserName");
+                                                      "Oem/Ami/UserName");
                             return;
                         }
 
@@ -3091,15 +3037,95 @@ inline void requestRoutesEventDestination(App& app)
                 }
             });
 
-    BMCWEB_ROUTE(app, "/redfish/v1/EventService/Subscriptions/<str>/")
-        .privileges(redfish::privileges::postEventDestinationCollection)
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/EventService/Subscriptions/<str>/Actions/Oem/AmiEventDestination.SendTestAlert/")
+        .privileges(redfish::privileges::postEventDestination)
         .methods(boost::beast::http::verb::post)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& param) {
-                handleEventServiceSubscriptionPostMember(app, req, asyncResp,
-                                                         param);
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
+
+                withValidatedSnmpSubscriptionEntry(
+                    asyncResp, param,
+                    [asyncResp](const SnmpSubscriptionEntryInfo& entryInfo) {
+                        auto channelNumber = getChannelNumberFromInterface(
+                            entryInfo.interfaceName);
+                        if (!channelNumber)
+                        {
+                            messages::resourceNotFound(asyncResp->res,
+                                                       "EthernetInterface",
+                                                       entryInfo.interfaceName);
+                            return;
+                        }
+
+                        int slotIndex = static_cast<int>(entryInfo.slotIndex);
+                        verifySnmpSubscriptionConfiguration(
+                            asyncResp, entryInfo.interfaceName, slotIndex,
+                            [asyncResp, channel = *channelNumber,
+                             slotIndex](bool isConfigured) {
+                                if (!isConfigured)
+                                {
+                                    return;
+                                }
+
+                                const auto snmpTestResult = runSnmpTrapTest(
+                                    channel, static_cast<uint8_t>(slotIndex));
+
+                                if (!snmpTestResult)
+                                {
+                                    messages::internalError(asyncResp->res);
+                                    return;
+                                }
+
+                                if (!(*snmpTestResult))
+                                {
+                                    messages::operationFailed(asyncResp->res);
+                                    return;
+                                }
+
+                                asyncResp->res.result(
+                                    boost::beast::http::status::no_content);
+                            });
+                    });
             });
+
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/EventService/Subscriptions/<str>/SendTestAlertActionInfo/")
+        .privileges(redfish::privileges::getActionInfo)
+        .methods(
+            boost::beast::http::verb::
+                get)([&app](const crow::Request& req,
+                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                            const std::string& param) {
+            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+            {
+                return;
+            }
+
+            withValidatedSnmpSubscriptionEntry(
+                asyncResp, param,
+                [asyncResp,
+                 param](const SnmpSubscriptionEntryInfo& /*entryInfo*/) {
+                    asyncResp->res.jsonValue["@odata.type"] =
+                        json_util::odataType("ActionInfo");
+                    asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
+                        "/redfish/v1/EventService/Subscriptions/{}/SendTestAlertActionInfo",
+                        param);
+                    asyncResp->res.jsonValue["Name"] =
+                        "SendTestAlert Action Info";
+                    asyncResp->res.jsonValue["Id"] = "SendTestAlertActionInfo";
+                    asyncResp->res.jsonValue["Description"] =
+                        "This action is used to send a test alert for the subscription.";
+                    asyncResp->res.jsonValue["Parameters"] =
+                        nlohmann::json::array();
+                });
+        });
 }
 
 } // namespace redfish

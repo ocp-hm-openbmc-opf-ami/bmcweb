@@ -8,6 +8,8 @@
 <!--################################################################################-->
 <!---->
 
+<edmx:Edmx Version="4.0" xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx">
+
   <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
     <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
   </edmx:Reference>
@@ -46,7 +48,7 @@
         </Property>
        </ComplexType>
 
-   <ComplexType Name="Configuration">
+   <ComplexType Name="ConfigurationData">
         <Annotation Term="OData.AdditionalProperties" Bool="false"/>
         <Annotation Term="OData.Description" String="ADDC configuration."/>
         <Annotation Term="OData.LongDescription" String="Configuration Autonomous debug data collection."/>

@@ -10,6 +10,7 @@
 #include "multipart_parser.hpp"
 #include "pam_authenticate.hpp"
 #include "user_info_utils.hpp"
+#include "utils/ip_utils.hpp"
 #include "webassets.hpp"
 
 #include <boost/container/flat_set.hpp>
@@ -206,8 +207,9 @@ inline void handleLogin(const crow::Request& req,
                 return;
             }
 
-            std::string ipAddr = redfish::ip_util::extractIPv4FromMappedIPv6(
-                req.serverIPAddress);
+            std::string ipAddr = redfish::ip_util::stripIPv6ZoneId(
+                redfish::ip_util::extractIPv4FromMappedIPv6(
+                    req.serverIPAddress));
 
             // Fetch user info asynchronously from D-Bus
             std::string user(username);

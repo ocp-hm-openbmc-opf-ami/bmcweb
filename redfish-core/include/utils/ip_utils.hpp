@@ -287,6 +287,17 @@ inline std::string extractIPv4FromMappedIPv6(
     return {};
 }
 
+inline std::string stripIPv6ZoneId(std::string ipAddr)
+{
+    auto zonePos = ipAddr.find('%');
+    if (zonePos != std::string::npos)
+    {
+        ipAddr.erase(zonePos);
+    }
+
+    return ipAddr;
+}
+
 inline bool isValidIPv4Addr(std::string addr, Type type)
 {
     try

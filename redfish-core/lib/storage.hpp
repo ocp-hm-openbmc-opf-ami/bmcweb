@@ -94,7 +94,7 @@ inline void requestRoutesStorageCollection(App& app)
 
 inline void afterChassisDriveCollectionSubtree(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const boost::system::error_code& ec,
+    const std::string& storageId, const boost::system::error_code& ec,
     const dbus::utility::MapperGetSubTreePathsResponse& driveList)
 {
     if (ec)
@@ -120,20 +120,22 @@ inline void afterChassisDriveCollectionSubtree(
 
         nlohmann::json::object_t driveJson;
         driveJson["@odata.id"] = boost::urls::format(
-            "/redfish/v1/Systems/{}/Storage/1/Drives/{}",
-            BMCWEB_REDFISH_SYSTEM_URI_NAME, object.filename());
+            "/redfish/v1/Systems/{}/Storage/{}/Drives/{}",
+            BMCWEB_REDFISH_SYSTEM_URI_NAME, storageId, object.filename());
         driveArray.emplace_back(std::move(driveJson));
     }
 
     count = driveArray.size();
 }
-inline void getDrives(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void getDrives(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                      const std::string& storageId)
 {
     const std::array<std::string_view, 1> interfaces = {
         "xyz.openbmc_project.Inventory.Item.Drive"};
     dbus::utility::getSubTreePaths(
         "/xyz/openbmc_project/inventory", 0, interfaces,
-        std::bind_front(afterChassisDriveCollectionSubtree, asyncResp));
+        std::bind_front(afterChassisDriveCollectionSubtree, asyncResp,
+                        storageId));
 }
 
 inline void afterSystemsStorageGetSubtree(
@@ -170,7 +172,7 @@ inline void afterSystemsStorageGetSubtree(
     asyncResp->res.jsonValue["Id"] = storageId;
     asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
 
-    getDrives(asyncResp);
+    getDrives(asyncResp, storageId);
     asyncResp->res.jsonValue["Controllers"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Systems/{}/Storage/{}/Controllers",
                             BMCWEB_REDFISH_SYSTEM_URI_NAME, storageId);

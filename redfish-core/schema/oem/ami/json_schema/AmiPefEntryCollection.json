@@ -1,0 +1,332 @@
+{
+    "$id": "http://redfish.dmtf.org/schemas/v1/AmiPefEntryCollection/AmiPefEntryCollection.json",
+    "$ref": "#/definitions/AmiPefEntryCollection",
+    "$schema": "http://redfish.dmtf.org/schemas/v1/redfish-schema-v1.json",
+    "copyright": "Copyright 2014-2019 DMTF. For the full DMTF copyright policy, see http://www.dmtf.org/about/policies/copyright",
+    "definitions": {
+        "AlertPolicyTable": {
+            "anyOf": [
+                {
+                    "$ref": "http://redfish.dmtf.org/schemas/v1/odata-v4.json#/definitions/idRef"
+                },
+                {
+                    "additionalProperties": false,
+                    "description": "The collection of AlertPolicyTable resource instances.",
+                    "longDescription": "This resource shall represent a resource collection of AlertPolicyTable instances for a Redfish implementation.",
+                    "patternProperties": {
+                        "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
+                            "description": "This property shall specify a valid odata or Redfish property.",
+                            "type": [
+                                "array",
+                                "boolean",
+                                "integer",
+                                "number",
+                                "null",
+                                "object",
+                                "string"
+                            ]
+                        }
+                    },
+                    "properties": {
+                        "@odata.context": {
+                            "$ref": "http://redfish.dmtf.org/schemas/v1/odata-v4.json#/definitions/context"
+                        },
+                        "@odata.etag": {
+                            "$ref": "http://redfish.dmtf.org/schemas/v1/odata-v4.json#/definitions/etag"
+                        },
+                        "@odata.id": {
+                            "$ref": "http://redfish.dmtf.org/schemas/v1/odata-v4.json#/definitions/id"
+                        },
+                        "@odata.type": {
+                            "$ref": "http://redfish.dmtf.org/schemas/v1/odata-v4.json#/definitions/type"
+                        },
+                        "ChannelMappings": {
+                            "description": "The eth interface to channel number mappings for this platform.",
+                            "items": {
+                                "$ref": "#/definitions/ChannelMapping"
+                            },
+                            "longDescription": "This property shall contain an array of readonly mappings between each eth interface name and its corresponding platform-specific ChannelNo value.",
+                            "readonly": true,
+                            "type": "array"
+                        },
+                        "Description": {
+                            "anyOf": [
+                                {
+                                    "$ref": "http://redfish.dmtf.org/schemas/v1/Resource.json#/definitions/Description"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "readonly": true
+                        },
+                        "Members": {
+                            "description": "The members of this collection.",
+                            "items": {
+                                "$ref": "/redfish/v1/Schemas/AmiPefEntry.v1_0_0.json#/definitions/AlertPolicyTable"
+                            },
+                            "longDescription": "This property shall contain an array of links to the members of this collection.",
+                            "readonly": true,
+                            "type": "array"
+                        },
+                        "Members@odata.count": {
+                            "$ref": "http://redfish.dmtf.org/schemas/v1/odata-v4.json#/definitions/count"
+                        },
+                        "Members@odata.nextLink": {
+                            "$ref": "http://redfish.dmtf.org/schemas/v1/odata-v4.json#/definitions/nextLink"
+                        },
+                        "Name": {
+                            "$ref": "http://redfish.dmtf.org/schemas/v1/Resource.json#/definitions/Name",
+                            "readonly": true
+                        },
+                        "Oem": {
+                            "$ref": "http://redfish.dmtf.org/schemas/v1/Resource.json#/definitions/Oem",
+                            "description": "The OEM extension property.",
+                            "longDescription": "This property shall contain the OEM extensions.  All values for properties contained in this object shall conform to the Redfish Specification-described requirements."
+                        }
+                    },
+                    "required": [
+                        "Members",
+                        "Members@odata.count",
+                        "@odata.id",
+                        "@odata.type",
+                        "Name"
+                    ],
+                    "type": "object"
+                }
+            ],
+            "uris": [
+                "/redfish/v1/Oem/Ami/PefService/AlertPolicyTable"
+            ]
+        },
+        "AmiPefEntryCollection": {
+            "anyOf": [
+                {
+                    "$ref": "http://redfish.dmtf.org/schemas/v1/odata-v4.json#/definitions/idRef"
+                }
+            ],
+            "deletable": false,
+            "description": "The collection of AmiPefEntry resource instances.",
+            "insertable": false,
+            "longDescription": "This resource shall represent a resource collection of AmiPefEntry instances for a Redfish implementation.",
+            "updatable": false
+        },
+        "ChannelMapping": {
+            "additionalProperties": false,
+            "description": "A mapping between an eth interface name and a platform channel number.",
+            "longDescription": "This type shall describe a readonly mapping between a platform-specific ChannelNo value and an eth interface name that can be used with AlertPolicyTable entries.",
+            "patternProperties": {
+                "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
+                    "description": "This property shall specify a valid odata or Redfish property.",
+                    "type": [
+                        "array",
+                        "boolean",
+                        "integer",
+                        "number",
+                        "null",
+                        "object",
+                        "string"
+                    ]
+                }
+            },
+            "properties": {
+                "ChannelName": {
+                    "description": "The eth interface name.",
+                    "longDescription": "This property shall contain the eth interface name for this channel mapping.",
+                    "readonly": true,
+                    "type": "string"
+                },
+                "ChannelNo": {
+                    "description": "The platform-specific channel number.",
+                    "longDescription": "This property shall contain the platform-specific ChannelNo value associated with the eth interface.",
+                    "readonly": true,
+                    "type": "integer"
+                }
+            },
+            "type": "object"
+        },
+        "EventFilterTable": {
+            "anyOf": [
+                {
+                    "$ref": "http://redfish.dmtf.org/schemas/v1/odata-v4.json#/definitions/idRef"
+                },
+                {
+                    "additionalProperties": false,
+                    "description": "The collection of EventFilterTable resource instances.",
+                    "longDescription": "This resource shall represent a resource collection of EventFilterTable instances for a Redfish implementation.",
+                    "patternProperties": {
+                        "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
+                            "description": "This property shall specify a valid odata or Redfish property.",
+                            "type": [
+                                "array",
+                                "boolean",
+                                "integer",
+                                "number",
+                                "null",
+                                "object",
+                                "string"
+                            ]
+                        }
+                    },
+                    "properties": {
+                        "@odata.context": {
+                            "$ref": "http://redfish.dmtf.org/schemas/v1/odata-v4.json#/definitions/context"
+                        },
+                        "@odata.etag": {
+                            "$ref": "http://redfish.dmtf.org/schemas/v1/odata-v4.json#/definitions/etag"
+                        },
+                        "@odata.id": {
+                            "$ref": "http://redfish.dmtf.org/schemas/v1/odata-v4.json#/definitions/id"
+                        },
+                        "@odata.type": {
+                            "$ref": "http://redfish.dmtf.org/schemas/v1/odata-v4.json#/definitions/type"
+                        },
+                        "Description": {
+                            "anyOf": [
+                                {
+                                    "$ref": "http://redfish.dmtf.org/schemas/v1/Resource.json#/definitions/Description"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ],
+                            "readonly": true
+                        },
+                        "Members": {
+                            "description": "The members of this collection.",
+                            "items": {
+                                "$ref": "/redfish/v1/Schemas/AmiPefEntry.v1_0_0.json#/definitions/EventFilterTable"
+                            },
+                            "longDescription": "This property shall contain an array of links to the members of this collection.",
+                            "readonly": true,
+                            "type": "array"
+                        },
+                        "Members@odata.count": {
+                            "$ref": "http://redfish.dmtf.org/schemas/v1/odata-v4.json#/definitions/count"
+                        },
+                        "Members@odata.nextLink": {
+                            "$ref": "http://redfish.dmtf.org/schemas/v1/odata-v4.json#/definitions/nextLink"
+                        },
+                        "Name": {
+                            "$ref": "http://redfish.dmtf.org/schemas/v1/Resource.json#/definitions/Name",
+                            "readonly": true
+                        },
+                        "Oem": {
+                            "$ref": "http://redfish.dmtf.org/schemas/v1/Resource.json#/definitions/Oem",
+                            "description": "The OEM extension property.",
+                            "longDescription": "This property shall contain the OEM extensions.  All values for properties contained in this object shall conform to the Redfish Specification-described requirements."
+                        },
+                        "SensorType": {
+                            "$ref": "#/definitions/SensorTypeCatalog",
+                            "description": "The available sensor types and their sensor entries for this platform.",
+                            "longDescription": "This property shall contain a dynamic object whose property names are sensor type names and whose values are arrays of sensor entries containing SensorName and SensorId.",
+                            "readonly": true
+                        }
+                    },
+                    "required": [
+                        "Members",
+                        "Members@odata.count",
+                        "@odata.id",
+                        "@odata.type",
+                        "Name"
+                    ],
+                    "type": "object"
+                }
+            ],
+            "uris": [
+                "/redfish/v1/Oem/Ami/PefService/EventFilterTable"
+            ]
+        },
+        "SensorTypeCatalog": {
+            "additionalProperties": false,
+            "description": "The available sensor types and their sensor entries.",
+            "longDescription": "This type shall contain dynamic property names for each sensor type name and whose values are SensorTypeGroup objects containing an Entries array of SensorTypeEntry.",
+            "patternProperties": {
+                "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
+                    "description": "This property shall specify a valid odata or Redfish property.",
+                    "type": [
+                        "array",
+                        "boolean",
+                        "integer",
+                        "number",
+                        "null",
+                        "object",
+                        "string"
+                    ]
+                },
+                "^[A-Za-z_][A-Za-z0-9_]*$": {
+                    "$ref": "#/definitions/SensorTypeGroup"
+                }
+            },
+            "properties": {},
+            "type": "object"
+        },
+        "SensorTypeEntry": {
+            "additionalProperties": false,
+            "description": "A sensor entry for a sensor type.",
+            "longDescription": "This type shall describe an available sensor entry containing the human-readable SensorName and backend SensorId.",
+            "patternProperties": {
+                "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
+                    "description": "This property shall specify a valid odata or Redfish property.",
+                    "type": [
+                        "array",
+                        "boolean",
+                        "integer",
+                        "number",
+                        "null",
+                        "object",
+                        "string"
+                    ]
+                }
+            },
+            "properties": {
+                "SensorId": {
+                    "description": "The sensor identifier.",
+                    "longDescription": "This property shall contain the backend numeric sensor identifier.",
+                    "readonly": true,
+                    "type": "integer"
+                },
+                "SensorName": {
+                    "description": "The sensor name.",
+                    "longDescription": "This property shall contain the human-readable sensor name.",
+                    "readonly": true,
+                    "type": "string"
+                }
+            },
+            "type": "object"
+        },
+        "SensorTypeGroup": {
+            "additionalProperties": false,
+            "description": "A group of sensor entries for one sensor type.",
+            "longDescription": "This type shall contain an array of sensor entries for a specific sensor type category.",
+            "patternProperties": {
+                "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
+                    "description": "This property shall specify a valid odata or Redfish property.",
+                    "type": [
+                        "array",
+                        "boolean",
+                        "integer",
+                        "number",
+                        "null",
+                        "object",
+                        "string"
+                    ]
+                }
+            },
+            "properties": {
+                "Entries": {
+                    "description": "Array of sensor entries for this sensor type.",
+                    "items": {
+                        "$ref": "#/definitions/SensorTypeEntry"
+                    },
+                    "longDescription": "This property shall contain an array of SensorTypeEntry objects with SensorName and SensorId for this sensor type category.",
+                    "readonly": true,
+                    "type": "array"
+                }
+            },
+            "type": "object"
+        }
+    },
+    "owningEntity": "AMI",
+    "title": "#AmiPefEntryCollection.AmiPefEntryCollection"
+}

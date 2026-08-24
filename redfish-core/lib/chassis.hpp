@@ -542,12 +542,12 @@ inline void handleDecoratorAssetProperties(
 #endif
 #ifndef ONETREE_RM
     // FRU Device
-    asyncResp->res.jsonValue["Oem"]["AMI"]["FRU"]["@odata.id"] =
-        boost::urls::format("/redfish/v1/Chassis/{}/FRU", chassisId);
-    asyncResp->res.jsonValue["Oem"]["AMI"]["@odata.type"] =
+    asyncResp->res.jsonValue["Oem"]["Ami"]["FRU"]["@odata.id"] =
+        boost::urls::format("/redfish/v1/Chassis/{}/Oem/Ami/FRU", chassisId);
+    asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] =
         json_util::odataType("AmiChassis");
-    asyncResp->res.jsonValue["Oem"]["AMI"]["@odata.id"] =
-        boost::urls::format("/redfish/v1/Chassis/{}#/Oem/AMI", chassisId);
+    asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.id"] =
+        boost::urls::format("/redfish/v1/Chassis/{}#/Oem/Ami", chassisId);
 #endif
     // SensorCollection
     asyncResp->res.jsonValue["Sensors"]["@odata.id"] =
@@ -555,11 +555,9 @@ inline void handleDecoratorAssetProperties(
     asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
 #if (!defined(ONETREE_RM)) && (!defined(ONETREE_PSM))
     // SensorThreshold Collection
-    asyncResp->res.jsonValue["Oem"]["AMI"]["SensorThreshold"]["@odata.id"] =
+    asyncResp->res.jsonValue["Oem"]["Ami"]["SensorThreshold"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Chassis/{}/Sensors/Oem/Ami/Threshold",
                             chassisId);
-    asyncResp->res.jsonValue["Oem"]["AMI"]["SensorThreshold"]["@odata.type"] =
-        json_util::odataType("AmiSensor");
 #endif
 #ifndef ONETREE_PSM
     nlohmann::json::array_t computerSystems;
@@ -1357,6 +1355,7 @@ inline void createImmediateResetTask(
     task->startTimer(std::chrono::minutes(5));
     task->populateResp(asyncResp->res);
     task->payload.emplace(std::move(payload));
+    task->resetType = static_cast<uint8_t>(task::operationType::Chassis);
 }
 
 /*
@@ -1504,28 +1503,19 @@ inline void createMaintenanceWindowTask(
         },
         "type='signal',interface='org.freedesktop.DBus.Properties',"
         "member='PropertiesChanged',path='/xyz/openbmc_project/state/host0'");
-    task->startTimer(std::chrono::minutes(5));
-    task->populateResp(asyncResp->res);
-    task->payload.emplace(std::move(payload));
-
     auto chassis_Value = getchassisHostTransitionTimeOut(
         "xyz.openbmc_project.State.Host0", "/xyz/openbmc_project/state/host0",
         "xyz.openbmc_project.State.OperatingSystem.Status",
         "ChassisHostTransitionTimeOut");
-
     uint64_t requestedPowerTransition = std::get<uint64_t>(chassis_Value);
-    if (requestedPowerTransition > 5)
-    {
-        // Will not get any signal from host for pending state so
-        // considering after 5 seconds state will be pending state
-        if (task->state == "New")
-        {
-            std::this_thread::sleep_for(std::chrono::seconds(5));
-            task->state = "Pending";
-            task->messages.emplace_back(
-                messages::taskPaused(std::to_string(task->index)));
-        }
-    }
+    task->startTimer(std::chrono::seconds(requestedPowerTransition) +
+                     (std::chrono::minutes(5)));
+    task->populateResp(asyncResp->res);
+    task->payload.emplace(std::move(payload));
+    task->state = "Pending";
+    task->messages.emplace_back(
+        messages::taskPaused(std::to_string(task->index)));
+    task->resetType = static_cast<uint8_t>(task::operationType::Chassis);
 }
 
 /**
