@@ -22,6 +22,11 @@
 #include "utils/systemd_utils.hpp"
 #include "utils/time_utils.hpp"
 
+#include <fcntl.h>
+#include <linux/serial.h>
+#include <sys/ioctl.h>
+#include <unistd.h>
+
 #include <boost/date_time.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/url/format.hpp>
@@ -3424,6 +3429,36 @@ inline void handleManagerSerialInterfaceGet(
         std::array<const char*, 1>{targetConsoleInterface.c_str()});
 }
 
+inline bool isDeviceEnabled(const std::string& deviceName)
+{
+    if (!deviceName.starts_with("ttyS"))
+    {
+        return false;
+    }
+
+    std::string devicePath = "/dev/" + deviceName;
+    // Open with non-blocking flag to avoid hanging on hardware lines
+    int fd = open(devicePath.c_str(), O_RDWR | O_NONBLOCK | O_NOCTTY);
+    if (fd < 0)
+    {
+        return false;
+    }
+
+    struct serial_struct serInfo;
+    bool isEnabled = false;
+
+    if (ioctl(fd, TIOCGSERIAL, &serInfo) == 0)
+    {
+        if (serInfo.type != PORT_UNKNOWN)
+        {
+            isEnabled = true;
+        }
+    }
+
+    close(fd);
+    return isEnabled;
+}
+
 static inline void findSerialDevice(std::vector<std::string>& tokens)
 {
     // Use the filesystem lib to search for ttyS* at /dev instead of find
@@ -3439,7 +3474,10 @@ static inline void findSerialDevice(std::vector<std::string>& tokens)
             std::string filename = entry.path().filename().string();
             if (std::regex_match(filename, pattern))
             {
-                tokens.push_back(filename.c_str());
+                if (isDeviceEnabled(filename))
+                {
+                    tokens.push_back(filename.c_str());
+                }
             }
         }
     }
@@ -3776,7 +3814,8 @@ inline void requestRoutesManagerSerialInterface(App& app)
             }
 #endif
 
-            if (!isSerialDeviceExists(serialName))
+            if ((!isSerialDeviceExists(serialName)) ||
+                (!isDeviceEnabled(serialName)))
             {
                 messages::resourceNotFound(asyncResp->res, "SerialInterfaces",
                                            serialName);
