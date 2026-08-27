@@ -3838,7 +3838,8 @@ inline void requestRoutesManagerSerialInterface(App& app)
 
             if (databits)
             {
-                if (*databits >= "5" && *databits <= "8")
+                if (*databits == "5" || *databits == "6" || *databits == "7" ||
+                    *databits == "8")
                 {
                     sprintf(cmd + strlen(cmd), "cs%s ", databits->c_str());
                 }
