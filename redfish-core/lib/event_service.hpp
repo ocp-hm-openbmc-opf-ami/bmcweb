@@ -2022,6 +2022,11 @@ void handleEventServiceSubscriptionPostMember(
     if (protocol == "Oem" || protocol == "Kafka")
     {
         // Handle to support Kafka streaming support
+        if (!oemObj)
+        {
+            messages::propertyMissing(asyncResp->res, "Oem");
+            return;
+        }
         KafkaManager::getInstance().createSubscription(*oemObj, destUrl,
                                                        context, asyncResp);
         return;
