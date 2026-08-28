@@ -1682,7 +1682,7 @@ const static auto& getSession = privilegeSetConfigureManagerOrConfigureSelf;
 const static auto& headSession = privilegeSetConfigureManagerOrConfigureSelf;
 const static auto& patchSession = privilegeSetConfigureManager;
 const static auto& putSession = privilegeSetConfigureManager;
-const static auto& deleteSession = privilegeSetConfigureManagerOrConfigureSelf;
+const static auto& deleteSession = privilegeSetConfigureManager;
 const static auto& postSession = privilegeSetConfigureManager;
 
 // SessionCollection
