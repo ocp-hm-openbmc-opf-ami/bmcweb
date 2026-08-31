@@ -2730,25 +2730,33 @@ inline void uploadRadiusSSLFile(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, std::string_view body,
     const std::string& fileName)
 {
-    std::string filePath = "/etc/ssl/certs/" + fileName;
-    std::filesystem::path path(filePath);
+    fs::path path(fileName);
+    if (path.has_parent_path())
+    {
+        messages::actionParameterValueFormatError(
+            asyncResp->res, fileName, "name",
+            "AmiExternalAccountProvider.SSLCertificateUpload");
+        BMCWEB_LOG_ERROR("Rejected path traversal attempt: {}", fileName);
+        return;
+    }
+
+    path = fs::path("/etc/ssl/certs/") / fileName;
 
     std::ofstream out(path, std::ios::binary | std::ios::trunc);
     if (!out)
     {
         messages::internalError(asyncResp->res);
-        BMCWEB_LOG_ERROR("Failed to open file: {}", filePath);
+        BMCWEB_LOG_ERROR("Failed to open file: {}", path.string());
         return;
     }
 
     out.write(reinterpret_cast<const char*>(body.data()),
               static_cast<std::streamsize>(body.size()));
     out.close();
-
-    if (out.bad())
+    if (!out)
     {
         messages::internalError(asyncResp->res);
-        BMCWEB_LOG_ERROR("Error writing file: {}", filePath);
+        BMCWEB_LOG_ERROR("Error writing file: {}", path.string());
         return;
     }
     asyncResp->res.result(boost::beast::http::status::no_content);
