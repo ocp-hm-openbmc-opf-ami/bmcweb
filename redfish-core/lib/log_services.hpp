@@ -138,6 +138,14 @@ inline std::string translateSeverityDbusToRedfish(const std::string& s)
     return "";
 }
 
+inline bool parseEntryId(const std::string& entryID, uint32_t& value)
+{
+    const auto* begin = entryID.data();
+    const auto* end = begin + entryID.size();
+    auto [ptr, ec] = std::from_chars(begin, end, value);
+    return ec == std::errc{} && ptr == end;
+}
+
 inline std::optional<bool> getProviderNotifyAction(const std::string& notify)
 {
     std::optional<bool> notifyAction;
@@ -1778,8 +1786,11 @@ inline void afterLogEntriesGetManagedObjects(
 
     std::ranges::sort(entriesArray, [](const nlohmann::json& left,
                                        const nlohmann::json& right) {
-        return std::stoi(left["Id"].get<std::string>()) <=
-               std::stoi(right["Id"].get<std::string>());
+        uint32_t leftId = 0;
+        uint32_t rightId = 0;
+        parseEntryId(left["Id"].get<std::string>(), leftId);
+        parseEntryId(right["Id"].get<std::string>(), rightId);
+        return leftId < rightId;
     });
     asyncResp->res.jsonValue["Members@odata.count"] = entriesArray.size();
     asyncResp->res.jsonValue["Members"] = std::move(entriesArray);
@@ -1887,8 +1898,11 @@ inline void afterSELLogEntriesGetManagedObjects(
 
     std::ranges::sort(entriesArray, [](const nlohmann::json& left,
                                        const nlohmann::json& right) {
-        return std::stoi(left["Id"].get<std::string>()) <=
-               std::stoi(right["Id"].get<std::string>());
+        uint32_t leftId = 0;
+        uint32_t rightId = 0;
+        parseEntryId(left["Id"].get<std::string>(), leftId);
+        parseEntryId(right["Id"].get<std::string>(), rightId);
+        return leftId < rightId;
     });
     asyncResp->res.jsonValue["Members@odata.count"] = entriesArray.size();
     asyncResp->res.jsonValue["Members"] = std::move(entriesArray);
@@ -2253,6 +2267,14 @@ inline void handleLogServicesSELEntryDelete(
     {
         return;
     }
+
+    uint32_t entryIdNum = 0;
+    if (!parseEntryId(entryID, entryIdNum))
+    {
+        messages::resourceNotFound(asyncResp->res, "LogEntry", entryID);
+        return;
+    }
+
     dbus::utility::escapePathForDbus(entryId);
 
     // Process response from Logging service.
@@ -2281,7 +2303,7 @@ inline void handleLogServicesSELEntryDelete(
         respHandler, "xyz.openbmc_project.Logging",
         "/xyz/openbmc_project/logging/ipmi",
         "xyz.openbmc_project.Collection.DeleteLogType", "DeleteLogType", "ipmi",
-        static_cast<uint32_t>(std::stoi(entryID)));
+        entryIdNum);
 }
 
 inline void handleLogServicesSELEntryPatch(
@@ -2425,6 +2447,13 @@ inline void dBusEventLogEntryPatch(
 inline void dBusEntryDelete(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                             std::string logType, std::string entryID)
 {
+    uint32_t entryIdNum = 0;
+    if (!parseEntryId(entryID, entryIdNum))
+    {
+        messages::resourceNotFound(asyncResp->res, "LogEntry", entryID);
+        return;
+    }
+
     dbus::utility::escapePathForDbus(entryID);
 
     // Process response from Logging service.
@@ -2454,7 +2483,7 @@ inline void dBusEntryDelete(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         respHandler, "xyz.openbmc_project.Logging",
         "/xyz/openbmc_project/logging/ipmi",
         "xyz.openbmc_project.Collection.DeleteLogType", "DeleteLogType",
-        logType, static_cast<uint32_t>(std::stoi(entryID)));
+        logType, entryIdNum);
 }
 
 inline void handleLogServicesSELClearLogPost(
