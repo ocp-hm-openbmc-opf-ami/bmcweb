@@ -93,6 +93,21 @@ const std::string radiusConfigInterface =
 const std::string radiusRoleMapInterface =
     "xyz.openbmc_project.User.Radius.role_map";
 
+/**
+ * @brief Checks asynchronously whether the RADIUS D-Bus service is running.
+ * @param callback Receives true if the service owns its D-Bus name.
+ */
+inline void isRadiusServiceRunning(std::function<void(bool)>&& callback)
+{
+    crow::connections::systemBus->async_method_call(
+        [callback = std::move(callback)](const boost::system::error_code& ec,
+                                         bool hasOwner) {
+            callback(!ec && hasOwner);
+        },
+        "org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus",
+        "NameHasOwner", radisuDBusService);
+}
+
 namespace fs = std::filesystem;
 
 inline std::string caCertFile =
@@ -2718,12 +2733,22 @@ inline void handleExternalProviderGet(
     json["Name"] = "External Accounts Provider Collection";
     json["Description"] = "Collection for External Accounts Provider";
     nlohmann::json& memberArray = json["Members"];
-    nlohmann::json::object_t member;
-    member["@odata.id"] = boost::urls::format(
-        "/redfish/v1/AccountService/ExternalAccountProviders/RADIUS");
-    memberArray.push_back(std::move(member));
+    memberArray = nlohmann::json::array();
+    json["Members@odata.count"] = 0;
 
-    json["Members@odata.count"] = memberArray.size();
+    isRadiusServiceRunning([asyncResp](bool radiusAvailable) {
+        if (!radiusAvailable)
+        {
+            return;
+        }
+
+        nlohmann::json& members = asyncResp->res.jsonValue["Members"];
+        nlohmann::json::object_t member;
+        member["@odata.id"] =
+            "/redfish/v1/AccountService/ExternalAccountProviders/RADIUS";
+        members.push_back(std::move(member));
+        asyncResp->res.jsonValue["Members@odata.count"] = members.size();
+    });
 }
 
 inline void uploadRadiusSSLFile(
@@ -2940,22 +2965,30 @@ inline void handleAccountRadiusGet(
         return;
     }
 
-    nlohmann::json& json = asyncResp->res.jsonValue;
+    isRadiusServiceRunning([asyncResp](bool radiusAvailable) {
+        if (!radiusAvailable)
+        {
+            messages::resourceNotFound(asyncResp->res,
+                                       "ExternalAccountProvider", "RADIUS");
+            return;
+        }
 
-    json["@odata.id"] =
-        "/redfish/v1/AccountService/ExternalAccountProviders/RADIUS";
-    json["@odata.type"] = json_util::odataType("ExternalAccountProvider");
-    json["AccountProviderType"] = "OEM";
-    json["Actions"]["Oem"]["#AmiExternalAccountProvider.SSLCertificateUpload"] = {
-        {"target",
-         "/redfish/v1/AccountService/ExternalAccountProviders/RADIUS/Actions/Oem/AmiExternalAccountProvider.SSLCertificateUpload"}};
-    json["Oem"]["Ami"]["@odata.type"] = json_util::odataType(
-        "AmiExternalAccountProvider", "AmiExternalAccountProvider");
-    json["Id"] = "RADIUS";
-    json["Name"] = "RADIUS Settings";
-    json["Description"] = "RADIUS server settings";
-    getRADIUSConfigData(asyncResp);
-    getRADIUSRoleMap(asyncResp);
+        nlohmann::json& json = asyncResp->res.jsonValue;
+        json["@odata.id"] =
+            "/redfish/v1/AccountService/ExternalAccountProviders/RADIUS";
+        json["@odata.type"] = json_util::odataType("ExternalAccountProvider");
+        json["AccountProviderType"] = "OEM";
+        json["Actions"]["Oem"]["#AmiExternalAccountProvider.SSLCertificateUpload"] =
+            {{"target",
+              "/redfish/v1/AccountService/ExternalAccountProviders/RADIUS/Actions/Oem/AmiExternalAccountProvider.SSLCertificateUpload"}};
+        json["Oem"]["Ami"]["@odata.type"] = json_util::odataType(
+            "AmiExternalAccountProvider", "AmiExternalAccountProvider");
+        json["Id"] = "RADIUS";
+        json["Name"] = "RADIUS Settings";
+        json["Description"] = "RADIUS server settings";
+        getRADIUSConfigData(asyncResp);
+        getRADIUSRoleMap(asyncResp);
+    });
 }
 inline void handleAccountRadiusPatch(
     App& app, const crow::Request& req,
