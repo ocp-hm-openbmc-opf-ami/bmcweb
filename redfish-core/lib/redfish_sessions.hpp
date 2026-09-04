@@ -17,6 +17,7 @@
 
 #include <boost/url/format.hpp>
 
+#include <charconv>
 #include <string>
 #include <vector>
 
@@ -252,15 +253,29 @@ bool validateSessionAccess(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     return true;
 }
 
+inline bool parseSessionId(const std::string& sessionId, int& sessId)
+{
+    // Expected format: <Type>_Session_<number>
+    size_t pos = sessionId.rfind('_');
+    std::string_view sessionNumber =
+        std::string_view(sessionId).substr(pos + 1);
+    auto [ptr, ec] =
+        std::from_chars(sessionNumber.data(),
+                        sessionNumber.data() + sessionNumber.size(), sessId);
+    return ec == std::errc{} &&
+           ptr == sessionNumber.data() + sessionNumber.size();
+}
+
 inline void getSessionInfo(
     std::shared_ptr<bmcweb::AsyncResp> asyncResp, const crow::Request& req,
     const std::string& interface, const std::string& propertyName,
     std::string SessionManagerObjpath, std::string sessionId, bool& found)
 {
-    size_t firstUnderscore = sessionId.find('_');
-    size_t Pos = sessionId.find('_', firstUnderscore + 1);
-    std::string num = sessionId.substr(Pos + 1);
-    int SessId = std::stoi(num);
+    int SessId = 0;
+    if (!parseSessionId(sessionId, SessId))
+    {
+        return;
+    }
 
     if (SessionManagerObjpath.find("vmedia") != std::string::npos)
     {
@@ -612,10 +627,13 @@ inline void handleSessionDelete(
 
     if (sessionId.find('_') != std::string::npos)
     {
-        size_t firstUnderscore = sessionId.find('_');
-        size_t Pos = sessionId.find('_', firstUnderscore + 1);
-        std::string num = sessionId.substr(Pos + 1);
-        uint8_t SessId = static_cast<uint8_t>(std::stoi(num));
+        int sessIdInt = 0;
+        if (!parseSessionId(sessionId, sessIdInt))
+        {
+            messages::resourceNotFound(asyncResp->res, "Session", sessionId);
+            return;
+        }
+        uint8_t SessId = static_cast<uint8_t>(sessIdInt);
         uint8_t sessType;
         uint8_t expiryreason = 1;
         std::string SessobjPath;
@@ -1556,9 +1574,13 @@ inline void requestRoutesSession(App& app)
                 }
                 if (sessionId.find('_') != std::string::npos)
                 {
-                    size_t Pos = sessionId.find('_');
-                    std::string num = sessionId.substr(Pos + 1);
-                    int SessId = std::stoi(num);
+                    int SessId = 0;
+                    if (!parseSessionId(sessionId, SessId))
+                    {
+                        messages::resourceNotFound(asyncResp->res, "Session",
+                                                   sessionId);
+                        return;
+                    }
                     bool found = false;
 
                     // Fetching sessionType with sessionId
