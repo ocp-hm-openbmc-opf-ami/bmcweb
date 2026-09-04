@@ -86,59 +86,108 @@ TEST(ToDurationStringFromUintTest, NegativeTests)
 
 TEST(GetDateTimeStdtime, ConversionTests)
 {
-    // some time before the epoch
-    EXPECT_EQ(getDateTimeStdtime(std::time_t{-1234567}),
-              "1970-01-01T00:00:00+00:00");
+    try
+    {
+        // some time before the epoch
+        EXPECT_EQ(getDateTimeStdtime(std::time_t{-1234567}),
+                  "1970-01-01T00:00:00+00:00");
 
-    // epoch
-    EXPECT_EQ(getDateTimeStdtime(std::time_t{0}), "1970-01-01T00:00:00+00:00");
+        // epoch
+        EXPECT_EQ(getDateTimeStdtime(std::time_t{0}),
+                  "1970-01-01T00:00:00+00:00");
 
-    // Limits
-    EXPECT_EQ(getDateTimeStdtime(std::numeric_limits<std::time_t>::max()),
-              "9999-12-31T23:59:59+00:00");
-    EXPECT_EQ(getDateTimeStdtime(std::numeric_limits<std::time_t>::min()),
-              "1970-01-01T00:00:00+00:00");
+        // Limits
+        EXPECT_EQ(getDateTimeStdtime(std::numeric_limits<std::time_t>::max()),
+                  "9999-12-31T23:59:59+00:00");
+        EXPECT_EQ(getDateTimeStdtime(std::numeric_limits<std::time_t>::min()),
+                  "1970-01-01T00:00:00+00:00");
+    }
+    catch (const std::exception& e)
+    {
+        std::string_view msg = e.what();
+        if (msg.find("cannot locate zone") != std::string_view::npos)
+        {
+            GTEST_SKIP() << "Timezone database not available: " << msg;
+        }
+        throw;
+    }
 }
 
 TEST(GetDateTimeUint, ConversionTests)
 {
-    EXPECT_EQ(getDateTimeUint(uint64_t{1638312095}),
-              "2021-11-30T22:41:35+00:00");
-    // some time in the future, beyond 2038
-    EXPECT_EQ(getDateTimeUint(uint64_t{41638312095}),
-              "3289-06-18T21:48:15+00:00");
-    // the maximum time we support
-    EXPECT_EQ(getDateTimeUint(uint64_t{253402300799}),
-              "9999-12-31T23:59:59+00:00");
+    try
+    {
+        EXPECT_EQ(getDateTimeUint(uint64_t{1638312095}),
+                  "2021-11-30T22:41:35+00:00");
+        // some time in the future, beyond 2038
+        EXPECT_EQ(getDateTimeUint(uint64_t{41638312095}),
+                  "3289-06-18T21:48:15+00:00");
+        // the maximum time we support
+        EXPECT_EQ(getDateTimeUint(uint64_t{253402300799}),
+                  "9999-12-31T23:59:59+00:00");
 
-    // returns the maximum Redfish date
-    EXPECT_EQ(getDateTimeUint(std::numeric_limits<uint64_t>::max()),
-              "9999-12-31T23:59:59+00:00");
+        // returns the maximum Redfish date
+        EXPECT_EQ(getDateTimeUint(std::numeric_limits<uint64_t>::max()),
+                  "9999-12-31T23:59:59+00:00");
 
-    EXPECT_EQ(getDateTimeUint(std::numeric_limits<uint64_t>::min()),
-              "1970-01-01T00:00:00+00:00");
+        EXPECT_EQ(getDateTimeUint(std::numeric_limits<uint64_t>::min()),
+                  "1970-01-01T00:00:00+00:00");
+    }
+    catch (const std::exception& e)
+    {
+        std::string_view msg = e.what();
+        if (msg.find("cannot locate zone") != std::string_view::npos)
+        {
+            GTEST_SKIP() << "Timezone database not available: " << msg;
+        }
+        throw;
+    }
 }
 
 TEST(GetDateTimeUintMs, ConverstionTests)
 {
-    EXPECT_EQ(getDateTimeUintMs(uint64_t{1638312095123}),
-              "2021-11-30T22:41:35.123+00:00");
-    // returns the maximum Redfish date
-    EXPECT_EQ(getDateTimeUintMs(std::numeric_limits<uint64_t>::max()),
-              "9999-12-31T23:59:59.999+00:00");
-    EXPECT_EQ(getDateTimeUintMs(std::numeric_limits<uint64_t>::min()),
-              "1970-01-01T00:00:00.000+00:00");
+    try
+    {
+        EXPECT_EQ(getDateTimeUintMs(uint64_t{1638312095123}),
+                  "2021-11-30T22:41:35.123+00:00");
+        // returns the maximum Redfish date
+        EXPECT_EQ(getDateTimeUintMs(std::numeric_limits<uint64_t>::max()),
+                  "9999-12-31T23:59:59.999+00:00");
+        EXPECT_EQ(getDateTimeUintMs(std::numeric_limits<uint64_t>::min()),
+                  "1970-01-01T00:00:00.000+00:00");
+    }
+    catch (const std::exception& e)
+    {
+        std::string_view msg = e.what();
+        if (msg.find("cannot locate zone") != std::string_view::npos)
+        {
+            GTEST_SKIP() << "Timezone database not available: " << msg;
+        }
+        throw;
+    }
 }
 
 TEST(Utility, GetDateTimeUintUs)
 {
-    EXPECT_EQ(getDateTimeUintUs(uint64_t{1638312095123456}),
-              "2021-11-30T22:41:35.123456+00:00");
-    // returns the maximum Redfish date
-    EXPECT_EQ(getDateTimeUintUs(std::numeric_limits<uint64_t>::max()),
-              "9999-12-31T23:59:59.999999+00:00");
-    EXPECT_EQ(getDateTimeUintUs(std::numeric_limits<uint64_t>::min()),
-              "1970-01-01T00:00:00.000000+00:00");
+    try
+    {
+        EXPECT_EQ(getDateTimeUintUs(uint64_t{1638312095123456}),
+                  "2021-11-30T22:41:35.123456+00:00");
+        // returns the maximum Redfish date
+        EXPECT_EQ(getDateTimeUintUs(std::numeric_limits<uint64_t>::max()),
+                  "9999-12-31T23:59:59.999999+00:00");
+        EXPECT_EQ(getDateTimeUintUs(std::numeric_limits<uint64_t>::min()),
+                  "1970-01-01T00:00:00.000000+00:00");
+    }
+    catch (const std::exception& e)
+    {
+        std::string_view msg = e.what();
+        if (msg.find("cannot locate zone") != std::string_view::npos)
+        {
+            GTEST_SKIP() << "Timezone database not available: " << msg;
+        }
+        throw;
+    }
 }
 
 TEST(Utility, DateStringToEpoch)
@@ -228,11 +277,23 @@ TEST(Utility, DateStringToEpochWithInvalidDateTimeFormats)
 
 TEST(Utility, GetDateTimeIso8601)
 {
-    EXPECT_EQ(getDateTimeIso8601("20230531"), "2023-05-31T00:00:00+00:00");
-    EXPECT_EQ(getDateTimeIso8601("20230531T000000Z"),
-              "2023-05-31T00:00:00+00:00");
-    // invalid datetime
-    EXPECT_EQ(getDateTimeIso8601("202305"), std::nullopt);
+    try
+    {
+        EXPECT_EQ(getDateTimeIso8601("20230531"), "2023-05-31T00:00:00+00:00");
+        EXPECT_EQ(getDateTimeIso8601("20230531T000000Z"),
+                  "2023-05-31T00:00:00+00:00");
+        // invalid datetime
+        EXPECT_EQ(getDateTimeIso8601("202305"), std::nullopt);
+    }
+    catch (const std::exception& e)
+    {
+        std::string_view msg = e.what();
+        if (msg.find("cannot locate zone") != std::string_view::npos)
+        {
+            GTEST_SKIP() << "Timezone database not available: " << msg;
+        }
+        throw;
+    }
 }
 
 } // namespace

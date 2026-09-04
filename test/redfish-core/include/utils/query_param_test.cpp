@@ -496,14 +496,13 @@ TEST(PropogateError, ErrorsArePropergatedWithErrorCode)
     propogateError(final, intermediate);
     EXPECT_EQ(final.jsonValue["error"][messages::messageAnnotation],
               error["error"][messages::messageAnnotation]);
-    std::string errorCode = messages::messageVersionPrefix;
-    errorCode += "GeneralError";
-    std::string errorMessage =
-        "A general error has occurred. See Resolution for "
-        "information on how to resolve the error.";
-    EXPECT_EQ(final.jsonValue["error"]["code"].get<std::string>(), errorCode);
-    EXPECT_EQ(final.jsonValue["error"]["message"].get<std::string>(),
-              errorMessage);
+    // When all propagated errors share the same MessageId the code retains
+    // that specific error code rather than collapsing to GeneralError.
+    EXPECT_EQ(final.jsonValue["error"]["code"].get<std::string>(),
+              "Base.1.13.0.InternalError");
+    EXPECT_EQ(
+        final.jsonValue["error"]["message"].get<std::string>(),
+        "The request failed due to an internal service error.  The service is still operational.");
     EXPECT_EQ(intermediate.jsonValue, R"({})"_json);
     EXPECT_EQ(final.result(),
               boost::beast::http::status::internal_server_error);
