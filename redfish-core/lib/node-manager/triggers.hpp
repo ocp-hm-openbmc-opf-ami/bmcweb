@@ -103,44 +103,6 @@ static void PostTriggerData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         "GetAll", "xyz.openbmc_project.NodeManager.Trigger");
 }
 
-static void getGpioLines(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
-                         const std::string& dbusPath)
-{
-    const std::array<const char*, 1> interfaces{
-        "xyz.openbmc_project.NodeManager.Trigger.GPIO"};
-    const char* subtree{"/xyz/openbmc_project/NodeManager/Trigger/GPIO"};
-    crow::connections::systemBus->async_method_call(
-        [dbusPath, asyncResp{std::move(asyncResp)}](
-            const boost::system::error_code ec,
-            const std::vector<std::string>& objects) {
-            if (ec)
-            {
-                BMCWEB_LOG_DEBUG("DBUS response error {}", ec.value());
-                messages::internalError(asyncResp->res);
-                return;
-            }
-
-            std::vector<std::string> lineNames;
-            for (const auto& object : objects)
-            {
-                sdbusplus::message::object_path path(object);
-                std::string lineName = path.filename();
-                if (lineName.empty())
-                {
-                    continue;
-                }
-                lineNames.push_back(lineName);
-            }
-
-            asyncResp->res.jsonValue["TriggerValues"] =
-                nlohmann::json(lineNames);
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths", subtree, 0,
-        interfaces);
-}
-
 inline void requestRoutesNodeManagerTriggers(App& app)
 {
     BMCWEB_ROUTE(app,
@@ -192,11 +154,6 @@ inline void requestRoutesNodeManagerTriggers(App& app)
                 "/xyz/openbmc_project/NodeManager/Trigger/" + triggerName;
 
             getTriggerData(asyncResp, triggerDbusPath, triggerName);
-
-            if (triggerName == "GPIO")
-            {
-                getGpioLines(asyncResp, triggerDbusPath);
-            }
 
             asyncResp->res.jsonValue = {
                 {"@odata.type", "#NmTrigger.v1_0_0.NmTrigger"},

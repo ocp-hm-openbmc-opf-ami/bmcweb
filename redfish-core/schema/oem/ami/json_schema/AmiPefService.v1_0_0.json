@@ -46,21 +46,9 @@
                     ],
                     "readonly": true
                 },
-                "ChannelMappings": {
-                    "description": "The eth interface to channel number mappings for this platform.",
-                    "items": {
-                        "$ref": "#/definitions/ChannelMapping"
-                    },
-                    "longDescription": "This property shall contain an array of readonly mappings between each eth interface name and its corresponding platform-specific ChannelNo value.",
-                    "readonly": true,
-                    "type": "array"
-                },
-                "ChannelMappings@odata.count": {
-                    "$ref": "http://redfish.dmtf.org/schemas/v1/odata-v4.json#/definitions/count"
-                },
                 "DestinationType": {
                     "description": "The DestinationType either be SMTP or SnmpTrap.",
-                    "longDescription": "This property shall contain the SMTP or SnmpTrap value of AmiPefService.",
+                    "longDescription": "This property shall contain the SMTP or SnmpTrap value of PefService.",
                     "readonly": false,
                     "type": "string"
                 },
@@ -80,7 +68,7 @@
                 "Members": {
                     "description": "The members of this collection.",
                     "items": {
-                        "$ref": "/redfish/v1/JsonSchemas/AmiPefEntry/AmiPefEntry.v1_0_0.json#/definitions/AmiPefEntry"
+                        "$ref": "/redfish/v1/Schemas/AmiPefEntryCollection.json#/definitions/AmiPefEntryCollection"
                     },
                     "longDescription": "This property shall contain an array of links to the members of this collection.",
                     "readonly": false,
@@ -100,7 +88,23 @@
                 },
                 "PEFActionGblControl": {
                     "description": "The Global Action Control flag of Pef Service.",
-                    "longDescription": "This property shall contain the Global Action Control flag of AmiPefService.",
+                    "longDescription": "This property shall contain the Global Action Control flag of PefService.",
+                    "readonly": false,
+                    "type": "integer"
+                },
+                "PendingAlertsLimit": {
+                    "description": "The maximum number of alerts that can be queued.",
+                    "longDescription": "This property shall contain the maximum number of alerts that can be processed as pending tasks.",
+                    "maximum": 100,
+                    "minimum": 0,
+                    "readonly": false,
+                    "type": "integer"
+                },
+                "RetryCountLimit": {
+                    "description": "The number of times an alert should be retried.",
+                    "longDescription": "This property shall contain the maximum number of retry attempts for failed alerts.",
+                    "maximum": 10,
+                    "minimum": 0,
                     "readonly": false,
                     "type": "integer"
                 },
@@ -110,21 +114,11 @@
                     "readonly": false,
                     "type": "boolean"
                 },
-                "RetryCountLimit": {
-                    "description": "The number of times an alert should be retried.",
-                    "longDescription": "This property shall contain the maximum number of retry attempts for failed alerts.",
-                    "readonly": false,
-                    "type": "integer"
-                },
                 "RetryTimeInterval": {
                     "description": "The delay between retries in seconds.",
                     "longDescription": "This property shall define the time interval in seconds between retry attempts.",
-                    "readonly": false,
-                    "type": "integer"
-                },
-                "PendingAlertsLimit": {
-                    "description": "The maximum number of alerts that can be queued.",
-                    "longDescription": "This property shall contain the maximum number of alerts that can be processed as pending tasks.",
+                    "maximum": 3600,
+                    "minimum": 0,
                     "readonly": false,
                     "type": "integer"
                 }
@@ -136,30 +130,6 @@
                 "@odata.type",
                 "Id",
                 "Name"
-            ],
-            "type": "object"
-        },
-        "ChannelMapping": {
-            "additionalProperties": false,
-            "description": "A mapping between an eth interface name and a platform channel number.",
-            "longDescription": "This type shall describe a readonly mapping between a platform-specific ChannelNo value and an eth interface name that can be used with AlertPolicyTable entries.",
-            "properties": {
-                "ChannelName": {
-                    "description": "The eth interface name.",
-                    "longDescription": "This property shall contain the eth interface name for this channel mapping.",
-                    "readonly": true,
-                    "type": "string"
-                },
-                "ChannelNo": {
-                    "description": "The platform-specific channel number.",
-                    "longDescription": "This property shall contain the platform-specific ChannelNo value associated with the eth interface.",
-                    "readonly": true,
-                    "type": "integer"
-                }
-            },
-            "required": [
-                "ChannelName",
-                "ChannelNo"
             ],
             "type": "object"
         }

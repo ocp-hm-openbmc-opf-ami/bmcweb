@@ -22,21 +22,21 @@
 
     <edmx:DataServices>
         <!-- Versionless Namespace -->
-        <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AMISessions">
-            <Annotation Term="Redfish.OwningEntity" String="AMISessions"/>
+        <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AmiSessions">
+            <Annotation Term="Redfish.OwningEntity" String="AmiSessions"/>
         </Schema>
 
         <!-- Versioned Namespace -->
-        <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AMISessions.v1_0_0">
-            <Annotation Term="Redfish.OwningEntity" String="AMISessions"/>
+        <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AmiSessions.v1_0_0">
+            <Annotation Term="Redfish.OwningEntity" String="AmiSessions"/>
             <Annotation Term="Redfish.Release" String="1.0"/>
 
             <ComplexType Name="Oem" BaseType="Resource.OemObject">
                 <Annotation Term="OData.AdditionalProperties" Bool="true"/>
-                <Annotation Term="OData.Description" String="OEM extension container for AMISessions."/>
+                <Annotation Term="OData.Description" String="OEM extension container for AmiSessions."/>
                 <Annotation Term="OData.AutoExpand"/>
-                <Property Name="Session" Type="AMISessions.v1_0_0.Session"/>
-                <Property Name="VmediaSession" Type="AMISessions.v1_0_0.VmediaSession"/>
+                <Property Name="Session" Type="AmiSessions.v1_0_0.Session"/>
+                <Property Name="VmediaSession" Type="AmiSessions.v1_0_0.VmediaSession"/>
             </ComplexType>
 
             <ComplexType Name="Session" BaseType="Resource.OemObject">

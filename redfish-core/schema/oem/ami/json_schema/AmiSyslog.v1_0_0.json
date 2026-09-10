@@ -24,6 +24,41 @@
             "properties": {
                 "#Resource.Configuration": {
                     "$ref": "#/definitions/Configuration"
+                },
+                "#AmiSyslog.RemoteServerCertificateUpload": {
+                    "$ref": "#/definitions/RemoteServerCertificateUpload"
+                }
+            },
+            "type": "object"
+        },
+        "RemoteServerCertificateUpload": {
+            "additionalProperties": false,
+            "description": "This action is used to upload remote server certificates (CA certificate, server certificate, server key) to the BMC for Rsyslog TLS communication.",
+            "longDescription": "This action is used to upload remote server certificates (CA certificate, server certificate, server key) to the BMC for Rsyslog TLS communication.",
+            "parameters": {},
+            "patternProperties": {
+                "^([a-zA-Z_][a-zA-Z0-9_]*)?@(odata|Redfish|Message)\\.[a-zA-Z_][a-zA-Z0-9_]*$": {
+                    "description": "This property shall specify a valid odata or Redfish property.",
+                    "type": [
+                        "array",
+                        "boolean",
+                        "integer",
+                        "number",
+                        "null",
+                        "object",
+                        "string"
+                    ]
+                }
+            },
+            "properties": {
+                "target": {
+                    "description": "Link to invoke action",
+                    "format": "uri-reference",
+                    "type": "string"
+                },
+                "title": {
+                    "description": "Friendly action name",
+                    "type": "string"
                 }
             },
             "type": "object"
@@ -105,6 +140,33 @@
                     "readonly": false,
                     "type": [
                         "boolean",
+                        "null"
+                    ]
+                },
+                "SyslogCACERTModifiedDate": {
+                    "description": "The last modified date of the CA certificate.",
+                    "longDescription": "The value of this property shall specify the last modified date of the syslog CA certificate.",
+                    "readonly": true,
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
+                "SyslogserverCRTModifiedDate": {
+                    "description": "The last modified date of the server certificate.",
+                    "longDescription": "The value of this property shall specify the last modified date of the syslog server certificate.",
+                    "readonly": true,
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
+                "SyslogServerKeyModifiedDate": {
+                    "description": "The last modified date of the server key.",
+                    "longDescription": "The value of this property shall specify the last modified date of the syslog server key.",
+                    "readonly": true,
+                    "type": [
+                        "string",
                         "null"
                     ]
                 },

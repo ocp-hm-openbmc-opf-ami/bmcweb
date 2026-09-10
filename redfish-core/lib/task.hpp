@@ -49,6 +49,13 @@ constexpr static std::string taskStates[14] = {
 
 constexpr static std::string taskHealth[3] = {"OK", "Warning", "Critical"};
 
+enum class operationType
+{
+    Power = 2,
+    Chassis = 3,
+    Host = 4
+};
+
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static std::deque<std::shared_ptr<struct TaskData>> tasks;
 static std::unique_ptr<sdbusplus::bus::match_t> hostShutdownMatch;
@@ -238,6 +245,7 @@ struct TaskData : std::enable_shared_from_this<TaskData>
                 if (*taskToDelete != nullptr)
                 {
                     BMCWEB_LOG_ERROR("Deleting Task", strParam);
+                    task->taskDeleted = true;
                     task->timer.cancel();
                     task->match.reset();
                     task::tasks.erase(taskToDelete);
@@ -275,6 +283,13 @@ struct TaskData : std::enable_shared_from_this<TaskData>
                 {
                     return; // completed successfully
                 }
+
+                if (self->taskDeleted)
+                {
+                    BMCWEB_LOG_ERROR("Task Already deleted \n");
+                    return;
+                }
+
                 if (!ec)
                 {
                     // change ec to error as timer expired
@@ -376,6 +391,12 @@ struct TaskData : std::enable_shared_from_this<TaskData>
             static_cast<sdbusplus::bus_t&>(*crow::connections::systemBus),
             matchStr,
             [self = shared_from_this()](sdbusplus::message_t& message) {
+                if (self->taskDeleted)
+                {
+                    BMCWEB_LOG_ERROR("Task Already deleted \n");
+                    return;
+                }
+
                 boost::system::error_code ec;
 
                 // callback to return True if callback is done, callback needs
@@ -416,7 +437,9 @@ struct TaskData : std::enable_shared_from_this<TaskData>
     std::optional<time_t> endTime;
     std::optional<Payload> payload;
     bool taskCompleted = false;
+    bool taskDeleted = false;
     int percentComplete = 0;
+    uint8_t resetType = 0;
 };
 
 /**
@@ -459,8 +482,11 @@ inline void createMultipleTasks(void)
                     taskData->status = taskHealth[health_pos];
                     taskData->startTime =
                         redfish::taskservice::timeStamptoepoch(taskstime);
-                    taskData->endTime =
-                        redfish::taskservice::timeStamptoepoch(tasketime);
+                    if (!tasketime.empty())
+                    {
+                        taskData->endTime =
+                            redfish::taskservice::timeStamptoepoch(tasketime);
+                    }
                     (void)msg;
                     (void)taskData;
                     return redfish::task::completed;
@@ -472,7 +498,17 @@ inline void createMultipleTasks(void)
             task->state = taskStates[state_pos];
             task->status = taskHealth[health_pos];
             task->startTime = redfish::taskservice::timeStamptoepoch(taskstime);
-            task->endTime = redfish::taskservice::timeStamptoepoch(tasketime);
+            if ((taskStates[state_pos] == "New") ||
+                (taskStates[state_pos] == "Running") ||
+                (taskStates[state_pos] == "Pending"))
+            {
+                task->state = "Exception";
+            }
+            if (!tasketime.empty())
+            {
+                task->endTime =
+                    redfish::taskservice::timeStamptoepoch(tasketime);
+            }
         }
     }
     else
@@ -547,6 +583,24 @@ inline void Stop_ForceRestart(
         interfaceName, destProperty, dbusPropertyValue);
 }
 
+inline void setRestHostTimers(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    std::string propertyName)
+{
+    uint64_t stopTimer = 0;
+    crow::connections::systemBus->async_method_call(
+        [asyncResp](const boost::system::error_code ec) {
+            if (ec)
+            {
+                messages::internalError(asyncResp->res);
+            }
+        },
+        "xyz.openbmc_project.State.Host0", "/xyz/openbmc_project/state/host0",
+        "org.freedesktop.DBus.Properties", "Set",
+        "xyz.openbmc_project.State.OperatingSystem.Status", propertyName,
+        dbus::utility::DbusVariantType(stopTimer));
+}
+
 inline void handleTaskDelete(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -589,6 +643,27 @@ inline void handleTaskDelete(
         return;
     }
 
+    if (ptr->resetType ==
+        static_cast<uint8_t>(
+            task::operationType::Power)) // Power maintenance window reset type
+    {
+        setRestHostTimers(asyncResp, "PowerTransitionTimeOut");
+    }
+    if (ptr->resetType ==
+        static_cast<uint8_t>(
+            task::operationType::Chassis)) // Chassis maintenance window reset
+                                           // type
+    {
+        setRestHostTimers(asyncResp, "ChassisHostTransitionTimeOut");
+    }
+    if (ptr->resetType == static_cast<uint8_t>(task::operationType::Host) ||
+        ptr->resetType == static_cast<uint8_t>(
+                              task::operationType::Power)) // Host maintenance
+                                                           // window reset type
+    {
+        setRestHostTimers(asyncResp, "HostTransitionTimeOut");
+    }
+
     ptr->deleteTasks(asyncResp, strParam);
     asyncResp->res.result(boost::beast::http::status::no_content);
 
@@ -616,6 +691,10 @@ inline void handleTaskDeleteMonitor(
     const std::string& strParam)
 {
     asyncResp->res.clearHeader(boost::beast::http::field::allow);
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
     auto find =
         std::find_if(task::tasks.begin(), task::tasks.end(),
                      [&strParam](const std::shared_ptr<task::TaskData>& task) {

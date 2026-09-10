@@ -28,7 +28,7 @@
                     "readonly": true
                 },
                 "PefService": {
-                    "$ref": "/redfish/v1/schema/PefService.json#/definitions/PefService",
+                    "$ref": "/redfish/v1/JsonSchemas/AmiPefService/AmiPefService.v1_0_0.json#/definitions/AmiPefService",
                     "description": "The link to Platform Event Filtering Service.",
                     "longDescription": "This property shall contain the link to PEF Service for platform event filtering and alerting.",
                     "readonly": true
@@ -81,20 +81,20 @@
                 }
             },
             "properties": {
-                "Intel": {
+                "Ami": {
                     "anyOf": [
                         {
-                            "$ref": "#/definitions/Intel"
+                            "$ref": "#/definitions/Ami"
                         },
                         {
                             "type": "null"
                         }
                     ]
                 },
-                "Ami": {
+                "Intel": {
                     "anyOf": [
                         {
-                            "$ref": "#/definitions/Ami"
+                            "$ref": "#/definitions/Intel"
                         },
                         {
                             "type": "null"
@@ -105,7 +105,7 @@
             "type": "object"
         }
     },
-    "owningEntity": "OpenBMC",
+    "owningEntity": "Ami",
     "release": "1.0",
     "title": "#OemServiceRoot.v1_0_0"
 }

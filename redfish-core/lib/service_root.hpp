@@ -84,18 +84,19 @@ inline void handleServiceRootGetImpl(
 #if (!defined(ONETREE_RM)) && (!defined(ONETREE_PSM))
     asyncResp->res.jsonValue["Oem"]["Ami"]["PefService"] = {
         {"@odata.id", "/redfish/v1/Oem/Ami/PefService"}};
+#if (ONETREE_INTELSIPACK)
     asyncResp->res.jsonValue["Oem"]["Intel"]["@odata.type"] =
         json_util::odataType("OemServiceRoot", "Intel");
     asyncResp->res.jsonValue["Oem"]["Intel"]["@odata.id"] =
         "/redfish/v1/#Oem/Intel";
     asyncResp->res.jsonValue["Oem"]["Intel"]["CupsService"] = {
         {"@odata.id", "/redfish/v1/Oem/Intel/CupsService"}};
-
+#endif
     asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.type"] =
         json_util::odataType("AmiServiceRoot", "AmiServiceRoot");
     asyncResp->res.jsonValue["Oem"]["Ami"]["@odata.id"] =
         "/redfish/v1/#Oem/Ami";
-#ifdef ONETREE_EVB_AST2600
+#ifdef ONETREE_BRCMPCIESW
     asyncResp->res.jsonValue["Oem"]["Ami"]["PcieSwitch"] = {
         {"@odata.id", "/redfish/v1/Oem/Ami/PcieSwitch"}};
 #endif

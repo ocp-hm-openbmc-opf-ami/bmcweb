@@ -1,5 +1,5 @@
 {
-    "$id": "http://redfish.dmtf.org/schemas/v1/NmPolicyCollection.json",
+    "$id": "http://redfish.dmtf.org/schemas/v1/NmPolicyCollection.v1_0_0.json",
     "$ref": "#/definitions/NmPolicyCollection",
     "$schema": "http://redfish.dmtf.org/schemas/v1/redfish-schema-v1.json",
     "copyright": "Copyright 2014-2019 DMTF. For the full DMTF copyright policy, see http://www.dmtf.org/about/policies/copyright",
@@ -54,7 +54,7 @@
                         "Members": {
                             "description": "The members of this collection.",
                             "items": {
-                                "$ref": "/redfish/v1/JsonSchemas/NmPolicy/NmPolicy.v1_2_0.json#/definitions/NmPolicy"
+                                "$ref": "/redfish/v1/Schemas/NmPolicy.json#/definitions/NmPolicy"
                             },
                             "longDescription": "This property shall contain an array of links to the members of this collection.",
                             "readonly": true,
@@ -85,15 +85,10 @@
                     ],
                     "type": "object"
                 }
-            ],
-            "deletable": false,
-            "insertable": true,
-            "updatable": false,
-            "uris": [
-                "/redfish/v1/Managers/{ManagerId}/Oem/Intel/NodeManager/Policies"
             ]
         }
     },
     "owningEntity": "DMTF",
-    "title": "#NmPolicyCollection.NmPolicyCollection"
+    "release": "1.0",
+    "title": "#NmPolicyCollection.v1_0_0.NmPolicyCollection"
 }

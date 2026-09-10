@@ -47,6 +47,11 @@
 				<Annotation Term="OData.Description" String="Configurations for this interface."/>
 				<Annotation Term="OData.LongDescription" String="This property shall contain a configurations for this interface."/>
 			</Action>
+			<Action Name="RemoteServerCertificateUpload" IsBound="true">
+				<Parameter Name="Resource" Type="AmiSyslog.v1_0_0.Actions"/>
+				<Annotation Term="OData.Description" String="This action is used to upload remote server certificates (CA certificate, server certificate, server key) to the BMC for Rsyslog TLS communication."/>
+				<Annotation Term="OData.LongDescription" String="This action is used to upload remote server certificates (CA certificate, server certificate, server key) to the BMC for Rsyslog TLS communication."/>
+			</Action>
 		</Schema>
 		<Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AmiSyslog.v1_0_0">
 			<Annotation Term="Redfish.OwningEntity" String="Ami"/>
@@ -116,6 +121,24 @@
 					<Annotation Term="OData.Description" String="This indicates Server Key exist or not" />
 					<Annotation Term="OData.LongDescription"
 						String="The value of this property is used to indicate Server Key exist or not." />
+				</Property>
+				<Property Name="SyslogCACERTModifiedDate" Type="Edm.String">
+					<Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read" />
+					<Annotation Term="OData.Description" String="The last modified date of the CA certificate." />
+					<Annotation Term="OData.LongDescription"
+						String="The value of this property shall specify the last modified date of the syslog CA certificate." />
+				</Property>
+				<Property Name="SyslogserverCRTModifiedDate" Type="Edm.String">
+					<Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read" />
+					<Annotation Term="OData.Description" String="The last modified date of the server certificate." />
+					<Annotation Term="OData.LongDescription"
+						String="The value of this property shall specify the last modified date of the syslog server certificate." />
+				</Property>
+				<Property Name="SyslogServerKeyModifiedDate" Type="Edm.String">
+					<Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read" />
+					<Annotation Term="OData.Description" String="The last modified date of the server key." />
+					<Annotation Term="OData.LongDescription"
+						String="The value of this property shall specify the last modified date of the syslog server key." />
 				</Property>
 			</ComplexType>
 		</Schema>

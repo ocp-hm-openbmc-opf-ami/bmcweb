@@ -715,22 +715,22 @@ inline void asyncPopulatePid(
             nlohmann::json& configRoot =
                 asyncResp->res.jsonValue["Oem"]["OpenBmc"]["Fan"];
             nlohmann::json& fans = configRoot["FanControllers"];
-            fans["@odata.type"] = json_util::odataType(
-                "OpenBMCManager", "Manager", "FanControllers");
+            fans["@odata.type"] =
+                json_util::odataType("OpenBMCManager", "FanControllers");
             fans["@odata.id"] = boost::urls::format(
                 "/redfish/v1/Managers/{}#/Oem/OpenBmc/Fan/FanControllers",
                 BMCWEB_REDFISH_MANAGER_URI_NAME);
 
             nlohmann::json& pids = configRoot["PidControllers"];
-            pids["@odata.type"] = json_util::odataType(
-                "OpenBMCManager", "Manager", "PidControllers");
+            pids["@odata.type"] =
+                json_util::odataType("OpenBMCManager", "PidControllers");
             pids["@odata.id"] = boost::urls::format(
                 "/redfish/v1/Managers/{}#/Oem/OpenBmc/Fan/PidControllers",
                 BMCWEB_REDFISH_MANAGER_URI_NAME);
 
             nlohmann::json& stepwise = configRoot["StepwiseControllers"];
-            stepwise["@odata.type"] = json_util::odataType(
-                "OpenBMCManager", "Manager", "StepwiseControllers");
+            stepwise["@odata.type"] =
+                json_util::odataType("OpenBMCManager", "StepwiseControllers");
             stepwise["@odata.id"] = boost::urls::format(
                 "/redfish/v1/Managers/{}#/Oem/OpenBmc/Fan/StepwiseControllers",
                 BMCWEB_REDFISH_MANAGER_URI_NAME);
@@ -739,13 +739,11 @@ inline void asyncPopulatePid(
             zones["@odata.id"] = boost::urls::format(
                 "/redfish/v1/Managers/{}#/Oem/OpenBmc/Fan/FanZones",
                 BMCWEB_REDFISH_MANAGER_URI_NAME);
-            zones["@odata.type"] =
-                json_util::odataType("OpenBMCManager", "Manager", "FanZones");
             configRoot["@odata.id"] =
                 boost::urls::format("/redfish/v1/Managers/{}#/Oem/OpenBmc/Fan",
                                     BMCWEB_REDFISH_MANAGER_URI_NAME);
             configRoot["@odata.type"] =
-                json_util::odataType("OpenBMCManager", "Manager", "Fan");
+                json_util::odataType("OpenBMCManager", "Fan");
             configRoot["Profile@Redfish.AllowableValues"] = supportedProfiles;
 
             if (!currentProfile.empty())
@@ -880,8 +878,6 @@ inline void asyncPopulatePid(
                             ("/Oem/OpenBmc/Fan/FanZones"_json_pointer / name)
                                 .to_string());
                         zone["@odata.id"] = std::move(url);
-                        zone["@odata.type"] =
-                            json_util::odataType("OpenBMCManager", "FanZone");
                         config = &zone;
                     }
 
@@ -902,7 +898,7 @@ inline void asyncPopulatePid(
                                 .to_string());
                         controller["@odata.id"] = std::move(url);
                         controller["@odata.type"] = json_util::odataType(
-                            "OpenBMCManager", "Manager", "StepwiseController");
+                            "OpenBMCManager", "StepwiseController");
 
                         controller["Direction"] = *classPtr;
                     }
@@ -928,7 +924,7 @@ inline void asyncPopulatePid(
                                     .to_string());
                             element["@odata.id"] = std::move(url);
                             element["@odata.type"] = json_util::odataType(
-                                "OpenBMCManager", "Manager", "FanController");
+                                "OpenBMCManager", "FanController");
                         }
                         else
                         {
@@ -938,7 +934,7 @@ inline void asyncPopulatePid(
                                     .to_string());
                             element["@odata.id"] = std::move(url);
                             element["@odata.type"] = json_util::odataType(
-                                "OpenBMCManager", "Manager", "PidController");
+                                "OpenBMCManager", "PidController");
                         }
                     }
                     else
@@ -1073,9 +1069,6 @@ inline void asyncPopulatePid(
                                                     .to_string());
                                         input["@odata.id"] =
                                             std::move(managerUrl);
-                                        input["@odata.type"] =
-                                            json_util::odataType(
-                                                "OpenBMCManager", "FanZone");
                                         data.emplace_back(std::move(input));
                                     }
                                 }
@@ -2582,21 +2575,22 @@ inline void handleManagersInstanceGet(
     // default oem data
     nlohmann::json& oem = asyncResp->res.jsonValue["Oem"];
     nlohmann::json& oemOpenbmc = oem["OpenBmc"];
-#if !defined(ONETREE_PSM)
-    nlohmann::json& oemIntel = oem["Intel"];
-    oemIntel["@odata.type"] = json_util::odataType("OpenBMCManager", "Intel");
-    oemIntel["@odata.id"] = "/redfish/v1/Managers/bmc#/Oem/Intel";
 #ifdef ONETREE_INTELSIPACK
+    nlohmann::json& oemIntel = oem["Intel"];
+    oemIntel["@odata.type"] = json_util::odataType("IntelManager", "Intel");
+    oemIntel["@odata.id"] = boost::urls::format(
+        "/redfish/v1/Managers/{}#/Oem/Intel", BMCWEB_REDFISH_MANAGER_URI_NAME);
     oemIntel["NodeManager"] = {
-        {"@odata.id", "/redfish/v1/Managers/bmc/Oem/Intel/NodeManager"}};
-#endif
+        {"@odata.id",
+         boost::urls::format("/redfish/v1/Managers/{}/Oem/Intel/NodeManager",
+                             BMCWEB_REDFISH_MANAGER_URI_NAME)}};
 #endif
     oem["@odata.id"] = boost::urls::format("/redfish/v1/Managers/{}#/Oem",
                                            BMCWEB_REDFISH_MANAGER_URI_NAME);
     oemOpenbmc["@odata.type"] =
         json_util::odataType("OpenBMCManager", "Manager");
     oemOpenbmc["@odata.id"] =
-        boost::urls::format("/redfish/v1/Managers/bmc#/Oem#/OpenBmc/",
+        boost::urls::format("/redfish/v1/Managers/{}#/Oem#/OpenBmc/",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
 
     nlohmann::json::object_t certificates;
@@ -3144,7 +3138,7 @@ inline void handleManagerSerialInterfaceGet(
 
     if (isIpmiSol || (dualHost && isIpmiSol1))
     {
-#if (BMCWEB_ARBEL_NUVOTON_MACRO)
+#ifdef ONETREE_EVB_NUVOTON_NPCM845
         messages::resourceNotFound(asyncResp->res, "SerialInterface",
                                    serialName);
         return;
@@ -3541,7 +3535,7 @@ inline void requestRoutesManagerSerialInterface(App& app)
                 "Collection of Serial Interfaces for this System";
 
             nlohmann::json::array_t members;
-#if (!BMCWEB_ARBEL_NUVOTON_MACRO)
+#ifndef ONETREE_EVB_NUVOTON_NPCM845
             members.emplace_back(nlohmann::json::object(
                 {{"@odata.id",
                   boost::urls::format(
@@ -3627,7 +3621,7 @@ inline void requestRoutesManagerSerialInterface(App& app)
 
             asyncResp->res.clearHeader(boost::beast::http::field::allow);
 
-#if (!BMCWEB_ARBEL_NUVOTON_MACRO)
+#ifndef ONETREE_EVB_NUVOTON_NPCM845
             if (serialName == "IPMI-SOL" ||
                 (system_utils::isDualHostEnabled() &&
                  serialName == "IPMI-SOL1"))
@@ -3798,20 +3792,65 @@ inline void requestRoutesManagerSerialInterface(App& app)
             std::optional<std::string> stopbits;
             std::optional<bool> interfaceEnabled;
             std::optional<std::string> id;
+            std::optional<std::string> name;
+            std::optional<std::string> description;
 
             if (!json_util::readJsonPatch(
                     req, asyncResp->res, "BitRate", bitrate, "DataBits",
                     databits, "FlowControl", flowcontrol, "InterfaceEnabled",
                     interfaceEnabled, "Parity", parity, "StopBits", stopbits,
-                    "Id", id))
+                    "Id", id, "Name", name, "Description", description))
             {
                 return;
             }
 
+            bool badProp = false;
             if (id)
             {
                 messages::propertyNotWritable(asyncResp->res, "Id");
+                badProp = true;
+            }
+            if (name)
+            {
+                messages::propertyNotWritable(asyncResp->res, "Name");
+                badProp = true;
+            }
+            if (description)
+            {
+                messages::propertyNotWritable(asyncResp->res, "Description");
+                badProp = true;
+            }
+            if (badProp)
+            {
+                asyncResp->res.result(boost::beast::http::status::bad_request);
                 return;
+            }
+
+            if (bitrate || databits)
+            {
+                std::string sttyCmd = "stty -a -F /dev/" + serialName;
+                std::string currentBitRate;
+                std::string currentDataBits;
+                SttyValueCmd(sttyCmd, "speed ", currentBitRate);
+                SttyValueCmd(sttyCmd, "cs", currentDataBits);
+
+                bool unsupport = false;
+                if (bitrate && currentBitRate.empty())
+                {
+                    messages::propertyUnknown(asyncResp->res, "BitRate");
+                    unsupport = true;
+                }
+                if (databits && currentDataBits.empty())
+                {
+                    messages::propertyUnknown(asyncResp->res, "DataBits");
+                    unsupport = true;
+                }
+                if (unsupport)
+                {
+                    asyncResp->res.result(
+                        boost::beast::http::status::bad_request);
+                    return;
+                }
             }
 
             char cmd[150];
@@ -4018,7 +4057,7 @@ inline void requestRoutesManagerSerialInterface(App& app)
                     return;
                 }
 
-#if (!BMCWEB_ARBEL_NUVOTON_MACRO)
+#ifndef ONETREE_EVB_NUVOTON_NPCM845
                 if (serialName == "IPMI-SOL" ||
                     (system_utils::isDualHostEnabled() &&
                      serialName == "IPMI-SOL1"))

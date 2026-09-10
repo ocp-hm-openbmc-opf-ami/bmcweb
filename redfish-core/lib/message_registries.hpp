@@ -243,6 +243,26 @@ inline void fillPrivilegeRegistry(
         mappings,
         redfish::registries::AMIPrivilegeMapping::AMIOemControlsEntities);
 #endif
+
+    // Add top-level "Oem" section with OEM action mappings
+    nlohmann::json& oemSection = asyncResp->res.jsonValue["Oem"];
+    oemSection = nlohmann::json::object();
+
+    nlohmann::json& actionMappings = oemSection["Ami"]["ActionMappings"];
+    actionMappings = nlohmann::json::array();
+
+    for (const auto& action : registries::PrivilegeRegistry::OemActionMappings)
+    {
+        nlohmann::json actionMappingObj = nlohmann::json::object();
+        actionMappingObj["Action"] = action.first;
+        actionMappingObj["Privilege"] = nlohmann::json::array();
+
+        for (const auto& privilege : action.second)
+        {
+            actionMappingObj["Privilege"].push_back(privilege);
+        }
+        actionMappings.push_back(actionMappingObj);
+    }
 }
 
 inline void handleMessageRoutesMessageRegistryFileGet(
@@ -489,7 +509,9 @@ inline void handleMessageRoutesMessageRegistryFileGet(
              registry.find("PrivilegeRegistry") != std::string::npos)
     {
         header = &registries::PrivilegeRegistry::header;
-        Val = "Redfish_1.5.0_PrivilegeRegistry";
+        Val = std::format("Redfish_{}.{}.{}_{}", header->versionMajor,
+                          header->versionMinor, header->versionPatch,
+                          header->registryPrefix);
         if (registry == "PrivilegeRegistry")
         {
             registryVal = false;
@@ -614,17 +636,11 @@ inline void handleMessageRoutesMessageRegistryFileGet(
         asyncResp->res.jsonValue["Description"] =
             dmtf + registry + " Message Registry File Location";
         asyncResp->res.jsonValue["Id"] = header->registryPrefix;
-        if (registry != "PrivilegeRegistry")
-        {
-            asyncResp->res.jsonValue["Registry"] =
-                std::format("{}.{}.{}", header->registryPrefix,
-                            header->versionMajor, header->versionMinor);
-        }
-        else
-        {
-            asyncResp->res.jsonValue["Registry"] =
-                "Redfish_1.5.0_PrivilegeRegistry";
-        }
+        asyncResp->res.jsonValue["Registry"] =
+            (registry == "PrivilegeRegistry")
+                ? Val
+                : std::format("{}.{}.{}", header->registryPrefix,
+                              header->versionMajor, header->versionMinor);
         nlohmann::json::array_t languages;
         languages.emplace_back(header->language);
         asyncResp->res.jsonValue["Languages@odata.count"] = languages.size();
@@ -724,7 +740,7 @@ inline void requestRoutesMessageRegistryFile(App& app)
             static constexpr const auto registryFiles = std::to_array(
                 {"Base", "TaskEvent", "License", "NodeManager", "ResourceEvent",
                  "OpenBMC", "Telemetry", "PrivilegeRegistry", "HeartbeatEvent",
-                 "CertificateService", "Ami"});
+                 "CertificateService", "AmiOneTree"});
             for (const char* memberName : registryFiles)
             {
                 if (registry == memberName || registryName == memberName)
@@ -733,6 +749,25 @@ inline void requestRoutesMessageRegistryFile(App& app)
                     messages::operationNotAllowed(asyncResp->res);
                     return;
                 }
+            }
+
+            if (registry.ends_with("_PrivilegeRegistry.json"))
+            {
+                const registries::Header& h =
+                    registries::PrivilegeRegistry::header;
+                if (registry == std::format("Redfish_{}.{}.{}_{}.json",
+                                            h.versionMajor, h.versionMinor,
+                                            h.versionPatch, h.registryPrefix))
+                {
+                    asyncResp->res.addHeader("Allow", "GET");
+                    messages::operationNotAllowed(asyncResp->res);
+                }
+                else
+                {
+                    messages::resourceNotFound(asyncResp->res,
+                                               "MessageRegistryFile", registry);
+                }
+                return;
             }
 
 #ifdef ONETREE_ACD
@@ -745,6 +780,12 @@ inline void requestRoutesMessageRegistryFile(App& app)
 #endif
 
 #ifdef ONETREE_RTP
+            if (registry == "Ami" || registryName == "Ami")
+            {
+                asyncResp->res.addHeader("Allow", "GET");
+                messages::operationNotAllowed(asyncResp->res);
+                return;
+            }
             sdbusplus::asio::getAllProperties(
                 *crow::connections::systemBus,
                 "xyz.openbmc_project.OOBInventoryConfig",

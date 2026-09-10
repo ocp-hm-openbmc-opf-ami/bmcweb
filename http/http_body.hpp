@@ -14,8 +14,11 @@
 #include <boost/beast/http/message.hpp>
 #include <boost/system/error_code.hpp>
 
+#include <algorithm>
+#include <cctype>
 #include <cstdint>
 #include <optional>
+#include <string>
 #include <string_view>
 
 namespace bmcweb
@@ -43,6 +46,112 @@ class HttpBody::value_type
     DuplicatableFileHandle fileHandle;
     std::optional<size_t> fileSize;
     std::string strBody;
+    bool extensionMagicValidationEnabled = false;
+    std::string deferredOpenPath;
+    std::string expectedExtension;
+
+    //  Normalize extension case so validation remains case-insensitive.
+    std::string normalizeExt(std::string_view ext)
+    {
+        std::string out(ext);
+        std::transform(out.begin(), out.end(), out.begin(),
+                       [](unsigned char c) {
+                           return static_cast<char>(std::tolower(c));
+                       });
+        return out;
+    }
+
+    // Check if binary data starts with a magic byte sequence.
+    bool startsWithMagic(std::string_view data, std::string_view magic) const
+    {
+        return data.size() >= magic.size() &&
+               data.substr(0, magic.size()) == magic;
+    }
+
+    // Verify content signature matches claimed extension before writing.
+    std::optional<bool> validateByMagic() const
+    {
+        constexpr std::string_view nrgMagic = "NERO";
+        constexpr size_t isoOffset = 0x8001;
+        constexpr std::string_view isoMagic = "CD001";
+        constexpr size_t isoNeeded = isoOffset + isoMagic.size();
+
+        std::string_view data(strBody);
+
+        if (expectedExtension == ".nrg")
+        {
+            if (data.size() < nrgMagic.size())
+            {
+                return std::nullopt;
+            }
+            return startsWithMagic(data, nrgMagic);
+        }
+
+        if (expectedExtension == ".iso")
+        {
+            if (data.size() < isoNeeded)
+            {
+                return std::nullopt;
+            }
+            return std::string_view(data.data() + isoOffset, isoMagic.size()) ==
+                   isoMagic;
+        }
+
+        if ((expectedExtension == ".img") || (expectedExtension == ".ima"))
+        {
+            // IMG/IMA should be disk images, not raw MTD or other formats
+            // Reject if they have NRG or ISO magic (wrong format)
+            if ((data.size()) < (nrgMagic.size()))
+            {
+                return std::nullopt;
+            }
+            if (startsWithMagic(data, nrgMagic))
+            {
+                return false; // NRG format detected, not img/ima
+            }
+
+            // Wait until the ISO signature offset is available before trusting
+            // MBR-only validation, otherwise isohybrids can slip through.
+            if (data.size() < isoNeeded)
+            {
+                return std::nullopt;
+            }
+            if (std::string_view(data.data() + isoOffset, isoMagic.size()) ==
+                isoMagic)
+            {
+                return false; // ISO format detected, not img/ima
+            }
+
+            // Check for MBR signature at offset 510 (0x55AA for bootable disk)
+            // This helps reject raw MTD/flash dumps that lack disk image
+            // structure
+            constexpr size_t mbrSigOffset = 510;
+            constexpr size_t mbrSigSize = 2;
+            if (data.size() >= mbrSigOffset + mbrSigSize)
+            {
+                uint8_t byte0 = static_cast<uint8_t>(data[mbrSigOffset]);
+                uint8_t byte1 = static_cast<uint8_t>(data[mbrSigOffset + 1]);
+
+                // MBR signature should be 0x55AA for valid disk images
+                if (byte0 == 0x55 && byte1 == 0xAA)
+                {
+                    return true; // Valid MBR signature found
+                }
+
+                // If we have enough data (512 bytes) but no MBR signature,
+                // this likely isn't a valid disk image (e.g., MTD dump)
+                if (data.size() >= 512)
+                {
+                    return false; // Not a valid disk image
+                }
+            }
+
+            // Not enough data yet to verify MBR signature
+            return std::nullopt;
+        }
+
+        return false;
+    }
 
   public:
     value_type() = default;
@@ -93,8 +202,98 @@ class HttpBody::value_type
         fileHandle.fileHandle = boost::beast::file_posix();
         fileSize = std::nullopt;
         encodingType = EncodingType::Raw;
+        extensionMagicValidationEnabled = false;
+        deferredOpenPath.clear();
+        expectedExtension.clear();
     }
 
+    // Store deferred target path and extension for magic validation.
+    void configureExtensionMagicValidation(const std::string& path,
+                                           std::string_view extension)
+    {
+        extensionMagicValidationEnabled = true;
+        deferredOpenPath = path;
+        expectedExtension = normalizeExt(extension);
+        strBody.clear();
+    }
+
+    // Open file only after validation succeeds, then flush buffered data.
+    bool validateAndOpen(boost::system::error_code& ec)
+    {
+        ec = {};
+
+        if (!extensionMagicValidationEnabled || fileHandle.fileHandle.is_open())
+        {
+            ec = {};
+            return true;
+        }
+
+        auto clearDeferredValidationState = [this]() {
+            extensionMagicValidationEnabled = false;
+            deferredOpenPath.clear();
+            expectedExtension.clear();
+            strBody.clear();
+            strBody.shrink_to_fit();
+        };
+
+        try
+        {
+            std::optional<bool> state = validateByMagic();
+            if (!state.has_value())
+            {
+                // Not enough bytes buffered yet to make a signature decision.
+                return true;
+            }
+
+            if (!*state)
+            {
+                BMCWEB_LOG_WARNING("Binary extension check failed");
+                throw std::invalid_argument(
+                    "Binary signature does not match file extension");
+            }
+
+            open(deferredOpenPath.c_str(), boost::beast::file_mode::write, ec);
+            if (ec)
+            {
+                throw std::runtime_error("Failed to open deferred upload file");
+            }
+
+            if (!strBody.empty())
+            {
+                fileHandle.fileHandle.write(strBody.data(), strBody.size(), ec);
+                if (ec)
+                {
+                    throw std::runtime_error(
+                        "Failed to write buffered upload data");
+                }
+            }
+        }
+        catch (const std::invalid_argument& e)
+        {
+            BMCWEB_LOG_WARNING("{}", e.what());
+            clearDeferredValidationState();
+            ec = boost::system::errc::make_error_code(
+                boost::system::errc::invalid_argument);
+            return false;
+        }
+        catch (const std::exception& e)
+        {
+            BMCWEB_LOG_ERROR("Exception in validateAndOpen: {} (ec={})",
+                             e.what(), ec.message());
+            clearDeferredValidationState();
+            if (!ec)
+            {
+                ec = boost::system::errc::make_error_code(
+                    boost::system::errc::io_error);
+            }
+            return false;
+        }
+
+        clearDeferredValidationState();
+        return true;
+    }
+
+    // Open file handle and initialize metadata for streaming operations.
     void open(const char* path, boost::beast::file_mode mode,
               boost::system::error_code& ec)
     {
@@ -265,6 +464,26 @@ class HttpBody::reader
                     boost::system::error_code& ec)
     {
         size_t extra = boost::beast::buffer_bytes(buffers);
+
+        if (!value.file().is_open())
+        {
+            // Reserve space upfront to minimize reallocations
+            value.str().reserve(value.str().size() + extra);
+
+            for (const auto b : boost::beast::buffers_range_ref(buffers))
+            {
+                const char* ptr = static_cast<const char*>(b.data());
+                value.str() += std::string_view(ptr, b.size());
+            }
+
+            value.validateAndOpen(ec);
+            if (ec)
+            {
+                return 0;
+            }
+            return extra;
+        }
+
         if (value.file().is_open())
         {
             for (const auto b : boost::beast::buffers_range_ref(buffers))
@@ -277,14 +496,6 @@ class HttpBody::reader
                                      ec.message());
                     return 0;
                 }
-            }
-        }
-        else
-        {
-            for (const auto b : boost::beast::buffers_range_ref(buffers))
-            {
-                const char* ptr = static_cast<const char*>(b.data());
-                value.str() += std::string_view(ptr, b.size());
             }
         }
         ec = {};
