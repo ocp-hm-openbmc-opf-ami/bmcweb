@@ -258,7 +258,6 @@ inline bool refreshesSessionTimeout(std::string_view requestUrl)
         path.remove_suffix(1);
     }
     return path != "/redfish/v1/Oem/Ami/Dashboard" &&
-           path != "/redfish/v1/Oem/Ami/SensorsSummary" &&
            !(path.starts_with("/redfish/v1/Chassis/") &&
              path.ends_with("/Sensors"));
 }

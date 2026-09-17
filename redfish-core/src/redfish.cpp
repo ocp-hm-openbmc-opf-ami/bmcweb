@@ -50,7 +50,6 @@
 #include "redfish_v1.hpp"
 #include "roles.hpp"
 #include "sensors.hpp"
-#include "sensors_summary.hpp"
 #include "service_root.hpp"
 #include "storage.hpp"
 #include "systems.hpp"
@@ -189,7 +188,6 @@ RedfishService::RedfishService(App& app)
     requestRoutesMetadata(app);
     requestRoutesOdata(app);
     requestRoutesDashboard(app);
-    requestRoutesSensorsSummary(app);
 
 #if ONETREE_RM
     redfish::rm::registerRmRoutes(app);
