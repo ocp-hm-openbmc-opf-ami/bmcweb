@@ -55,11 +55,6 @@ struct SnmpCommunityString
 static constexpr const char* sshServiceName = "dropbear";
 static constexpr const char* httpsServiceName = "bmcweb";
 static constexpr const char* ipmbServiceName = "ipmb";
-static constexpr const char* snmpConfObject =
-    "/xyz/openbmc_project/snmp/SnmpUtils";
-static constexpr const char* snmpConfIface =
-    "xyz.openbmc_project.Snmp.SnmpUtils";
-
 static constexpr const char* ipmiServiceName = "phosphor_2dipmi_2dnet_40eth0";
 
 // Mapping from Redfish NetworkProtocol key name to backend service that hosts
@@ -1683,33 +1678,6 @@ inline void handleManagersNetworkProtocolPatch(
                 }
                 else
                 {
-                    messages::insufficientPrivilege(asyncResp->res);
-                    asyncResp->res.result(
-                        boost::beast::http::status::forbidden);
-                    return;
-                }
-
-                if (oem_snmp)
-                {
-                    std::optional<std::vector<
-                        std::variant<nlohmann::json::object_t, std::nullptr_t>>>
-                        oem_communityStrings;
-                    std::size_t oem_snmp_size = oem_snmp.value().size();
-                    if (oem_snmp_size == 0)
-                    {
-                        messages::propertyValueTypeError(
-                            asyncResp->res, oem_snmp.value(), "Oem/Ami/SNMP");
-                    }
-                    if (!json_util::readJson(*oem_snmp, asyncResp->res,
-                                             "CommunityStrings",
-                                             oem_communityStrings))
-                    {
-                        syslog(LOG_WARNING, "ReadJson Failed");
-                        return;
-                    }
-                    patchSnmpCommunityString(communityStrings,
-                                             oem_communityStrings, asyncResp);
-
                     // Check current SnmpTrapStatus before patching versions
                     dbus::utility::getProperty<bool>(
                         snmpConfService, snmpConfObject, snmpConfIface,
