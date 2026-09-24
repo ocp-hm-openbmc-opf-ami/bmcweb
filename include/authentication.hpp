@@ -250,6 +250,18 @@ inline bool isOnAllowlist(std::string_view url, boost::beast::http::verb method)
     return false;
 }
 
+inline bool refreshesSessionTimeout(std::string_view requestUrl)
+{
+    std::string_view path = requestUrl.substr(0, requestUrl.find('?'));
+    if (path.ends_with('/'))
+    {
+        path.remove_suffix(1);
+    }
+    return path != "/redfish/v1/Oem/Ami/Dashboard" &&
+           !(path.starts_with("/redfish/v1/Chassis/") &&
+             path.ends_with("/Sensors"));
+}
+
 inline std::shared_ptr<persistent_data::UserSession> authenticate(
     const boost::asio::ip::address& ipAddress [[maybe_unused]],
     Response& res [[maybe_unused]],
@@ -263,11 +275,7 @@ inline std::shared_ptr<persistent_data::UserSession> authenticate(
         persistent_data::SessionStore::getInstance().getAuthMethodsConfig();
 
     std::shared_ptr<persistent_data::UserSession> sessionOut = nullptr;
-    auto queryParamPos = requestUrl.find('?');
-    std::string_view normalizedUrl = requestUrl.substr(0, queryParamPos);
-    bool updateLastUpdated =
-        !(normalizedUrl == "/redfish/v1/Oem/Ami/Dashboard" ||
-          normalizedUrl == "/redfish/v1/Oem/Ami/Dashboard/");
+    bool updateLastUpdated = refreshesSessionTimeout(requestUrl);
 
     if constexpr (BMCWEB_MUTUAL_TLS_AUTH)
     {
