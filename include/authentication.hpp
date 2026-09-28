@@ -250,7 +250,7 @@ inline bool isOnAllowlist(std::string_view url, boost::beast::http::verb method)
     return false;
 }
 
-inline bool refreshesSessionTimeout(std::string_view requestUrl)
+inline bool updatesSessionActivity(std::string_view requestUrl)
 {
     std::string_view path = requestUrl.substr(0, requestUrl.find('?'));
     if (path.ends_with('/'))
@@ -275,7 +275,7 @@ inline std::shared_ptr<persistent_data::UserSession> authenticate(
         persistent_data::SessionStore::getInstance().getAuthMethodsConfig();
 
     std::shared_ptr<persistent_data::UserSession> sessionOut = nullptr;
-    bool updateLastUpdated = refreshesSessionTimeout(requestUrl);
+    bool updateLastUpdated = updatesSessionActivity(requestUrl);
 
     if constexpr (BMCWEB_MUTUAL_TLS_AUTH)
     {
