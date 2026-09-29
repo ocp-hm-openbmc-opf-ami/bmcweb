@@ -93,6 +93,21 @@ const std::string radiusConfigInterface =
 const std::string radiusRoleMapInterface =
     "xyz.openbmc_project.User.Radius.role_map";
 
+/**
+ * @brief Checks asynchronously whether the RADIUS D-Bus service is running.
+ * @param callback Receives true if the service owns its D-Bus name.
+ */
+inline void isRadiusServiceRunning(std::function<void(bool)>&& callback)
+{
+    crow::connections::systemBus->async_method_call(
+        [callback = std::move(callback)](const boost::system::error_code& ec,
+                                         bool hasOwner) {
+            callback(!ec && hasOwner);
+        },
+        "org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus",
+        "NameHasOwner", radisuDBusService);
+}
+
 namespace fs = std::filesystem;
 
 inline std::string caCertFile =
@@ -2718,12 +2733,22 @@ inline void handleExternalProviderGet(
     json["Name"] = "External Accounts Provider Collection";
     json["Description"] = "Collection for External Accounts Provider";
     nlohmann::json& memberArray = json["Members"];
-    nlohmann::json::object_t member;
-    member["@odata.id"] = boost::urls::format(
-        "/redfish/v1/AccountService/ExternalAccountProviders/RADIUS");
-    memberArray.push_back(std::move(member));
+    memberArray = nlohmann::json::array();
+    json["Members@odata.count"] = 0;
 
-    json["Members@odata.count"] = memberArray.size();
+    isRadiusServiceRunning([asyncResp](bool radiusAvailable) {
+        if (!radiusAvailable)
+        {
+            return;
+        }
+
+        nlohmann::json& members = asyncResp->res.jsonValue["Members"];
+        nlohmann::json::object_t member;
+        member["@odata.id"] =
+            "/redfish/v1/AccountService/ExternalAccountProviders/RADIUS";
+        members.push_back(std::move(member));
+        asyncResp->res.jsonValue["Members@odata.count"] = members.size();
+    });
 }
 
 inline void uploadRadiusSSLFile(
@@ -2940,22 +2965,30 @@ inline void handleAccountRadiusGet(
         return;
     }
 
-    nlohmann::json& json = asyncResp->res.jsonValue;
+    isRadiusServiceRunning([asyncResp](bool radiusAvailable) {
+        if (!radiusAvailable)
+        {
+            messages::resourceNotFound(asyncResp->res,
+                                       "ExternalAccountProvider", "RADIUS");
+            return;
+        }
 
-    json["@odata.id"] =
-        "/redfish/v1/AccountService/ExternalAccountProviders/RADIUS";
-    json["@odata.type"] = json_util::odataType("ExternalAccountProvider");
-    json["AccountProviderType"] = "OEM";
-    json["Actions"]["Oem"]["#AmiExternalAccountProvider.SSLCertificateUpload"] = {
-        {"target",
-         "/redfish/v1/AccountService/ExternalAccountProviders/RADIUS/Actions/Oem/AmiExternalAccountProvider.SSLCertificateUpload"}};
-    json["Oem"]["Ami"]["@odata.type"] = json_util::odataType(
-        "AmiExternalAccountProvider", "AmiExternalAccountProvider");
-    json["Id"] = "RADIUS";
-    json["Name"] = "RADIUS Settings";
-    json["Description"] = "RADIUS server settings";
-    getRADIUSConfigData(asyncResp);
-    getRADIUSRoleMap(asyncResp);
+        nlohmann::json& json = asyncResp->res.jsonValue;
+        json["@odata.id"] =
+            "/redfish/v1/AccountService/ExternalAccountProviders/RADIUS";
+        json["@odata.type"] = json_util::odataType("ExternalAccountProvider");
+        json["AccountProviderType"] = "OEM";
+        json["Actions"]["Oem"]["#AmiExternalAccountProvider.SSLCertificateUpload"] =
+            {{"target",
+              "/redfish/v1/AccountService/ExternalAccountProviders/RADIUS/Actions/Oem/AmiExternalAccountProvider.SSLCertificateUpload"}};
+        json["Oem"]["Ami"]["@odata.type"] = json_util::odataType(
+            "AmiExternalAccountProvider", "AmiExternalAccountProvider");
+        json["Id"] = "RADIUS";
+        json["Name"] = "RADIUS Settings";
+        json["Description"] = "RADIUS server settings";
+        getRADIUSConfigData(asyncResp);
+        getRADIUSRoleMap(asyncResp);
+    });
 }
 inline void handleAccountRadiusPatch(
     App& app, const crow::Request& req,
@@ -5125,7 +5158,8 @@ inline void setUserAttribute(
 //  RoleId, AccountTypes, ChannelPrivileges
 inline void updateUserProperties(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const UserUpdateParams& userParams, const UserUpdateParams& extUserParams,
+    const UserUpdateParams& userParams,
+    const UserUpdateParams& existingUserParams,
     const std::string& dbusObjectPath, int ec)
 {
     if (ec <= 0)
@@ -5142,7 +5176,7 @@ inline void updateUserProperties(
     // Function to track completion of async operations and log property
     // modifications
     auto trackCompletion = [asyncResp, totalOperations, completedOperations,
-                            userParams, extUserParams]() mutable {
+                            userParams, existingUserParams]() mutable {
         (*completedOperations)++;
         if (*completedOperations == *totalOperations)
         {
@@ -5280,32 +5314,32 @@ inline void updateUserProperties(
                         }
                     };
 
-                if (userParams.username && extUserParams.username &&
-                    *userParams.username != *extUserParams.username)
+                if (userParams.username && existingUserParams.username &&
+                    *userParams.username != *existingUserParams.username)
                 {
                     addPropertyIfSuccessful(
                         "UserName", "UserName",
                         getJsonValueByPath(asyncResp->res.jsonValue,
                                            {"UserName"}),
-                        extUserParams.username);
+                        existingUserParams.username);
                 }
                 addPropertyIfSuccessful(
                     "Password", "Password",
                     getJsonValueByPath(asyncResp->res.jsonValue, {"Password"}),
-                    extUserParams.password);
+                    existingUserParams.password);
                 addPropertyIfSuccessful(
                     "Enabled", "Enabled",
                     getJsonValueByPath(asyncResp->res.jsonValue, {"Enabled"}),
-                    extUserParams.enabled);
+                    existingUserParams.enabled);
                 addPropertyIfSuccessful(
                     "Locked", "Locked",
                     getJsonValueByPath(asyncResp->res.jsonValue, {"Locked"}),
-                    extUserParams.locked);
+                    existingUserParams.locked);
                 addPropertyIfSuccessful(
                     "PasswordChangeRequired", "PasswordChangeRequired",
                     getJsonValueByPath(asyncResp->res.jsonValue,
                                        {"PasswordChangeRequired"}),
-                    extUserParams.passwordChangeRequired);
+                    existingUserParams.passwordChangeRequired);
                 // Convert RoleId to DBus format for logging
                 const nlohmann::json* roleIdJsonValue =
                     getJsonValueByPath(asyncResp->res.jsonValue, {"RoleId"});
@@ -5314,10 +5348,10 @@ inline void updateUserProperties(
 
                 // Convert existing role to DBus format for comparison
                 std::optional<std::string> existingRoleId;
-                if (extUserParams.roleId)
+                if (existingUserParams.roleId)
                 {
                     std::string dbusRole =
-                        getPrivilegeFromRoleId(*extUserParams.roleId);
+                        getPrivilegeFromRoleId(*existingUserParams.roleId);
                     if (!dbusRole.empty())
                     {
                         existingRoleId = std::move(dbusRole);
@@ -5371,19 +5405,19 @@ inline void updateUserProperties(
                 }
                 addPropertyIfSuccessful("AccountTypes", "AccountTypes",
                                         dbusAccountTypesForLog,
-                                        extUserParams.accountTypes);
+                                        existingUserParams.accountTypes);
                 addPropertyIfSuccessful(
                     "Oem/Ami/SNMP/SNMPAccessEnableStatus",
                     "SNMPAccessEnableStatus",
                     getJsonValueByPath(
                         asyncResp->res.jsonValue,
                         {"Oem", "Ami", "SNMP", "SNMPAccessEnableStatus"}),
-                    extUserParams.hasSNMP);
+                    existingUserParams.hasSNMP);
                 addPropertyIfSuccessful(
                     "Oem/Ami/SMTP/SMTPMailId", "SMTPMailId",
                     getJsonValueByPath(asyncResp->res.jsonValue,
                                        {"Oem", "Ami", "SMTP", "SMTPMailId"}),
-                    extUserParams.smtpMailId);
+                    existingUserParams.smtpMailId);
 
                 for (const auto& [key, value] :
                      asyncResp->res.jsonValue.items())
@@ -5530,6 +5564,7 @@ inline void updateUserProperties(
         }
     }
 
+    // RoleId & ChannelPrivileges
     if (userParams.roleId)
     {
         if (*userParams.username == "root")
@@ -5543,7 +5578,8 @@ inline void updateUserProperties(
         else
         {
             crow::connections::systemBus->async_method_call(
-                [asyncResp, userParams, dbusObjectPath, trackCompletion](
+                [asyncResp, userParams, existingUserParams, dbusObjectPath,
+                 trackCompletion](
                     const boost::system::error_code& ec,
                     const std::map<uint8_t, std::string>& channelMap) mutable {
                     if (ec)
@@ -5556,22 +5592,64 @@ inline void updateUserProperties(
                         return;
                     }
 
+                    // RoleId-only PATCH: update default channel,
+                    // preserve other channels from D-Bus state
                     if (!userParams.channelPrivilege || !userParams.channelId ||
                         !userParams.channelAccess)
                     {
-                        messages::internalError(asyncResp->res);
-                        trackCompletion();
-                        return;
-                    }
+                        std::string newPrivilege =
+                            getPrivilegeFromRoleId(*userParams.roleId);
+                        if (newPrivilege.empty())
+                        {
+                            messages::propertyValueNotInList(
+                                asyncResp->res, *userParams.roleId, "RoleId");
+                            trackCompletion();
+                            return;
+                        }
 
-                    if (userParams.channelPrivilege->size() !=
-                            userParams.channelId->size() ||
-                        userParams.channelPrivilege->size() !=
-                            userParams.channelAccess->size())
-                    {
-                        messages::propertyValueError(asyncResp->res,
-                                                     "ChannelPrivileges");
-                        trackCompletion();
+                        if (channelMap.empty())
+                        {
+                            BMCWEB_LOG_ERROR(
+                                "GetChannelInterfaceMap returned empty channel map");
+                            messages::internalError(asyncResp->res);
+                            trackCompletion();
+                            return;
+                        }
+
+                        const uint8_t defaultChannelId =
+                            channelMap.begin()->first;
+                        std::vector<std::string> updatedPrivileges;
+                        size_t channelIndex = 0;
+                        for (const auto& [channelId, channelInterface] :
+                             channelMap)
+                        {
+                            (void)channelInterface;
+                            if (channelId == defaultChannelId)
+                            {
+                                updatedPrivileges.emplace_back(newPrivilege);
+                            }
+                            else
+                            {
+                                updatedPrivileges.emplace_back(
+                                    (*existingUserParams
+                                          .channelPrivilege)[channelIndex]);
+                            }
+                            channelIndex++;
+                        }
+
+                        const std::string roleIdVal = *userParams.roleId;
+                        setUserAttribute(
+                            asyncResp, dbusObjectPath, "UserPrivilege",
+                            std::move(updatedPrivileges),
+                            [asyncResp, roleIdVal,
+                             trackCompletion](bool ok) mutable {
+                                if (ok)
+                                {
+                                    asyncResp->res.jsonValue["RoleId"] =
+                                        roleIdVal;
+                                }
+                                trackCompletion();
+                            });
                         return;
                     }
 
@@ -5638,20 +5716,10 @@ inline void updateUserProperties(
                     }
 
                     const uint8_t defaultChannelId = channelMap.begin()->first;
-                    auto defaultChannelMapping =
-                        channelIndexMap.find(defaultChannelId);
-                    if (defaultChannelMapping == channelIndexMap.end())
-                    {
-                        messages::propertyValueOutOfRange(
-                            asyncResp->res, nlohmann::json(defaultChannelId),
-                            "#/Oem/Ami/ChannelPrivileges/ChannelId");
-                        trackCompletion();
-                        return;
-                    }
-
+                    size_t defaultChannelIndex =
+                        channelIndexMap.at(defaultChannelId);
                     if (*userParams.roleId !=
-                        userParams.channelPrivilege->at(
-                            defaultChannelMapping->second))
+                        userParams.channelPrivilege->at(defaultChannelIndex))
                     {
                         messages::propertyValueConflict(
                             asyncResp->res, "RoleId", "ChannelPrivileges");
@@ -5754,8 +5822,8 @@ inline void updateUserProperties(
             const std::string* effectiveRole =
                 userParams.roleId
                     ? &(*userParams.roleId)
-                    : (extUserParams.roleId ? &(*extUserParams.roleId)
-                                            : nullptr);
+                    : (existingUserParams.roleId ? &(*existingUserParams.roleId)
+                                                 : nullptr);
 
             if (effectiveRole != nullptr && *effectiveRole != "Administrator")
             {
@@ -5892,7 +5960,8 @@ inline void updateUserProperties(
 
 inline void verifyUserExists(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const UserUpdateParams& userParams, const UserUpdateParams& extUserParams)
+    const UserUpdateParams& userParams,
+    const UserUpdateParams& existingUserParams)
 {
     sdbusplus::message::object_path tempObjPath(rootUserDbusPath);
     tempObjPath /= *userParams.username;
@@ -5900,7 +5969,7 @@ inline void verifyUserExists(
     dbus::utility::checkDbusPathExists(
         dbusObjectPath,
         std::bind_front(updateUserProperties, asyncResp, userParams,
-                        extUserParams, dbusObjectPath));
+                        existingUserParams, dbusObjectPath));
 }
 
 inline void handleAccountPatch(
@@ -6133,19 +6202,12 @@ inline void handleAccountPatch(
                     "RoleId must be provided when updating ChannelPrivileges");
                 return;
             }
-            else if (!channelPrivilegesJson && userParams.roleId)
-            {
-                messages::propertyMissing(
-                    asyncResp->res,
-                    "ChannelPrivileges must be provided when updating RoleId");
-                return;
-            }
 
             // Extract existing user properties
-            UserUpdateParams extUserParams;
+            UserUpdateParams existingUserParams;
             // Existing password is not retrievable & shouldnt be stored for
             // printing in logs
-            extUserParams.password = std::nullopt;
+            existingUserParams.password = std::nullopt;
 
             // Extract originalRoleId for validation purposes
             for (const auto& interface : userIt->second)
@@ -6154,26 +6216,27 @@ inline void handleAccountPatch(
                 {
                     const bool success = sdbusplus::unpackPropertiesNoThrow(
                         dbus_utils::UnpackErrorPrinter(), interface.second,
-                        "UserPrivilege", extUserParams.channelPrivilege,
-                        "UserChannelAccess", extUserParams.channelAccess,
-                        "UserGroups", extUserParams.accountTypes,
+                        "UserPrivilege", existingUserParams.channelPrivilege,
+                        "UserChannelAccess", existingUserParams.channelAccess,
+                        "UserGroups", existingUserParams.accountTypes,
                         "UserPasswordExpired",
-                        extUserParams.passwordChangeRequired, "UserEnabled",
-                        extUserParams.enabled, "SMTPMailID",
-                        extUserParams.smtpMailId, "SNMPAccessEnableStatus",
-                        extUserParams.hasSNMP, "UserLockedForFailedAttempt",
-                        extUserParams.locked);
+                        existingUserParams.passwordChangeRequired,
+                        "UserEnabled", existingUserParams.enabled, "SMTPMailID",
+                        existingUserParams.smtpMailId, "SNMPAccessEnableStatus",
+                        existingUserParams.hasSNMP,
+                        "UserLockedForFailedAttempt",
+                        existingUserParams.locked);
                     if (!success)
                     {
                         messages::internalError(asyncResp->res);
                         return;
                     }
 
-                    if (extUserParams.channelPrivilege &&
-                        !(extUserParams.channelPrivilege->empty()))
+                    if (existingUserParams.channelPrivilege &&
+                        !(existingUserParams.channelPrivilege->empty()))
                     {
                         std::string_view defaultUserPrivilege =
-                            extUserParams.channelPrivilege->front();
+                            existingUserParams.channelPrivilege->front();
                         std::string role =
                             getRoleIdFromPrivilege(defaultUserPrivilege);
 
@@ -6183,7 +6246,7 @@ inline void handleAccountPatch(
                             messages::internalError(asyncResp->res);
                             return;
                         }
-                        extUserParams.roleId = role;
+                        existingUserParams.roleId = role;
                     }
                 }
             }
@@ -6212,7 +6275,7 @@ inline void handleAccountPatch(
                 else
                 {
                     crow::connections::systemBus->async_method_call(
-                        [asyncResp, username, userParams, extUserParams,
+                        [asyncResp, username, userParams, existingUserParams,
                          req](const boost::system::error_code& ec,
                               sdbusplus::message_t& m) mutable {
                             std::string newUser =
@@ -6226,9 +6289,9 @@ inline void handleAccountPatch(
                                 return;
                             }
                             asyncResp->res.jsonValue["UserName"] = newUser;
-                            extUserParams.username = std::move(username);
+                            existingUserParams.username = std::move(username);
                             verifyUserExists(asyncResp, userParams,
-                                             extUserParams);
+                                             existingUserParams);
                             return;
                         },
                         "xyz.openbmc_project.User.Manager",
@@ -6242,7 +6305,7 @@ inline void handleAccountPatch(
                 // No rename - just update properties
                 // Ensure username is set for property update
                 userParams.username = username;
-                verifyUserExists(asyncResp, userParams, extUserParams);
+                verifyUserExists(asyncResp, userParams, existingUserParams);
                 return;
             }
         });

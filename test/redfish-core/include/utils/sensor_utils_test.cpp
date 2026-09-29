@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright OpenBMC Authors
+// clang-format off
+#include <boost/algorithm/string/find.hpp>
 #include "utils/sensor_utils.hpp"
+// clang-format on
 
 #include <string>
 

@@ -38,6 +38,7 @@
 #include <filesystem>
 #include <format>
 #include <memory>
+#include <regex>
 #include <string>
 #include <vector>
 
@@ -721,11 +722,16 @@ class Connection :
             if (!fileNameHeader.empty())
             {
                 std::string name(fileNameHeader);
-                if (name.find('/') != std::string::npos ||
-                    name.find("..") != std::string::npos ||
-                    name.find('\\') != std::string::npos)
+                if (name.empty() || name == "." || name == ".." ||
+                    (!std::regex_match(name,
+                                       std::regex(R"(^[A-Za-z0-9._ -]+$)"))))
                 {
+                    redfish::messages::actionParameterValueError(res, name,
+                                                                 "X-File-Name");
                     res.result(boost::beast::http::status::bad_request);
+                    completeResponseFields(accept, res);
+                    res.addHeader(boost::beast::http::field::date,
+                                  getCachedDateStr());
                     keepAlive = false;
                     BMCWEB_LOG_WARNING(
                         "Rejecting upload due to unsafe filename: {}", name);

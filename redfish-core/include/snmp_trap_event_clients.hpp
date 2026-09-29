@@ -49,6 +49,14 @@ static constexpr const char* userRootPath = "/xyz/openbmc_project/user";
 static constexpr const char* userAttributesIface =
     "xyz.openbmc_project.User.Attributes";
 
+enum class ProtocolType : uint8_t
+{
+    SNMPv1 = 0,
+    SNMPv2c = 1,
+    SNMPv3 = 2,
+    SMTP = 3
+};
+
 struct SnmpSubscriptionEntryInfo
 {
     std::string id;
@@ -415,7 +423,7 @@ bool isConfiguredSnmpSlot(uint8_t protocolType, uint8_t addressType,
                           const std::string& ipv4Dest,
                           const std::string& ipv6Dest)
 {
-    if (protocolType == 3)
+    if (protocolType == static_cast<uint8_t>(ProtocolType::SMTP))
     {
         // SMTP slots are valid without an IP destination.
         return true;
@@ -433,19 +441,19 @@ std::optional<uint8_t> getTypeFromProtocol(std::string_view protocol)
 {
     if (protocol == "SNMPv1")
     {
-        return 0;
+        return static_cast<uint8_t>(ProtocolType::SNMPv1);
     }
     if (protocol == "SNMPv2c")
     {
-        return 1;
+        return static_cast<uint8_t>(ProtocolType::SNMPv2c);
     }
     if (protocol == "SNMPv3")
     {
-        return 2;
+        return static_cast<uint8_t>(ProtocolType::SNMPv3);
     }
     if (protocol == "SMTP")
     {
-        return 3;
+        return static_cast<uint8_t>(ProtocolType::SMTP);
     }
     return std::nullopt;
 }
@@ -454,13 +462,13 @@ std::string getProtocolFromType(uint8_t type)
 {
     switch (type)
     {
-        case 0:
+        case static_cast<uint8_t>(ProtocolType::SNMPv1):
             return "SNMPv1";
-        case 1:
+        case static_cast<uint8_t>(ProtocolType::SNMPv2c):
             return "SNMPv2c";
-        case 2:
+        case static_cast<uint8_t>(ProtocolType::SNMPv3):
             return "SNMPv3";
-        case 3:
+        case static_cast<uint8_t>(ProtocolType::SMTP):
             return "SMTP";
         default:
             return "SNMPv2c";
@@ -470,11 +478,11 @@ std::string getProtocolFromType(uint8_t type)
 std::string getSubscriptionTypeFromProtocolType(uint8_t type)
 {
     // Redfish EventDestination maps SNMPv1 to Trap and v2c/v3 to Inform.
-    if (type == 0)
+    if (type == static_cast<uint8_t>(ProtocolType::SNMPv1))
     {
         return "SNMPTrap";
     }
-    if (type == 3)
+    if (type == static_cast<uint8_t>(ProtocolType::SMTP))
     {
         return "OEM";
     }
@@ -519,7 +527,7 @@ inline void buildSnmpTrapClientResponse(
     json["SNMP"]["HideCommunityStrings"] = false;
     json["SNMP"]["TrapCommunity"] = "";
 
-    if (protocolType == 3)
+    if (protocolType == static_cast<uint8_t>(ProtocolType::SMTP))
     {
         json["Oem"]["Ami"]["UserName"] = slotUserName;
         json["Context"] = "SMTP_" + validatedEntry.id;
@@ -538,7 +546,8 @@ inline void buildSnmpTrapClientResponse(
         (addressType == snmpAddressTypeIpv6) ? ipv6Dest : ipv4Dest;
 
     static constexpr uint16_t defaultSnmpTrapPort = 162;
-    const bool isSnmpV3 = (protocolType == 2);
+    const bool isSnmpV3 =
+        (protocolType == static_cast<uint8_t>(ProtocolType::SNMPv3));
     if (!isSnmpV3)
     {
         json["SNMP"]["TrapCommunity"] = config.communityString;
@@ -648,27 +657,70 @@ inline void verifySnmpSubscriptionConfiguration(
 
     getSnmpLanParamConfig(
         asyncResp, entryInfo,
-        [asyncResp, verificationCallback{std::move(verificationCallback)},
-         interfaceName](const SnmpSubscriptionEntryInfo& validatedEntry,
-                        SnmpLanParamConfig&& config) mutable {
+        [asyncResp, verificationCallback{std::move(verificationCallback)}](
+            const SnmpSubscriptionEntryInfo& validatedEntry,
+            SnmpLanParamConfig&& config) mutable {
             const uint8_t protocolType = config.type[validatedEntry.slotIndex];
             const uint8_t addressType =
                 config.addressType[validatedEntry.slotIndex];
             const std::string& ipv4Dest = config.ipv4[validatedEntry.slotIndex];
             const std::string& ipv6Dest = config.ipv6[validatedEntry.slotIndex];
+            const std::string& slotUserName =
+                config.userName[validatedEntry.slotIndex];
 
-            if (!isConfiguredSnmpSlot(protocolType, addressType, ipv4Dest,
-                                      ipv6Dest))
+            bool validationFailed = false;
+
+            // Validate Destination for SNMP protocols
+            if ((protocolType != static_cast<uint8_t>(ProtocolType::SMTP)) &&
+                (!isConfiguredSnmpSlot(protocolType, addressType, ipv4Dest,
+                                       ipv6Dest)))
             {
-                const std::string slotId = getSnmpSlotId(
-                    interfaceName, static_cast<int>(validatedEntry.slotIndex));
                 BMCWEB_LOG_ERROR(
                     "SNMP subscription not properly configured: Type={}, "
                     "AddressType={}, IPv4={}, IPv6={}",
                     protocolType, addressType, ipv4Dest, ipv6Dest);
-                messages::propertyValueEmpty(asyncResp->res, "", "Destination");
-                messages::resourceNotFound(asyncResp->res, "Subscriptions",
-                                           slotId);
+
+                // Report which address type is empty
+                if (addressType == snmpAddressTypeIpv6)
+                {
+                    messages::propertyValueEmpty(asyncResp->res, ipv6Dest,
+                                                 "Destination");
+                }
+                else
+                {
+                    messages::propertyValueEmpty(asyncResp->res, ipv4Dest,
+                                                 "Destination");
+                }
+                validationFailed = true;
+            }
+
+            // Validate TrapCommunity for SNMPv1/SNMPv2c
+            if (((protocolType == static_cast<uint8_t>(ProtocolType::SNMPv1)) ||
+                 (protocolType ==
+                  static_cast<uint8_t>(ProtocolType::SNMPv2c))) &&
+                config.communityString.empty())
+            {
+                BMCWEB_LOG_ERROR(
+                    "SNMP TrapCommunity not configured for SNMPv1/v2c");
+                messages::propertyValueEmpty(asyncResp->res,
+                                             config.communityString,
+                                             "SNMP/TrapCommunity");
+                validationFailed = true;
+            }
+
+            // Validate UserName for SNMPv3 and SMTP
+            if (((protocolType == static_cast<uint8_t>(ProtocolType::SNMPv3)) ||
+                 (protocolType == static_cast<uint8_t>(ProtocolType::SMTP))) &&
+                slotUserName.empty())
+            {
+                BMCWEB_LOG_ERROR("UserName not configured for SNMPv3/SMTP");
+                messages::propertyValueEmpty(asyncResp->res, slotUserName,
+                                             "Oem/Ami/UserName");
+                validationFailed = true;
+            }
+
+            if (validationFailed)
+            {
                 verificationCallback(false);
                 return;
             }
@@ -772,7 +824,10 @@ inline void addSnmpTrapClient(
                     }
 
                     config.type[validatedEntry.slotIndex] = *protocolType;
-                    if (*protocolType == 2 || *protocolType == 3)
+                    if ((*protocolType ==
+                         static_cast<uint8_t>(ProtocolType::SNMPv3)) ||
+                        (*protocolType ==
+                         static_cast<uint8_t>(ProtocolType::SMTP)))
                     {
                         config.userName[validatedEntry.slotIndex] = username;
                     }
@@ -781,7 +836,10 @@ inline void addSnmpTrapClient(
                         config.userName[validatedEntry.slotIndex].clear();
                     }
 
-                    if ((*protocolType == 0 || *protocolType == 1) &&
+                    if (((*protocolType ==
+                          static_cast<uint8_t>(ProtocolType::SNMPv1)) ||
+                         (*protocolType ==
+                          static_cast<uint8_t>(ProtocolType::SNMPv2c))) &&
                         oemsnmpcommunitystring.empty())
                     {
                         messages::propertyMissing(asyncResp->res,
