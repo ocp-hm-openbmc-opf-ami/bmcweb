@@ -1016,6 +1016,15 @@ inline void handleRoleMapPatch(
                     continue;
                 }
 
+                if (getPrivilegeFromRoleId(*localRole).empty())
+                {
+                    messages::propertyValueNotInList(asyncResp->res, *localRole,
+                                                     pathString + "/LocalRole");
+                    partialPatchResult(successCount, pendingCount, totalCount,
+                                       asyncResp);
+                    return;
+                }
+
                 std::string dbusObjectPath;
                 if (serverType == "ActiveDirectory")
                 {
