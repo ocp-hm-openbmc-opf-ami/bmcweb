@@ -134,6 +134,10 @@ inline bool handleIfMatch(crow::App& app, const crow::Request& req,
     // New request has the same credentials as the old request
     getReq->session = req.session;
 
+    // Copy per-connection context so the recomputed body/ETag matches the
+    // original GET; otherwise If-Match always fails with 412.
+    getReq->serverIPAddress = req.serverIPAddress;
+
     // Construct a new response object to fill in, and check the hash of before
     // we modify the Resource.
     std::shared_ptr<bmcweb::AsyncResp> getReqAsyncResp =

@@ -9,6 +9,7 @@
 #include "http_response.hpp"
 #include "human_sort.hpp"
 #include "logging.hpp"
+#include "schema_versions.hpp"
 
 #include <boost/system/result.hpp>
 #include <boost/url/parse.hpp>
@@ -956,87 +957,54 @@ inline void sortJsonArrayByOData(nlohmann::json::array_t& array)
 //  5. null: 4 characters (null)
 uint64_t getEstimatedJsonSize(const nlohmann::json& root);
 
-extern std::unordered_map<std::string, std::string> schemaVersionMap;
-
-// Intitilize SchemaVerion Map
-inline void initSchemaVersionMap()
-{
-    std::error_code ec;
-    // directory where all the JsonSchemas present
-    std::filesystem::directory_iterator dirList(
-        "/usr/share/www/redfish/v1/JsonSchemas", ec);
-    if (ec)
-    {
-        BMCWEB_LOG_ERROR("Failed to Initialize Schema Version Map");
-        return;
-    }
-    for (const std::filesystem::path& file : dirList)
-    {
-        std::vector<std::string> split;
-        bmcweb::split(split, file.filename().string(), '.');
-        if (split.size() > 2)
-        {
-            schemaVersionMap[split[0]] = split[1];
-        }
-    }
-}
 // function to return the given JsonSchema version
-inline std::string getSchemaVersion(const std::string& schemaName)
+inline std::optional<std::string_view> getSchemaVersion(
+    std::string_view schemaName)
 {
-    auto it = schemaVersionMap.find(schemaName);
-    return (it != schemaVersionMap.end()) ? it->second : "";
+    auto it = std::ranges::lower_bound(
+        redfish::schema::schemaVersions, schemaName,
+        [](std::string_view a, std::string_view b) { return a < b; },
+        [](const auto& pair) -> std::string_view { return pair.first; });
+    if (it != redfish::schema::schemaVersions.end() && it->first == schemaName)
+    {
+        return it->second;
+    }
+    return std::nullopt;
 }
 
 // return standard odata type
-inline std::string odataType(const std::string& schema)
+inline std::string odataType(std::string_view schema)
 {
-    std::string schemaVersion, odataType;
-    schemaVersion = getSchemaVersion(schema);
-    if (!schemaVersion.empty())
+    std::optional<std::string_view> schemaVersion = getSchemaVersion(schema);
+    if (schemaVersion && !schemaVersion->empty())
     {
-        odataType = std::format("#{}.{}.{}", schema, schemaVersion, schema);
+        return std::format("#{}.{}.{}", schema, *schemaVersion, schema);
     }
-    else
-    {
-        odataType = std::format("#{}.{}", schema, schema);
-    }
-    return odataType;
+    return std::format("#{}.{}", schema, schema);
 }
 
 // return standard odata type for namespace along with the specified entity
-inline std::string odataType(const std::string& schema,
-                             const std::string_view& entity)
+inline std::string odataType(std::string_view schema, std::string_view entity)
 {
-    std::string schemaVersion, odataType;
-    schemaVersion = getSchemaVersion(schema);
-    if (!schemaVersion.empty())
+    std::optional<std::string_view> schemaVersion = getSchemaVersion(schema);
+    if (schemaVersion && !schemaVersion->empty())
     {
-        odataType = std::format("#{}.{}.{}", schema, schemaVersion, entity);
+        return std::format("#{}.{}.{}", schema, *schemaVersion, entity);
     }
-    else
-    {
-        odataType = std::format("#{}.{}", schema, entity);
-    }
-    return odataType;
+    return std::format("#{}.{}", schema, entity);
 }
 
 // return standard odata type for namespace along with the specified entities
-inline std::string odataType(const std::string& schema,
-                             const std::string_view& entity,
-                             const std::string_view& entity2)
+inline std::string odataType(std::string_view schema, std::string_view entity,
+                             std::string_view entity2)
 {
-    std::string schemaVersion, odataType;
-    schemaVersion = getSchemaVersion(schema);
-    if (!schemaVersion.empty())
+    std::optional<std::string_view> schemaVersion = getSchemaVersion(schema);
+    if (schemaVersion && !schemaVersion->empty())
     {
-        odataType =
-            std::format("#{}.{}.{}.{}", schema, schemaVersion, entity, entity2);
+        return std::format("#{}.{}.{}.{}", schema, *schemaVersion, entity,
+                           entity2);
     }
-    else
-    {
-        odataType = std::format("#{}.{}.{}", schema, entity, entity2);
-    }
-    return odataType;
+    return std::format("#{}.{}.{}", schema, entity, entity2);
 }
 
 } // namespace json_util
