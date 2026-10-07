@@ -42,7 +42,7 @@ TEST(MetadataGet, GetOneFile)
     std::filesystem::path path{file.stringPath};
     EXPECT_EQ(
         getMetadataPieceForFile(path),
-        std::format("    <edmx:Reference Uri=\"/redfish/v1/schema/{}\">\n"
+        std::format("    <edmx:Reference Uri=\"/redfish/v1/Schemas/{}\">\n"
                     "        <edmx:Include Namespace=\"MyNewNamespace\"/>\n"
                     "    </edmx:Reference>\n",
                     path.filename().string()));

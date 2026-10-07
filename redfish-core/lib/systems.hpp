@@ -2745,7 +2745,6 @@ void getHostWatchdogTimer(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 timeoutList.emplace_back("ResetSystem");
                 timeoutList.emplace_back("PowerCycle");
                 timeoutList.emplace_back("PowerDown");
-                timeoutList.emplace_back("OEM");
                 hostWatchdogTimer["TimeoutAction@Redfish.AllowableValues"] =
                     timeoutList;
 

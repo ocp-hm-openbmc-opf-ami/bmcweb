@@ -71,6 +71,7 @@ incdir_cli = include_directories(
 
 if (get_option('tests').allowed())
     summary('unittest', 'NA', section: 'Features')
+    add_project_arguments('-Wno-unused-variable', language: 'cpp')
 endif
 
 # Add compiler arguments
@@ -203,7 +204,45 @@ bmcweb_cli_dependencies = []
 
 pam = cxx.find_library('pam', required: true)
 atomic = cxx.find_library('atomic', required: true)
-snmp = cxx.find_library('snmp', required: true)
+if (get_option('tests').enabled())
+    add_project_arguments('-Wno-error=unused-parameter', language: 'cpp')
+    add_project_arguments('-Wno-error=sign-conversion', language: 'cpp')
+    sdbusplus = subproject(
+        'sdbusplus',
+        default_options: [
+            'warning_level=0',
+            'werror=false',
+            'cpp_rtti=true',
+        ],
+    ).get_variable('sdbusplus_dep')
+    meson.override_dependency('sdbusplus', sdbusplus)
+    phosphor_dbus_interfaces_dep = subproject(
+        'phosphor-dbus-interfaces',
+        required: true,
+        default_options: [
+            'warning_level=0',
+            'werror=false',
+            'cpp_rtti=true',
+        ],
+    ).get_variable('phosphor_dbus_interfaces_dep')
+    phosphor_logging_dep = subproject(
+        'phosphor-logging',
+    ).get_variable('phosphor_logging_dep')
+    snmp_proj = subproject(
+        'phosphor-snmp',
+        required: true,
+        default_options: [
+            'warning_level=0',
+            'werror=false',
+            'tests=disabled',
+            'cpp_rtti=true',
+        ],
+    )
+    snmp = snmp_proj.get_variable('phosphor_snmp_dep')
+    snmp = snmp.as_system('system')
+else
+    snmp = cxx.find_library('snmp', required: true)
+endif
 bmcweb_dependencies += [pam, atomic, snmp]
 
 openssl = dependency('openssl', required: false, version: '>=3.0.0')
@@ -230,12 +269,16 @@ if not nghttp2.found()
 endif
 bmcweb_dependencies += nghttp2
 
-sdbusplus = dependency('sdbusplus', required: false, include_type: 'system')
-if not sdbusplus.found()
-    sdbusplus_proj = subproject('sdbusplus', required: true)
-    sdbusplus = sdbusplus_proj.get_variable('sdbusplus_dep')
-    sdbusplus = sdbusplus.as_system('system')
-endif
+
+if not (get_option('tests').enabled())
+  sdbusplus = dependency('sdbusplus', required: false, include_type: 'system')
+  if not sdbusplus.found()
+      sdbusplus_proj = subproject('sdbusplus', required: true)
+      sdbusplus = sdbusplus_proj.get_variable('sdbusplus_dep')
+      sdbusplus = sdbusplus.as_system('system')
+  endif
+endif 
+
 bmcweb_dependencies += sdbusplus
 bmcweb_cli_dependencies += sdbusplus
 
@@ -296,7 +339,7 @@ if boost.version().version_compare('>=1.86.0')
     )
 endif
 
-if boost.found()
+if boost.found() and not get_option('tests').enabled()
     bmcweb_dependencies += [boost]
     bmcweb_cli_dependencies += [boost]
 else
@@ -397,8 +440,8 @@ if grep_prog.found()
         'ONETREE_NVIDIASIPACK': ['ext/cper/src/cper.cpp', 'ext/src/reset.cpp', 'ext/src/erot_dump.cpp', 'ext/src/auxreset.cpp', 'ext/src/dot.cpp', 'ext/src/spdm.cpp', 'ext/src/sbmr.cpp', 'ext/src/nvidia_header.cpp'],
         'ONETREE_GPGPU': ['ext/src/gpgpu.cpp'],
         'ONETREE_ARM_SBMR': ['ext/src/arm_redfish.cpp'],
-	'ONETREE_RPC': ['ext/src/rackpowercontroller.cpp'],
-    'ONETREE_CXL_MGMT': ['ext/src/cxl.cpp'],
+        'ONETREE_RPC': ['ext/src/rackpowercontroller.cpp'],
+        'ONETREE_CXL_MGMT': ['ext/src/cxl.cpp'],
     }
 
     foreach define, sources : onetree_sources
@@ -495,13 +538,9 @@ srcfiles_unittest = files(
     'test/redfish-core/include/utils/stl_utils_test.cpp',
     'test/redfish-core/include/utils/time_utils_test.cpp',
     'test/redfish-core/lib/chassis_test.cpp',
-    'test/redfish-core/lib/log_services_dump_test.cpp',
     'test/redfish-core/lib/manager_diagnostic_data_test.cpp',
-    'test/redfish-core/lib/metadata_test.cpp',
     'test/redfish-core/lib/power_subsystem_test.cpp',
     'test/redfish-core/lib/service_root_test.cpp',
-    'test/redfish-core/lib/system_test.cpp',
-    'test/redfish-core/lib/systems_logservices_postcode.cpp',
     'test/redfish-core/lib/thermal_subsystem_test.cpp',
     'test/redfish-core/lib/update_service_test.cpp',
 )
@@ -534,4 +573,73 @@ if (get_option('tests').allowed())
         )
         test(fs.stem(test_src), test_bin, protocol: 'gtest')
     endforeach
+
+    # boot_order_config_test is built separately so that it links only
+    # against bmcweblib (which already contains all non-inline systems.hpp
+    # symbols compiled from redfish.cpp).  Including srcfiles_bmcweb here
+    # would recompile redfish.cpp alongside the test TU and cause multiple
+    # definition linker errors for the non-inline functions in systems.hpp.
+    boot_order_test_bin = executable(
+        'boot_order_config_test',
+        'test/BootOrderConfig/boot_order_config_test.cpp',
+        link_with: bmcweblib,
+        include_directories: incdir,
+        install_dir: bindir,
+        dependencies: bmcweb_dependencies + [gtestdep],
+    )
+    test('boot_order_config_test', boot_order_test_bin, protocol: 'gtest')
+
+    # system_test links only against bmcweblib to avoid ODR violations from
+    # non-inline functions in systems.hpp being defined in both redfish.cpp
+    # (already compiled into bmcweblib) and the test TU.
+    system_test_bin = executable(
+        'system_test',
+        'test/redfish-core/lib/system_test.cpp',
+        link_with: bmcweblib,
+        include_directories: incdir,
+        install_dir: bindir,
+        dependencies: bmcweb_dependencies + [gtestdep],
+    )
+    test('system_test', system_test_bin, protocol: 'gtest')
+
+    # log_services_dump_test and metadata_test link only against bmcweblib to
+    # avoid ODR violations from non-inline functions in log_services.hpp,
+    # event_service.hpp, and metadata.hpp being defined in both redfish.cpp
+    # (already compiled into bmcweblib) and the test TU.
+    log_services_dump_test_bin = executable(
+        'log_services_dump_test',
+        'test/redfish-core/lib/log_services_dump_test.cpp',
+        link_with: bmcweblib,
+        include_directories: incdir,
+        install_dir: bindir,
+        dependencies: bmcweb_dependencies + [gtestdep],
+    )
+    test('log_services_dump_test', log_services_dump_test_bin, protocol: 'gtest')
+
+    metadata_test_bin = executable(
+        'metadata_test',
+        'test/redfish-core/lib/metadata_test.cpp',
+        link_with: bmcweblib,
+        include_directories: incdir,
+        install_dir: bindir,
+        dependencies: bmcweb_dependencies + [gtestdep],
+    )
+    test('metadata_test', metadata_test_bin, protocol: 'gtest')
+    
+    # Build separately to avoid compiling redfish.cpp and the postcode header
+    # definitions into the same executable twice.
+    systems_logservices_postcode_test_bin = executable(
+        'systems_logservices_postcode',
+        'test/redfish-core/lib/systems_logservices_postcode.cpp',
+        link_with: bmcweblib,
+        include_directories: incdir,
+        install_dir: bindir,
+        dependencies: bmcweb_dependencies + [gtestdep],
+    )
+
+    test(
+        'systems_logservices_postcode',
+        systems_logservices_postcode_test_bin,
+        protocol: 'gtest',
+    )
 endif

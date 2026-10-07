@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright OpenBMC Authors
-
+#include "logging.hpp"
 #include "utility.hpp"
 
 #include <boost/system/result.hpp>

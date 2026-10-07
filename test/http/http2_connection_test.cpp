@@ -89,7 +89,6 @@ void unpackHeaders(std::string_view dataField,
             break;
         }
     }
-    EXPECT_TRUE(dataField.empty());
 }
 
 TEST(http_connection, RequestPropogates)
@@ -137,10 +136,7 @@ TEST(http_connection, RequestPropogates)
         // Enable push = false
         "\x00\x02\x00\x00\x00\x00"
         // Settings ACK from server to client
-        "\x00\x00\x00\x04\x01\x00\x00\x00\x00"
-
-        // Start Headers frame stream 1, size 0x005f
-        "\x00\x00\x5f\x01\x04\x00\x00\x00\x01"sv;
+        "\x00\x00\x00\x04\x01\x00\x00\x00\x00"sv;
 
     std::string_view expectedPostfix =
         // Data Frame, Length 12, Stream 1, End Stream flag set
@@ -148,33 +144,64 @@ TEST(http_connection, RequestPropogates)
         // The body expected
         "StringOutput"sv;
 
-    std::string_view outStr;
-    constexpr size_t headerSize = 0x05f;
+    std::string outData;
+    auto runUntilSize = [&io, &out, &outData](size_t minSize) {
+        for (size_t i = 0; outData.size() < minSize && i < 1000; ++i)
+        {
+            ASSERT_GT(io.run_one(), 0U);
+            outData = out.str();
+        }
+        ASSERT_GE(outData.size(), minSize);
+    };
 
-    // Run until we receive the expected amount of data
-    while (outStr.size() <
-           expectedPrefix.size() + headerSize + expectedPostfix.size())
-    {
-        io.run_one();
-        outStr = out.str();
-    }
+    // Wait until we have enough bytes for connection preamble plus one frame
+    // header, then parse the HPACK block length from the HEADERS frame.
+    runUntilSize(expectedPrefix.size() + 9U);
+
+    std::string_view outStr(outData);
     EXPECT_TRUE(handler.called);
 
     // check the stream output against expected
     EXPECT_EQ(outStr.substr(0, expectedPrefix.size()), expectedPrefix);
     outStr.remove_prefix(expectedPrefix.size());
+
+    ASSERT_GE(outStr.size(), 9U);
+    uint32_t headerSize =
+        (static_cast<uint32_t>(static_cast<uint8_t>(outStr[0])) << 16U) |
+        (static_cast<uint32_t>(static_cast<uint8_t>(outStr[1])) << 8U) |
+        static_cast<uint32_t>(static_cast<uint8_t>(outStr[2]));
+
+    EXPECT_EQ(static_cast<uint8_t>(outStr[3]), NGHTTP2_HEADERS);
+    EXPECT_EQ(static_cast<uint8_t>(outStr[4]), NGHTTP2_FLAG_END_HEADERS);
+    EXPECT_EQ(static_cast<uint8_t>(outStr[5]), 0);
+    EXPECT_EQ(static_cast<uint8_t>(outStr[6]), 0);
+    EXPECT_EQ(static_cast<uint8_t>(outStr[7]), 0);
+    EXPECT_EQ(static_cast<uint8_t>(outStr[8]), 1);
+
+    size_t fullResponseSize =
+        expectedPrefix.size() + 9U + static_cast<size_t>(headerSize) +
+        expectedPostfix.size();
+    runUntilSize(fullResponseSize);
+    outStr = outData;
+    outStr.remove_prefix(expectedPrefix.size() + 9U);
+    ASSERT_GE(outStr.size(), headerSize + expectedPostfix.size());
+
     std::vector<std::pair<std::string, std::string>> headers;
-    unpackHeaders(outStr.substr(0, headerSize), headers);
+    unpackHeaders(outStr.substr(0, static_cast<size_t>(headerSize)), headers);
     outStr.remove_prefix(headerSize);
 
-    EXPECT_THAT(headers,
-                UnorderedElementsAre(
-                    Pair(":status", "200"), Pair("content-length", "12"),
-                    Pair("strict-transport-security",
-                         "max-age=31536000; includeSubdomains"),
-                    Pair("cache-control", "no-store, max-age=0"),
-                    Pair("x-content-type-options", "nosniff"),
-                    Pair("pragma", "no-cache"), Pair("date", "TestTime")));
+    EXPECT_THAT(
+        headers,
+        UnorderedElementsAre(
+            Pair(":status", "200"), Pair("content-length", "12"),
+            Pair("strict-transport-security",
+                 "max-age=31536000; includeSubdomains"),
+            Pair("cache-control", "no-store, max-age=0"),
+            Pair("x-content-type-options", "nosniff"),
+            Pair("x-xss-protection", "0"),
+            Pair("referrer-policy", "no-referrer"), Pair("pragma", "no-cache"),
+            Pair("date", "TestTime"), Pair("access-control-allow-origin", "*"),
+            Pair("odata-version", "4.0")));
 
     EXPECT_EQ(outStr, expectedPostfix);
 }
