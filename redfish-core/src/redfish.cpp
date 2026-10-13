@@ -172,8 +172,6 @@ namespace redfish
 
 RedfishService::RedfishService(App& app)
 {
-    // init schemaVersionMap
-    json_util::initSchemaVersionMap();
 #ifdef ONETREE_ACD
     redfish::ami::core::resource::requestRoutesACDService(app);
 #endif

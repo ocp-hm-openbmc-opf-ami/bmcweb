@@ -22,7 +22,7 @@
                 }
             },
             "properties": {
-                "#EventDestination.SendTestAlert": {
+                "#AmiEventDestination.SendTestAlert": {
                     "$ref": "#/definitions/SendTestAlert"
                 }
             },

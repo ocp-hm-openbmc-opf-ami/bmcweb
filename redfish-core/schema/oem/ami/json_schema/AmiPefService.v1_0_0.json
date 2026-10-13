@@ -1,5 +1,5 @@
 {
-    "$id": "http://redfish/v1/JsonSchemas/AmiPefService.v1_0_0.json",
+    "$id": "/redfish/v1/JsonSchemas/AmiPefService/AmiPefService.v1_0_0.json",
     "$ref": "#/definitions/AmiPefService",
     "$schema": "http://redfish.dmtf.org/schemas/v1/redfish-schema-v1.json",
     "copyright": "Copyright American Megatrends, Inc. (AMI).",
@@ -35,6 +35,12 @@
                 "@odata.type": {
                     "$ref": "http://redfish.dmtf.org/schemas/v1/odata-v4.json#/definitions/type"
                 },
+                "AlertPolicyTable": {
+                    "$ref": "/redfish/v1/JsonSchemas/AmiPefEntryCollection/AmiPefEntryCollection.json#/definitions/AlertPolicyTable",
+                    "description": "The collection of PEF Alert Policy Table entries.",
+                    "longDescription": "This property shall contain a link to a resource collection of type AlertPolicyTable.",
+                    "readonly": true
+                },
                 "Description": {
                     "anyOf": [
                         {
@@ -46,11 +52,11 @@
                     ],
                     "readonly": true
                 },
-                "DestinationType": {
-                    "description": "The DestinationType either be SMTP or SnmpTrap.",
-                    "longDescription": "This property shall contain the SMTP or SnmpTrap value of PefService.",
-                    "readonly": false,
-                    "type": "string"
+                "EventFilterTable": {
+                    "$ref": "/redfish/v1/JsonSchemas/AmiPefEntryCollection/AmiPefEntryCollection.json#/definitions/EventFilterTable",
+                    "description": "The collection of PEF Event Filter Table entries.",
+                    "longDescription": "This property shall contain a link to a resource collection of type EventFilterTable.",
+                    "readonly": true
                 },
                 "FilterEnable": {
                     "description": "The array of different filters required for AmiPefService.",
@@ -64,18 +70,6 @@
                 "Id": {
                     "$ref": "http://redfish.dmtf.org/schemas/v1/Resource.json#/definitions/Id",
                     "readonly": true
-                },
-                "Members": {
-                    "description": "The members of this collection.",
-                    "items": {
-                        "$ref": "/redfish/v1/Schemas/AmiPefEntryCollection.json#/definitions/AmiPefEntryCollection"
-                    },
-                    "longDescription": "This property shall contain an array of links to the members of this collection.",
-                    "readonly": false,
-                    "type": "array"
-                },
-                "Members@odata.count": {
-                    "$ref": "http://redfish.dmtf.org/schemas/v1/odata-v4.json#/definitions/count"
                 },
                 "Name": {
                     "$ref": "http://redfish.dmtf.org/schemas/v1/Resource.json#/definitions/Name",
@@ -124,8 +118,6 @@
                 }
             },
             "required": [
-                "Members",
-                "Members@odata.count",
                 "@odata.id",
                 "@odata.type",
                 "Id",

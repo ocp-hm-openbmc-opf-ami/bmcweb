@@ -1,8 +1,8 @@
 {
-    "$id": "http://redfish.dmtf.org/schemas/v1/AmiPefEntryCollection/AmiPefEntryCollection.json",
+    "$id": "/redfish/v1/JsonSchemas/AmiPefEntryCollection/AmiPefEntryCollection.json",
     "$ref": "#/definitions/AmiPefEntryCollection",
     "$schema": "http://redfish.dmtf.org/schemas/v1/redfish-schema-v1.json",
-    "copyright": "Copyright 2014-2019 DMTF. For the full DMTF copyright policy, see http://www.dmtf.org/about/policies/copyright",
+    "copyright": "Copyright American Megatrends, Inc. (AMI).",
     "definitions": {
         "AlertPolicyTable": {
             "anyOf": [
@@ -63,7 +63,7 @@
                         "Members": {
                             "description": "The members of this collection.",
                             "items": {
-                                "$ref": "/redfish/v1/Schemas/AmiPefEntry.v1_0_0.json#/definitions/AlertPolicyTable"
+                                "$ref": "/redfish/v1/JsonSchemas/AmiPefEntry/AmiPefEntry.v1_0_0.json#/definitions/AlertPolicyTable"
                             },
                             "longDescription": "This property shall contain an array of links to the members of this collection.",
                             "readonly": true,
@@ -195,7 +195,7 @@
                         "Members": {
                             "description": "The members of this collection.",
                             "items": {
-                                "$ref": "/redfish/v1/Schemas/AmiPefEntry.v1_0_0.json#/definitions/EventFilterTable"
+                                "$ref": "/redfish/v1/JsonSchemas/AmiPefEntry/AmiPefEntry.v1_0_0.json#/definitions/EventFilterTable"
                             },
                             "longDescription": "This property shall contain an array of links to the members of this collection.",
                             "readonly": true,

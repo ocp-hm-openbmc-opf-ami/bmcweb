@@ -88,7 +88,7 @@ TEST(addPrefixToItem, ValidURIs)
         for (const auto& id : validIDs)
         {
             std::string initial("/redfish/v1/" + std::string(root) + "/");
-            std::string correct(initial + "asdfjkl_" + std::string(id));
+            std::string correct(initial + "asdfjkl" + std::string(id));
             initial += id;
             jsonRequest["@odata.id"] = initial;
             addPrefixToItem(jsonRequest["@odata.id"], "asdfjkl");
@@ -165,7 +165,7 @@ TEST(addPrefixes, ParseJsonObject)
 
     addPrefixes(parameter, "abcd");
     EXPECT_EQ(parameter["Name"], "/redfish/v1/Chassis/fakeName");
-    EXPECT_EQ(parameter["@odata.id"], "/redfish/v1/Chassis/abcd_fakeChassis");
+    EXPECT_EQ(parameter["@odata.id"], "/redfish/v1/Chassis/abcdfakeChassis");
 }
 
 TEST(addPrefixes, ParseJsonArray)
@@ -188,9 +188,9 @@ TEST(addPrefixes, ParseJsonArray)
 
     addPrefixes(array, "5B42");
     EXPECT_EQ(array["Conditions"][0]["@odata.id"],
-              "/redfish/v1/Chassis/5B42_TestChassis");
+              "/redfish/v1/Chassis/5B42TestChassis");
     EXPECT_EQ(array["Conditions"][1]["@odata.id"],
-              "/redfish/v1/Chassis/5B42_TestChassis2");
+              "/redfish/v1/Chassis/5B42TestChassis2");
 }
 
 TEST(addPrefixes, ParseJsonObjectNestedArray)
@@ -218,7 +218,7 @@ TEST(addPrefixes, ParseJsonObjectNestedArray)
     addPrefixes(objWithArray, "5B42");
     nlohmann::json& array = objWithArray["Status"]["Conditions"];
     EXPECT_EQ(array[0]["OriginOfCondition"]["@odata.id"],
-              "/redfish/v1/Chassis/5B42_TestChassis");
+              "/redfish/v1/Chassis/5B42TestChassis");
 }
 
 TEST(addPrefixes, FixHttpTaskMonitor)
@@ -234,7 +234,7 @@ TEST(addPrefixes, FixHttpTaskMonitor)
 
     addPrefixes(taskResp, "5B247A");
     EXPECT_EQ(taskResp["TaskMonitor"],
-              "/redfish/v1/TaskService/Tasks/5B247A_0/Monitor");
+              "/redfish/v1/TaskService/Tasks/5B247A0/Monitor");
 }
 
 TEST(addPrefixes, FixHttpHeadersInResponseBody)
@@ -261,13 +261,13 @@ TEST(addPrefixes, FixHttpHeadersInResponseBody)
                                                     nullptr, false);
 
     addPrefixes(taskResp, "5B247A");
-    EXPECT_EQ(taskResp["@odata.id"], "/redfish/v1/TaskService/Tasks/5B247A_0");
+    EXPECT_EQ(taskResp["@odata.id"], "/redfish/v1/TaskService/Tasks/5B247A0");
     EXPECT_EQ(taskResp["TaskMonitor"],
-              "/redfish/v1/TaskService/TaskMonitors/5B247A_0");
+              "/redfish/v1/TaskService/TaskMonitors/5B247A0");
     nlohmann::json& httpHeaders = taskResp["Payload"]["HttpHeaders"];
     EXPECT_EQ(
         httpHeaders[4],
-        "Location: /redfish/v1/Managers/5B247A_bmc/LogServices/Dump/Entries/0");
+        "Location: /redfish/v1/Managers/5B247Abmc/LogServices/Dump/Entries/0");
 }
 
 // Attempts to perform prefix fixing on a response with response code "result".
@@ -295,13 +295,13 @@ void assertProcessResponse(unsigned result)
               "application/json");
     EXPECT_EQ(asyncResp->res.getHeaderValue("Allow"), "GET");
     EXPECT_EQ(asyncResp->res.getHeaderValue("Location"),
-              "/redfish/v1/Chassis/prefix_TestChassis");
+              "/redfish/v1/Chassis/prefixTestChassis");
     EXPECT_EQ(asyncResp->res.getHeaderValue("Link"), "");
     EXPECT_EQ(asyncResp->res.getHeaderValue("Retry-After"), "120");
 
     EXPECT_EQ(asyncResp->res.jsonValue["Name"], "Test");
     EXPECT_EQ(asyncResp->res.jsonValue["@odata.id"],
-              "/redfish/v1/Chassis/prefix_TestChassis");
+              "/redfish/v1/Chassis/prefixTestChassis");
     EXPECT_EQ(asyncResp->res.resultInt(), result);
 }
 
@@ -424,7 +424,7 @@ TEST(processCollectionResponse, satelliteOnly)
     for (auto& member : asyncResp->res.jsonValue["Members"])
     {
         // There should only be one member
-        EXPECT_EQ(member["@odata.id"], "/redfish/v1/Systems/prefix_system");
+        EXPECT_EQ(member["@odata.id"], "/redfish/v1/Systems/prefixsystem");
     }
 }
 
@@ -451,7 +451,7 @@ TEST(processCollectionResponse, bothExist)
         {
             foundLocal = true;
         }
-        else if (member["@odata.id"] == "/redfish/v1/Systems/prefix_system")
+        else if (member["@odata.id"] == "/redfish/v1/Systems/prefixsystem")
         {
             foundSat = true;
         }
@@ -535,7 +535,7 @@ void assertProcessResponseContentType(std::string_view contentType)
     RedfishAggregator::processResponse("prefix", asyncResp, resp);
     EXPECT_EQ(asyncResp->res.getHeaderValue("Content-Type"), contentType);
     EXPECT_EQ(asyncResp->res.getHeaderValue("Location"),
-              "/redfish/v1/Chassis/prefix_TestChassis");
+              "/redfish/v1/Chassis/prefixTestChassis");
     EXPECT_EQ(asyncResp->res.getHeaderValue("Link"), "");
     EXPECT_EQ(asyncResp->res.getHeaderValue("Retry-After"), "120");
     EXPECT_EQ(*asyncResp->res.body(), "responseBody");

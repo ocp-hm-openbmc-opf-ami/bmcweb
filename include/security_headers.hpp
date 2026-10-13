@@ -23,12 +23,13 @@ inline void addSecurityHeaders(crow::Response& res)
         res.addHeader(bf::cache_control, "no-store, max-age=0");
     }
     res.addHeader("X-Content-Type-Options", "nosniff");
+    res.addHeader("X-XSS-Protection", "0");
+    res.addHeader("Referrer-Policy", "no-referrer");
 
     std::string_view contentType = res.getHeaderValue("Content-Type");
     if (contentType.starts_with("text/html"))
     {
         res.addHeader(bf::x_frame_options, "DENY");
-        res.addHeader("Referrer-Policy", "no-referrer");
         res.addHeader(
             "Permissions-Policy",
             "accelerometer=(),"

@@ -47,7 +47,7 @@
                 </Annotation>
             </ComplexType>
             <Action Name="SendTestAlert" IsBound="true">
-                <Parameter Name="EventDestination" Type="AmiEventDestination.v1_0_0.Actions"/>
+                <Parameter Name="AmiEventDestination" Type="AmiEventDestination.v1_0_0.Actions"/>
                 <Annotation Term="OData.Description" String="This action sends a test SNMP trap or SMTP alert to the configured destination."/>
                 <Annotation Term="OData.LongDescription" String="This action shall send a test SNMP trap or SMTP alert to the event destination configured in the subscription slot. The slot must already be configured with a valid destination address."/>
             </Action>

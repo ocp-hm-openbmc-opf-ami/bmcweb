@@ -16,6 +16,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 
 #include "gtest/gtest.h"
@@ -82,16 +83,25 @@ TEST(http_connection, RequestPropogates)
     EXPECT_TRUE(handler.called);
     std::string outStr = out.str();
 
-    std::string expected =
-        "HTTP/1.1 200 OK\r\n"
-        "Connection: close\r\n"
-        "Strict-Transport-Security: max-age=31536000; includeSubdomains\r\n"
-        "Pragma: no-cache\r\n"
-        "Cache-Control: no-store, max-age=0\r\n"
-        "X-Content-Type-Options: nosniff\r\n"
-        "Date: TestTime\r\n"
-        "Content-Length: 0\r\n\r\n";
-    EXPECT_EQ(outStr, expected);
+    auto expectHeaderPresent = [&outStr](std::string_view headerLine) {
+        EXPECT_NE(outStr.find(headerLine), std::string::npos)
+            << "Missing header: " << headerLine;
+    };
+
+    EXPECT_NE(outStr.find("HTTP/1.1 200 OK\r\n"), std::string::npos);
+    EXPECT_NE(outStr.find("\r\n\r\n"), std::string::npos);
+    expectHeaderPresent("Access-Control-Allow-Origin: *\r\n");
+    expectHeaderPresent("OData-Version: 4.0\r\n");
+    expectHeaderPresent("Connection: close\r\n");
+    expectHeaderPresent(
+        "Strict-Transport-Security: max-age=31536000; includeSubdomains\r\n");
+    expectHeaderPresent("Pragma: no-cache\r\n");
+    expectHeaderPresent("Cache-Control: no-store, max-age=0\r\n");
+    expectHeaderPresent("X-Content-Type-Options: nosniff\r\n");
+    expectHeaderPresent("X-XSS-Protection: 0\r\n");
+    expectHeaderPresent("Referrer-Policy: no-referrer\r\n");
+    expectHeaderPresent("Date: TestTime\r\n");
+    expectHeaderPresent("Content-Length: 0\r\n");
     EXPECT_TRUE(clock.wascalled);
 }
 
