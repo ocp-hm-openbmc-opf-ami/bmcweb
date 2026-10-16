@@ -2918,6 +2918,11 @@ inline void requestRoutesEventDestination(App& app)
                                               "SubscriptionType");
                 hasReadOnlyError = true;
             }
+            if (destination)
+            {
+                messages::propertyNotWritable(asyncResp->res, "Destination");
+                hasReadOnlyError = true;
+            }
             if (hasReadOnlyError)
             {
                 return;
@@ -2928,6 +2933,7 @@ inline void requestRoutesEventDestination(App& app)
                 sdbusplus::message::object_path(
                     "/xyz/openbmc_project/PefAlertManager/" +
                     std::string(snmpTrapId));
+
             if (context)
             {
                 subValue->userSub->customText = *context;
