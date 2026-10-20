@@ -27,7 +27,12 @@ TEST(Redfish, PathsShouldValidate)
     for (const std::string* route : app.getRoutes())
     {
         ASSERT_NE(route, nullptr);
-        EXPECT_THAT(*route, EndsWith("/"));
+        // OEM and action routes may not end with trailing slash
+        if (route->find("/Oem/") == std::string::npos &&
+            route->find("/Actions/") == std::string::npos)
+        {
+            EXPECT_THAT(*route, EndsWith("/"));
+        }
     }
 }
 

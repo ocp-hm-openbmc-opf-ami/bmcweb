@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright OpenBMC Authors
+#include "async_resp.hpp"
 #include "boost_formatters.hpp"
 #include "http/server_sent_event.hpp"
 
@@ -34,20 +35,26 @@ TEST(ServerSentEvent, SseWorks)
 
     bool openCalled = false;
     auto openHandler =
-        [&openCalled](Connection&, const Request& /*handedReq*/) {
+        [&openCalled](std::shared_ptr<Connection>& conn,
+                      const crow::Request& /*handedReq*/,
+                      const std::shared_ptr<bmcweb::AsyncResp>& /*asyncResp*/) {
             openCalled = true;
+            conn->sendSSEHeader();
         };
     bool closeCalled = false;
-    auto closeHandler = [&closeCalled](Connection&) { closeCalled = true; };
+    auto closeHandler = [&closeCalled](std::shared_ptr<Connection>& /*conn*/) {
+        closeCalled = true;
+    };
 
     std::shared_ptr<ConnectionImpl<boost::beast::test::stream>> conn =
         std::make_shared<ConnectionImpl<boost::beast::test::stream>>(
-            std::move(stream), openHandler, closeHandler);
-    conn->start(req);
+            req, std::move(stream), openHandler, closeHandler);
+    conn->start();
     // Connect
     {
         constexpr std::string_view expected =
             "HTTP/1.1 200 OK\r\n"
+            "Server: bmcweb\r\n"
             "Content-Type: text/event-stream\r\n"
             "\r\n";
 

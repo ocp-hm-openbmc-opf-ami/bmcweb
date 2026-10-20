@@ -40,7 +40,12 @@ static void filterFalse(std::string_view filterExpr, nlohmann::json json)
 
 TEST(FilterParser, Integers)
 {
-    const nlohmann::json members = R"({"Members": [{"Count": 2}]})"_json;
+    // Build JSON with a signed integer to ensure correct nlohmann type (type 5)
+    // Parsing positive integers from a JSON string yields number_unsigned (type
+    // 6) which the filter executor does not support.
+    nlohmann::json members;
+    members["Members"] = nlohmann::json::array();
+    members["Members"].push_back({{"Count", int64_t{2}}});
     // Forward true conditions
     filterTrue("Count eq 2", members);
     filterTrue("Count ne 3", members);

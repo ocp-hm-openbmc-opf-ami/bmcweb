@@ -198,7 +198,7 @@ inline std::shared_ptr<persistent_data::UserSession> performTLSAuth(
     if (session != nullptr)
     {
         res.addHeader(boost::beast::http::field::set_cookie,
-                      "IsAuthenticated=true; Secure");
+                      "IsAuthenticated=true; SameSite=Strict; Secure");
         BMCWEB_LOG_DEBUG(
             " TLS session: {} with cookie will be used for this request.",
             session->uniqueId);

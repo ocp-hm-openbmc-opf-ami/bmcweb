@@ -552,6 +552,18 @@ option(
     description: 'Enable HTTP push style eventing feature',
 )
 
+# BMCWEB_INSTALL_DMTF_SCHEMA
+option(
+    'bmcweb-install-dmtf-schema',
+    type: 'combo',
+    choices : [ 'disabled', 'enabled', 'json' ],
+    value: 'disabled',
+    description: '''Controls the installation of DMTF Redfish schema files.
+                    - enabled: Install both XML and JSON DMTF Redfish schema files.
+                    - disabled: Do not install any DMTF Redfish schema files.
+                    - json: Install only JSON DMTF Redfish schema files.''',
+)
+
 # BMCWEB_INSECURE_ENABLE_REDFISH_QUERY
 option(
     'insecure-enable-redfish-query',

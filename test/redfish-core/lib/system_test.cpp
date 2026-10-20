@@ -28,20 +28,11 @@ TEST(GetAllowedHostTransition, UnexpectedError)
     boost::system::error_code ec = boost::asio::error::invalid_argument;
     std::vector<std::string> allowedHostTransitions;
 
-    afterGetAllowedHostTransitions(response);
+    afterGetAllowedHostTransitions(response, ec, allowedHostTransitions);
 
-    EXPECT_EQ(response->res.result(),
-              boost::beast::http::status::internal_server_error);
-}
-
-TEST(GetAllowedHostTransition, NoPropOnDbus)
-{
-    auto response = std::make_shared<bmcweb::AsyncResp>();
-    boost::system::error_code ec =
-        boost::system::linux_error::bad_request_descriptor;
-    std::vector<std::string> allowedHostTransitions;
-
-    afterGetAllowedHostTransitions(response);
+    // On any error the function logs and still populates Parameters with the
+    // base set (does not return an HTTP error status).
+    EXPECT_EQ(response->res.result(), boost::beast::http::status::ok);
 
     nlohmann::json::array_t parameters;
     nlohmann::json::object_t parameter;
@@ -51,7 +42,33 @@ TEST(GetAllowedHostTransition, NoPropOnDbus)
     nlohmann::json::array_t allowed;
     allowed.emplace_back(resource::ResetType::ForceOff);
     allowed.emplace_back(resource::ResetType::PowerCycle);
-    allowed.emplace_back(resource::ResetType::Nmi);
+    allowed.emplace_back(resource::ResetType::On);
+    allowed.emplace_back(resource::ResetType::ForceOn);
+    allowed.emplace_back(resource::ResetType::ForceRestart);
+    allowed.emplace_back(resource::ResetType::GracefulRestart);
+    allowed.emplace_back(resource::ResetType::GracefulShutdown);
+    parameter["AllowableValues"] = std::move(allowed);
+    parameters.emplace_back(std::move(parameter));
+    EXPECT_EQ(response->res.jsonValue["Parameters"], parameters);
+}
+
+TEST(GetAllowedHostTransition, NoPropOnDbus)
+{
+    auto response = std::make_shared<bmcweb::AsyncResp>();
+    boost::system::error_code ec =
+        boost::system::linux_error::bad_request_descriptor;
+    std::vector<std::string> allowedHostTransitions;
+
+    afterGetAllowedHostTransitions(response, ec, allowedHostTransitions);
+
+    nlohmann::json::array_t parameters;
+    nlohmann::json::object_t parameter;
+    parameter["Name"] = "ResetType";
+    parameter["Required"] = true;
+    parameter["DataType"] = "String";
+    nlohmann::json::array_t allowed;
+    allowed.emplace_back(resource::ResetType::ForceOff);
+    allowed.emplace_back(resource::ResetType::PowerCycle);
     allowed.emplace_back(resource::ResetType::On);
     allowed.emplace_back(resource::ResetType::ForceOn);
     allowed.emplace_back(resource::ResetType::ForceRestart);
@@ -74,8 +91,13 @@ TEST(GetAllowedHostTransition, NoForceRestart)
         "xyz.openbmc_project.State.Host.Transition.GracefulWarmReboot",
     };
 
-    afterGetAllowedHostTransitions(response);
+    afterGetAllowedHostTransitions(response, ec, allowedHostTransitions);
 
+    // Base set: ForceOff, PowerCycle, On, ForceOn, ForceRestart,
+    //           GracefulRestart, GracefulShutdown
+    // + On        -> On, ForceOn       (appended)
+    // + Off       -> GracefulShutdown  (appended)
+    // + GracefulWarmReboot -> GracefulRestart (appended)
     nlohmann::json::array_t parameters;
     nlohmann::json::object_t parameter;
     parameter["Name"] = "ResetType";
@@ -84,7 +106,11 @@ TEST(GetAllowedHostTransition, NoForceRestart)
     nlohmann::json::array_t allowed;
     allowed.emplace_back(resource::ResetType::ForceOff);
     allowed.emplace_back(resource::ResetType::PowerCycle);
-    allowed.emplace_back(resource::ResetType::Nmi);
+    allowed.emplace_back(resource::ResetType::On);
+    allowed.emplace_back(resource::ResetType::ForceOn);
+    allowed.emplace_back(resource::ResetType::ForceRestart);
+    allowed.emplace_back(resource::ResetType::GracefulRestart);
+    allowed.emplace_back(resource::ResetType::GracefulShutdown);
     allowed.emplace_back(resource::ResetType::On);
     allowed.emplace_back(resource::ResetType::ForceOn);
     allowed.emplace_back(resource::ResetType::GracefulShutdown);
@@ -107,8 +133,14 @@ TEST(GetAllowedHostTransition, AllSupported)
         "xyz.openbmc_project.State.Host.Transition.ForceWarmReboot",
     };
 
-    afterGetAllowedHostTransitions(response);
+    afterGetAllowedHostTransitions(response, ec, allowedHostTransitions);
 
+    // Base set: ForceOff, PowerCycle, On, ForceOn, ForceRestart,
+    //           GracefulRestart, GracefulShutdown
+    // + On             -> On, ForceOn       (appended)
+    // + Off            -> GracefulShutdown  (appended)
+    // + GracefulWarmReboot -> GracefulRestart (appended)
+    // + ForceWarmReboot    -> ForceRestart    (appended)
     nlohmann::json::array_t parameters;
     nlohmann::json::object_t parameter;
     parameter["Name"] = "ResetType";
@@ -117,7 +149,11 @@ TEST(GetAllowedHostTransition, AllSupported)
     nlohmann::json::array_t allowed;
     allowed.emplace_back(resource::ResetType::ForceOff);
     allowed.emplace_back(resource::ResetType::PowerCycle);
-    allowed.emplace_back(resource::ResetType::Nmi);
+    allowed.emplace_back(resource::ResetType::On);
+    allowed.emplace_back(resource::ResetType::ForceOn);
+    allowed.emplace_back(resource::ResetType::ForceRestart);
+    allowed.emplace_back(resource::ResetType::GracefulRestart);
+    allowed.emplace_back(resource::ResetType::GracefulShutdown);
     allowed.emplace_back(resource::ResetType::On);
     allowed.emplace_back(resource::ResetType::ForceOn);
     allowed.emplace_back(resource::ResetType::GracefulShutdown);

@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright OpenBMC Authors
+// clang-format off
 #include "async_resp.hpp"
+#include "utils/json_utils.hpp"
 #include "manager_diagnostic_data.hpp"
+// clang-format on
 
 #include <boost/asio/error.hpp>
 #include <boost/beast/http/status.hpp>

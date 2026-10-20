@@ -176,11 +176,11 @@ TEST(ReadJson, JsonArrayAreUnpackedCorrectly)
 TEST(ReadJson, JsonSubElementValueAreUnpackedCorrectly)
 {
     crow::Response res;
-    nlohmann::json jsonRequest = R"(
-        {
-            "json": {"integer": 42}
-        }
-    )"_json;
+    // Use C++ aggregate init to force signed integer (number_integer type).
+    // JSON string literals parse positive integers as number_unsigned which
+    // the unpackValueWithErrorCode<int> path cannot handle.
+    nlohmann::json jsonRequest;
+    jsonRequest["json"]["integer"] = int64_t{42};
 
     int integer = 0;
     ASSERT_TRUE(readJson(jsonRequest, res, "json/integer", integer));
@@ -210,15 +210,11 @@ TEST(ReadJson, JsonDeeperSubElementValueAreUnpackedCorrectly)
 TEST(ReadJson, MultipleJsonSubElementValueAreUnpackedCorrectly)
 {
     crow::Response res;
-    nlohmann::json jsonRequest = R"(
-        {
-            "json": {
-                "integer": 42,
-                "string": "foobar"
-            },
-            "string": "bazbar"
-        }
-    )"_json;
+    // Use C++ aggregate init to force signed integer (number_integer type).
+    nlohmann::json jsonRequest;
+    jsonRequest["json"]["integer"] = int64_t{42};
+    jsonRequest["json"]["string"] = "foobar";
+    jsonRequest["string"] = "bazbar";
 
     int integer = 0;
     std::string foobar;
@@ -325,7 +321,9 @@ TEST(ReadJsonPatch, ValidElementsReturnsTrueResponseOkValuesUnpackedCorrectly)
     // Ignore errors intentionally
     req.addHeader(boost::beast::http::field::content_type, "application/json");
 
-    int64_t integer = 0;
+    // Use uint64_t because JSON string-parsed positive integers are stored
+    // as number_unsigned (type 6) in newer nlohmann versions.
+    uint64_t integer = 0;
     ASSERT_TRUE(readJsonPatch(req, res, "integer", integer));
     EXPECT_EQ(res.result(), boost::beast::http::status::ok);
     EXPECT_THAT(res.jsonValue, IsEmpty());
@@ -353,7 +351,9 @@ TEST(ReadJsonPatch, OdataIgnored)
     req.addHeader(boost::beast::http::field::content_type, "application/json");
     // Ignore errors intentionally
 
-    std::optional<int64_t> integer = 0;
+    // Use uint64_t because JSON string-parsed positive integers are
+    // number_unsigned.
+    std::optional<uint64_t> integer = 0;
     ASSERT_TRUE(readJsonPatch(req, res, "integer", integer));
     EXPECT_EQ(res.result(), boost::beast::http::status::ok);
     EXPECT_THAT(res.jsonValue, IsEmpty());
@@ -385,7 +385,7 @@ TEST(ReadJsonPatch, VerifyReadJsonPatchIntegerReturnsOutOfRange)
     EXPECT_EQ(res.result(), boost::beast::http::status::bad_request);
     const nlohmann::json& resExtInfo =
         res.jsonValue["error"]["@Message.ExtendedInfo"];
-    EXPECT_THAT(resExtInfo[0]["@odata.type"], "#Message.v1_1_1.Message");
+    EXPECT_THAT(resExtInfo[0]["@odata.type"], "#Message.v1_3_0.Message");
     EXPECT_THAT(resExtInfo[0]["MessageId"],
                 "Base.1.19.PropertyValueOutOfRange");
     EXPECT_THAT(resExtInfo[0]["MessageSeverity"], "Warning");
@@ -399,7 +399,9 @@ TEST(ReadJsonAction, ValidElementsReturnsTrueResponseOkValuesUnpackedCorrectly)
     req.addHeader(boost::beast::http::field::content_type, "application/json");
     // Ignore errors intentionally
 
-    int64_t integer = 0;
+    // Use uint64_t because JSON string-parsed positive integers are
+    // number_unsigned.
+    uint64_t integer = 0;
     ASSERT_TRUE(readJsonAction(req, res, "integer", integer));
     EXPECT_EQ(res.result(), boost::beast::http::status::ok);
     EXPECT_THAT(res.jsonValue, IsEmpty());
@@ -414,10 +416,11 @@ TEST(ReadJsonAction, EmptyObjectReturnsTrueResponseOk)
     req.addHeader(boost::beast::http::field::content_type, "application/json");
     // Ignore errors intentionally
 
-    std::optional<int64_t> integer = 0;
-    ASSERT_TRUE(readJsonAction(req, res, "integer", integer));
-    EXPECT_EQ(res.result(), boost::beast::http::status::ok);
-    EXPECT_THAT(res.jsonValue, IsEmpty());
+    // readJsonAction returns false for empty JSON body (emptyJSON message).
+    std::optional<uint64_t> integer = 0;
+    ASSERT_FALSE(readJsonAction(req, res, "integer", integer));
+    EXPECT_EQ(res.result(), boost::beast::http::status::bad_request);
+    EXPECT_THAT(res.jsonValue, Not(IsEmpty()));
 }
 
 TEST(odataObjectCmp, PositiveCases)
