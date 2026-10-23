@@ -75,12 +75,15 @@ constexpr auto getSensorPaths(){
         "/xyz/openbmc_project/sensors/os",
         "/xyz/openbmc_project/sensors/watchdog",
 	    "/xyz/openbmc_project/sensors/logging",
+        "/xyz/openbmc_project/sensors/systemevent",
+        "/xyz/openbmc_project/sensors/powerunit",
         "/xyz/openbmc_project/sensors/flowrate",
         "/xyz/openbmc_project/sensors/tach",
         "/xyz/openbmc_project/sensors/pwm",
         "/xyz/openbmc_project/sensors/hours",
         "/xyz/openbmc_project/sensors/pressurekpa",
         "/xyz/openbmc_project/sensors/discrete",
+        "/xyz/openbmc_project/sensors/base_unit",
 	"/xyz/openbmc_project/sensors/count/"});
     } else {
       return  std::to_array<std::string_view>({"/xyz/openbmc_project/sensors/power",
@@ -96,7 +99,9 @@ constexpr auto getSensorPaths(){
         "/xyz/openbmc_project/sensors/powerunit",
         "/xyz/openbmc_project/sensors/acpisystem",
         "/xyz/openbmc_project/sensors/powersupply",
-        "/xyz/openbmc_project/sensors/os"
+        "/xyz/openbmc_project/sensors/os",
+        "/xyz/openbmc_project/sensors/systemevent",
+        "/xyz/openbmc_project/sensors/base_unit"
         });
 }
 }
