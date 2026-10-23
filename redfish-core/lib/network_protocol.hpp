@@ -577,35 +577,127 @@ inline void getNetworkData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 BMCWEB_REDFISH_MANAGER_URI_NAME);
     }
 
-    for (const auto& protocol : networkProtocolToDbus)
-    {
-        const std::string& protocolName = protocol.first;
-        const std::string& serviceName = protocol.second;
-
-        BMCWEB_LOG_DEBUG("protocolName {}", protocolName);
-        BMCWEB_LOG_DEBUG("serviceName {}", serviceName);
-        if (ipmbServiceName == serviceName)
-        {
-            service_util::getEnabled(
-                asyncResp, serviceName,
-                nlohmann::json::json_pointer(
-                    "/Oem/Ami/" + protocolName + "/ProtocolEnabled"));
-        }
-        else
-        {
-            if (ipmiServiceName != serviceName)
+    // Fetch all service manager objects in ONE call instead of ~8 separate
+    // GetManagedObjects calls (one per protocol per property).
+    crow::connections::systemBus->async_method_call(
+        [asyncResp](const boost::system::error_code ec,
+                    const dbus::utility::ManagedObjectType& objects) {
+            if (ec)
             {
-                service_util::getEnabled(
-                    asyncResp, serviceName,
-                    nlohmann::json::json_pointer(
-                        std::string("/") + protocolName + "/ProtocolEnabled"));
+                BMCWEB_LOG_ERROR("Failed to get service manager objects: {}",
+                                 ec);
+                messages::internalError(asyncResp->res);
+                return;
             }
-            service_util::getPortNumber(
-                asyncResp, serviceName,
-                nlohmann::json::json_pointer(
-                    std::string("/") + protocolName + "/Port"));
-        }
-    }
+
+            // Traverse GetManagedObjects response to extract Enabled/Port for
+            // each protocol
+            for (const auto& protocol : networkProtocolToDbus)
+            {
+                const std::string& protocolName = protocol.first;
+                const std::string& serviceName = protocol.second;
+                bool serviceFound = false;
+                bool enabledFound = false;
+                // Traverse all returned D-Bus object paths
+                for (const auto& [path, interfaces] : objects)
+                {
+                    // Match the path against the expected service name
+                    if (!service_util::matchService(path, serviceName))
+                    {
+                        continue;
+                    }
+
+                    serviceFound = true;
+
+                    // Inspect each interface under the matched service
+                    for (const auto& [interface, properties] : interfaces)
+                    {
+                        // Look for "Enabled" property under Service.Attributes
+                        if (interface ==
+                            "xyz.openbmc_project.Control.Service.Attributes")
+                        {
+                            for (const auto& [key, val] : properties)
+                            {
+                                if (key == "Enabled")
+                                {
+                                    const auto* enabled =
+                                        std::get_if<bool>(&val);
+                                    if (enabled == nullptr)
+                                    {
+                                        BMCWEB_LOG_ERROR(
+                                            "Enabled property has wrong type for {}",
+                                            protocolName);
+                                        continue;
+                                    }
+                                    enabledFound = true;
+                                    // Write Enabled flag into JSON response
+                                    if (serviceName == ipmbServiceName)
+                                    {
+                                        asyncResp->res
+                                            .jsonValue["Oem"]["Ami"]
+                                                      [protocolName]
+                                                      ["ProtocolEnabled"] =
+                                            *enabled;
+                                    }
+                                    else if (serviceName != ipmiServiceName)
+                                    {
+                                        asyncResp->res
+                                            .jsonValue[protocolName]
+                                                      ["ProtocolEnabled"] =
+                                            *enabled;
+                                    }
+                                }
+                            }
+                        }
+                        // Look for "Port" property under
+                        // Service.SocketAttributes
+                        if (interface ==
+                                "xyz.openbmc_project.Control.Service.SocketAttributes" &&
+                            serviceName != ipmbServiceName)
+                        {
+                            for (const auto& [key, val] : properties)
+                            {
+                                if (key == "Port")
+                                {
+                                    const auto* port =
+                                        std::get_if<uint16_t>(&val);
+                                    if (port != nullptr)
+                                    {
+                                        // Write Port into JSON response
+                                        asyncResp->res
+                                            .jsonValue[protocolName]["Port"] =
+                                            *port;
+                                    }
+                                    else
+                                    {
+                                        BMCWEB_LOG_WARNING(
+                                            "Port property has wrong type for {}",
+                                            protocolName);
+                                    }
+                                    break; // Done with Port property
+                                }
+                            }
+                        }
+                    }
+                    break; // Found the matching service, move to next protocol
+                }
+
+                // Log if service or enabled property was not found
+                if (!serviceFound)
+                {
+                    BMCWEB_LOG_WARNING("Service not found for protocol: {}",
+                                       protocolName);
+                }
+                else if (!enabledFound)
+                {
+                    BMCWEB_LOG_WARNING(
+                        "Enabled property not found for protocol: {}",
+                        protocolName);
+                }
+            }
+        },
+        serviceManagerService, "/xyz/openbmc_project/control/service",
+        "org.freedesktop.DBus.ObjectManager", "GetManagedObjects");
 
 } // namespace redfish
 
