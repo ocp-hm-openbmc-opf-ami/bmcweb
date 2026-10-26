@@ -1344,7 +1344,7 @@ inline void validateParams(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             BMCWEB_LOG_ERROR("Request action parameter UserName is Missing.");
 
             messages::actionParameterMissing(asyncResp->res, "InsertMedia",
-                                             "Username");
+                                             "UserName");
 
             return;
         }
