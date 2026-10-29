@@ -15,6 +15,7 @@
 #include "registries_selector.hpp"
 #include "snmp_trap_event_clients.hpp"
 #include "utils/json_utils.hpp"
+#include "utils/ssl_cert_utils.hpp"
 
 #include <stdlib.h>
 
@@ -611,44 +612,75 @@ inline void readSSLContext(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             continue;
         }
 
+        std::string partType;
+        std::string partFileName;
         for (const auto& param :
              boost::beast::http::param_list{it->value().substr(index)})
         {
-            if (param.second.empty())
+            if (param.first == "name")
             {
-                continue;
+                partType = param.second;
             }
-            else
+            else if (param.first == "filename")
             {
-                SSLFileName = param.second;
-                std::cerr << "Read SSl Original files Name " << SSLFileName
-                          << "\n";
-                if (SSLFileName.substr(SSLFileName.find_last_of(".") + 1) ==
-                    "crt")
-                {
-                    uploadData = &(formpart.content);
-                    SSLFileName = configurationType + "_server.crt";
-                }
-                else if (SSLFileName.substr(
-                             SSLFileName.find_last_of(".") + 1) == "pem")
-                {
-                    uploadData = &(formpart.content);
-                    SSLFileName = configurationType + "_cacert.pem";
-                }
-                else if (SSLFileName.substr(
-                             SSLFileName.find_last_of(".") + 1) == "key")
-                {
-                    uploadData = &(formpart.content);
-                    SSLFileName = configurationType + "_server.key";
-                }
-                else
-                    messages::propertyValueTypeError(
-                        asyncResp->res, SSLFileName, "InValid Format");
-
-                std::cerr << "Read SSl Rename files Name " << SSLFileName
-                          << "\n";
+                partFileName = param.second;
             }
         }
+
+        if (partType.empty() && partFileName.empty())
+        {
+            messages::propertyMissing(asyncResp->res,
+                                      "SSL Certificate Type and File");
+            return;
+        }
+
+        if (!partFileName.ends_with(".pem"))
+        {
+            messages::actionParameterValueFormatError(
+                asyncResp->res, partFileName, "filename",
+                "SSLCertificateUpload (allowed only .pem)");
+            return;
+        }
+
+        if (partType == "CACERT")
+        {
+            if (!ssl_cert_utils::verifyCaCertificate(formpart.content))
+            {
+                messages::propertyValueIncorrect(asyncResp->res,
+                                                 "CACertificate", partFileName);
+                return;
+            }
+            SSLFileName = configurationType + "_cacert.pem";
+        }
+        else if (partType == "ServerCRT")
+        {
+            if (!ssl_cert_utils::verifyServerCertificate(formpart.content))
+            {
+                messages::propertyValueIncorrect(
+                    asyncResp->res, "ServerCertificate", partFileName);
+                return;
+            }
+            SSLFileName = configurationType + "_server.crt";
+        }
+        else if (partType == "ServerKey")
+        {
+            if (!ssl_cert_utils::verifyPrivateKey(formpart.content))
+            {
+                messages::propertyValueIncorrect(asyncResp->res, "ServerKey",
+                                                 partFileName);
+                return;
+            }
+            SSLFileName = configurationType + "_server.key";
+        }
+        else
+        {
+            messages::propertyValueIncorrect(
+                asyncResp->res, partType,
+                "Upload a valid " + partType +
+                    " certificate (allowed only CACERT, ServerCRT and ServerKey)");
+            return;
+        }
+        uploadData = &(formpart.content);
     }
 
     if (uploadData == nullptr)
