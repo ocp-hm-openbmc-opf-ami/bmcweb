@@ -246,11 +246,13 @@ inline void requestRoutes(App& app)
         std::filesystem::begin(dirIter), std::filesystem::end(dirIter));
     std::sort(paths.rbegin(), paths.rend());
 
+    // Redfish tree is served by the API routes, not static hosting.
+    const std::string redfishRoot = std::string(rootpath) + "redfish/";
+
     for (const std::filesystem::directory_entry& dir : paths)
     {
-        // skip the redfish directories
         std::string pathStr = dir.path().string();
-        if (pathStr.find("/redfish") != std::string::npos)
+        if (pathStr.starts_with(redfishRoot))
         {
             continue;
         }

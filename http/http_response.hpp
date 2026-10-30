@@ -230,10 +230,14 @@ struct Response
         if (is1XXReturn || result() == status::no_content ||
             result() == status::not_modified)
         {
-            BMCWEB_LOG_CRITICAL("{} Response content provided but code was "
-                                "no-content or not_modified, which aren't "
-                                "allowed to have a body",
-                                logPtr(this));
+            // An empty body is valid here, so log only real protocol errors.
+            if (*pSize > 0)
+            {
+                BMCWEB_LOG_CRITICAL("{} Response content provided but code was "
+                                    "no-content or not_modified, which aren't "
+                                    "allowed to have a body",
+                                    logPtr(this));
+            }
             response.content_length(0);
             return;
         }

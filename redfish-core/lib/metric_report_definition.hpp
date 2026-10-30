@@ -662,12 +662,34 @@ inline bool getValidationDuration(
     {
         return false;
     }
+    if (!collectionDurationStr || !scheduleDurationStr)
+    {
+        return true;
+    }
 
     std::optional<std::chrono::milliseconds> collectionDuration =
         time_utils::fromDurationString(*collectionDurationStr);
 
     std::optional<std::chrono::milliseconds> scheduleDuration =
         time_utils::fromDurationString(*scheduleDurationStr);
+
+    if (collectionDurationStr && !collectionDuration)
+    {
+        messages::propertyValueFormatError(res, *collectionDurationStr,
+                                           "CollectionDuration");
+    }
+
+    if (scheduleDurationStr && !scheduleDuration)
+    {
+        messages::propertyValueFormatError(res, *scheduleDurationStr,
+                                           "RecurrenceInterval");
+    }
+
+    if ((collectionDurationStr && !collectionDuration) ||
+        (scheduleDurationStr && !scheduleDuration))
+    {
+        return false;
+    }
 
     if (scheduleDuration->count() < collectionDuration->count())
     {
@@ -678,7 +700,7 @@ inline bool getValidationDuration(
     return true;
 }
 
-inline void validateDuration(crow::Response& res,
+inline bool validateDuration(crow::Response& res,
                              std::span<nlohmann::json::object_t> metric,
                              std::optional<std::string> scheduleDurationStr)
 {
@@ -686,9 +708,10 @@ inline void validateDuration(crow::Response& res,
     {
         if (!getValidationDuration(res, m, scheduleDurationStr))
         {
-            return;
+            return false;
         }
     }
+    return true;
 }
 
 inline bool getUserMetrics(crow::Response& res,
@@ -816,13 +839,17 @@ class ReportUserArgs
 
         if (metrics)
         {
-            if (metrics && scheduleDurationStr)
+            if (scheduleDurationStr)
             {
                 std::optional<std::vector<nlohmann::json::object_t>>
                     updatedMetrics;
                 updatedMetrics = metrics;
 
-                validateDuration(res, *updatedMetrics, scheduleDurationStr);
+                if (!validateDuration(res, *updatedMetrics,
+                                      scheduleDurationStr))
+                {
+                    return false;
+                }
             }
 
             if (!getUserMetrics(res, *metrics, args.metrics))
@@ -975,6 +1002,10 @@ class AddReport
     void insert(const std::map<std::string, std::string>& el)
     {
         uriToDbus.insert(el.begin(), el.end());
+    }
+    void setType(AddReportType newType)
+    {
+        type = newType;
     }
 
   private:
@@ -1271,29 +1302,19 @@ inline void setReportMetrics(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, std::string_view id,
     std::span<nlohmann::json::object_t> metrics)
 {
-    dbus::utility::getAllProperties(
-        telemetry::service, telemetry::getDbusReportPath(id),
-        telemetry::reportInterface,
+    // Read only the property used below instead of every report property.
+    sdbusplus::asio::getProperty<ReadingParameters>(
+        *crow::connections::systemBus, telemetry::service,
+        telemetry::getDbusReportPath(id), telemetry::reportInterface,
+        "ReadingParameters",
         [asyncResp, id = std::string(id),
          redfishMetrics = std::vector<nlohmann::json::object_t>(
-             metrics.begin(), metrics.end())](
-            boost::system::error_code ec,
-            const dbus::utility::DBusPropertiesMap& properties) mutable {
+             metrics.begin(),
+             metrics.end())](boost::system::error_code ec,
+                             const ReadingParameters& readingParams) mutable {
             ErrorVerificator ev(asyncResp->res, ec);
             if (!ev.verify(id))
             {
-                return;
-            }
-
-            ReadingParameters readingParams;
-
-            const bool success = sdbusplus::unpackPropertiesNoThrow(
-                dbus_utils::UnpackErrorPrinter(), properties,
-                "ReadingParameters", readingParams);
-
-            if (!success)
-            {
-                messages::internalError(asyncResp->res);
                 return;
             }
 
@@ -1497,13 +1518,39 @@ inline void handleReportPut(App& app, const crow::Request& req,
 
     const std::string reportPath = getDbusReportPath(id);
 
+    // Create AddReport upfront so URI resolution and delete run in parallel.
+    // The shared_ptr destructor fires performAddReport only after both the
+    // delete callback and all retrieveUriToDbusMap callbacks release their
+    // references.
+    auto addReportReq = std::make_shared<telemetry::AddReport>(
+        std::move(args), std::move(userArgs), asyncResp,
+        telemetry::AddReportType::replace);
+
+    // Start URI resolution (independent of delete)
+    for (const auto& [chassis, sensorType] : chassisSensors)
+    {
+        retrieveUriToDbusMap(
+            chassis, sensorType,
+            [asyncResp, addReportReq](
+                const boost::beast::http::status status,
+                const std::map<std::string, std::string>& uriToDbus) {
+                if (status != boost::beast::http::status::ok)
+                {
+                    BMCWEB_LOG_ERROR(
+                        "Failed to retrieve URI to dbus sensors map with err {}",
+                        static_cast<unsigned>(status));
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+                addReportReq->insert(uriToDbus);
+            });
+    }
+
+    // Start delete in parallel with URI resolution
+
     crow::connections::systemBus->async_method_call(
-        [asyncResp, reportId = std::string(id), args = std::move(args),
-         userArgs = std::move(userArgs),
-         chassisSensors = std::move(chassisSensors)](
-            const boost::system::error_code& ec) {
-            telemetry::AddReportType addReportMode =
-                telemetry::AddReportType::replace;
+        [asyncResp, addReportReq,
+         reportId = std::string(id)](const boost::system::error_code& ec) {
             if (ec)
             {
                 if (ec.value() != EBADR)
@@ -1514,17 +1561,10 @@ inline void handleReportPut(App& app, const crow::Request& req,
                 }
                 BMCWEB_LOG_INFO("Report not found, creating new report: {}",
                                 reportId);
-                addReportMode = telemetry::AddReportType::create;
+                // Delete reports EBADR when absent, so AddReport must create
+                // rather than replace the report.
+                addReportReq->setType(telemetry::AddReportType::create);
             }
-
-            auto addReportReq = std::make_shared<telemetry::AddReport>(
-                args, userArgs, asyncResp, addReportMode);
-            retrieveMetricPropertyToDbusPaths(
-                chassisSensors, [asyncResp, addReportReq](
-                                    const std::map<std::string, std::string>&
-                                        metricPropertyToDbusPaths) {
-                    addReportReq->insert(metricPropertyToDbusPaths);
-                });
         },
         service, reportPath, "xyz.openbmc_project.Object.Delete", "Delete");
 }
