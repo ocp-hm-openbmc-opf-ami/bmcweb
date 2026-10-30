@@ -1705,6 +1705,56 @@ constexpr std::array registry =
                 {},
                 "Verify the remote server is reachable and retry the operation."
             }},
+    MessageEntry{
+        "HttpsLogin",
+        {
+            "Indicates that the user has logged in via HTTPS.",
+            "HTTPS login from %2 user:%1",
+            "OK",
+            2,
+            {"string","string"},
+            "No Resolution",
+        }},
+    MessageEntry{
+        "HttpsLogout",
+        {
+            "Indicates that the user has logged out via HTTPS.",
+            "HTTPS logout from %2 user:%1",
+            "OK",
+            2,
+            {"string","string"},
+            "No Resolution",
+        }},
+    MessageEntry{
+        "SshLogin",
+        {
+            "Indicates that the user has logged in via SSH.",
+            "ssh login from %2 user:%1",
+            "OK",
+            2,
+            {"string","string"},
+            "No Resolution",
+        }},
+    MessageEntry{
+        "SshLogout",
+        {
+            "Indicates that the user has logged out via SSH.",
+            "ssh logout from %2 user:%1",
+            "OK",
+            2,
+            {"string","string"},
+            "No Resolution",
+        }},
+    MessageEntry{
+        "HttpsLoginFailed",
+        {
+            "Indicates that a login attempt via HTTPS failed due to an invalid username or password.",
+            "HTTPS login failed from IP:%2 user:%1",
+            "Warning",
+            2,
+            {"string", "string"},
+            "Verify the username and password and retry the login.",
+        }},
 };
 
 enum class Index
@@ -1871,6 +1921,11 @@ enum class Index
     remoteServiceConnectionRefused = 159,
     virtualMediaHttpsTransferFailed = 160,
     remoteServiceTimeout = 161,
+    httpsLogin = 162,
+    httpsLogout = 163,
+    sshLogin = 164,
+    sshLogout = 165,
+    httpsLoginFailed = 166
 };
 } // namespace redfish::registries::amionetree
  

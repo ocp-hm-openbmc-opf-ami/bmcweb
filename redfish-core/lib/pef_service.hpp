@@ -159,7 +159,6 @@ inline void addEventFilterSensorDetails(
 
 struct PefPatchParams
 {
-    std::optional<std::vector<uint8_t>> filterEnable;
     std::optional<int64_t> retryCountLimit;
     std::optional<int64_t> retryTimeInterval;
     std::optional<int64_t> pendingAlertsLimit;
@@ -168,101 +167,11 @@ struct PefPatchParams
 
     bool hasValue() const
     {
-        return filterEnable.has_value() || pefActionGblControl.has_value() ||
-               retryEnable.has_value() || retryCountLimit.has_value() ||
-               retryTimeInterval.has_value() || pendingAlertsLimit.has_value();
+        return pefActionGblControl.has_value() || retryEnable.has_value() ||
+               retryCountLimit.has_value() || retryTimeInterval.has_value() ||
+               pendingAlertsLimit.has_value();
     }
 };
-
-inline void getFilterEnable(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
-{
-    crow::connections::systemBus->async_method_call(
-        [aResp](const boost::system::error_code ec,
-                const GetSubTreeType& subtreeLocal) {
-            if (ec || subtreeLocal.empty())
-            {
-                BMCWEB_LOG_ERROR("GetFilterEnable: Error");
-                messages::internalError(aResp->res);
-                return;
-            }
-            if (subtreeLocal[0].second.size() != 1)
-            {
-                // invalid mapper response, should never happen
-                BMCWEB_LOG_ERROR("GetPefAlertSensorNumberIface: Mapper Error");
-                messages::internalError(aResp->res);
-                return;
-            }
-            const std::string& path = subtreeLocal[0].first;
-            const std::string& owner = subtreeLocal[0].second[0].first;
-
-            crow::connections::systemBus->async_method_call(
-                [path, owner, aResp](const boost::system::error_code ec2,
-                                     std::vector<uint8_t>& resp) {
-                    if (ec2)
-                    {
-                        BMCWEB_LOG_ERROR("GetPefAlert: Can't get "
-                                         "pefAlertSensorNumberIface ",
-                                         path);
-                        messages::internalError(aResp->res);
-                        return;
-                    }
-                    const std::vector<uint8_t>* filterEnable = &resp;
-                    if (filterEnable == nullptr)
-                    {
-                        BMCWEB_LOG_ERROR("Field Illegal FilterEnable");
-                        messages::internalError(aResp->res);
-                        return;
-                    }
-                    aResp->res.jsonValue["FilterEnable"] = *filterEnable;
-                },
-                owner, path, pefAlertSensorNumberIface, "GetFilterEnable");
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree", "/", 0,
-        std::array<const char*, 1>{pefAlertSensorNumberIface});
-}
-
-inline void setFilterEnable(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-                            std::vector<uint8_t>& filterEnable)
-{
-    crow::connections::systemBus->async_method_call(
-        [aResp, filterEnable](const boost::system::error_code ec,
-                              const GetSubTreeType& subtreeLocal) {
-            if (ec || subtreeLocal.empty())
-            {
-                BMCWEB_LOG_ERROR("SetFilterEnable: Error");
-                messages::internalError(aResp->res);
-                return;
-            }
-            if (subtreeLocal[0].second.size() != 1)
-            {
-                // invalid mapper response, should never happen
-                BMCWEB_LOG_ERROR("GetPefAlertSensorNumberIface: Mapper Error");
-                messages::internalError(aResp->res);
-                return;
-            }
-            const std::string& path = subtreeLocal[0].first;
-            const std::string& owner = subtreeLocal[0].second[0].first;
-
-            crow::connections::systemBus->async_method_call(
-                [aResp, filterEnable](const boost::system::error_code ec2) {
-                    if (ec2)
-                    {
-                        BMCWEB_LOG_ERROR(
-                            "Set Property SetFilterEnable: Set Error");
-                        messages::internalError(aResp->res);
-                        return;
-                    }
-                },
-                owner, path, pefAlertSensorNumberIface, "SetFilterEnable",
-                std::vector<uint8_t>{filterEnable});
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree", "/", 0,
-        std::array<const char*, 1>{pefAlertSensorNumberIface});
-}
 
 inline void getPefConfParam(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
 {
@@ -763,40 +672,6 @@ inline void handlePefPatch(PefPatchParams&& input,
                                               "PendingAlertsLimit");
         }
     }
-
-    if (input.filterEnable)
-    {
-        bool filterEnableValid = true;
-        if (input.filterEnable->size() != 18)
-        {
-            pefAnyFailure = true;
-            messages::propertyValueIncorrect(
-                asyncResp->res, "FilterEnable",
-                "Array must contain exactly 18 elements");
-            filterEnableValid = false;
-        }
-        else
-        {
-            // Check each element is 0 or 1
-            for (uint8_t val : *input.filterEnable)
-            {
-                if (val != 0 && val != 1)
-                {
-                    pefAnyFailure = true;
-                    messages::propertyValueIncorrect(
-                        asyncResp->res, "FilterEnable",
-                        "Each element must be 0 or 1");
-                    filterEnableValid = false;
-                    break;
-                }
-            }
-        }
-        if (filterEnableValid)
-        {
-            setFilterEnable(asyncResp, *input.filterEnable);
-            pefAnySuccess = true;
-        }
-    }
     if (input.pefActionGblControl)
     {
         setPefConfParam(asyncResp, input.pefActionGblControl);
@@ -845,7 +720,6 @@ void getPefServiceInfo(crow::App& app, const crow::Request& req,
         {"Description", "Pef Service Collections"}};
 
     getPefServiceMembers(aResp);
-    getFilterEnable(aResp);
     getPefConfParam(aResp);
     getRetryConfiguration(aResp);
 }
@@ -2204,9 +2078,8 @@ inline void requestRoutesPefService(App& app)
 
             PefPatchParams pefConfig;
 
-            if (!json_util::readJsonPatch(                                //
-                    req, aResp->res,                                      //
-                    "FilterEnable", pefConfig.filterEnable,               //
+            if (!json_util::readJsonPatch( //
+                    req, aResp->res,       //              //
                     "PEFActionGblControl", pefConfig.pefActionGblControl, //
                     "RetryEnable", pefConfig.retryEnable,                 //
                     "RetryCountLimit", pefConfig.retryCountLimit,         //

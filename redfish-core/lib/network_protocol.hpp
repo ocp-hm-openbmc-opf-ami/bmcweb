@@ -195,6 +195,7 @@ inline void getSNMPProperties(
                 return;
             }
 
+            const bool* snmpProtocolEnabled = nullptr;
             const bool* snmpTrapStatus = nullptr;
             const bool* enableSNMPV1 = nullptr;
             const bool* enableSNMPV2 = nullptr;
@@ -202,8 +203,9 @@ inline void getSNMPProperties(
 
             const bool success = sdbusplus::unpackPropertiesNoThrow(
                 dbus_utils::UnpackErrorPrinter(), propertiesList,
-                "SnmpTrapStatus", snmpTrapStatus, "EnableSNMPV1", enableSNMPV1,
-                "EnableSNMPV2", enableSNMPV2, "EnableSNMPV3", enableSNMPV3);
+                "SnmpProtocolStatus", snmpProtocolEnabled, "SnmpTrapStatus",
+                snmpTrapStatus, "EnableSNMPV1", enableSNMPV1, "EnableSNMPV2",
+                enableSNMPV2, "EnableSNMPV3", enableSNMPV3);
 
             if (!success)
             {
@@ -211,9 +213,15 @@ inline void getSNMPProperties(
                 return;
             }
 
-            if (snmpTrapStatus != nullptr)
+            if (snmpProtocolEnabled != nullptr)
             {
                 asyncResp->res.jsonValue["SNMP"]["ProtocolEnabled"] =
+                    *snmpProtocolEnabled;
+            }
+            if (snmpTrapStatus != nullptr)
+            {
+                asyncResp->res
+                    .jsonValue["Oem"]["Ami"]["SNMP"]["SNMPTrapStatus"] =
                     *snmpTrapStatus;
             }
             if (enableSNMPV1 != nullptr)
@@ -577,35 +585,127 @@ inline void getNetworkData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 BMCWEB_REDFISH_MANAGER_URI_NAME);
     }
 
-    for (const auto& protocol : networkProtocolToDbus)
-    {
-        const std::string& protocolName = protocol.first;
-        const std::string& serviceName = protocol.second;
-
-        BMCWEB_LOG_DEBUG("protocolName {}", protocolName);
-        BMCWEB_LOG_DEBUG("serviceName {}", serviceName);
-        if (ipmbServiceName == serviceName)
-        {
-            service_util::getEnabled(
-                asyncResp, serviceName,
-                nlohmann::json::json_pointer(
-                    "/Oem/Ami/" + protocolName + "/ProtocolEnabled"));
-        }
-        else
-        {
-            if (ipmiServiceName != serviceName)
+    // Fetch all service manager objects in ONE call instead of ~8 separate
+    // GetManagedObjects calls (one per protocol per property).
+    crow::connections::systemBus->async_method_call(
+        [asyncResp](const boost::system::error_code ec,
+                    const dbus::utility::ManagedObjectType& objects) {
+            if (ec)
             {
-                service_util::getEnabled(
-                    asyncResp, serviceName,
-                    nlohmann::json::json_pointer(
-                        std::string("/") + protocolName + "/ProtocolEnabled"));
+                BMCWEB_LOG_ERROR("Failed to get service manager objects: {}",
+                                 ec);
+                messages::internalError(asyncResp->res);
+                return;
             }
-            service_util::getPortNumber(
-                asyncResp, serviceName,
-                nlohmann::json::json_pointer(
-                    std::string("/") + protocolName + "/Port"));
-        }
-    }
+
+            // Traverse GetManagedObjects response to extract Enabled/Port for
+            // each protocol
+            for (const auto& protocol : networkProtocolToDbus)
+            {
+                const std::string& protocolName = protocol.first;
+                const std::string& serviceName = protocol.second;
+                bool serviceFound = false;
+                bool enabledFound = false;
+                // Traverse all returned D-Bus object paths
+                for (const auto& [path, interfaces] : objects)
+                {
+                    // Match the path against the expected service name
+                    if (!service_util::matchService(path, serviceName))
+                    {
+                        continue;
+                    }
+
+                    serviceFound = true;
+
+                    // Inspect each interface under the matched service
+                    for (const auto& [interface, properties] : interfaces)
+                    {
+                        // Look for "Enabled" property under Service.Attributes
+                        if (interface ==
+                            "xyz.openbmc_project.Control.Service.Attributes")
+                        {
+                            for (const auto& [key, val] : properties)
+                            {
+                                if (key == "Enabled")
+                                {
+                                    const auto* enabled =
+                                        std::get_if<bool>(&val);
+                                    if (enabled == nullptr)
+                                    {
+                                        BMCWEB_LOG_ERROR(
+                                            "Enabled property has wrong type for {}",
+                                            protocolName);
+                                        continue;
+                                    }
+                                    enabledFound = true;
+                                    // Write Enabled flag into JSON response
+                                    if (serviceName == ipmbServiceName)
+                                    {
+                                        asyncResp->res
+                                            .jsonValue["Oem"]["Ami"]
+                                                      [protocolName]
+                                                      ["ProtocolEnabled"] =
+                                            *enabled;
+                                    }
+                                    else if (serviceName != ipmiServiceName)
+                                    {
+                                        asyncResp->res
+                                            .jsonValue[protocolName]
+                                                      ["ProtocolEnabled"] =
+                                            *enabled;
+                                    }
+                                }
+                            }
+                        }
+                        // Look for "Port" property under
+                        // Service.SocketAttributes
+                        if (interface ==
+                                "xyz.openbmc_project.Control.Service.SocketAttributes" &&
+                            serviceName != ipmbServiceName)
+                        {
+                            for (const auto& [key, val] : properties)
+                            {
+                                if (key == "Port")
+                                {
+                                    const auto* port =
+                                        std::get_if<uint16_t>(&val);
+                                    if (port != nullptr)
+                                    {
+                                        // Write Port into JSON response
+                                        asyncResp->res
+                                            .jsonValue[protocolName]["Port"] =
+                                            *port;
+                                    }
+                                    else
+                                    {
+                                        BMCWEB_LOG_WARNING(
+                                            "Port property has wrong type for {}",
+                                            protocolName);
+                                    }
+                                    break; // Done with Port property
+                                }
+                            }
+                        }
+                    }
+                    break; // Found the matching service, move to next protocol
+                }
+
+                // Log if service or enabled property was not found
+                if (!serviceFound)
+                {
+                    BMCWEB_LOG_WARNING("Service not found for protocol: {}",
+                                       protocolName);
+                }
+                else if (!enabledFound)
+                {
+                    BMCWEB_LOG_WARNING(
+                        "Enabled property not found for protocol: {}",
+                        protocolName);
+                }
+            }
+        },
+        serviceManagerService, "/xyz/openbmc_project/control/service",
+        "org.freedesktop.DBus.ObjectManager", "GetManagedObjects");
 
 } // namespace redfish
 
@@ -1397,21 +1497,21 @@ inline void handleBmcNetworkProtocolHead(
         "</redfish/v1/JsonSchemas/ManagerNetworkProtocol/ManagerNetworkProtocol.json>; rel=describedby");
 }
 
-// Common helper to set a bool property on the SNMP SnmpUtils D-Bus object
 inline void setSnmpUtilsProperty(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& propertyName, bool value)
 {
-    sdbusplus::asio::setProperty(
-        *crow::connections::systemBus, snmpConfService, snmpConfObject,
-        snmpConfIface, propertyName, value,
+    crow::connections::systemBus->async_method_call(
         [asyncResp, propertyName](const boost::system::error_code& ec) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("D-Bus set {} error: {}", propertyName, ec);
                 messages::internalError(asyncResp->res);
+                return;
             }
-        });
+        },
+        snmpConfService, snmpConfObject, "org.freedesktop.DBus.Properties",
+        "Set", snmpConfIface, propertyName, std::variant<bool>(value));
 }
 
 inline void handleManagersNetworkProtocolPatch(
@@ -1451,6 +1551,7 @@ inline void handleManagersNetworkProtocolPatch(
     std::optional<bool> enableSNMPv2c;
     std::optional<bool> enableSNMPv3;
     std::optional<bool> snmpEnabled;
+    std::optional<bool> oemSnmpTrapStatus;
     std::optional<
         std::vector<std::variant<nlohmann::json::object_t, std::nullptr_t>>>
         oemCommunityStrings;
@@ -1467,7 +1568,8 @@ inline void handleManagersNetworkProtocolPatch(
             ipmbRunning, "Oem/Ami/IPMI/Running", ipmiRunning,
             "Oem/Ami/IPMI/Masked", ipmiMasked, "Oem/Ami/SSH/Masked", sshMasked,
             "Oem/Ami/SSH/Running", sshRunning, "Oem/Ami/SNMP/CommunityStrings",
-            oemCommunityStrings))
+            oemCommunityStrings, "Oem/Ami/SNMP/SNMPTrapStatus",
+            oemSnmpTrapStatus))
     {
         return;
     }
@@ -1625,101 +1727,27 @@ inline void handleManagersNetworkProtocolPatch(
 
     if (!isInValid)
     {
-        // If disabling SNMP, force all version flags to false as well
-        if (snmpEnabled && !(*snmpEnabled))
+        if (snmpEnabled)
         {
-            // Reject if caller also tries to enable any version flag
-            if ((enableSNMPv1 && *enableSNMPv1) ||
-                (enableSNMPv2c && *enableSNMPv2c) ||
-                (enableSNMPv3 && *enableSNMPv3))
-            {
-                BMCWEB_LOG_ERROR(
-                    "Conflicting request: cannot enable SNMP version "
-                    "flags while disabling SNMP service");
-                messages::propertyValueConflict(
-                    asyncResp->res, "EnableSNMPv1/EnableSNMPv2c/EnableSNMPv3",
-                    "SNMP/ProtocolEnabled");
-                asyncResp->res.result(boost::beast::http::status::bad_request);
-                return;
-            }
-            setSnmpUtilsProperty(asyncResp, "SnmpTrapStatus", false);
-            setSnmpUtilsProperty(asyncResp, "EnableSNMPV1", false);
-            setSnmpUtilsProperty(asyncResp, "EnableSNMPV2", false);
-            setSnmpUtilsProperty(asyncResp, "EnableSNMPV3", false);
+            setSnmpUtilsProperty(asyncResp, "SnmpProtocolStatus", *snmpEnabled);
         }
-        else
-        {
-            if (snmpEnabled && *snmpEnabled)
-            {
-                setSnmpUtilsProperty(asyncResp, "SnmpTrapStatus", true);
-            }
 
-            if (enableSNMPv1 || enableSNMPv2c || enableSNMPv3)
-            {
-                if (snmpEnabled && *snmpEnabled)
-                {
-                    // SNMP being enabled in same request — safe to patch
-                    // versions
-                    if (enableSNMPv1)
-                    {
-                        setSnmpUtilsProperty(asyncResp, "EnableSNMPV1",
-                                             *enableSNMPv1);
-                    }
-                    if (enableSNMPv2c)
-                    {
-                        setSnmpUtilsProperty(asyncResp, "EnableSNMPV2",
-                                             *enableSNMPv2c);
-                    }
-                    if (enableSNMPv3)
-                    {
-                        setSnmpUtilsProperty(asyncResp, "EnableSNMPV3",
-                                             *enableSNMPv3);
-                    }
-                }
-                else
-                {
-                    // Check current SnmpTrapStatus before patching versions
-                    dbus::utility::getProperty<bool>(
-                        snmpConfService, snmpConfObject, snmpConfIface,
-                        "SnmpTrapStatus",
-                        [asyncResp, enableSNMPv1, enableSNMPv2c,
-                         enableSNMPv3](const boost::system::error_code& ec,
-                                       bool snmpStatus) {
-                            if (ec)
-                            {
-                                messages::internalError(asyncResp->res);
-                                return;
-                            }
-                            if (!snmpStatus)
-                            {
-                                BMCWEB_LOG_ERROR(
-                                    "SNMP service is disabled; cannot "
-                                    "patch version flags");
-                                messages::propertyValueConflict(
-                                    asyncResp->res,
-                                    "EnableSNMPv1/EnableSNMPv2c/"
-                                    "EnableSNMPv3",
-                                    "SNMP/ProtocolEnabled");
-                                return;
-                            }
-                            if (enableSNMPv1)
-                            {
-                                setSnmpUtilsProperty(asyncResp, "EnableSNMPV1",
-                                                     *enableSNMPv1);
-                            }
-                            if (enableSNMPv2c)
-                            {
-                                setSnmpUtilsProperty(asyncResp, "EnableSNMPV2",
-                                                     *enableSNMPv2c);
-                            }
-                            if (enableSNMPv3)
-                            {
-                                setSnmpUtilsProperty(asyncResp, "EnableSNMPV3",
-                                                     *enableSNMPv3);
-                            }
-                        });
-                }
-            }
+        if (enableSNMPv1)
+        {
+            setSnmpUtilsProperty(asyncResp, "EnableSNMPV1", *enableSNMPv1);
+        }
+        if (enableSNMPv2c)
+        {
+            setSnmpUtilsProperty(asyncResp, "EnableSNMPV2", *enableSNMPv2c);
+        }
+        if (enableSNMPv3)
+        {
+            setSnmpUtilsProperty(asyncResp, "EnableSNMPV3", *enableSNMPv3);
+        }
+        if (oemSnmpTrapStatus)
+        {
+            setSnmpUtilsProperty(asyncResp, "SnmpTrapStatus",
+                                 *oemSnmpTrapStatus);
         }
 
         if (communityStrings && oemCommunityStrings)
