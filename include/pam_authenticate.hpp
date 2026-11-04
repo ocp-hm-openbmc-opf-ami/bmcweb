@@ -183,6 +183,18 @@ inline int pamAuthenticateUser(
 
     bool pamMaxerror;
 
+    std::string ipaddr;
+    if (!ip.is_unspecified())
+    {
+        ipaddr = ip.to_string();
+        if (ip.is_v6() && ip.to_v6().is_v4_mapped())
+        {
+            ipaddr = boost::asio::ip::make_address_v4(
+                         boost::asio::ip::v4_mapped, ip.to_v6())
+                         .to_string();
+        }
+    }
+
     int retval = pam_start(serviceType.c_str(), userStr.c_str(),
                            &localConversation, &localAuthHandle);
     if (retval != PAM_SUCCESS)
@@ -202,7 +214,9 @@ inline int pamAuthenticateUser(
             sdbusplus::message::message m = bus.new_method_call(
                 "xyz.openbmc_project.Logging", "/xyz/openbmc_project/logging",
                 "xyz.openbmc_project.Logging.Create", "Create");
-            std::string journalMsg = "InvalidLoginAttempted:HTTPS";
+
+            std::string journalMsg =
+                "AmiOneTree.1.0.HttpsLoginFailed," + userStr + "," + ipaddr;
 
             m.append(journalMsg, severity,
                      std::map<std::string, std::string>());
@@ -231,15 +245,8 @@ inline int pamAuthenticateUser(
         return retval;
     }
 
-    if (!ip.is_unspecified())
+    if (!ipaddr.empty())
     {
-        auto ipaddr = ip.to_string();
-        if (ip.is_v6() && ip.to_v6().is_v4_mapped())
-        {
-            ipaddr = boost::asio::ip::make_address_v4(
-                         boost::asio::ip::v4_mapped, ip.to_v6())
-                         .to_string();
-        }
         retval = pam_set_item(localAuthHandle, PAM_RHOST, ipaddr.c_str());
         if (retval != PAM_SUCCESS)
         {

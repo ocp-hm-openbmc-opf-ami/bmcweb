@@ -2567,6 +2567,16 @@ inline void handleUpdateServicePatch(
                 {
                     return;
                 }
+                // AUTHENTICATION and SNMP are linked system dependencies;
+                // keep them in sync unless both are explicitly specified.
+                if (authentication && !snmp)
+                {
+                    snmp = authentication;
+                }
+                else if (snmp && !authentication)
+                {
+                    authentication = snmp;
+                }
                 std::string preserve_config =
                     "/xyz/openbmc_project/inventory/system/configuration/Preserve_Configuration/";
                 std::string network_config =

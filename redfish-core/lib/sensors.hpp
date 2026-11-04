@@ -23,7 +23,10 @@
 #include <sdbusplus/unpack_properties.hpp>
 
 #include <array>
+#include <chrono>
 #include <cmath>
+#include <filesystem>
+#include <fstream>
 #include <iterator>
 #include <limits>
 #include <map>
@@ -31,6 +34,7 @@
 #include <set>
 #include <string>
 #include <string_view>
+#include <unordered_set>
 #include <utility>
 #include <variant>
 
@@ -75,12 +79,15 @@ constexpr auto getSensorPaths(){
         "/xyz/openbmc_project/sensors/os",
         "/xyz/openbmc_project/sensors/watchdog",
 	    "/xyz/openbmc_project/sensors/logging",
+        "/xyz/openbmc_project/sensors/systemevent",
+        "/xyz/openbmc_project/sensors/powerunit",
         "/xyz/openbmc_project/sensors/flowrate",
         "/xyz/openbmc_project/sensors/tach",
         "/xyz/openbmc_project/sensors/pwm",
         "/xyz/openbmc_project/sensors/hours",
         "/xyz/openbmc_project/sensors/pressurekpa",
         "/xyz/openbmc_project/sensors/discrete",
+        "/xyz/openbmc_project/sensors/base_unit",
 	"/xyz/openbmc_project/sensors/count/"});
     } else {
       return  std::to_array<std::string_view>({"/xyz/openbmc_project/sensors/power",
@@ -96,7 +103,9 @@ constexpr auto getSensorPaths(){
         "/xyz/openbmc_project/sensors/powerunit",
         "/xyz/openbmc_project/sensors/acpisystem",
         "/xyz/openbmc_project/sensors/powersupply",
-        "/xyz/openbmc_project/sensors/os"
+        "/xyz/openbmc_project/sensors/os",
+        "/xyz/openbmc_project/sensors/systemevent",
+        "/xyz/openbmc_project/sensors/base_unit"
         });
 }
 }
@@ -2996,10 +3005,12 @@ inline void handleSensorThreshGet(
             return;
         }
 
-        constexpr std::array<std::string_view, 3> interfaces = {
+        constexpr std::array<std::string_view, 5> interfaces = {
             "xyz.openbmc_project.Sensor.Value",
             "xyz.openbmc_project.Sensor.State",
-            "xyz.openbmc_project.Association.Definitions"};
+            "xyz.openbmc_project.Association.Definitions",
+            "xyz.openbmc_project.Sensor.Threshold.Warning",
+            "xyz.openbmc_project.Sensor.Threshold.Critical"};
         std::string sensorPath = "/xyz/openbmc_project/sensors/" +
                                  nameType.first + '/' + nameType.second;
         ::dbus::utility::getDbusObject(
@@ -3350,93 +3361,94 @@ inline void handleSensorThreshPatch(
     }
 }
 
-inline void filterThresholdSensors(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& chassisId, const std::string& sensorId)
+// Check the existing mapper result instead of making another D-Bus request.
+inline bool sensorHasThresholdInterface(
+    const ::dbus::utility::MapperGetObject& subtree)
 {
-    std::array<std::string, 2> interfaces = {
+    constexpr std::array<std::string_view, 2> thresholdInterfaces = {
         "xyz.openbmc_project.Sensor.Threshold.Warning",
         "xyz.openbmc_project.Sensor.Threshold.Critical"};
 
-    std::pair<std::string, std::string> nameType =
-        redfish::sensor_utils::splitSensorNameAndType(sensorId);
-    if (nameType.first.empty() || nameType.second.empty())
+    for (const auto& [service, interfaces] : subtree)
     {
-        messages::resourceNotFound(asyncResp->res, sensorId, "Sensor");
-        return;
+        static_cast<void>(service);
+        for (std::string_view thresholdIf : thresholdInterfaces)
+        {
+            if (std::ranges::find(interfaces, thresholdIf) != interfaces.end())
+            {
+                return true;
+            }
+        }
     }
-
-    crow::connections::systemBus->async_method_call(
-        [asyncResp, chassisId,
-         sensorId /*, &result*/](const boost::system::error_code ec,
-                                 const std::vector<std::string>& ifaceList) {
-            if (ec)
-            {
-                BMCWEB_LOG_DEBUG(
-                    "Error in querying GetSubTreePaths with Object Mapper. {}",
-                    ec);
-                messages::internalError(asyncResp->res);
-                return;
-            }
-            for (const std::string& objpath : ifaceList)
-            {
-                std::size_t lastSlashPos = objpath.rfind('/');
-                std::size_t secondLastSlashPos =
-                    objpath.rfind('/', lastSlashPos - 1);
-
-                std::string sensorType =
-                    objpath.substr(secondLastSlashPos + 1,
-                                   lastSlashPos - secondLastSlashPos - 1);
-                std::string sensorName = objpath.substr(lastSlashPos + 1);
-
-                std::string sensorTypeName =
-                    redfish::sensor_utils::getSensorId(sensorName, sensorType);
-
-                if (sensorTypeName == sensorId)
-                {
-                    asyncResp->res.jsonValue["Oem"]["Ami"]["SensorThreshold"]
-                                            ["@odata.id"] = boost::urls::format(
-                        "/redfish/v1/Chassis/{}/Sensors/Oem/Ami/Threshold/{}",
-                        chassisId, sensorId);
-                    return;
-                }
-                else
-                {
-                    continue;
-                }
-            }
-            return;
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
-        "/xyz/openbmc_project/sensors/", 0, interfaces);
-    return;
+    return false;
 }
 
 inline bool valideSensorWithConfFile(const std::string& sensorId)
 {
-    std::ifstream inputFile("/etc/sensor-reader-conf/configuredsensors");
-    if (inputFile.is_open())
+    size_t pos = sensorId.find('_');
+    if (pos == std::string::npos)
     {
-        std::string sensorNameSearch, fileLine;
-        size_t pos = sensorId.find('_');
-        if (pos != std::string::npos)
+        return false;
+    }
+
+    const std::string sensorNameSearch = sensorId.substr(pos + 1);
+    // Cache configured sensors and reload when the file modification time
+    // changes. This avoids scanning the file on every request while applying
+    // configuration updates.
+    static std::unordered_set<std::string> configuredSensors;
+    static std::filesystem::file_time_type lastWriteTime =
+        std::filesystem::file_time_type::min();
+    static bool cacheLoaded = false;
+    const std::filesystem::path configuredSensorsPath(
+        "/etc/sensor-reader-conf/configuredsensors");
+
+    std::error_code writeTimeEc;
+    std::filesystem::file_time_type currentWriteTime =
+        std::filesystem::last_write_time(configuredSensorsPath, writeTimeEc);
+
+    bool shouldReload = !cacheLoaded;
+    if (!writeTimeEc && currentWriteTime != lastWriteTime)
+    {
+        shouldReload = true;
+    }
+    if (writeTimeEc)
+    {
+        // If mtime lookup fails, reload from file to avoid serving stale cache.
+        shouldReload = true;
+    }
+
+    if (shouldReload)
+    {
+        std::unordered_set<std::string> newConfiguredSensors;
+        std::ifstream inputFile(configuredSensorsPath);
+        if (inputFile.is_open())
         {
-            sensorNameSearch = sensorId.substr(pos + 1);
-            bool found = false;
+            std::string fileLine;
             while (std::getline(inputFile, fileLine))
             {
-                if (fileLine.find(sensorNameSearch) != std::string::npos)
+                if (!fileLine.empty())
                 {
-                    found = true;
-                    break;
+                    newConfiguredSensors.emplace(std::move(fileLine));
                 }
             }
-            inputFile.close();
-            return found;
         }
-        inputFile.close();
+        configuredSensors = std::move(newConfiguredSensors);
+        cacheLoaded = true;
+        if (!writeTimeEc)
+        {
+            lastWriteTime = currentWriteTime;
+        }
+        else
+        {
+            lastWriteTime = std::filesystem::file_time_type::min();
+        }
+    }
+    for (const std::string& configuredSensor : configuredSensors)
+    {
+        if (configuredSensor.find(sensorNameSearch) != std::string::npos)
+        {
+            return true;
+        }
     }
     return false;
 }
@@ -3509,31 +3521,23 @@ inline void handleSensorGet(App& app, const crow::Request& req,
             messages::resourceNotFound(asyncResp->res, sensorId, "Sensor");
             return;
         }
-        if (valideSensorWithConfFile(sensorId))
-        {
-            getSensorReading(sensorPath, [asyncResp, chassisId, sensorId](
-                                             const std::string& reading) {
-                if (reading != "nan")
-                {
-                    asyncResp->res.jsonValue["Oem"]["Ami"]
-                                            ["@odata.id"] = boost::urls::format(
-                        "/redfish/v1/Chassis/{}/Sensors/{}/Oem/SensorHistory",
-                        chassisId, sensorId);
-                }
-            });
-        }
-        filterThresholdSensors(asyncResp, chassisId, sensorId);
+        const bool hasSensorHistory = valideSensorWithConfFile(sensorId);
 
         BMCWEB_LOG_DEBUG("Sensor doGet enter");
-        constexpr std::array<std::string_view, 3> interfaces = {
+        // Include threshold interfaces here so threshold support needs no
+        // separate object-mapper request.
+        constexpr std::array<std::string_view, 5> interfaces = {
             "xyz.openbmc_project.Sensor.Value",
             "xyz.openbmc_project.Sensor.State",
-            "xyz.openbmc_project.Association.Definitions"};
+            "xyz.openbmc_project.Association.Definitions",
+            "xyz.openbmc_project.Sensor.Threshold.Warning",
+            "xyz.openbmc_project.Sensor.Threshold.Critical"};
+
         // Get a list of all of the sensors that implement Sensor.Value
         // and get the path and service name associated with the sensor
         ::dbus::utility::getDbusObject(
             sensorPath, interfaces,
-            [asyncResp, sensorId, chassisId,
+            [asyncResp, sensorId, chassisId, hasSensorHistory,
              sensorPath](const boost::system::error_code& ec,
                          const ::dbus::utility::MapperGetObject& subtree) {
                 BMCWEB_LOG_DEBUG("respHandler1 enter");
@@ -3554,6 +3558,34 @@ inline void handleSensorGet(App& app, const crow::Request& req,
                 }
                 asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
                     "/redfish/v1/Chassis/{}/Sensors/{}", chassisId, sensorId);
+                if (hasSensorHistory)
+                {
+                    if (!subtree.empty())
+                    {
+                        const std::string& service = subtree.begin()->first;
+                        ::dbus::utility::getProperty<double>(
+                            service, sensorPath,
+                            "xyz.openbmc_project.Sensor.Value", "Value",
+                            [asyncResp, chassisId, sensorId](
+                                boost::system::error_code ec1, double value) {
+                                if (!ec1 && !std::isnan(value))
+                                {
+                                    asyncResp->res.jsonValue
+                                        ["Oem"]["Ami"]
+                                        ["@odata.id"] = boost::urls::format(
+                                        "/redfish/v1/Chassis/{}/Sensors/{}/Oem/SensorHistory",
+                                        chassisId, sensorId);
+                                }
+                            });
+                    }
+                }
+                if (sensorHasThresholdInterface(subtree))
+                {
+                    asyncResp->res.jsonValue["Oem"]["Ami"]["SensorThreshold"]
+                                            ["@odata.id"] = boost::urls::format(
+                        "/redfish/v1/Chassis/{}/Sensors/Oem/Ami/Threshold/{}",
+                        chassisId, sensorId);
+                }
                 getSensorFromDbus(asyncResp, sensorPath, subtree);
                 BMCWEB_LOG_DEBUG("respHandler1 exit");
             });

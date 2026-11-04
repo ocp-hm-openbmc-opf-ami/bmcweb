@@ -69,22 +69,40 @@ class HttpBody::value_type
     }
 
     // Verify content signature matches claimed extension before writing.
-    std::optional<bool> validateByMagic() const
+    std::optional<bool> validateByMagic(bool finalChunk = false) const
     {
-        constexpr std::string_view nrgMagic = "NERO";
         constexpr size_t isoOffset = 0x8001;
         constexpr std::string_view isoMagic = "CD001";
         constexpr size_t isoNeeded = isoOffset + isoMagic.size();
+        constexpr std::string_view nrgV1Magic = "NERO"; // <-- FIX: NRG v1
+        constexpr std::string_view nrgV2Magic = "NER5"; // <-- FIX: NRG v2
+        constexpr size_t nrgV1FooterSize = 8;
+        constexpr size_t nrgV2FooterSize = 12;
 
         std::string_view data(strBody);
 
         if (expectedExtension == ".nrg")
         {
-            if (data.size() < nrgMagic.size())
+            if (data.size() < nrgV1FooterSize)
             {
-                return std::nullopt;
+                return finalChunk ? std::optional<bool>(false) : std::nullopt;
             }
-            return startsWithMagic(data, nrgMagic);
+            // Check NRG v2 first: Last 12 bytes = "NER5" + 8-byte offset
+            // Example: for a 100-byte file, check "NER5" at bytes 88-91.
+            if (data.size() >= nrgV2FooterSize &&
+                data.substr(data.size() - nrgV2FooterSize, nrgV2Magic.size()) ==
+                    nrgV2Magic)
+            {
+                return true;
+            }
+            // Check NRG v1: Last 8 bytes = "NERO" + 4-byte offset
+            // Example: for a 100-byte file, check "NERO" at bytes 92-95.
+            if (data.substr(data.size() - nrgV1FooterSize, nrgV1Magic.size()) ==
+                nrgV1Magic)
+            {
+                return true;
+            }
+            return finalChunk ? std::optional<bool>(false) : std::nullopt;
         }
 
         if (expectedExtension == ".iso")
@@ -99,19 +117,6 @@ class HttpBody::value_type
 
         if ((expectedExtension == ".img") || (expectedExtension == ".ima"))
         {
-            // IMG/IMA should be disk images, not raw MTD or other formats
-            // Reject if they have NRG or ISO magic (wrong format)
-            if ((data.size()) < (nrgMagic.size()))
-            {
-                return std::nullopt;
-            }
-            if (startsWithMagic(data, nrgMagic))
-            {
-                return false; // NRG format detected, not img/ima
-            }
-
-            // Wait until the ISO signature offset is available before trusting
-            // MBR-only validation, otherwise isohybrids can slip through.
             if (data.size() < isoNeeded)
             {
                 return std::nullopt;
@@ -150,7 +155,8 @@ class HttpBody::value_type
             return std::nullopt;
         }
 
-        return false;
+        // Extension does not require magic validation here.
+        return std::nullopt;
     }
 
   public:
@@ -218,7 +224,7 @@ class HttpBody::value_type
     }
 
     // Open file only after validation succeeds, then flush buffered data.
-    bool validateAndOpen(boost::system::error_code& ec)
+    bool validateAndOpen(boost::system::error_code& ec, bool finalChunk = false)
     {
         ec = {};
 
@@ -227,7 +233,6 @@ class HttpBody::value_type
             ec = {};
             return true;
         }
-
         auto clearDeferredValidationState = [this]() {
             extensionMagicValidationEnabled = false;
             deferredOpenPath.clear();
@@ -238,7 +243,7 @@ class HttpBody::value_type
 
         try
         {
-            std::optional<bool> state = validateByMagic();
+            std::optional<bool> state = validateByMagic(finalChunk);
             if (!state.has_value())
             {
                 // Not enough bytes buffered yet to make a signature decision.
@@ -502,9 +507,11 @@ class HttpBody::reader
         return extra;
     }
 
-    static void finish(boost::system::error_code& ec)
+    // Non-static is valid for Beast BodyReader; needed for final-chunk checks.
+    void finish(boost::system::error_code& ec)
     {
-        ec = {};
+        // NRG footer validation needs to know that no more chunks will arrive.
+        value.validateAndOpen(ec, true);
     }
 };
 

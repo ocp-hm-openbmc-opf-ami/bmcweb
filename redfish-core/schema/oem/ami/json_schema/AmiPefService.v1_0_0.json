@@ -58,15 +58,6 @@
                     "longDescription": "This property shall contain a link to a resource collection of type EventFilterTable.",
                     "readonly": true
                 },
-                "FilterEnable": {
-                    "description": "The array of different filters required for AmiPefService.",
-                    "items": {
-                        "type": "integer"
-                    },
-                    "longDescription": "This property shall contain the array of bytes of different sensors filters flags.",
-                    "readonly": false,
-                    "type": "array"
-                },
                 "Id": {
                     "$ref": "http://redfish.dmtf.org/schemas/v1/Resource.json#/definitions/Id",
                     "readonly": true

@@ -11,6 +11,7 @@
 #include "pam_authenticate.hpp"
 #include "user_info_utils.hpp"
 #include "utils/ip_utils.hpp"
+#include "utils/log_utils.hpp"
 #include "webassets.hpp"
 
 #include <boost/container/flat_set.hpp>
@@ -211,12 +212,15 @@ inline void handleLogin(const crow::Request& req,
                 redfish::ip_util::extractIPv4FromMappedIPv6(
                     req.serverIPAddress));
 
+            std::string reqIPAddr =
+                redfish::ip_util::extractIPv4FromMappedIPv6(req.ipAddress);
+
             // Fetch user info asynchronously from D-Bus
             std::string user(username);
             user_info_utils::getUserInfo(
                 user, ipAddr,
-                [asyncResp, session, user,
-                 ipAddr](const user_info_utils::UserInfoData& info) {
+                [asyncResp, session, user, ipAddr,
+                 reqIPAddr](const user_info_utils::UserInfoData& info) {
                     if (session->userRole.empty())
                     {
                         if (info.userPrivilege.empty())
@@ -248,7 +252,7 @@ inline void handleLogin(const crow::Request& req,
                                        : 4;
 
                     crow::connections::systemBus->async_method_call(
-                        [asyncResp, session, user, info](
+                        [asyncResp, session, user, info, reqIPAddr](
                             const boost::system::error_code& ec1, bool result) {
                             if (ec1)
                             {
@@ -272,12 +276,12 @@ inline void handleLogin(const crow::Request& req,
                                 "/xyz/openbmc_project/SessionManager/web",
                                 "xyz.openbmc_project.SessionManager.WebSessionInfo",
                                 "WebSessionInfo",
-                                [asyncResp, session, user,
-                                 info](const boost::system::error_code& ec2,
-                                       const std::vector<std::tuple<
-                                           uint8_t, std::string, std::string,
-                                           uint8_t, uint8_t, uint8_t>>&
-                                           sessionArray) {
+                                [asyncResp, session, user, info, reqIPAddr](
+                                    const boost::system::error_code& ec2,
+                                    const std::vector<std::tuple<
+                                        uint8_t, std::string, std::string,
+                                        uint8_t, uint8_t, uint8_t>>&
+                                        sessionArray) {
                                     if (ec2)
                                     {
                                         BMCWEB_LOG_ERROR(
@@ -309,14 +313,13 @@ inline void handleLogin(const crow::Request& req,
                                     asyncResp->res.jsonValue["UserType"] =
                                         info.userType;
 
-#ifdef ONETREE_2FA
-#ifdef ONETREE_RTP
+#if defined(ONETREE_2FA) && defined(ONETREE_RTP)
                                     dbus::utility::getProperty<bool>(
                                         "xyz.openbmc_project.User.Manager",
                                         "/xyz/openbmc_project/user/" + user,
                                         "xyz.openbmc_project.User.Attributes",
                                         "TwoFacEnableStatus",
-                                        [asyncResp](
+                                        [asyncResp, user, reqIPAddr](
                                             const boost::system::error_code&
                                                 ec3,
                                             bool ServiceEnabled) {
@@ -327,12 +330,20 @@ inline void handleLogin(const crow::Request& req,
                                             asyncResp->res.jsonValue
                                                 ["TwoFacEnableStatus"] =
                                                 ServiceEnabled;
+
+                                            // 2FA-enabled users are logged
+                                            // after OTP verification instead
+                                            if (!ServiceEnabled)
+                                            {
+                                                redfish::createEventLogEntry(
+                                                    "AmiOneTree.1.0.HttpsLogin," +
+                                                    user + "," + reqIPAddr);
+                                            }
                                         });
 #else
-                                    asyncResp->res
-                                        .jsonValue["TwoFacEnableStatus"] =
-                                        "N/A";
-#endif
+                                    redfish::createEventLogEntry(
+                                        "AmiOneTree.1.0.HttpsLogin," + user +
+                                        "," + reqIPAddr);
 #endif
                                 });
                         },
@@ -356,6 +367,8 @@ inline void handleLogout(const crow::Request& req,
                          const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     const auto& session = req.session;
+    std::string reqIPAddr =
+        redfish::ip_util::extractIPv4FromMappedIPv6(req.ipAddress);
 
     if (session != nullptr)
     {
@@ -401,6 +414,8 @@ inline void handleLogout(const crow::Request& req,
                 "xyz.openbmc_project.SessionManager.WebSessionInfo",
                 "WebSessionUnregister", sessionId, sessionType, expiryreason);
         }
+        redfish::createEventLogEntry("AmiOneTree.1.0.HttpsLogout," +
+                                     session->username + "," + reqIPAddr);
     }
 }
 
